@@ -40,6 +40,32 @@ are consumed by :meth:`CeilingChecker.consume_send` at the moment an
 SMS is actually about to go out (see :mod:`app.auth.delivery`), which
 is after the response has been written and only for a known number --
 so the request path stays identical for both.
+
+**Signup spends its own send budget** [C-05]. It used to spend sign-in's,
+and any fresh number triggers a signup SMS, so one unauthenticated
+caller could empty sign-in's budget and nobody received a sign-in code
+until the window reset. :attr:`SendBudget.SIGNUP` bounds signup's SMS
+separately, and every send a signup triggers -- for a new number or an
+existing one -- spends it, so sign-in's budget is spent only on texting
+numbers that already have an account. That is the reservation: the
+accounts that exist can always be reached until THEIR traffic, not a
+stranger's, exhausts it.
+
+**Every per-IP cascade also counts the caller's /48** [C-05]. A /64 is
+one subscriber, but one caller holding a /56 has 256 of them, and each
+was a fresh bucket. The /48 scope bounds that spread at a higher limit
+than the /64 scope, because many real subscribers of one carrier can
+share a /48.
+
+**A failed verify is counted, wider than one code** [C-20]. The only
+verify-side limit used to be five attempts per code, so a caller could
+guess at every number it could request codes for. Failures now count
+against the caller's /64 and /48 and against a global hourly ceiling,
+which alerts; a verify arriving while any of them is full is refused
+before its code is checked. And a number whose codes keep being guessed
+to death is cooled off: once :data:`DEAD_CODES_PER_NUMBER_DAILY` codes
+have died at the attempt ceiling today, no further code is issued for
+it, for a known and an unknown number alike.
 """
 
 from __future__ import annotations
@@ -48,6 +74,7 @@ import datetime as dt
 import enum
 import logging
 import os
+import uuid
 from dataclasses import dataclass
 from typing import Final
 
@@ -57,16 +84,24 @@ from sqlalchemy.orm import Session
 from app.errors import ConflictError
 
 __all__ = [
+    "CENTRES_PER_ACCOUNT_DAILY",
+    "DEAD_CODES_PER_NUMBER_DAILY",
     "DEL_GLOBAL_DAILY",
     "DEL_PER_IP_HOURLY",
     "DEL_PER_NUMBER_DAILY",
     "DEL_PER_NUMBER_HOURLY",
     "GLOBAL_DAILY",
+    "PER_COARSE_IP_HOURLY",
     "PER_IP_HOURLY",
     "PER_NUMBER_DAILY",
     "PER_NUMBER_HOURLY",
+    "SIGNUP_GLOBAL_DAILY",
+    "SIGNUP_PER_COARSE_IP_HOURLY",
     "SIGNUP_PER_IP_HOURLY",
     "SIGNUP_PER_NUMBER_DAILY",
+    "VERIFY_FAILURES_GLOBAL_HOURLY",
+    "VERIFY_FAILURES_PER_COARSE_IP_HOURLY",
+    "VERIFY_FAILURES_PER_IP_HOURLY",
     "CeilingBreach",
     "CeilingChecker",
     "ScopeKind",
@@ -142,6 +177,50 @@ DEL_GLOBAL_DAILY: Final = int(
     os.environ.get("SHIKKHOKPLUS_GLOBAL_DAILY_DELETION_SMS", "50")
 )
 
+#: Signup's own daily SMS budget [C-05], configured like the sign-in
+#: one: **a value, not a decision**, set at deployment from the SMS rate
+#: against the monthly budget. Separate so a stranger signing up numbers
+#: cannot spend what existing accounts need to sign in.
+SIGNUP_GLOBAL_DAILY: Final = int(
+    os.environ.get("SHIKKHOKPLUS_GLOBAL_DAILY_SIGNUP_SMS", "100")
+)
+
+#: Sign-in requests from one /48 inside an hour, beyond which the next is
+#: refused [C-05]. Higher than the /64 limit: the /48 bounds one caller
+#: spread across many /64s, and many real subscribers of one carrier can
+#: sit in one /48.
+PER_COARSE_IP_HOURLY: Final = 50
+
+#: Signup's /48 limit, matched to sign-in's on the per-IP reasoning.
+SIGNUP_PER_COARSE_IP_HOURLY: Final = 50
+
+#: Failed verifies from one /64 (or IPv4 /24) inside an hour, at which
+#: further verifies from it are refused [C-20]. A person mistyping a
+#: code fails a few times; four numbers' worth of dead codes is not
+#: ordinary use.
+VERIFY_FAILURES_PER_IP_HOURLY: Final = 20
+
+#: Failed verifies from one /48 inside an hour [C-20], higher than the
+#: /64 limit for the carrier-sharing reason above.
+VERIFY_FAILURES_PER_COARSE_IP_HOURLY: Final = 60
+
+#: Failed verifies across the whole product inside an hour [C-20]. **A
+#: value, not a decision**, configured at deployment. Reaching it alerts
+#: and refuses every verify for the rest of the hour: an outage, chosen
+#: over a guessing run spread across more prefixes than the per-IP
+#: limits can see.
+VERIFY_FAILURES_GLOBAL_HOURLY: Final = int(
+    os.environ.get("SHIKKHOKPLUS_GLOBAL_HOURLY_VERIFY_FAILURES", "300")
+)
+
+#: Codes for one number that may die at the attempt ceiling in a day
+#: before no further code is issued for it [C-20].
+DEAD_CODES_PER_NUMBER_DAILY: Final = 2
+
+#: Centres one account may open in a day [L-06]. Opening one is a
+#: deliberate, rare act; a loop opening many is not.
+CENTRES_PER_ACCOUNT_DAILY: Final = 3
+
 _HOUR = dt.timedelta(hours=1)
 _DAY = dt.timedelta(days=1)
 
@@ -209,27 +288,64 @@ class ScopeKind(enum.Enum):
     DEL_NUMBER_DAILY = "del_number_day"
     DEL_IP_HOURLY = "del_ip_hour"
     DEL_GLOBAL_DAILY = "del_global_day"
+    # The 2026-11-07 security pass [C-05, C-20, L-06], each its own
+    # counter on the reasoning above, every name inside `String(16)`.
+    IP48_HOURLY = "ip48_hour"
+    SIGNUP_IP48_HOURLY = "su_ip48_hour"
+    SIGNUP_GLOBAL_DAILY = "su_global_day"
+    VERIFY_FAIL_IP_HOURLY = "vf_ip_hour"
+    VERIFY_FAIL_IP48_HOURLY = "vf_ip48_hour"
+    VERIFY_FAIL_GLOBAL_HOURLY = "vf_global_hour"
+    DEAD_CODE_NUMBER_DAILY = "dead_number_day"
+    CENTRE_ACCOUNT_DAILY = "centre_acct_day"
 
 
 #: The scopes whose breach reaches a human. Declared beside the enum
 #: rather than tested inline, so adding a fifth cascade is a decision
 #: about this set rather than a condition someone extends in passing.
+#: Every member is a whole-product scope; no per-number or per-IP scope
+#: belongs here, for the reason :func:`fire_ceiling_alert` gives.
 _ALERTING_SCOPES: Final = frozenset(
-    {ScopeKind.GLOBAL_DAILY, ScopeKind.DEL_GLOBAL_DAILY}
+    {
+        ScopeKind.GLOBAL_DAILY,
+        ScopeKind.DEL_GLOBAL_DAILY,
+        ScopeKind.SIGNUP_GLOBAL_DAILY,
+        ScopeKind.VERIFY_FAIL_GLOBAL_HOURLY,
+    }
+)
+
+#: The verify-failure scopes, whose refusal is a VERIFY refusal.
+_VERIFY_SCOPES: Final = frozenset(
+    {
+        ScopeKind.VERIFY_FAIL_IP_HOURLY,
+        ScopeKind.VERIFY_FAIL_IP48_HOURLY,
+        ScopeKind.VERIFY_FAIL_GLOBAL_HOURLY,
+    }
 )
 
 
 class SendBudget(enum.Enum):
-    """The two daily SMS budgets, each consumed only by a real send.
+    """The three daily SMS budgets, each consumed only by a real send.
 
-    The value is the scope the budget counts against. **Two budgets, not
-    one shared**: deletion's sub-ceiling exists so an unauthenticated
+    The value is the scope the budget counts against. **Separate budgets,
+    not one shared**: deletion's sub-ceiling exists so an unauthenticated
     caller on the public deletion page cannot spend what sign-in needs
-    [NFR14.102].
+    [NFR14.102], and signup's for the same reason on the signup page
+    [C-05].
     """
 
     SIGN_IN = ScopeKind.GLOBAL_DAILY
     DELETION = ScopeKind.DEL_GLOBAL_DAILY
+    SIGNUP = ScopeKind.SIGNUP_GLOBAL_DAILY
+
+
+#: Each send budget's daily limit. A mapping, so a fourth budget is a
+#: KeyError at its first send rather than a silent reuse of another's.
+_BUDGET_LIMITS: Final[dict[SendBudget, int]] = {
+    SendBudget.SIGN_IN: GLOBAL_DAILY,
+    SendBudget.DELETION: DEL_GLOBAL_DAILY,
+    SendBudget.SIGNUP: SIGNUP_GLOBAL_DAILY,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -274,10 +390,14 @@ class CeilingBreach(ConflictError):
     #: refusal. Derived from the scope rather than passed by the caller,
     #: so a future call site cannot pair a cascade with the wrong text.
     _SIGNUP_SCOPES: Final = frozenset(
-        {ScopeKind.SIGNUP_NUMBER_DAILY, ScopeKind.SIGNUP_IP_HOURLY}
+        {
+            ScopeKind.SIGNUP_NUMBER_DAILY,
+            ScopeKind.SIGNUP_IP_HOURLY,
+            ScopeKind.SIGNUP_IP48_HOURLY,
+        }
     )
 
-    def __init__(self, scope: ScopeKind) -> None:
+    def __init__(self, scope: ScopeKind, *, during_signup: bool = False) -> None:
         """Refuse without disclosing why.
 
         Each branch writes its key as a literal at a ``message_key=``
@@ -288,12 +408,27 @@ class CeilingBreach(ConflictError):
         it and the app renders a generic fallback that looks like a
         working error message.
 
+        ``during_signup`` exists for the one scope two cascades read: the
+        dead-code cool-off is per NUMBER, and a signup it refuses must say
+        so in signup's words.
+
         :param scope: The scope that refused
+        :param during_signup: The refusal is on the signup path
         """
-        if scope in self._SIGNUP_SCOPES:
+        if scope in self._SIGNUP_SCOPES or during_signup:
             super().__init__(
                 code="TEMPORARILY_UNAVAILABLE",
                 message_key="signup.temporarily_unavailable",
+            )
+        elif scope in _VERIFY_SCOPES:
+            super().__init__(
+                code="TEMPORARILY_UNAVAILABLE",
+                message_key="auth.verify.temporarily_unavailable",
+            )
+        elif scope is ScopeKind.CENTRE_ACCOUNT_DAILY:
+            super().__init__(
+                code="TEMPORARILY_UNAVAILABLE",
+                message_key="centre.temporarily_unavailable",
             )
         else:
             super().__init__(
@@ -353,6 +488,8 @@ class CeilingChecker:
         number: str,
         ip_prefix: str,
         now: dt.datetime | None = None,
+        *,
+        coarse_prefix: str | None = None,
     ) -> None:
         """Consume one sign-in request's per-number and per-IP budget.
 
@@ -362,19 +499,27 @@ class CeilingChecker:
         global send budget is NOT consumed here -- see
         :meth:`consume_send` [PA-SEC-2].
 
+        A number in its dead-code cool-off [C-20] is refused first,
+        consuming nothing.
+
         :param number: The phone number this send is for
         :param ip_prefix: The caller's IP prefix
         :param now: The moment to count against, or None for the clock
+        :param coarse_prefix: The caller's /48 (IPv4: its /24), counted as
+            a further scope when given [C-05]
         :return: None
         :raises CeilingBreach: A ceiling refused this send
         """
-        self._consume(self._scopes(number, ip_prefix), now)
+        self._refuse_cooled_off(number, now, during_signup=False)
+        self._consume(self._scopes(number, ip_prefix, coarse_prefix), now)
 
     def check_and_consume_signup(
         self,
         number: str,
         ip_prefix: str,
         now: dt.datetime | None = None,
+        *,
+        coarse_prefix: str | None = None,
     ) -> None:
         """Consume one signup's budget, refusing at the narrowest breach.
 
@@ -389,13 +534,92 @@ class CeilingChecker:
         the OTP cascade is called before the gateway: a ceiling checked
         afterwards has already spent what it exists to protect.
 
+        Signup issues a code too, so a number in its dead-code cool-off
+        is refused here as well [C-20].
+
         :param number: The number being signed up
         :param ip_prefix: The caller's IP prefix
         :param now: The moment to count against, or None for the clock
+        :param coarse_prefix: The caller's /48, counted when given [C-05]
         :return: None
         :raises CeilingBreach: A ceiling refused this signup
         """
-        self._consume(self._signup_scopes(number, ip_prefix), now)
+        self._refuse_cooled_off(number, now, during_signup=True)
+        self._consume(self._signup_scopes(number, ip_prefix, coarse_prefix), now)
+
+    def check_verify_allowed(
+        self,
+        ip_prefix: str,
+        coarse_prefix: str,
+        now: dt.datetime | None = None,
+    ) -> None:
+        """Refuse a verify while any failed-verify ceiling is full [C-20].
+
+        **Read, never incremented**: only a FAILED verify counts, and it
+        is counted by :meth:`record_verify_failure` once the code has
+        been checked. A refusal here checks no code, writes no attempt
+        and consumes nothing, so the person's own code still works from
+        another network.
+
+        :param ip_prefix: The caller's /64 (IPv4: /24)
+        :param coarse_prefix: The caller's /48 (IPv4: /24)
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: A failed-verify ceiling is full
+        """
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        for scope, value in self._verify_scopes(ip_prefix, coarse_prefix):
+            if self._peek(scope, value, moment) >= scope.limit:
+                raise CeilingBreach(scope.kind)
+
+    def record_verify_failure(
+        self,
+        ip_prefix: str,
+        coarse_prefix: str,
+        now: dt.datetime | None = None,
+    ) -> None:
+        """Count one failed verify against the caller and the product.
+
+        The global scope alerts on the failure that fills it, once per
+        window, rather than on every refusal after.
+
+        :param ip_prefix: The caller's /64 (IPv4: /24)
+        :param coarse_prefix: The caller's /48 (IPv4: /24)
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        """
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        for scope, value in self._verify_scopes(ip_prefix, coarse_prefix):
+            count = self._increment(scope, value, moment)
+            if scope.kind in _ALERTING_SCOPES and count == scope.limit:
+                fire_ceiling_alert(scope.kind.value)
+
+    def record_dead_code(self, number: str, now: dt.datetime | None = None) -> None:
+        """Count one code that died at its attempt ceiling [C-20].
+
+        Counted for a known and an unknown number alike: both keep code
+        rows and both run the same verify path [BR2.7].
+
+        :param number: The number whose code died
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        """
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        self._increment(self._dead_code_scope(), number, moment)
+
+    def check_and_consume_centre(
+        self, account_id: uuid.UUID, now: dt.datetime | None = None
+    ) -> None:
+        """Consume one centre opening from the account's daily allowance.
+
+        :param account_id: The authenticated account opening a centre
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: The account has opened its allowance today
+            [L-06]
+        """
+        scope = _Scope(ScopeKind.CENTRE_ACCOUNT_DAILY, CENTRES_PER_ACCOUNT_DAILY, _DAY)
+        self._consume([(scope, str(account_id))], now)
 
     def check_and_consume_deletion(
         self,
@@ -452,8 +676,109 @@ class CeilingChecker:
         :return: None
         :raises CeilingBreach: The budget for today is exhausted
         """
-        limit = GLOBAL_DAILY if budget is SendBudget.SIGN_IN else DEL_GLOBAL_DAILY
+        limit = _BUDGET_LIMITS[budget]
         self._consume([(_Scope(budget.value, limit, _DAY), GLOBAL_SCOPE_VALUE)], now)
+
+    def _refuse_cooled_off(
+        self, number: str, now: dt.datetime | None, *, during_signup: bool
+    ) -> None:
+        """Refuse a new code for a number whose codes keep dying [C-20].
+
+        :param number: The number a code is being requested for
+        :param now: The moment to count against, or None for the clock
+        :param during_signup: Whether the refusal is on the signup path
+        :return: None
+        :raises CeilingBreach: The number is in its cool-off
+        """
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        scope = self._dead_code_scope()
+        if self._peek(scope, number, moment) >= scope.limit:
+            raise CeilingBreach(scope.kind, during_signup=during_signup)
+
+    def _peek(self, scope: _Scope, value: str, moment: dt.datetime) -> int:
+        """Read one scope's count in the current window without changing it.
+
+        :param scope: The scope to read
+        :param value: Its scope value
+        :param moment: The moment whose window is read
+        :return: The count, or zero when no row exists yet
+        """
+        count = self.session.execute(
+            sa.text(
+                "SELECT count FROM rate_limit_counter WHERE scope_kind = :kind "
+                "AND scope_value = :value AND window_start = :window"
+            ),
+            {
+                "kind": scope.kind.value,
+                "value": value,
+                "window": _window_start(moment, scope.window),
+            },
+        ).scalar_one_or_none()
+        return int(count or 0)
+
+    def _increment(self, scope: _Scope, value: str, moment: dt.datetime) -> int:
+        """Add one to a scope's counter with no limit check, and commit.
+
+        :param scope: The scope to count against
+        :param value: Its scope value
+        :param moment: The moment whose window is counted
+        :return: The count after the increment
+        """
+        count: int = self.session.execute(
+            _UPSERT,
+            {
+                "kind": scope.kind.value,
+                "value": value,
+                "window": _window_start(moment, scope.window),
+            },
+        ).scalar_one()
+        self.session.commit()
+        return count
+
+    @staticmethod
+    def _dead_code_scope() -> _Scope:
+        """Return the per-number dead-code scope [C-20].
+
+        :return: The scope
+        """
+        return _Scope(
+            ScopeKind.DEAD_CODE_NUMBER_DAILY, DEAD_CODES_PER_NUMBER_DAILY, _DAY
+        )
+
+    @staticmethod
+    def _verify_scopes(ip_prefix: str, coarse_prefix: str) -> list[tuple[_Scope, str]]:
+        """Build the failed-verify scopes, narrowest first [C-20].
+
+        :param ip_prefix: The caller's /64 (IPv4: /24)
+        :param coarse_prefix: The caller's /48 (IPv4: /24)
+        :return: Each scope paired with the value it counts against
+        """
+        return [
+            (
+                _Scope(
+                    ScopeKind.VERIFY_FAIL_IP_HOURLY,
+                    VERIFY_FAILURES_PER_IP_HOURLY,
+                    _HOUR,
+                ),
+                ip_prefix,
+            ),
+            (
+                _Scope(
+                    ScopeKind.VERIFY_FAIL_IP48_HOURLY,
+                    VERIFY_FAILURES_PER_COARSE_IP_HOURLY,
+                    _HOUR,
+                ),
+                coarse_prefix,
+            ),
+            (
+                _Scope(
+                    ScopeKind.VERIFY_FAIL_GLOBAL_HOURLY,
+                    VERIFY_FAILURES_GLOBAL_HOURLY,
+                    _HOUR,
+                ),
+                GLOBAL_SCOPE_VALUE,
+            ),
+        ]
 
     def _consume(
         self,
@@ -523,21 +848,34 @@ class CeilingChecker:
         self.session.commit()
 
     @staticmethod
-    def _scopes(number: str, ip_prefix: str) -> list[tuple[_Scope, str]]:
+    def _scopes(
+        number: str, ip_prefix: str, coarse_prefix: str | None = None
+    ) -> list[tuple[_Scope, str]]:
         """Build the cascade, narrowest first.
 
         :param number: The phone number
         :param ip_prefix: The caller's IP prefix
+        :param coarse_prefix: The caller's /48, or None to omit that scope
         :return: Each scope paired with the value it counts against
         """
-        return [
+        cascade = [
             (_Scope(ScopeKind.NUMBER_HOURLY, PER_NUMBER_HOURLY, _HOUR), number),
             (_Scope(ScopeKind.NUMBER_DAILY, PER_NUMBER_DAILY, _DAY), number),
             (_Scope(ScopeKind.IP_HOURLY, PER_IP_HOURLY, _HOUR), ip_prefix),
         ]
+        if coarse_prefix is not None:
+            cascade.append(
+                (
+                    _Scope(ScopeKind.IP48_HOURLY, PER_COARSE_IP_HOURLY, _HOUR),
+                    coarse_prefix,
+                )
+            )
+        return cascade
 
     @staticmethod
-    def _signup_scopes(number: str, ip_prefix: str) -> list[tuple[_Scope, str]]:
+    def _signup_scopes(
+        number: str, ip_prefix: str, coarse_prefix: str | None = None
+    ) -> list[tuple[_Scope, str]]:
         """Build the signup cascade, narrowest first.
 
         **Narrowest first, like its sibling, and for the reason the
@@ -547,19 +885,21 @@ class CeilingChecker:
         which is exactly why a second cascade is where that mistake
         would return [NFR12.4].
 
-        **No global scope here, and that is a decision.** Signup's cost
-        to the project is the OTP it triggers, and that send spends
-        sign-in's daily send budget through
-        :func:`~app.auth.delivery.send_within_budget`. A second global
-        counter would bound the same spend twice at two thresholds, so
-        the tighter one would silently become the real limit and the
-        looser one would read as a control while governing nothing.
+        **No global scope on the request path, and that is a decision.**
+        Signup's cost to the project is the SMS it triggers, and that
+        send spends signup's OWN daily send budget,
+        :attr:`SendBudget.SIGNUP`, at send time [C-05]. A request-path
+        global counter would bound the same spend twice at two
+        thresholds, so the tighter one would silently become the real
+        limit and the looser one would read as a control while governing
+        nothing.
 
         :param number: The number being signed up
         :param ip_prefix: The caller's IP prefix
+        :param coarse_prefix: The caller's /48, or None to omit that scope
         :return: Each scope paired with the value it counts against
         """
-        return [
+        cascade = [
             (
                 _Scope(
                     ScopeKind.SIGNUP_NUMBER_DAILY,
@@ -577,6 +917,18 @@ class CeilingChecker:
                 ip_prefix,
             ),
         ]
+        if coarse_prefix is not None:
+            cascade.append(
+                (
+                    _Scope(
+                        ScopeKind.SIGNUP_IP48_HOURLY,
+                        SIGNUP_PER_COARSE_IP_HOURLY,
+                        _HOUR,
+                    ),
+                    coarse_prefix,
+                )
+            )
+        return cascade
 
     @staticmethod
     def _deletion_scopes(number: str, ip_prefix: str) -> list[tuple[_Scope, str]]:

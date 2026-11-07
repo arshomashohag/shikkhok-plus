@@ -183,12 +183,14 @@ def test_a_deletion_send_does_not_spend_the_sign_in_budget(
     assert _budget(owner_session, ScopeKind.DEL_GLOBAL_DAILY) == 1
 
 
-def test_signups_sms_spends_the_sign_in_budget(
+def test_signups_sms_spends_the_signup_budget_and_not_sign_ins(
     api_client: TestClient, owner_session: Session, sends: list[str]
 ) -> None:
-    # Signup's cascade carries no global scope on the stated reasoning
-    # that its SMS spends sign-in's budget. Before PA-SEC-2 it called
-    # the gateway directly and spent no budget at all.
+    # Signup's cascade carries no request-path global scope because its
+    # SMS spends a daily send budget at the send. Before PA-SEC-2 it
+    # called the gateway directly and spent no budget at all; until
+    # C-05 it spent SIGN-IN's, so a stranger signing up numbers could
+    # lock every existing account out for the day.
     phone = "+8801733333333"
     response = api_client.post(
         "/v1/accounts",
@@ -205,7 +207,8 @@ def test_signups_sms_spends_the_sign_in_budget(
 
     assert response.status_code == 201
     assert sends == [phone]
-    assert _budget(owner_session, ScopeKind.GLOBAL_DAILY) == 1
+    assert _budget(owner_session, ScopeKind.SIGNUP_GLOBAL_DAILY) == 1
+    assert _budget(owner_session, ScopeKind.GLOBAL_DAILY) == 0
 
 
 # ---------------------------------------------------------------------------

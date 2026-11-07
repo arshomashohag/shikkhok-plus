@@ -27,6 +27,7 @@ from app.api.deps import (
     membership_lens,
     teacher_lens,
 )
+from app.auth.ceilings import CeilingChecker
 from app.authz.lenses import MembershipLens, TeacherLens
 from app.centres import service
 from app.centres.memberships import (
@@ -119,11 +120,17 @@ def open_centre(
 ) -> CentreResponse:
     """Open a coaching centre with the caller as its first manager.
 
+    **Bounded per account** [L-06]: opening a centre is a deliberate,
+    rare act, so a daily allowance refuses a loop opening many with a
+    contentless 409 before anything is written.
+
     :param body: The centre's name and the caller's name in it
     :param account_id: The authenticated account
     :param session: The request-scoped session
     :return: The new workspace
+    :raises CeilingBreach: The account has opened its allowance today
     """
+    CeilingChecker(session).check_and_consume_centre(account_id)
     owner_id = service.create_centre(
         session,
         account_id=account_id,
