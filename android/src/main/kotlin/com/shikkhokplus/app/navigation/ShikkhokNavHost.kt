@@ -213,6 +213,8 @@ private fun ShikkhokGraph(
                 onGoToSignup = { navController.navigate(Destination.Signup.route) },
                 onResendCode = authModel::resendCode,
                 onChangeNumber = authModel::changeNumber,
+                onSubmitSecondStep = authModel::submitSecondStep,
+                onToggleRecoveryCode = authModel::toggleRecoveryCode,
             )
         }
 
@@ -706,6 +708,10 @@ private fun ShikkhokGraph(
                             onSwitchLens = session.onSwitch,
                             onSettings = settingsOpener(session, navController),
                             unsent = remember { session.unsentWrites() },
+                            // The status the session already read: More
+                            // makes no request of its own for the mark.
+                            twoStepRecommended =
+                                session.mfaStatus?.state?.collectAsState()?.value?.showRecommended == true,
                         ),
                         ),
                     navigate = { route -> navController.navigate(route) },
@@ -729,6 +735,8 @@ private fun ShikkhokGraph(
         }
 
         profileRoutes(client, navController, session.lens, session.settings)
+        helpRoutes(client, navController)
+        mfaRoutes(client, navController, session.mfaStatus)
 
         composable(Destination.PaymentMethods.route) {
             val model: PaymentMethodsViewModel =
@@ -848,7 +856,9 @@ internal fun writeError(write: WriteState): String? =
  * where students pay and the money reports (T9); a student gets their
  * invitations (S4); a guardian gets invitations and their children
  * (G4). A lens-free person has invitations as their home tab already,
- * so More offers them nothing extra.
+ * so More offers them nothing extra. **Every lens, a lens-free person
+ * included, gets the Help centre and two-step verification**: asking
+ * for help and protecting one's own sign-in need no role.
  *
  * Internal rather than private so a test can hold each lens to its rows.
  *
@@ -861,10 +871,15 @@ internal fun moreActionsFor(
     lens: Lens?,
     base: MoreActions,
     navigate: (String) -> Unit,
-): MoreActions =
-    when (lens) {
+): MoreActions {
+    val rows =
+        base.copy(
+            onHelp = { navigate(Destination.HelpCentre.route) },
+            onTwoStep = { navigate(Destination.TwoStep.route) },
+        )
+    return when (lens) {
         Lens.TEACHER ->
-            base.copy(
+            rows.copy(
                 onPaymentMethods = { navigate(Destination.PaymentMethods.route) },
                 onCollections = { navigate(Destination.Collections.route) },
                 onExpenses = { navigate(Destination.Expenses.route) },
@@ -877,15 +892,16 @@ internal fun moreActionsFor(
                 onCentrePayroll = centreOpener(base, Destination.CentrePayroll.route, navigate),
             )
         // A centre teacher can still accept another centre's offer.
-        Lens.CLASS_TEACHER -> base.copy(onCentreOffers = { navigate(Destination.CentreOffers.route) })
-        Lens.STUDENT -> base.copy(onInvitations = { navigate(Destination.Invitations.route) })
+        Lens.CLASS_TEACHER -> rows.copy(onCentreOffers = { navigate(Destination.CentreOffers.route) })
+        Lens.STUDENT -> rows.copy(onInvitations = { navigate(Destination.Invitations.route) })
         Lens.GUARDIAN ->
-            base.copy(
+            rows.copy(
                 onInvitations = { navigate(Destination.Invitations.route) },
                 onMyChildren = { navigate(Destination.MyChildren.route) },
             )
-        null -> base
+        null -> rows
     }
+}
 
 /**
  * Whether this lens is a student's or a guardian's.

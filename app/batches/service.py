@@ -572,7 +572,7 @@ def remove_enrollment(
 
 #: The ledger kinds that record money moving rather than money falling
 #: due. A seat carrying any of them holds someone's cash or credit.
-#: ``0027``'s trigger names the same set; a test exercises both.
+#: ``0029``'s trigger names the same set; a test exercises both.
 MONEY_MOVEMENT_KINDS: frozenset[str] = frozenset(
     {"receipt", "carry_forward", "carried_out", "credit_grant", "credit_apply"}
 )

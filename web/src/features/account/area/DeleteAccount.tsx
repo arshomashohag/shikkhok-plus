@@ -24,6 +24,7 @@ import { ErrorCard, Loading, TopBar } from '../../../ui/components'
 import { deleteMyAccount, readDeletionSummary } from './api'
 import { footprintOf, numberMatches, type TeacherFootprint } from './mappers'
 import { resetUnreadCount } from './unread'
+import { resetNewReplies } from '../../help/newReplies'
 import './account.css'
 
 export function DeleteAccount() {
@@ -86,7 +87,7 @@ function ConfirmBody({
         e instanceof ApiError
           ? e.offline
             ? t('web_account_delete_offline')
-            : message(e.messageKey)
+            : message(e.messageKey, e.details)
           : t('error_unexpected'),
       )
       setBusy(false)
@@ -212,6 +213,7 @@ function DeletedBody() {
       pendingEnd.current = null
     }
     resetUnreadCount()
+    resetNewReplies()
     const end = () => signOut()
     window.addEventListener('pagehide', end)
     return () => {

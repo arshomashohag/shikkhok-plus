@@ -80,6 +80,8 @@ fun AuthScreen(
     modifier: Modifier = Modifier,
     onResendCode: () -> Unit = {},
     onChangeNumber: () -> Unit = {},
+    onSubmitSecondStep: (String) -> Unit = {},
+    onToggleRecoveryCode: () -> Unit = {},
 ) {
     // **The number survives a rotation; the code does not** [L-20]. A
     // number retyped after turning the phone is an annoyance; a one-time
@@ -125,6 +127,20 @@ fun AuthScreen(
                     modifier = Modifier.testTag(TAG_SIGNED_IN),
                 )
 
+            // The authenticator step [0028], for an account that has
+            // two-step verification on. Back goes to the number: the
+            // SMS code is spent, so there is no code step to return to.
+            state is AuthUiState.SecondStep ->
+                SecondStep(
+                    state = state,
+                    onSubmit = onSubmitSecondStep,
+                    onToggleRecovery = onToggleRecoveryCode,
+                    onBack = {
+                        code = ""
+                        onChangeNumber()
+                    },
+                )
+
             onCodeStep ->
                 CodeStep(
                     code = code,
@@ -153,6 +169,10 @@ fun AuthScreen(
                         phoneRejected = false
                     },
                     onSubmit = {
+                        // A fresh code starts with empty boxes: the last
+                        // one may have been spent on a sign-in that went
+                        // on to the second step and was started again.
+                        code = ""
                         if (phoneIsValid(phone)) {
                             onRequestCode(phone)
                         } else {

@@ -84,7 +84,9 @@ export function SignUp() {
       })
       navigate('/signin', { replace: true, state: { phone: ok.phone } })
     } catch (err) {
-      setFormError(err instanceof ApiError ? message(err.messageKey) : t('error_unexpected'))
+      setFormError(
+        err instanceof ApiError ? message(err.messageKey, err.details) : t('error_unexpected'),
+      )
       setBusy(false)
     }
   }

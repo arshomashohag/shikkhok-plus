@@ -119,6 +119,36 @@ output "web_bucket" {
   value       = module.cdn.web_bucket
 }
 
+output "site_url" {
+  description = "The public site (site/), at the project zone's apex; www redirects to it."
+  value       = module.site.url
+}
+
+output "site_bucket" {
+  description = "The bucket the built public site is uploaded to."
+  value       = module.site.bucket
+}
+
+output "site_cloudfront_domain" {
+  description = "The site's *.cloudfront.net hostname, usable before DNS propagates."
+  value       = module.site.distribution_domain
+}
+
+output "admin_url" {
+  description = "The platform admin surface. 403 from anywhere outside admin_allowed_cidrs."
+  value       = module.admin.url
+}
+
+output "admin_bucket" {
+  description = "The bucket the built admin UI is uploaded to."
+  value       = module.admin.bucket
+}
+
+output "admin_cloudfront_domain" {
+  description = "The admin distribution's *.cloudfront.net hostname, usable before DNS propagates."
+  value       = module.admin.distribution_domain
+}
+
 output "seeder_function_name" {
   description = "The seeder to invoke (deploy/README.md), or null when enable_seeder is off."
   value       = module.seeder.function_name

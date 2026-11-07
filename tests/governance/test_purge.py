@@ -243,10 +243,12 @@ def test_no_life_of_account_table_appears_in_the_window_map(
     # monthly ledger is; 25 since 0021 added the teacher's expenses; 26
     # since 0022 added a centre's record of its members; 27 since 0023
     # added its staff records; 28 since 0024 added its rooms; 30 since
-    # 0026 added its payroll.
-    assert len(life_of_account) == 30, (
+    # 0026 added its payroll; 33 since 0027 added the help centre's two
+    # tables and which app each account uses; 35 since 0028 added the
+    # authenticator factor and its recovery codes.
+    assert len(life_of_account) == 35, (
         f"the manifest now marks {len(life_of_account)} tables "
-        "LIFE_OF_ACCOUNT, not 30. If that is deliberate, this count is "
+        "LIFE_OF_ACCOUNT, not 35. If that is deliberate, this count is "
         "the claim that needs updating with it."
     )
 
@@ -273,7 +275,7 @@ def test_every_finite_retention_class_has_a_window(
         f"these tables carry a finite retention class but no purge "
         f"window: {sorted(finite - set(WINDOWS))}"
     )
-    # 9 since 0028 added `pending_signup`, a signup draft kept 48 hours.
+    # 9 since 0031 added `pending_signup`, a signup draft kept 48 hours.
     assert len(finite) == 9, (
         f"the manifest now carries {len(finite)} finite windows, not 9."
     )

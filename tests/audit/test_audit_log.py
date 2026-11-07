@@ -118,6 +118,20 @@ def test_the_event_vocabulary_is_closed() -> None:
         "LOGGED_OUT",
         "LOGGED_OUT_EVERYWHERE",
         "VERIFY_CEILING_BREACHED",
+        # Platform administrator sign-in [0028].
+        "ADMIN_MFA_ENROLLED",
+        "ADMIN_SIGNED_IN",
+        "ADMIN_MFA_FAILED",
+        "ADMIN_MFA_LOCKED",
+        "ADMIN_RECOVERY_CODE_USED",
+        # The app's own door to the same factor [0028].
+        "MFA_ENROLLED",
+        "MFA_DISABLED",
+        "MFA_VERIFIED",
+        "MFA_FAILED",
+        "MFA_LOCKED",
+        "MFA_RECOVERY_CODE_USED",
+        "MFA_RECOVERY_CODES_RENEWED",
     }
 
 

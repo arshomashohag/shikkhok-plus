@@ -4,6 +4,7 @@ import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.IssueResponse
 import com.shikkhokplus.app.core.network.TokenResponse
+import com.shikkhokplus.app.core.network.VerifyResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -44,8 +45,8 @@ class AuthViewModelTest {
     private class FakeRepository(
         var issueResult: AuthResult<IssueResponse> =
             AuthResult.Ok(IssueResponse("requested")),
-        var verifyResult: AuthResult<TokenResponse> =
-            AuthResult.Ok(TokenResponse("a.b.c", "opaque", 900)),
+        var verifyResult: AuthResult<VerifyResponse> =
+            AuthResult.Ok(VerifyResponse("a.b.c", "opaque", 900)),
     ) : AuthRepository {
         var issueCalls = 0
         var verifyCalls = 0
@@ -58,10 +59,16 @@ class AuthViewModelTest {
         override suspend fun verify(
             phone: String,
             code: String,
-        ): AuthResult<TokenResponse> {
+        ): AuthResult<VerifyResponse> {
             verifyCalls++
             return verifyResult
         }
+
+        override suspend fun verifySecondStep(
+            challenge: String,
+            code: String?,
+            recoveryCode: String?,
+        ): AuthResult<TokenResponse> = AuthResult.TransportFailure
     }
 
     @Test

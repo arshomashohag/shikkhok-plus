@@ -1,0 +1,12 @@
+{
+  "web_help_new_replies": "New replies: {1}",
+  "web_help_updated": "Updated {1}",
+  "web_help_body_help": "What happened, and on which screen",
+  "web_help_required": "Write something here",
+  "web_help_too_long": "Too long: {1} characters at most",
+  "web_help_send_offline": "No connection. Nothing was sent.",
+  "web_help_sent": "Sent. The answer will appear here.",
+  "web_help_asked_on": "Asked {1}",
+  "web_help_reply_send": "Send reply",
+  "web_help_messages": "Messages"
+}

@@ -61,6 +61,8 @@ from app.api.deps import authenticated_account, get_session, token_subject
 from app.auth import otp
 from app.auth.ceilings import CeilingChecker, SendBudget
 from app.auth.delivery import send_within_budget
+from app.auth.mfa import APP_DOOR, check_code, load_factor
+from app.auth.totp import DIGITS
 from app.errors import ConflictError, ValidationError
 from app.gateway.outbox import record_outbox
 from app.gateway.sms import SmsGateway
@@ -145,6 +147,10 @@ _FORM_TEMPLATE: Final = """<form method="post" action="/account-deletion">
   <input id="phone" name="phone" type="tel" required value="{phone}">
   <label for="code">Code</label>
   <input id="code" name="code" type="text" inputmode="numeric">
+  <label for="authenticator_code">Authenticator code
+    (only if you turned on two-step verification)</label>
+  <input id="authenticator_code" name="authenticator_code" type="text"
+    autocomplete="one-time-code">
   <button type="submit">Delete my account</button>
 </form>
 """
@@ -181,6 +187,18 @@ _REFUSAL_COPY: Final = {
     "auth.otp.temporarily_unavailable": (
         "We cannot send a code right now. Please try again later."
     ),
+    # Two-step verification [0028]. The SMS code has been spent by the
+    # time these are shown, so each says to request a new one.
+    "mfa.code_required": (
+        "This account has two-step verification on. Leave the code box "
+        "empty and submit to get a new code, then enter it together with "
+        "the 6-digit code from your authenticator app, or a recovery code."
+    ),
+    "mfa.code_wrong": (
+        "That authenticator code isn't right. Leave the code box empty and "
+        "submit to get a new SMS code, then try again."
+    ),
+    "mfa.locked": ("Too many wrong authenticator codes. Try again in 15 minutes."),
 }
 
 #: For a submission that fails schema validation, or a refusal with no
@@ -268,7 +286,11 @@ def _form_fields(raw: bytes) -> dict[str, str | None]:
         value = values[0].strip() if values else ""
         return value or None
 
-    return {"phone": first("phone"), "code": first("code")}
+    return {
+        "phone": first("phone"),
+        "code": first("code"),
+        "authenticator_code": first("authenticator_code"),
+    }
 
 
 async def read_submission(request: Request) -> DeletionSubmission:
@@ -290,7 +312,10 @@ async def read_submission(request: Request) -> DeletionSubmission:
         try:
             return DeletionSubmission(body=None, form=_form_fields(raw))
         except ValueError:
-            return DeletionSubmission(body=None, form={"phone": None, "code": None})
+            return DeletionSubmission(
+                body=None,
+                form={"phone": None, "code": None, "authenticator_code": None},
+            )
     try:
         return DeletionSubmission(
             body=DeletionRequest.model_validate_json(raw), form=None
@@ -534,13 +559,35 @@ def _external_deletion(
         # fields, so there is nothing here that could differ.
         return DeletionOutcome(status="requested")
 
-    otp.verify(
+    account_id = otp.verify(
         session,
         body.phone,
         body.code,
         correlation_id,
         purpose=otp.DELETION_PURPOSE,
     )
+    # **The second factor guards deletion too** [0028]. Asked only after
+    # the SMS code has proven the phone, so the page never says which
+    # numbers have it; a SIM swap alone then cannot destroy an account
+    # its owner protected.
+    factor = load_factor(session, account_id)
+    if factor is not None and factor.confirmed_at is not None:
+        typed = body.authenticator_code
+        if typed is None:
+            raise ValidationError(
+                code="MFA_CODE_REQUIRED", message_key="mfa.code_required"
+            )
+        digits = typed.replace(" ", "")
+        is_totp = digits.isdigit() and len(digits) == DIGITS
+        check_code(
+            session,
+            account_id,
+            factor,
+            digits if is_totp else None,
+            None if is_totp else typed,
+            APP_DOOR,
+            correlation_id,
+        )
     delete_account(session, body.phone)
     return DeletionOutcome(status="deleted")
 

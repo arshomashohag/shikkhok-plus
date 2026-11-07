@@ -166,3 +166,23 @@ class ExaminerLens(Lens):
     owner_id: UUID
     member_id: UUID
     exam_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class PlatformAdminLens(Lens):
+    """Reach for the platform administration routes [TC-14, D-6].
+
+    **Not a role column, and not a lens computed from data.** Granted
+    when the authenticated account's phone number is on the deployment's
+    allowlist (``SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES``), checked on every
+    request and never cached, so removing a number revokes the reach at
+    once.
+
+    **What it reaches is bounded by the response schemas, not by this
+    type.** The administration routes return teacher and centre names,
+    the app each account uses, aggregate counts and what people wrote to
+    support -- never a student's or guardian's name, phone, profile or
+    any record a teacher keeps about them. The route gate holds this
+    lens to an explicit allowlist of routes, and the privacy gate walks
+    those routes' schemas.
+    """

@@ -12,9 +12,9 @@ PY ?= python3
 ## Where `make test` writes its JUnit report; CI reads it for skips.
 PYTEST_JUNIT ?= build/pytest-junit.xml
 
-.PHONY: check format lint typecheck test gates contract openapi install clean android lock audit android-quality web web-dev
+.PHONY: check format lint typecheck test gates contract openapi install clean android lock audit android-quality web web-dev site infra-functions
 
-check: lint typecheck test android android-quality web
+check: lint typecheck test android android-quality web site infra-functions
 	@echo ""
 	@echo "All gates passed."
 
@@ -25,6 +25,23 @@ check: lint typecheck test android android-quality web
 ## re-resolves [project: ALWAYS lock dependency resolution].
 web:
 	cd web && npm ci --no-audit --no-fund && npm run check
+
+## The public site (site/): build, then every test against a fresh build
+## -- links resolve, asset names match their content, no script, both
+## languages mirror each other. Zero dependencies, so there is nothing to
+## install and no lockfile to read. The deploy runs this same target with
+## SITE_URL, WEB_APP_URL and API_URL set; locally they default to
+## localhost (preview with `python3 -m http.server 8080 -d site/dist`).
+site:
+	cd site && npm run check
+
+## The CloudFront Functions that carry security decisions -- the admin
+## host's IP allowlist and the API host's /v1/admin* refusal -- run as
+## written, the template rendered as Terraform renders it. node:test, zero
+## dependencies, so nothing to install. A glob rather than a directory:
+## Node 22's --test does not search a directory argument.
+infra-functions:
+	node --test 'infra/modules/*/functions/*.test.mjs'
 
 ## Run the web client against a local API on :8000 (`make up` first).
 web-dev:
@@ -200,7 +217,8 @@ test:
 	$(PY) -m pytest tests -q -p no:cacheprovider \
 		--junitxml=$(PYTEST_JUNIT) \
 		--cov=app.money \
-		--cov=app.accounts --cov=app.analytics --cov=app.expenses --cov=app.guardians \
+		--cov=app.accounts --cov=app.admin --cov=app.analytics --cov=app.expenses \
+		--cov=app.guardians --cov=app.help \
 		--cov=app.api --cov=app.audit --cov=app.auth --cov=app.authz \
 		--cov=app.batches --cov=app.centres --cov=app.payroll --cov=app.staff \
 		--cov=app.config --cov=app.contract --cov=app.db --cov=app.errors \

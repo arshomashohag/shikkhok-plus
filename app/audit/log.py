@@ -81,6 +81,24 @@ class AuthEvent(enum.Enum):
     #: [C-20]. No scope value, on ``SIGNUP_CEILING_BREACHED``'s
     #: reasoning: the value is an IP prefix.
     VERIFY_CEILING_BREACHED = "VERIFY_CEILING_BREACHED"
+    # Platform administrator sign-in [0028], named members as D1's were.
+    # Every admin session starts with one of these, so who reached the
+    # admin surface, and when, is answerable from this table alone.
+    ADMIN_MFA_ENROLLED = "ADMIN_MFA_ENROLLED"
+    ADMIN_SIGNED_IN = "ADMIN_SIGNED_IN"
+    ADMIN_MFA_FAILED = "ADMIN_MFA_FAILED"
+    ADMIN_MFA_LOCKED = "ADMIN_MFA_LOCKED"
+    ADMIN_RECOVERY_CODE_USED = "ADMIN_RECOVERY_CODE_USED"
+    # The same factor at the app's own door [0028]: turned on, turned
+    # off, a code passed or failed at sign-in, a lock, a recovery code
+    # spent, and a fresh set of recovery codes.
+    MFA_ENROLLED = "MFA_ENROLLED"
+    MFA_DISABLED = "MFA_DISABLED"
+    MFA_VERIFIED = "MFA_VERIFIED"
+    MFA_FAILED = "MFA_FAILED"
+    MFA_LOCKED = "MFA_LOCKED"
+    MFA_RECOVERY_CODE_USED = "MFA_RECOVERY_CODE_USED"
+    MFA_RECOVERY_CODES_RENEWED = "MFA_RECOVERY_CODES_RENEWED"
 
 
 def write_audit(

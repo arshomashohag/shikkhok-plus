@@ -198,7 +198,7 @@ def test_the_service_and_the_trigger_name_the_same_kinds() -> None:
         Path(__file__).resolve().parents[2]
         / "migrations"
         / "versions"
-        / "0027_seat_history_and_supersession_index.py"
+        / "0029_seat_history_and_supersession_index.py"
     )
     spec = importlib.util.spec_from_file_location("migration_0027", path)
     assert spec is not None and spec.loader is not None

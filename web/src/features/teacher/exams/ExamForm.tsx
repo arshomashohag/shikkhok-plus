@@ -213,7 +213,7 @@ export function CreateExam() {
       // As Android: close on the server's answer, never on the tap.
       navigate(back, { replace: true })
     } catch (e) {
-      setError(e instanceof ApiError ? message(e.messageKey) : t('error_unexpected'))
+      setError(e instanceof ApiError ? message(e.messageKey, e.details) : t('error_unexpected'))
       setSaving(false)
     }
   }

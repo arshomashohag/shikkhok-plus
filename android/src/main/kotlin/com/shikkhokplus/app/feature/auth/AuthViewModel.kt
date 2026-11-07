@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.IssueResponse
 import com.shikkhokplus.app.core.network.TokenResponse
+import com.shikkhokplus.app.core.network.VerifyResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,9 +32,25 @@ interface AuthRepository {
      *
      * @param phone The number the code was issued for
      * @param code The code the user entered
+     * @return The token pair or the authenticator challenge, or an error
+     *   envelope, or a transport failure
+     */
+    suspend fun verify(phone: String, code: String): AuthResult<VerifyResponse>
+
+    /**
+     * Finish signing in with the second step [0028]: exactly one of the
+     * authenticator code and a recovery code.
+     *
+     * @param challenge What [verify] returned for this sign-in
+     * @param code Six digits from the authenticator app, or null
+     * @param recoveryCode A recovery code, or null
      * @return The token pair, or an error envelope, or a transport failure
      */
-    suspend fun verify(phone: String, code: String): AuthResult<TokenResponse>
+    suspend fun verifySecondStep(
+        challenge: String,
+        code: String?,
+        recoveryCode: String?,
+    ): AuthResult<TokenResponse>
 }
 
 /**
@@ -121,6 +138,10 @@ class AuthViewModel(
     private var lastPhone: String = ""
     private var lastAction: (() -> Unit)? = null
 
+    // The authenticator challenge for the sign-in under way, in memory
+    // only: it is useless after five minutes and grants nothing alone.
+    private var challenge: String? = null
+
     /**
      * Try a stored session before showing the OTP screen.
      *
@@ -194,7 +215,10 @@ class AuthViewModel(
         _state.value = AuthUiState.CheckingCode
         viewModelScope.launch {
             _state.value = when (val result = repository.verify(lastPhone, code)) {
-                is AuthResult.Ok -> AuthStateMapper.afterVerify(result.value)
+                is AuthResult.Ok -> {
+                    challenge = result.value.mfaChallenge
+                    AuthStateMapper.afterVerify(result.value)
+                }
                 is AuthResult.Refused ->
                     AuthStateMapper.codeRejected(
                         AuthStateMapper.afterError(result.envelope),
@@ -207,6 +231,42 @@ class AuthViewModel(
     }
 
     /**
+     * Submit the second step: the authenticator code, or a recovery code
+     * when the person switched to one.
+     *
+     * **Also the explicit retry** after a failure: the screen keeps what
+     * was typed and calls this again. Nothing retries by itself.
+     *
+     * @param code What the person typed, trimmed by the screen
+     */
+    fun submitSecondStep(code: String) {
+        val recovery = (_state.value as? AuthUiState.SecondStep)?.useRecovery ?: return
+        val pending = challenge ?: return
+        lastAction = null
+        _state.value = AuthUiState.SecondStep(useRecovery = recovery, checking = true)
+        viewModelScope.launch {
+            val result =
+                repository.verifySecondStep(
+                    challenge = pending,
+                    code = code.takeUnless { recovery },
+                    recoveryCode = code.takeIf { recovery },
+                )
+            _state.value = AuthStateMapper.afterSecondStep(result, recovery)
+            if (_state.value !is AuthUiState.SecondStep) challenge = null
+        }
+    }
+
+    /**
+     * Switch the second step between the authenticator code and a
+     * recovery code, clearing any refusal shown for the other.
+     */
+    fun toggleRecoveryCode() {
+        val current = _state.value as? AuthUiState.SecondStep ?: return
+        if (current.checking) return
+        _state.value = AuthUiState.SecondStep(useRecovery = !current.useRecovery)
+    }
+
+    /**
      * Ask for a new code to the same number, at the person's request.
      *
      * Never automatic: each one is an SMS the server pays for, and the
@@ -216,9 +276,13 @@ class AuthViewModel(
         if (lastPhone.isNotEmpty()) requestCode(lastPhone)
     }
 
-    /** Go back to the number field, to correct a mistyped number. */
+    /**
+     * Go back to the number field, to correct a mistyped number, or
+     * from the second step to start the sign-in again.
+     */
     fun changeNumber() {
         lastAction = null
+        challenge = null
         _state.value = AuthUiState.Idle
     }
 
@@ -245,6 +309,7 @@ class AuthViewModel(
      */
     fun signOut() {
         lastAction = null
+        challenge = null
         _state.value = AuthUiState.Idle
     }
 }

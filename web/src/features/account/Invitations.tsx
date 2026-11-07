@@ -39,7 +39,7 @@ function CentreOffers({ onSnack }: { onSnack: (text: string) => void }) {
       reload()
       refresh()
     } catch (e) {
-      onSnack(e instanceof ApiError ? message(e.messageKey) : t('error_unexpected'))
+      onSnack(e instanceof ApiError ? message(e.messageKey, e.details) : t('error_unexpected'))
     } finally {
       setBusy(null)
     }
@@ -103,7 +103,7 @@ export function Invitations() {
       reload()
       refresh()
     } catch (e) {
-      setSnack(e instanceof ApiError ? message(e.messageKey) : t('error_unexpected'))
+      setSnack(e instanceof ApiError ? message(e.messageKey, e.details) : t('error_unexpected'))
     } finally {
       setBusy(null)
     }

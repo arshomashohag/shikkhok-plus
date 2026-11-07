@@ -55,6 +55,9 @@ const val TAG_PROFILE_DELETE: String = "profile_delete"
 /** The Settings row (APP). */
 const val TAG_PROFILE_SETTINGS: String = "profile_settings"
 
+/** The Help centre row (APP), for every role. */
+const val TAG_PROFILE_HELP: String = "profile_help"
+
 /** The log-out row. */
 const val TAG_PROFILE_SIGN_OUT: String = "profile_sign_out"
 
@@ -96,6 +99,9 @@ const val TAG_PROFILE_CENTRE_OFFERS: String = "profile_centre_offers"
  */
 fun workspaceRowTag(ownerId: String): String = "profile_workspace_$ownerId"
 
+/** The two-step verification row, offered to every lens. */
+const val TAG_PROFILE_TWO_STEP: String = "profile_two_step"
+
 /** The switch-role row. Absent for a person with one lens. */
 const val TAG_PROFILE_SWITCH_LENS: String = "profile_switch_lens"
 
@@ -117,9 +123,8 @@ const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
  * **A null destination draws no row.** The rows a lens shows are the
  * rows its route supplies, so a student is never offered a teacher's
  * payment methods and nobody is offered a row that opens nothing. Rows
- * the design draws for settings that do not exist yet (notifications,
- * theme, text size, help) are absent for the same reason: a row that
- * opens nothing is worse than no row.
+ * the design draws for things that do not exist yet are absent for the
+ * same reason: a row that opens nothing is worse than no row.
  *
  * @property onEdit Opens Edit profile
  * @property onSignOut Starts logging out (the route confirms first)
@@ -145,6 +150,10 @@ const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
  * @property onMyChildren Opens the guardian's children, or null
  * @property unsent How many records this phone has not sent yet (T9)
  * @property onSettings Opens Settings, or null where none are kept
+ * @property onHelp Opens the Help centre, or null
+ * @property onTwoStep Opens two-step verification, or null
+ * @property twoStepRecommended Marks that row "Recommended": the server
+ *   recommends it for this account and it is off
  */
 data class MoreActions(
     val onEdit: () -> Unit = {},
@@ -169,6 +178,9 @@ data class MoreActions(
     val onMyChildren: (() -> Unit)? = null,
     val unsent: Int = 0,
     val onSettings: (() -> Unit)? = null,
+    val onHelp: (() -> Unit)? = null,
+    val onTwoStep: (() -> Unit)? = null,
+    val twoStepRecommended: Boolean = false,
 )
 
 /**
@@ -315,7 +327,7 @@ private fun MoreMenu(
 
     PeopleRows(lens, actions, offline)
     TeacherRows(actions, offline)
-    AppRows(actions)
+    AppRows(actions, offline)
     AccountRows(actions, offline)
 
     version?.let {
@@ -587,6 +599,26 @@ private fun TeacherRows(actions: MoreActions, offline: Boolean) {
 @Composable
 private fun AccountRows(actions: MoreActions, offline: Boolean) {
     MenuSection(stringResource(R.string.more_section_account)) {
+        // Two-step verification needs the server to read or change it;
+        // offline it waits, greyed, like the Help centre.
+        actions.onTwoStep?.let { open ->
+            MenuRow(
+                title = stringResource(R.string.more_two_step),
+                subtitle =
+                    stringResource(if (offline) R.string.more_needs_connection else R.string.more_two_step_sub),
+                icon = MenuIcons.Lock,
+                trailing =
+                    if (actions.twoStepRecommended) {
+                        MenuTrailing.Badge(stringResource(R.string.two_step_recommended))
+                    } else {
+                        MenuTrailing.Chevron
+                    },
+                onClick = open,
+                enabled = !offline,
+                modifier = Modifier.testTag(TAG_PROFILE_TWO_STEP),
+            )
+            MenuDivider()
+        }
         actions.onSwitchLens?.let { switch ->
             MenuRow(
                 title = stringResource(R.string.lens_switch),
@@ -618,21 +650,43 @@ private fun AccountRows(actions: MoreActions, offline: Boolean) {
 }
 
 /**
- * The APP section: Settings, which this phone keeps and so works offline.
+ * The APP section: Settings, which this phone keeps and so works
+ * offline, and the Help centre, which needs the server.
+ *
+ * **No count on the Help centre row.** More draws no counts on any row,
+ * and reading the help list here only for a badge would be one more
+ * request on every visit to More; the list itself marks each question
+ * with a new reply.
  *
  * @param actions Where each row leads
+ * @param offline Whether rows that need the server wait for it
  */
 @Composable
-private fun AppRows(actions: MoreActions) {
-    val open = actions.onSettings ?: return
+private fun AppRows(actions: MoreActions, offline: Boolean) {
+    val settings = actions.onSettings
+    val help = actions.onHelp
+    if (settings == null && help == null) return
     MenuSection(stringResource(R.string.more_section_app)) {
-        MenuRow(
-            title = stringResource(R.string.more_settings),
-            subtitle = stringResource(R.string.more_settings_sub),
-            icon = MenuIcons.Settings,
-            onClick = open,
-            modifier = Modifier.testTag(TAG_PROFILE_SETTINGS),
-        )
+        settings?.let { open ->
+            MenuRow(
+                title = stringResource(R.string.more_settings),
+                subtitle = stringResource(R.string.more_settings_sub),
+                icon = MenuIcons.Settings,
+                onClick = open,
+                modifier = Modifier.testTag(TAG_PROFILE_SETTINGS),
+            )
+        }
+        help?.let { open ->
+            if (settings != null) MenuDivider()
+            MenuRow(
+                title = stringResource(R.string.more_help),
+                subtitle = stringResource(if (offline) R.string.more_needs_connection else R.string.more_help_sub),
+                icon = MenuIcons.Help,
+                onClick = open,
+                enabled = !offline,
+                modifier = Modifier.testTag(TAG_PROFILE_HELP),
+            )
+        }
     }
 }
 

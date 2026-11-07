@@ -1,7 +1,7 @@
 """Freeze approved salaries in the database; add the missing key, checks and indexes.
 
-Revision ID: 0028
-Revises: 0027
+Revision ID: 0030
+Revises: 0029
 Create Date: 2026-11-07
 
 * **``salary_line_frozen``** [audit C-30]. "Approval freezes the line"
@@ -38,8 +38,8 @@ from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "0028"
-down_revision: str | None = "0027"
+revision: str = "0030"
+down_revision: str | None = "0029"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

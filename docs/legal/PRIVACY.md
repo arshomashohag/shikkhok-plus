@@ -148,9 +148,14 @@ actually does, and our build fails if the two stop matching.
 | Failed and successful sign-in attempts | 7 days |
 | Messages in your in-app inbox, such as a fee reminder | 12 months |
 | One-time sign-in codes, stored only as hashes | 7 days |
+| Questions you asked us in the Help centre | no time limit |
 | Session tokens, stored only as hashes | 30 days after it expires |
 | Test-only message records, never used in production | 7 days |
+| The messages in your Help centre questions, yours and our replies | no time limit |
+| Which app you use (Android or web), its version, and when you last used it | no time limit |
 | Which classes you have hidden from your own view | no time limit |
+| Your authenticator recovery codes, stored only as hashes | no time limit |
+| Your authenticator-app setup, with its secret encrypted, if you turned it on | no time limit |
 | Your own name, photo and address | no time limit |
 | Your phone number and account record | no time limit |
 
@@ -198,7 +203,7 @@ These records are about how the service itself is running, not about any person.
 
 **A teacher's classes stay with their students.** If you are a teacher and delete your account, your sign-in, your own name and address are removed, and so are your name and payment number on each of your classes. The classes themselves stay as read-only history for your students and their guardians: their record of who came to each class, their results and fee records are theirs too. No new fees fall due on those classes, and amounts already recorded as owed stay on the records, where nobody can collect them.
 
-<!-- governance manifest digest: f4ae9923d9d731a417f8ac3d905cfecd0192bcca0866164c66fa02aa5c70c908
+<!-- governance manifest digest: f2ffbdc91301a58594dbad00e066c48a6fd36718b4568667cc0910f4cfc030a5
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

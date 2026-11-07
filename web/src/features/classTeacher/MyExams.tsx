@@ -125,7 +125,7 @@ function MarkRow({
       await writeMyExamMark(examId, body)
       onSaved()
     } catch (e) {
-      onFailed(e instanceof ApiError ? message(e.messageKey) : t('error_unexpected'))
+      onFailed(e instanceof ApiError ? message(e.messageKey, e.details) : t('error_unexpected'))
     } finally {
       setBusy(false)
     }
@@ -201,7 +201,7 @@ export function MyExamMarks() {
       setSnack(t('my_exam_published_done'))
       reload()
     } catch (e) {
-      setFailure(e instanceof ApiError ? message(e.messageKey) : t('error_unexpected'))
+      setFailure(e instanceof ApiError ? message(e.messageKey, e.details) : t('error_unexpected'))
     } finally {
       setBusy(false)
     }

@@ -178,6 +178,262 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/admin/auth/mfa': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Finish
+     * @description Finish signing in with an authenticator code or a recovery code.
+     *
+     *     :param body: The challenge and one code
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :return: The admin access token, and recovery codes at a first sign-in
+     */
+    post: operations['finish_v1_admin_auth_mfa_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/auth/otp': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Send Code
+     * @description Send an admin sign-in code, answering every number the same way.
+     *
+     *     The sign-in ceilings apply before anything else, for every number, as
+     *     they do for app sign-in; the code is texted after the response, so a
+     *     send cannot be timed either.
+     *
+     *     :param body: The number
+     *     :param request: The incoming request
+     *     :param background: Runs the send after the response
+     *     :param session: The request-scoped session
+     *     :param gateway: The SMS gateway
+     *     :return: The contentless acknowledgement
+     */
+    post: operations['send_code_v1_admin_auth_otp_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/auth/verify': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Verify Code
+     * @description Spend the SMS code and start the authenticator step.
+     *
+     *     :param body: The number and the code
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :return: The challenge, with a secret to set up at a first sign-in
+     */
+    post: operations['verify_code_v1_admin_auth_verify_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/help/requesters': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Requesters
+     * @description List everyone who has asked support, with their ticket counts.
+     *
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: One row per person, latest activity first
+     */
+    get: operations['list_requesters_v1_admin_help_requesters_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/help/tickets': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Tickets
+     * @description List tickets, optionally one status or one person's.
+     *
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :param status: Only this status
+     *     :param ref: Only this person's tickets, by their opaque label
+     *     :return: The tickets, waiting-on-support first
+     */
+    get: operations['list_tickets_v1_admin_help_tickets_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/help/tickets/{ticket_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Ticket
+     * @description Open any ticket.
+     *
+     *     :param ticket_id: The ticket
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The ticket and its thread
+     */
+    get: operations['get_ticket_v1_admin_help_tickets__ticket_id__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/help/tickets/{ticket_id}/messages': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Reply
+     * @description Answer a ticket as ShikkhokPlus support.
+     *
+     *     :param ticket_id: The ticket
+     *     :param body: The reply
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The ticket and its thread
+     */
+    post: operations['reply_v1_admin_help_tickets__ticket_id__messages_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/help/tickets/{ticket_id}/status': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Change Status
+     * @description Close or reopen a ticket.
+     *
+     *     :param ticket_id: The ticket
+     *     :param body: The new status
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The ticket and its thread
+     */
+    put: operations['change_status_v1_admin_help_tickets__ticket_id__status_put']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/overview': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Overview
+     * @description Read the platform's aggregate figures.
+     *
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The figures
+     */
+    get: operations['get_overview_v1_admin_overview_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/teachers': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Teachers
+     * @description List teachers and coaching centres by name.
+     *
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The workspaces, most recently seen first
+     */
+    get: operations['list_teachers_v1_admin_teachers_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/analytics/collections': {
     parameters: {
       query?: never
@@ -308,6 +564,35 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/auth/mfa': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Verify Second Step
+     * @description Finish signing in with an authenticator code or a recovery code.
+     *
+     *     Public, like ``/verify``: the person has no token yet. What bounds it
+     *     is the challenge, which only a verified SMS code yields, and the
+     *     shared factor's lock after five wrong codes.
+     *
+     *     :param body: The challenge and one code
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :return: The token pair
+     */
+    post: operations['verify_second_step_v1_auth_mfa_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/auth/otp': {
     parameters: {
       query?: never
@@ -376,7 +661,11 @@ export interface paths {
     put?: never
     /**
      * Verify Code
-     * @description Verify a code and issue a token pair.
+     * @description Verify a code and issue a token pair, or ask for the second step.
+     *
+     *     An account with two-step verification on gets a challenge instead of
+     *     tokens, and the SMS code is spent either way: a second request with
+     *     the same code cannot skip the authenticator step.
      *
      *     **Bounded wider than one code** [C-20]. A verify arriving while the
      *     caller's /64, its /48 or the whole product has failed too often this
@@ -393,7 +682,7 @@ export interface paths {
      *     :param body: The request body
      *     :param request: The incoming request
      *     :param session: The request-scoped session
-     *     :return: The new token pair
+     *     :return: The token pair, or the authenticator challenge
      *     :raises CeilingBreach: A failed-verify ceiling is full
      *     :raises CodeRefused: The code was refused
      */
@@ -2844,6 +3133,217 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/me/help/tickets': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Tickets
+     * @description List the caller's own tickets, most recently active first.
+     *
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The tickets and how many carry an unseen reply
+     */
+    get: operations['list_tickets_v1_me_help_tickets_get']
+    put?: never
+    /**
+     * Create Ticket
+     * @description Ask ShikkhokPlus support a question.
+     *
+     *     :param body: The subject and the question
+     *     :param request: The incoming request, for the app it came from
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The new ticket and its thread
+     */
+    post: operations['create_ticket_v1_me_help_tickets_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/help/tickets/{ticket_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Ticket
+     * @description Open one of the caller's tickets, marking support's replies seen.
+     *
+     *     :param ticket_id: The ticket
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The ticket and its thread
+     */
+    get: operations['get_ticket_v1_me_help_tickets__ticket_id__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/help/tickets/{ticket_id}/messages': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Reply
+     * @description Add a message to one of the caller's tickets, reopening it.
+     *
+     *     :param ticket_id: The ticket
+     *     :param body: The message
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The ticket and its thread
+     */
+    post: operations['reply_v1_me_help_tickets__ticket_id__messages_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/mfa': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Status
+     * @description Say whether two-step verification is on, and whether to suggest it.
+     *
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The status
+     */
+    get: operations['read_status_v1_me_mfa_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/mfa/confirm': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Finish Setup
+     * @description Turn it on with the first code the app shows.
+     *
+     *     :param body: The code
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: Ten recovery codes, shown once
+     */
+    post: operations['finish_setup_v1_me_mfa_confirm_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/mfa/disable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Turn Off
+     * @description Turn it off, proven with an authenticator or recovery code.
+     *
+     *     :param body: One of the two codes
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The new status
+     */
+    post: operations['turn_off_v1_me_mfa_disable_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/mfa/recovery-codes': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Renew Codes
+     * @description Replace the recovery codes, proven with an authenticator code.
+     *
+     *     :param body: The code
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: Ten new codes; the old ones stop working
+     */
+    post: operations['renew_codes_v1_me_mfa_recovery_codes_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/mfa/setup': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Begin Setup
+     * @description Start turning it on: a new secret for an authenticator app.
+     *
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The secret and its ``otpauth://`` URI
+     */
+    post: operations['begin_setup_v1_me_mfa_setup_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/me/notifications': {
     parameters: {
       query?: never
@@ -3777,6 +4277,400 @@ export interface components {
       kind: 'addition' | 'deduction'
       /** Label */
       label: string
+    }
+    /**
+     * AdminAppVersion
+     * @description How many accounts reported one app version in the last 30 days.
+     *
+     *     :ivar platform: ``android`` or ``web``
+     *     :ivar version: The version string
+     *     :ivar accounts: Accounts on it
+     */
+    AdminAppVersion: {
+      /** Accounts */
+      accounts: number
+      /**
+       * Platform
+       * @enum {string}
+       */
+      platform: 'android' | 'web'
+      /** Version */
+      version: string
+    }
+    /**
+     * AdminChallengeResponse
+     * @description The SMS step passed; now the authenticator step.
+     *
+     *     :ivar challenge: Carries the person to the next step; grants nothing
+     *     :ivar expires_in: Seconds until the challenge lapses
+     *     :ivar stage: ``enroll`` (set up the app first) or ``verify``
+     *     :ivar enrollment: The secret to set up, only when ``stage`` is enroll
+     */
+    AdminChallengeResponse: {
+      /** Challenge */
+      challenge: string
+      enrollment?: components['schemas']['AdminEnrollment'] | null
+      /** Expires In */
+      expires_in: number
+      /**
+       * Stage
+       * @enum {string}
+       */
+      stage: 'enroll' | 'verify'
+    }
+    /**
+     * AdminEnrollment
+     * @description A new authenticator secret, shown once at a first sign-in.
+     *
+     *     :ivar secret: The base32 secret, for typing into an app by hand
+     *     :ivar otpauth_uri: The same secret as a URI, for a QR code or a link
+     */
+    AdminEnrollment: {
+      /** Otpauth Uri */
+      otpauth_uri: string
+      /** Secret */
+      secret: string
+    }
+    /**
+     * AdminMfaRequest
+     * @description Finish signing in: exactly one of the two codes.
+     *
+     *     :ivar challenge: From the SMS step
+     *     :ivar code: Six digits from the authenticator app
+     *     :ivar recovery_code: A recovery code, only after setup
+     */
+    AdminMfaRequest: {
+      /** Challenge */
+      challenge: string
+      /** Code */
+      code?: string | null
+      /** Recovery Code */
+      recovery_code?: string | null
+    }
+    /**
+     * AdminOtpRequest
+     * @description Ask for an admin sign-in code by SMS.
+     *
+     *     :ivar phone: The administrator's number, in any spelling
+     */
+    AdminOtpRequest: {
+      /**
+       * Phone
+       * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
+       */
+      phone: string
+    }
+    /**
+     * AdminOverviewResponse
+     * @description The platform at a glance. Every figure is an aggregate.
+     *
+     *     :ivar generated_at: When these figures were read
+     *     :ivar accounts: Accounts that have signed in at least once
+     *     :ivar new_7_days: First signed in during the last 7 days
+     *     :ivar new_30_days: First signed in during the last 30 days
+     *     :ivar active_7_days: Seen on any app in the last 7 days
+     *     :ivar active_30_days: Seen on any app in the last 30 days
+     *     :ivar teachers: Accounts owning a solo-tutor workspace
+     *     :ivar centres: Coaching centres
+     *     :ivar centre_members: Accounts holding a live centre membership
+     *     :ivar students: Accounts holding an accepted student seat
+     *     :ivar guardians: Accounts holding an accepted guardian seat
+     *     :ivar batches: Active batches
+     *     :ivar seats: Accepted student seats in active batches
+     *     :ivar platforms: Usage per app
+     *     :ivar both_platforms: Accounts seen on both apps
+     *     :ivar no_platform: Signed-in accounts no app has reported yet, such
+     *         as those last seen on an app build that predates reporting
+     *     :ivar versions: App versions seen in the last 30 days
+     *     :ivar help_open: Tickets waiting on support
+     *     :ivar help_answered: Tickets waiting on the requester
+     *     :ivar help_closed: Closed tickets
+     */
+    AdminOverviewResponse: {
+      /** Accounts */
+      accounts: number
+      /** Active 30 Days */
+      active_30_days: number
+      /** Active 7 Days */
+      active_7_days: number
+      /** Batches */
+      batches: number
+      /** Both Platforms */
+      both_platforms: number
+      /** Centre Members */
+      centre_members: number
+      /** Centres */
+      centres: number
+      /**
+       * Generated At
+       * Format: date-time
+       */
+      generated_at: string
+      /** Guardians */
+      guardians: number
+      /** Help Answered */
+      help_answered: number
+      /** Help Closed */
+      help_closed: number
+      /** Help Open */
+      help_open: number
+      /** New 30 Days */
+      new_30_days: number
+      /** New 7 Days */
+      new_7_days: number
+      /** No Platform */
+      no_platform: number
+      /** Platforms */
+      platforms: components['schemas']['AdminPlatformUsage'][]
+      /** Seats */
+      seats: number
+      /** Students */
+      students: number
+      /** Teachers */
+      teachers: number
+      /** Versions */
+      versions: components['schemas']['AdminAppVersion'][]
+    }
+    /**
+     * AdminPlatformUsage
+     * @description How many accounts use one app.
+     *
+     *     :ivar platform: ``android`` or ``web``
+     *     :ivar accounts: Accounts ever seen on it
+     *     :ivar active_7_days: Seen on it in the last seven days
+     *     :ivar active_30_days: Seen on it in the last thirty days
+     */
+    AdminPlatformUsage: {
+      /** Accounts */
+      accounts: number
+      /** Active 30 Days */
+      active_30_days: number
+      /** Active 7 Days */
+      active_7_days: number
+      /**
+       * Platform
+       * @enum {string}
+       */
+      platform: 'android' | 'web'
+    }
+    /**
+     * AdminReplyRequest
+     * @description Answer a ticket as ShikkhokPlus support.
+     *
+     *     :ivar body: The reply
+     */
+    AdminReplyRequest: {
+      /** Body */
+      body: string
+    }
+    /**
+     * AdminRequester
+     * @description Who asked, within the administrator boundary.
+     *
+     *     :ivar ref: An opaque label, stable per person
+     *     :ivar roles: The roles the account holds now
+     *     :ivar name: Set only when a role is ``teacher`` or ``centre_member``
+     *     :ivar centre: The centre's name, set only for a centre member
+     */
+    AdminRequester: {
+      /** Centre */
+      centre?: string | null
+      /** Name */
+      name?: string | null
+      /** Ref */
+      ref: string
+      /** Roles */
+      roles: ('centre_member' | 'guardian' | 'student' | 'teacher')[]
+    }
+    /**
+     * AdminRequesterSummary
+     * @description One person's tickets.
+     *
+     *     :ivar requester: Who
+     *     :ivar tickets: How many tickets they have opened
+     *     :ivar open: How many wait on support
+     *     :ivar last_activity: Their latest ticket activity
+     */
+    AdminRequesterSummary: {
+      /**
+       * Last Activity
+       * Format: date-time
+       */
+      last_activity: string
+      /** Open */
+      open: number
+      requester: components['schemas']['AdminRequester']
+      /** Tickets */
+      tickets: number
+    }
+    /**
+     * AdminRequestersResponse
+     * @description Everyone who has asked, latest activity first.
+     *
+     *     :ivar requesters: One row per person
+     */
+    AdminRequestersResponse: {
+      /** Requesters */
+      requesters: components['schemas']['AdminRequesterSummary'][]
+    }
+    /**
+     * AdminSessionResponse
+     * @description A signed-in administrator.
+     *
+     *     :ivar access_token: Send as ``Authorization: Bearer`` to admin routes
+     *     :ivar expires_in: Seconds until it lapses; sign in again after
+     *     :ivar recovery_codes: Ten one-time codes, shown once at setup
+     */
+    AdminSessionResponse: {
+      /** Access Token */
+      access_token: string
+      /** Expires In */
+      expires_in: number
+      /** Recovery Codes */
+      recovery_codes?: string[] | null
+    }
+    /**
+     * AdminTicket
+     * @description A ticket in an administrator's list.
+     *
+     *     :ivar ticket_id: The ticket
+     *     :ivar subject: The one-line summary
+     *     :ivar status: ``open``, ``answered`` or ``closed``
+     *     :ivar platform: The app it was asked from, if known
+     *     :ivar created_at: When it was asked
+     *     :ivar updated_at: The latest activity
+     *     :ivar message_count: Messages in the thread
+     *     :ivar preview: The start of the latest message
+     *     :ivar requester: Who asked
+     */
+    AdminTicket: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /** Message Count */
+      message_count: number
+      /** Platform */
+      platform?: ('android' | 'web') | null
+      /** Preview */
+      preview: string
+      requester: components['schemas']['AdminRequester']
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'answered' | 'closed' | 'open'
+      /** Subject */
+      subject: string
+      /**
+       * Ticket Id
+       * Format: uuid
+       */
+      ticket_id: string
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string
+    }
+    /**
+     * AdminTicketDetailResponse
+     * @description A ticket and its thread.
+     *
+     *     :ivar ticket: The ticket
+     *     :ivar messages: Its messages, oldest first
+     */
+    AdminTicketDetailResponse: {
+      /** Messages */
+      messages: components['schemas']['HelpMessageResponse'][]
+      ticket: components['schemas']['AdminTicket']
+    }
+    /**
+     * AdminTicketListResponse
+     * @description Tickets, waiting-on-support first.
+     *
+     *     :ivar tickets: The tickets
+     */
+    AdminTicketListResponse: {
+      /** Tickets */
+      tickets: components['schemas']['AdminTicket'][]
+    }
+    /**
+     * AdminTicketStatusRequest
+     * @description Close or reopen a ticket.
+     *
+     *     :ivar status: ``closed`` or ``open``
+     */
+    AdminTicketStatusRequest: {
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'closed' | 'open'
+    }
+    /**
+     * AdminVerifyRequest
+     * @description Spend the SMS code.
+     *
+     *     :ivar phone: The number the code was sent to
+     *     :ivar code: The code from the SMS
+     */
+    AdminVerifyRequest: {
+      /** Code */
+      code: string
+      /**
+       * Phone
+       * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
+       */
+      phone: string
+    }
+    /**
+     * AdminWorkspace
+     * @description One teacher or coaching centre.
+     *
+     *     :ivar workspace_id: The workspace
+     *     :ivar kind: ``teacher`` for a solo tutor, ``centre`` for a centre
+     *     :ivar name: The name shown to its students, if one has been given
+     *     :ivar platforms: The apps its people use
+     *     :ivar joined_at: When the workspace was created
+     *     :ivar last_seen_at: The latest sign-in or refresh, if any
+     *     :ivar ref: A solo tutor's help-centre label, to find their tickets
+     */
+    AdminWorkspace: {
+      /**
+       * Joined At
+       * Format: date-time
+       */
+      joined_at: string
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'centre' | 'teacher'
+      /** Last Seen At */
+      last_seen_at?: string | null
+      /** Name */
+      name?: string | null
+      /** Platforms */
+      platforms: ('android' | 'web')[]
+      /** Ref */
+      ref?: string | null
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string
+    }
+    /**
+     * AdminWorkspacesResponse
+     * @description Teachers and centres, most recently seen first.
+     *
+     *     :ivar workspaces: The workspaces
+     */
+    AdminWorkspacesResponse: {
+      /** Workspaces */
+      workspaces: components['schemas']['AdminWorkspace'][]
     }
     /**
      * AlreadyAddedResponse
@@ -5816,6 +6710,123 @@ export interface components {
       status: 'ok'
     }
     /**
+     * HelpMessageResponse
+     * @description One message in a thread.
+     *
+     *     :ivar message_id: The message
+     *     :ivar author: ``requester`` for the asker, ``support`` for ShikkhokPlus
+     *     :ivar body: What was written
+     *     :ivar created_at: When
+     */
+    HelpMessageResponse: {
+      /**
+       * Author
+       * @enum {string}
+       */
+      author: 'requester' | 'support'
+      /** Body */
+      body: string
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /**
+       * Message Id
+       * Format: uuid
+       */
+      message_id: string
+    }
+    /**
+     * HelpReplyRequest
+     * @description Add a message to a thread.
+     *
+     *     :ivar body: The message
+     */
+    HelpReplyRequest: {
+      /** Body */
+      body: string
+    }
+    /**
+     * HelpTicketDetailResponse
+     * @description A ticket and its whole thread.
+     *
+     *     :ivar ticket: The ticket
+     *     :ivar messages: Its messages, oldest first
+     */
+    HelpTicketDetailResponse: {
+      /** Messages */
+      messages: components['schemas']['HelpMessageResponse'][]
+      ticket: components['schemas']['HelpTicketResponse']
+    }
+    /**
+     * HelpTicketListResponse
+     * @description The requester's tickets, most recently active first.
+     *
+     *     :ivar tickets: The tickets
+     *     :ivar new_replies: How many carry a reply not yet seen
+     */
+    HelpTicketListResponse: {
+      /** New Replies */
+      new_replies: number
+      /** Tickets */
+      tickets: components['schemas']['HelpTicketResponse'][]
+    }
+    /**
+     * HelpTicketRequest
+     * @description Ask support a question.
+     *
+     *     :ivar subject: A one-line summary
+     *     :ivar body: The question
+     */
+    HelpTicketRequest: {
+      /** Body */
+      body: string
+      /** Subject */
+      subject: string
+    }
+    /**
+     * HelpTicketResponse
+     * @description One of the requester's tickets.
+     *
+     *     :ivar ticket_id: The ticket
+     *     :ivar subject: The one-line summary
+     *     :ivar status: ``open`` (with support), ``answered`` (support replied),
+     *         or ``closed``
+     *     :ivar created_at: When it was asked
+     *     :ivar updated_at: The latest activity
+     *     :ivar has_new_reply: Support replied since the requester last opened it
+     *     :ivar preview: The start of the latest message
+     */
+    HelpTicketResponse: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /** Has New Reply */
+      has_new_reply: boolean
+      /** Preview */
+      preview: string
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'answered' | 'closed' | 'open'
+      /** Subject */
+      subject: string
+      /**
+       * Ticket Id
+       * Format: uuid
+       */
+      ticket_id: string
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string
+    }
+    /**
      * HistoryLineResponse
      * @description The latest payment claim for one month, as data to localize.
      *
@@ -6202,6 +7213,90 @@ export interface components {
        * @enum {string}
        */
       role: 'manager' | 'teacher'
+    }
+    /**
+     * MfaCodeRequest
+     * @description An authenticator code.
+     *
+     *     :ivar code: Six digits from the app
+     */
+    MfaCodeRequest: {
+      /** Code */
+      code: string
+    }
+    /**
+     * MfaProofRequest
+     * @description Proof of the factor: exactly one of the two codes.
+     *
+     *     :ivar code: Six digits from the app
+     *     :ivar recovery_code: Or a recovery code
+     */
+    MfaProofRequest: {
+      /** Code */
+      code?: string | null
+      /** Recovery Code */
+      recovery_code?: string | null
+    }
+    /**
+     * MfaRecoveryCodesResponse
+     * @description Ten single-use recovery codes, shown once.
+     *
+     *     :ivar recovery_codes: The codes
+     */
+    MfaRecoveryCodesResponse: {
+      /** Recovery Codes */
+      recovery_codes: string[]
+    }
+    /**
+     * MfaSetupResponse
+     * @description A new secret to add to an authenticator app.
+     *
+     *     :ivar secret: The base32 secret, for typing in by hand
+     *     :ivar otpauth_uri: The same secret as a link or a QR code
+     */
+    MfaSetupResponse: {
+      /** Otpauth Uri */
+      otpauth_uri: string
+      /** Secret */
+      secret: string
+    }
+    /**
+     * MfaSignInRequest
+     * @description The second step of signing in: exactly one of the two codes.
+     *
+     *     :ivar challenge: From ``POST /v1/auth/verify``
+     *     :ivar code: Six digits from the authenticator app
+     *     :ivar recovery_code: A recovery code, if the phone with the app is lost
+     */
+    MfaSignInRequest: {
+      /** Challenge */
+      challenge: string
+      /** Code */
+      code?: string | null
+      /** Recovery Code */
+      recovery_code?: string | null
+    }
+    /**
+     * MfaStatusResponse
+     * @description Whether two-step verification is on, and what to suggest.
+     *
+     *     :ivar enabled: An authenticator app is set up
+     *     :ivar enabled_at: When it was turned on
+     *     :ivar recovery_codes_left: Unused recovery codes
+     *     :ivar recommended: Suggest it: the account teaches or runs a centre
+     *     :ivar required: It cannot be turned off: a platform administrator
+     */
+    MfaStatusResponse: {
+      /** Enabled */
+      enabled: boolean
+      /** Enabled At */
+      enabled_at?: string | null
+      /** Recommended */
+      recommended: boolean
+      /** Recovery Codes Left */
+      recovery_codes_left: number
+      /** Required */
+      required: boolean
     }
     /**
      * Money
@@ -8981,6 +10076,40 @@ export interface components {
       phone: string
     }
     /**
+     * VerifyResponse
+     * @description What a verified SMS code yields: tokens, or the authenticator step.
+     *
+     *     **For an account without two-step verification this is exactly the
+     *     token pair it always was**, so clients built before the authenticator
+     *     step keep working for everyone who has not turned it on. For an
+     *     account with it on, the token fields are absent and ``mfa_challenge``
+     *     carries the person to ``POST /v1/auth/mfa``.
+     *
+     *     :ivar access_token: The bearer token, when no second step is needed
+     *     :ivar refresh_token: The rotation token, likewise
+     *     :ivar expires_in: Access-token lifetime in seconds, likewise
+     *     :ivar mfa_required: True when an authenticator code must follow
+     *     :ivar mfa_challenge: Carries the sign-in to that step; grants nothing
+     *     :ivar mfa_expires_in: Seconds until the challenge lapses
+     */
+    VerifyResponse: {
+      /** Access Token */
+      access_token?: string | null
+      /** Expires In */
+      expires_in?: number | null
+      /** Mfa Challenge */
+      mfa_challenge?: string | null
+      /** Mfa Expires In */
+      mfa_expires_in?: number | null
+      /**
+       * Mfa Required
+       * @default false
+       */
+      mfa_required: boolean
+      /** Refresh Token */
+      refresh_token?: string | null
+    }
+    /**
      * WaitingPaymentResponse
      * @description A seat not offered because its payment is being checked.
      *
@@ -9099,6 +10228,8 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** Authenticator Code */
+          authenticator_code?: string | null
           /** Code */
           code?: string | null
           /**
@@ -9108,6 +10239,8 @@ export interface operations {
           phone: string
         }
         'application/x-www-form-urlencoded': {
+          /** Authenticator Code */
+          authenticator_code?: string | null
           /** Code */
           code?: string | null
           /**
@@ -9275,6 +10408,478 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  finish_v1_admin_auth_mfa_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminMfaRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminSessionResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  send_code_v1_admin_auth_otp_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminOtpRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['IssueResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  verify_code_v1_admin_auth_verify_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminVerifyRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminChallengeResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  list_requesters_v1_admin_help_requesters_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminRequestersResponse']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  list_tickets_v1_admin_help_tickets_get: {
+    parameters: {
+      query?: {
+        status?: ('answered' | 'closed' | 'open') | null
+        ref?: string | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminTicketListResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  get_ticket_v1_admin_help_tickets__ticket_id__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminTicketDetailResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  reply_v1_admin_help_tickets__ticket_id__messages_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminReplyRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminTicketDetailResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  change_status_v1_admin_help_tickets__ticket_id__status_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminTicketStatusRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminTicketDetailResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  get_overview_v1_admin_overview_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminOverviewResponse']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  list_teachers_v1_admin_teachers_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminWorkspacesResponse']
         }
       }
       /** @description An unexpected failure; not retryable */
@@ -9624,6 +11229,57 @@ export interface operations {
       }
     }
   }
+  verify_second_step_v1_auth_mfa_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MfaSignInRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TokenResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
   issue_code_v1_auth_otp_post: {
     parameters: {
       query?: never
@@ -9747,7 +11403,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['TokenResponse']
+          'application/json': components['schemas']['VerifyResponse']
         }
       }
       /** @description The request could not be parsed */
@@ -16855,6 +18511,426 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  list_tickets_v1_me_help_tickets_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HelpTicketListResponse']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  create_ticket_v1_me_help_tickets_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HelpTicketRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HelpTicketDetailResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  get_ticket_v1_me_help_tickets__ticket_id__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HelpTicketDetailResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  reply_v1_me_help_tickets__ticket_id__messages_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HelpReplyRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HelpTicketDetailResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  read_status_v1_me_mfa_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MfaStatusResponse']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  finish_setup_v1_me_mfa_confirm_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MfaCodeRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MfaRecoveryCodesResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  turn_off_v1_me_mfa_disable_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MfaProofRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MfaStatusResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  renew_codes_v1_me_mfa_recovery_codes_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MfaCodeRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MfaRecoveryCodesResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  begin_setup_v1_me_mfa_setup_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MfaSetupResponse']
         }
       }
       /** @description An unexpected failure; not retryable */

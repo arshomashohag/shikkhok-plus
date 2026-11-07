@@ -35,6 +35,12 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
+from app.accounts.clients import (
+    CLIENT_PLATFORM_HEADER,
+    CLIENT_VERSION_HEADER,
+    record_client,
+)
+from app.accounts.mfa import challenge_for, finish_sign_in, has_confirmed_factor
 from app.accounts.service import complete_signup
 from app.api.deps import authenticated_account
 from app.audit.log import AuthEvent, write_audit
@@ -44,6 +50,7 @@ from app.auth.client_address import client_coarse_prefix, client_prefix
 from app.auth.delivery import send_within_budget
 from app.auth.tokens import (
     ACCESS_TOKEN_LIFETIME,
+    MFA_CHALLENGE_LIFETIME,
     issue_pair,
     revoke_all_families,
     revoke_family,
@@ -56,9 +63,11 @@ from app.gateway.template import render_otp_message
 from app.schemas.auth import (
     IssueRequest,
     IssueResponse,
+    MfaSignInRequest,
     RefreshRequest,
     TokenResponse,
     VerifyRequest,
+    VerifyResponse,
 )
 
 __all__ = ["router"]
@@ -232,13 +241,17 @@ def issue_code(
     return IssueResponse()
 
 
-@router.post("/verify", response_model=TokenResponse)
+@router.post("/verify", response_model=VerifyResponse)
 def verify_code(
     body: VerifyRequest,
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-) -> TokenResponse:
-    """Verify a code and issue a token pair.
+) -> VerifyResponse:
+    """Verify a code and issue a token pair, or ask for the second step.
+
+    An account with two-step verification on gets a challenge instead of
+    tokens, and the SMS code is spent either way: a second request with
+    the same code cannot skip the authenticator step.
 
     **Bounded wider than one code** [C-20]. A verify arriving while the
     caller's /64, its /48 or the whole product has failed too often this
@@ -255,7 +268,7 @@ def verify_code(
     :param body: The request body
     :param request: The incoming request
     :param session: The request-scoped session
-    :return: The new token pair
+    :return: The token pair, or the authenticator challenge
     :raises CeilingBreach: A failed-verify ceiling is full
     :raises CodeRefused: The code was refused
     """
@@ -302,7 +315,58 @@ def verify_code(
         if refusal.code_died:
             checker.record_dead_code(body.phone)
         raise
+    # The second step [0028], after the code and any signup it completes:
+    # an account with an authenticator factor gets a challenge, not tokens.
+    if has_confirmed_factor(session, account_id):
+        session.commit()
+        return VerifyResponse(
+            mfa_required=True,
+            mfa_challenge=challenge_for(account_id),
+            mfa_expires_in=int(MFA_CHALLENGE_LIFETIME.total_seconds()),
+        )
     pair = issue_pair(session, account_id, correlation_id)
+    record_client(
+        session,
+        account_id,
+        request.headers.get(CLIENT_PLATFORM_HEADER),
+        request.headers.get(CLIENT_VERSION_HEADER),
+    )
+    session.commit()
+    return VerifyResponse(
+        access_token=pair.access_token,
+        refresh_token=pair.refresh_token,
+        expires_in=int(ACCESS_TOKEN_LIFETIME.total_seconds()),
+    )
+
+
+@router.post("/mfa", response_model=TokenResponse)
+def verify_second_step(
+    body: MfaSignInRequest,
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> TokenResponse:
+    """Finish signing in with an authenticator code or a recovery code.
+
+    Public, like ``/verify``: the person has no token yet. What bounds it
+    is the challenge, which only a verified SMS code yields, and the
+    shared factor's lock after five wrong codes.
+
+    :param body: The challenge and one code
+    :param request: The incoming request
+    :param session: The request-scoped session
+    :return: The token pair
+    """
+    correlation_id = correlation_of(request)
+    account_id = finish_sign_in(
+        session, body.challenge, body.code, body.recovery_code, correlation_id
+    )
+    pair = issue_pair(session, account_id, correlation_id)
+    record_client(
+        session,
+        account_id,
+        request.headers.get(CLIENT_PLATFORM_HEADER),
+        request.headers.get(CLIENT_VERSION_HEADER),
+    )
     session.commit()
     return TokenResponse(
         access_token=pair.access_token,
@@ -332,6 +396,17 @@ def refresh_tokens(
     """
     correlation_id = correlation_of(request)
     pair = rotate(session, body.refresh_token, correlation_id)
+    # After the rotation has committed, in its own small transaction: the
+    # new pair is already the account's, so a failure here must not be
+    # able to undo it, and recording which app renewed is worth far less
+    # than the renewal itself.
+    if record_client(
+        session,
+        pair.account_id,
+        request.headers.get(CLIENT_PLATFORM_HEADER),
+        request.headers.get(CLIENT_VERSION_HEADER),
+    ):
+        session.commit()
     return TokenResponse(
         access_token=pair.access_token,
         refresh_token=pair.refresh_token,

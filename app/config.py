@@ -42,6 +42,12 @@ from typing import Final
 
 from app.auth.client_address import TRUSTED_CLIENT_IP_HEADER_ENV
 from app.auth.hashing import OTP_HMAC_KEY_ENV
+from app.auth.mfa_crypto import MFA_ACTIVE_KID_ENV, MFA_KEYS_ENV, keyring_configured
+from app.authz.admin import (
+    ADMIN_ALLOWED_CIDRS_ENV,
+    ADMIN_EDGE_SECRET_ENV,
+    PLATFORM_ADMIN_PHONES_ENV,
+)
 from app.gateway.null import ADAPTER_ENV, REAL_ADAPTER_SENTINEL
 
 __all__ = [
@@ -163,6 +169,26 @@ def check_startup_configuration(environment: str | None = None) -> None:
             "forwarded header) instead of the verified client address."
         )
 
+    # An administrator configured without the locks that make the admin
+    # surface safe. Each of these fails CLOSED on its own -- no edge
+    # secret or no networks means nobody gets in, no MFA key means no
+    # administrator can finish signing in -- so the process would run,
+    # and the admin surface would be silently unusable. Reported here
+    # instead, at the deploy, where it can be fixed.
+    if os.environ.get(PLATFORM_ADMIN_PHONES_ENV, "").strip():
+        for name in (ADMIN_EDGE_SECRET_ENV, ADMIN_ALLOWED_CIDRS_ENV):
+            if not os.environ.get(name, "").strip():
+                problems.append(
+                    f"{name} is unset while {PLATFORM_ADMIN_PHONES_ENV} names "
+                    "administrators, so no administrator can reach the admin "
+                    "surface. Set it, or clear the administrator list."
+                )
+        if not keyring_configured():
+            problems.append(
+                f"{MFA_KEYS_ENV} / {MFA_ACTIVE_KID_ENV} are unset or "
+                f"malformed while {PLATFORM_ADMIN_PHONES_ENV} names "
+                "administrators, so no administrator can finish signing in."
+            )
     if os.environ.get(ADAPTER_ENV) != REAL_ADAPTER_SENTINEL:
         # The null adapter defaulting is CORRECT everywhere else -- it
         # fails toward not sending. In production it means no teacher

@@ -19,6 +19,7 @@
  * rotated, this tab adopts the new pair instead of spending the old one.
  */
 import { ApiError, errorFrom, networkError } from './errors'
+import { CLIENT_HEADERS } from './platform'
 
 const STORAGE_KEY = 'sp.session'
 const LOCK_NAME = 'sp.session.refresh'
@@ -136,6 +137,7 @@ export function renew(base: string, spent: string): Promise<StoredTokens> {
         response = await fetch(`${base}/v1/auth/refresh`, {
           method: 'POST',
           headers: {
+            ...CLIENT_HEADERS,
             'Content-Type': 'application/json',
             // Required present by the route; the server reads the body.
             Authorization: `Bearer ${current.access}`,

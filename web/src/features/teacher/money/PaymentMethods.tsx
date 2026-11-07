@@ -62,7 +62,7 @@ export function PaymentMethods() {
         e instanceof ApiError
           ? e.offline
             ? t('web_money_offline_nothing_changed')
-            : message(e.messageKey)
+            : message(e.messageKey, e.details)
           : t('error_unexpected'),
       )
     } finally {
@@ -240,7 +240,7 @@ function MethodEditor({ initial, methodId }: { initial: MethodDraft; methodId: s
         err instanceof ApiError
           ? err.offline
             ? t('web_money_offline_nothing_changed')
-            : message(err.messageKey)
+            : message(err.messageKey, err.details)
           : t('error_unexpected'),
       )
       setSaving(false)

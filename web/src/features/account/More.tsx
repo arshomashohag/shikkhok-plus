@@ -1,7 +1,8 @@
 /**
  * More: who is signed in, with Edit; the inbox; invitations and children
- * for a student or guardian; the teacher's Getting paid and Your records;
- * settings and install; switching role, log out and delete account.
+ * for a student or guardian; the help centre, with its new replies; the teacher's Getting paid and Your records;
+ * settings and install; two-step verification, switching role, log out and
+ * delete account.
  * Grouped as Android's profile screen groups them.
  *
  * Rows that change the account need a connection and say so offline,
@@ -21,6 +22,7 @@ import {
   EditIcon,
   LayersIcon,
   LogOutIcon,
+  HelpIcon,
   MailIcon,
   SettingsIcon,
   SwapIcon,
@@ -31,7 +33,9 @@ import {
 import { paths } from '../teacher/paths'
 import { accountPaths } from '../family/reader'
 import { useUnreadCount } from './area/unread'
+import { helpPaths, useNewReplies } from '../help'
 import { WorkspaceSection } from './Workspaces'
+import { MfaEntry } from './security'
 
 /** One More row: a link when there is somewhere to go, else greyed. */
 function Row({
@@ -86,6 +90,7 @@ export function More() {
   const pwa = usePwa()
   const online = useOnline()
   const unread = useUnreadCount()
+  const newReplies = useNewReplies()
   const location = useLocation()
   const saved = (location.state as { saved?: boolean } | null)?.saved === true
   const lensLabel = session.lens ? t(`lens_${session.lens}`) : t('web_role_none')
@@ -224,6 +229,27 @@ export function More() {
         </>
       ) : null}
 
+      <Section title={t('settings_section_help')}>
+        <ul className="card flush list">
+          <Row
+            to={helpPaths.list()}
+            icon={<HelpIcon />}
+            title={t('more_help')}
+            sub={t('more_help_sub')}
+            badge={
+              newReplies ? (
+                <span
+                  className="chip chip-overdue"
+                  aria-label={t('web_help_new_replies', newReplies)}
+                >
+                  {newReplies}
+                </span>
+              ) : null
+            }
+          />
+        </ul>
+      </Section>
+
       <Section title={t('more_section_app')}>
         <ul className="card flush list">
           <Row
@@ -249,6 +275,7 @@ export function More() {
 
       <Section title={t('more_section_account')}>
         <ul className="card flush list">
+          <MfaEntry offline={needsConnection} />
           {others.map((o) => (
             <li key={o.lens}>
               <button type="button" className="row" onClick={() => chooseLens(o.lens)}>

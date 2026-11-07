@@ -147,12 +147,13 @@ def test_the_public_route_count_is_unchanged_by_this_unit() -> None:
 
     Both ``/account-deletion`` entries were allowlisted in D1 as
     "pre-declared D6 scope", precisely so the public-route allowlist is
-    not edited in the same commit that adds a public route. The count
-    stays at eight.
+    not edited in the same commit that adds a public route. D6 left the
+    count at eight; the admin and app MFA sign-in routes later moved it to
+    twelve [0028], with no deletion route among them.
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 8
+    assert len(PUBLIC_ROUTES) == 12
     assert ("GET", "/account-deletion") in PUBLIC_ROUTES
     assert ("POST", "/account-deletion") in PUBLIC_ROUTES
 

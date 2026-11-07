@@ -1,7 +1,7 @@
 """Verify-first signup drafts, and refresh families that can end.
 
-Revision ID: 0029
-Revises: 0028
+Revision ID: 0031
+Revises: 0030
 Create Date: 2026-11-07
 
 * **``pending_signup``** holds a signup form until the code sent to its
@@ -39,8 +39,8 @@ from alembic import op
 
 from app.db.roles import APP_ROLE
 
-revision: str = "0029"
-down_revision: str | None = "0028"
+revision: str = "0031"
+down_revision: str | None = "0030"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -63,6 +63,9 @@ import com.shikkhokplus.app.core.network.HttpProfileRepository
 import com.shikkhokplus.app.core.network.EncryptedTokenStore
 import com.shikkhokplus.app.core.network.HttpAuthRepository
 import com.shikkhokplus.app.core.network.TokenStore
+import com.shikkhokplus.app.feature.mfa.MfaStatusHolder
+import com.shikkhokplus.app.feature.mfa.PreferencesMfaPromptStore
+import com.shikkhokplus.app.navigation.MfaOffer
 import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.AuthViewModel
 import com.shikkhokplus.app.core.notify.ui.OpenInboxEffect
@@ -193,6 +196,9 @@ private fun UnconfiguredNotice() {
 /** Where the chosen workspace is kept. */
 private const val WORKSPACE_FILE = "workspace"
 
+/** Where the answers to the two-step offer are kept. */
+private const val MFA_OFFER_FILE = "mfa_offer"
+
 /**
  * Builds the session-scoped dependencies and starts the graph.
  *
@@ -267,6 +273,12 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
         }
     val repository = remember { HttpAuthRepository(client = client, tokens = tokens) }
     val signOutScope = rememberCoroutineScope()
+    // Which accounts on this phone answered the two-step offer, kept in
+    // a plain preferences file of its own, as Settings keeps its own.
+    val mfaOffers =
+        remember {
+            PreferencesMfaPromptStore(context.getSharedPreferences(MFA_OFFER_FILE, Context.MODE_PRIVATE))
+        }
 
     val authModel: AuthViewModel = viewModel { AuthViewModel(repository) }
     val authState by authModel.state.collectAsState()
@@ -440,6 +452,10 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
     key(signedIn) {
         CompositionLocalProvider(LocalOfflineCopies provides copies, LocalWorkspaces provides workspaces) {
             val navController = rememberNavController()
+            // **One two-step status per session**, inside the session key:
+            // a new sign-in starts knowing nothing, so one account's
+            // "Recommended" mark never shows on another's More.
+            val mfaStatus = remember { MfaStatusHolder() }
 
             ShikkhokNavHost(
                 client = client,
@@ -452,6 +468,7 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
                         onEndSession = endSession,
                         unsentWrites = { queue.read().size },
                         settings = settings,
+                        mfaStatus = mfaStatus,
                     ),
                 // Read ONCE per session. A live value here would rebuild the
                 // whole NavHost on every change, discarding the back stack.
@@ -461,6 +478,10 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
             )
 
             OpenInboxEffect(navController, openInbox && signedIn, onInboxOpened)
+
+            // The one-time two-step offer [0028], for a signed-in account
+            // the server recommends it for. Asked once per account here.
+            MfaOffer(signedIn, client, navController, mfaStatus, mfaOffers, tokens::accountId)
         }
     }
 }

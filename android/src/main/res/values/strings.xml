@@ -1704,4 +1704,93 @@
     <string name="summary_basis">Money that actually came in and went out, by the day it moved.</string>
     <string name="money_open_expenses">Expenses</string>
     <string name="money_open_summary">Summary</string>
+    <!-- The help centre: a signed-in person's own questions to ShikkhokPlus
+         support. A reply is signed "ShikkhokPlus support" and never names
+         the person who wrote it. -->
+    <string name="help_ticket_not_found">This question is no longer available.</string>
+    <string name="help_ticket_too_many">You have reached the limit for new questions for now. Try again later, or add to a question you already asked.</string>
+    <string name="mfa_code_wrong">That code isn\'t right. Check your authenticator app and try again.</string>
+    <string name="mfa_locked">Too many wrong codes. Try again in 15 minutes.</string>
+    <string name="mfa_challenge_expired">Signing in took too long. Start again with a new SMS code.</string>
+    <string name="mfa_already_enabled">Two-step verification is already on for this account.</string>
+    <string name="mfa_not_enabled">Two-step verification is not on for this account.</string>
+    <string name="mfa_required_for_admin">Two-step verification can\'t be turned off for a ShikkhokPlus administrator\'s number.</string>
+    <string name="mfa_setup_not_started">Start setting up again to get a new code to add to your authenticator app.</string>
+    <string name="mfa_code_required">This account has two-step verification on. Enter the code from your authenticator app too.</string>
+    <string name="more_help">Help centre</string>
+    <string name="more_help_sub">Ask ShikkhokPlus support a question</string>
+    <string name="help_title">Help centre</string>
+    <string name="help_my_questions">My questions</string>
+    <string name="help_ask">Ask a question</string>
+    <string name="help_empty_title">No questions yet</string>
+    <string name="help_empty_body">Ask ShikkhokPlus support anything about the app. Their replies appear here.</string>
+    <string name="help_status_open">With support</string>
+    <string name="help_status_answered">Answered</string>
+    <string name="help_status_closed">Closed</string>
+    <string name="help_new_reply">New reply</string>
+    <string name="help_subject_label">Subject</string>
+    <string name="help_subject_placeholder">In a few words, what is it about?</string>
+    <string name="help_body_label">Your question</string>
+    <string name="help_privacy_hint">Please don\'t include children\'s personal details such as phone numbers or addresses.</string>
+    <string name="help_char_count">%1$s / %2$s</string>
+    <string name="help_send">Send</string>
+    <string name="help_sending">Sending…</string>
+    <string name="help_thread_title">Question</string>
+    <string name="help_from_support">ShikkhokPlus support</string>
+    <string name="help_from_you">You</string>
+    <string name="help_closed_notice">This question is closed. Replying will reopen it.</string>
+    <string name="help_reply_label">Reply</string>
+
+    <!-- Two-step verification [0028]: the authenticator step at sign-in,
+         the More row and its screen, and the one-time offer to teachers
+         and centre members. -->
+    <string name="two_step_signin_title">Enter the code from your authenticator app</string>
+    <string name="two_step_signin_body">Open your authenticator app and type the 6-digit code it shows for ShikkhokPlus.</string>
+    <string name="two_step_signin_recovery_title">Enter a recovery code</string>
+    <string name="two_step_signin_recovery_body">Type one of the recovery codes you saved when you turned on two-step verification. Each code works once.</string>
+    <string name="two_step_recovery_label">Recovery code</string>
+    <string name="two_step_use_recovery">Use a recovery code instead</string>
+    <string name="two_step_use_app">Use the authenticator app instead</string>
+    <string name="two_step_continue">Continue</string>
+    <string name="more_two_step">Two-step verification</string>
+    <string name="more_two_step_sub">A code from an authenticator app when you sign in</string>
+    <string name="two_step_recommended">Recommended</string>
+    <string name="two_step_title">Two-step verification</string>
+    <string name="two_step_intro">When it\'s on, signing in asks for the code from an authenticator app on your phone as well as the SMS code. Someone who gets hold of your SIM still can\'t sign in as you.</string>
+    <string name="two_step_status_on">On</string>
+    <string name="two_step_status_off">Off</string>
+    <string name="two_step_on_since">Turned on %1$s</string>
+    <string name="two_step_required">Required for your account</string>
+    <string name="two_step_recommended_note">Recommended for your account</string>
+    <plurals name="two_step_codes_left">
+        <item quantity="one">%1$s recovery code left</item>
+        <item quantity="other">%1$s recovery codes left</item>
+    </plurals>
+    <string name="two_step_codes_low_title">Few recovery codes left</string>
+    <string name="two_step_codes_low_body">Make new ones so you can still sign in if you lose the phone with your authenticator app.</string>
+    <string name="two_step_turn_on">Turn on</string>
+    <string name="two_step_turn_off">Turn off</string>
+    <string name="two_step_new_codes">New recovery codes</string>
+    <string name="two_step_starting">Getting a setup key for your authenticator app…</string>
+    <string name="two_step_setup_title">Add ShikkhokPlus to your authenticator app</string>
+    <string name="two_step_setup_step1">1. Add it to an authenticator app on this phone, such as Google Authenticator.</string>
+    <string name="two_step_open_app">Open authenticator app</string>
+    <string name="two_step_no_app">No authenticator app found. Install one such as Google Authenticator, then try again, or type the key into it.</string>
+    <string name="two_step_key_label">Or type this setup key into the app</string>
+    <string name="two_step_copy">Copy</string>
+    <string name="two_step_setup_step2">2. Enter the 6-digit code the app shows for ShikkhokPlus.</string>
+    <string name="two_step_codes_title">Save your recovery codes</string>
+    <string name="two_step_codes_new_title">Your new recovery codes</string>
+    <string name="two_step_codes_body">If you lose the phone with your authenticator app, each code lets you sign in once. Keep them somewhere safe, away from this phone.</string>
+    <string name="two_step_codes_once">They won\'t be shown again.</string>
+    <string name="two_step_codes_old_stopped">Your old recovery codes no longer work.</string>
+    <string name="two_step_copy_all">Copy all</string>
+    <string name="two_step_saved">I\'ve saved them</string>
+    <string name="two_step_off_title">Turn off two-step verification</string>
+    <string name="two_step_off_body">Signing in will ask only for the SMS code. Enter the code from your authenticator app to confirm.</string>
+    <string name="two_step_off_recovery_body">Signing in will ask only for the SMS code. Enter one of your recovery codes to confirm.</string>
+    <string name="two_step_renew_body">Your old recovery codes will stop working. Enter the code from your authenticator app to make new ones.</string>
+    <string name="two_step_offer_title">Protect your account with two-step verification</string>
+    <string name="two_step_offer_body">If someone gets hold of your SIM, a code from an authenticator app on your phone still keeps them out of your fee and student records.</string>
+    <string name="two_step_offer_later">Not now</string>
 </resources>

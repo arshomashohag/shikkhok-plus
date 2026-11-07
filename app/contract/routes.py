@@ -26,15 +26,19 @@ from app.authz.annotations import resolve_lens_type
 __all__ = [
     "CLASS_TEACHER_ROUTES",
     "LENS_EXEMPT_AUTHENTICATED",
+    "PLATFORM_ADMIN_ROUTES",
     "PUBLIC_ROUTES",
     "RouteViolation",
     "class_teacher_routes",
+    "platform_admin_routes",
     "unlensed_routes",
 ]
 
-#: Routes reachable with no authentication at all. **Exactly eight**, and
-#: the count IS asserted: a ninth entry is a diff against a stated number
-#: rather than a line appended to a growing list.
+#: Routes reachable with no authentication at all. **Exactly twelve**,
+#: and the count IS asserted: a thirteenth entry is a diff against a
+#: stated number rather than a line appended to a growing list. The three
+#: admin sign-in routes moved it from eight, and the app sign-in's second
+#: step to twelve [0028].
 #:
 #: The number read "five" over a six-entry set until 2026-10-22 — the two
 #: deletion routes were added without it, so the stated count and the
@@ -79,6 +83,23 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/health"),
         ("GET", "/account-deletion"),
         ("POST", "/account-deletion"),
+        # Platform administrator sign-in [0028]. Unauthenticated because
+        # a person signing in has nothing to authenticate with yet, but
+        # NOT reachable by anyone: every one of them depends on
+        # `admin_gate`, which refuses a request that did not come
+        # through the admin hostname's distribution (its secret header)
+        # from an allowed network. The SMS step texts only allowlisted
+        # numbers and answers every number identically; the code it
+        # sends reaches only the authenticator step, which grants
+        # nothing until a second factor is typed.
+        ("POST", "/v1/admin/auth/otp"),
+        ("POST", "/v1/admin/auth/verify"),
+        ("POST", "/v1/admin/auth/mfa"),
+        # The app sign-in's second step [0028], public on `/verify`'s
+        # reasoning: the person has no token yet. It is bounded by its
+        # challenge, which only a verified SMS code yields, and by the
+        # shared factor's lock after five wrong codes.
+        ("POST", "/v1/auth/mfa"),
         # Staging only, and absent entirely in production -- the router
         # is not registered unless the environment permits it. It is
         # public because it must work before anyone can authenticate,
@@ -196,6 +217,47 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # salary lines paying the authenticated account, through its own
         # live memberships, in the query that reads them.
         ("GET", "/v1/me/pay"),
+        # The help centre [0027], exempt on the inbox's reasoning above
+        # and no wider. All four act on the authenticated account's own
+        # tickets, each statement scoped by that account id in SQL, so a
+        # ticket id belonging to someone else answers the same 404 as
+        # one that does not exist. Requiring a lens would lock out the
+        # account holding none -- signed up, never enrolled, owning no
+        # batch -- which is the person most likely to need help.
+        ("GET", "/v1/me/help/tickets"),
+        ("POST", "/v1/me/help/tickets"),
+        ("GET", "/v1/me/help/tickets/{ticket_id}"),
+        ("POST", "/v1/me/help/tickets/{ticket_id}/messages"),
+        # Two-step verification settings [0028], exempt on GET /v1/me's
+        # reasoning: each acts on the authenticated account's own factor
+        # and reads nothing another account owns, and requiring a lens
+        # would stop a person who holds none from protecting themselves.
+        # Turning it off and renewing recovery codes each also demand a
+        # code from the factor itself, not just the session.
+        ("GET", "/v1/me/mfa"),
+        ("POST", "/v1/me/mfa/setup"),
+        ("POST", "/v1/me/mfa/confirm"),
+        ("POST", "/v1/me/mfa/disable"),
+        ("POST", "/v1/me/mfa/recovery-codes"),
+    }
+)
+
+#: Every route a :class:`~app.authz.lenses.PlatformAdminLens` reaches,
+#: and exactly those [TC-14, D-6]. Asserted in both directions by
+#: ``tests/contract/test_admin_routes.py``: a route taking the lens that
+#: is not listed fails, and so does a ``/v1/admin`` route that does not
+#: take it. The administrator boundary is the most consequential privacy
+#: line after the teacher one, so a new route crossing it is a diff
+#: against this set rather than a handler that quietly appeared.
+PLATFORM_ADMIN_ROUTES: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("GET", "/v1/admin/overview"),
+        ("GET", "/v1/admin/teachers"),
+        ("GET", "/v1/admin/help/requesters"),
+        ("GET", "/v1/admin/help/tickets"),
+        ("GET", "/v1/admin/help/tickets/{ticket_id}"),
+        ("POST", "/v1/admin/help/tickets/{ticket_id}/messages"),
+        ("PUT", "/v1/admin/help/tickets/{ticket_id}/status"),
     }
 )
 
@@ -340,6 +402,32 @@ def class_teacher_routes(app: FastAPI) -> set[tuple[str, str]]:
         """
         lens = resolve_lens_type(dependant.call) if dependant.call else None
         if lens is not None and issubclass(lens, ClassTeacherLens | ExaminerLens):
+            return True
+        return any(yields(sub) for sub in dependant.dependencies)
+
+    found: set[tuple[str, str]] = set()
+    for route in _api_routes(app):
+        if yields(route.dependant):
+            found.update((method, route.path) for method in route.methods or set())
+    return found
+
+
+def platform_admin_routes(app: FastAPI) -> set[tuple[str, str]]:
+    """List every route whose dependencies yield a platform admin lens.
+
+    :param app: The application to enumerate
+    :return: ``(method, path)`` per such route
+    """
+    from app.authz.lenses import PlatformAdminLens
+
+    def yields(dependant: Dependant) -> bool:
+        """Report whether this dependency tree yields the admin lens.
+
+        :param dependant: The dependency node
+        :return: True if any node returns a ``PlatformAdminLens``
+        """
+        lens = resolve_lens_type(dependant.call) if dependant.call else None
+        if lens is not None and issubclass(lens, PlatformAdminLens):
             return True
         return any(yields(sub) for sub in dependant.dependencies)
 

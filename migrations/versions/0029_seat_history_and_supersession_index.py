@@ -1,7 +1,7 @@
 """Keep a seat's history on removal; index the supersession link.
 
-Revision ID: 0027
-Revises: 0026
+Revision ID: 0029
+Revises: 0028
 Create Date: 2026-11-07
 
 * **``enrollment_keeps_history``**, a ``BEFORE DELETE`` trigger on
@@ -32,8 +32,8 @@ from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "0027"
-down_revision: str | None = "0026"
+revision: str = "0029"
+down_revision: str | None = "0028"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

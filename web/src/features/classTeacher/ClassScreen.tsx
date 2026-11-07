@@ -43,7 +43,7 @@ function RosterForm({
       })
       onSaved()
     } catch (e) {
-      setFailure(e instanceof ApiError ? message(e.messageKey) : t('error_unexpected'))
+      setFailure(e instanceof ApiError ? message(e.messageKey, e.details) : t('error_unexpected'))
     } finally {
       setBusy(false)
     }
@@ -135,7 +135,7 @@ function TopicForm({
       setVersion(written.topic_version)
       onSaved()
     } catch (e) {
-      setFailure(e instanceof ApiError ? message(e.messageKey) : t('error_unexpected'))
+      setFailure(e instanceof ApiError ? message(e.messageKey, e.details) : t('error_unexpected'))
     } finally {
       setBusy(false)
     }

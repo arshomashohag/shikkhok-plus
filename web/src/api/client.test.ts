@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { request, revokeSession } from './client'
 import { ApiError } from './errors'
 import { clearTokens, readTokens, saveTokens } from './tokens'
+import { clientVersion } from './platform'
 
 type Handler = (url: string, init: RequestInit) => Response | Promise<Response>
 
@@ -172,5 +173,44 @@ describe('revokeSession [audit C-21]', () => {
       throw new TypeError('Failed to fetch')
     })
     await expect(revokeSession('t')).resolves.toBeUndefined()
+  })
+})
+
+// The server records which app an account uses from these two headers at
+// sign-in and renewal; sending them on every call keeps that simple.
+describe('client platform headers', () => {
+  const header = (init: RequestInit, name: string) => (init.headers as Record<string, string>)[name]
+
+  it('sends the platform and version on every request, signed in or not', async () => {
+    mockFetch(() => json(200, {}))
+    await request('POST', '/v1/auth/verify', { anonymous: true, body: {} })
+    saveTokens({ access_token: 'A1', refresh_token: 'R1', expires_in: 900 })
+    await request('GET', '/v1/me')
+    for (const call of calls) {
+      expect(header(call.init, 'X-Client-Platform')).toBe('web')
+      expect(header(call.init, 'X-Client-Version')).toBe(__APP_VERSION__)
+    }
+    expect(__APP_VERSION__).toMatch(/^[0-9A-Za-z.+-]{1,32}$/)
+  })
+
+  it('sends them on a token renewal too', async () => {
+    saveTokens({ access_token: 'A1', refresh_token: 'R1', expires_in: 1 })
+    mockFetch((url) =>
+      url.endsWith('/v1/auth/refresh')
+        ? json(200, { access_token: 'A2', refresh_token: 'R2', expires_in: 900 })
+        : json(200, {}),
+    )
+    await request('GET', '/v1/me')
+    const refresh = calls.find((c) => c.url.endsWith('/v1/auth/refresh'))!
+    expect(header(refresh.init, 'X-Client-Platform')).toBe('web')
+    expect(header(refresh.init, 'X-Client-Version')).toBe(__APP_VERSION__)
+  })
+
+  it('keeps the version inside the charset and length the server accepts', () => {
+    expect(clientVersion('0.1.0')).toBe('0.1.0')
+    expect(clientVersion('1.2.3-beta+exp.sha.5114f85')).toBe('1.2.3-beta+exp.sha.5114f85')
+    expect(clientVersion('1.0 (build 7)/x')).toBe('1.0build7x')
+    expect(clientVersion('9'.repeat(40))).toHaveLength(32)
+    expect(clientVersion('///')).toBe('0')
   })
 })

@@ -394,11 +394,28 @@ data "aws_iam_policy_document" "ci_state" {
   }
 
   # **The app's own buckets**, which the main module creates and owns:
-  # the config bucket (the compose file the host fetches at boot) and
-  # the web bucket (the built web client CloudFront serves under /ui/).
-  # Scoped by THIS environment's name prefix. The Get* actions are how
-  # Terraform reads a bucket back to detect drift; the Delete* actions
-  # are what `terraform destroy` needs.
+  # the config bucket (the compose file the host fetches at boot), the
+  # web bucket (the built web client CloudFront serves under /ui/), the
+  # site bucket (the public site, modules/site) and the admin bucket (the
+  # platform admin UI, modules/admin).
+  #
+  # Scoped by THIS environment's name prefix [C-09]: this role can create
+  # and destroy `shikkhokplus-<env>-config-*`, `-web-*`, `-site-*` and
+  # `-admin-*` and nothing else, so it cannot touch the state bucket's
+  # siblings, the other environment's buckets, or another project's data.
+  # It writes no object into the web, site or admin bucket -- the deploy
+  # role uploads those builds.
+  #
+  # The site's and the admin surface's other resources -- distributions,
+  # certificates, cache and headers policies, CloudFront Functions, alias
+  # records and SSM parameters (the admin edge secret included) -- are
+  # covered by the infrastructure policy below.
+  #
+  # Both halves are needed and neither is obvious from the create
+  # alone: the Get* actions are how Terraform reads a bucket back to
+  # detect drift, and without them a second apply fails on a bucket
+  # the first one made. The Delete* actions are what `terraform
+  # destroy` needs.
   statement {
     sid    = "ConfigBucket"
     effect = "Allow"
@@ -431,6 +448,8 @@ data "aws_iam_policy_document" "ci_state" {
     resources = [
       "arn:aws:s3:::shikkhokplus-${each.key}-*config-*",
       "arn:aws:s3:::shikkhokplus-${each.key}-web-*",
+      "arn:aws:s3:::shikkhokplus-${each.key}-site-*",
+      "arn:aws:s3:::shikkhokplus-${each.key}-admin-*",
     ]
   }
 

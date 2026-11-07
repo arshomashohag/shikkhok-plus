@@ -54,6 +54,7 @@ __all__ = [
     "FALLBACK_BUCKET",
     "TRUSTED_CLIENT_IP_HEADER_ENV",
     "address_prefix",
+    "client_address",
     "client_coarse_prefix",
     "client_prefix",
     "coarse_address_prefix",
@@ -157,3 +158,17 @@ def _client_address(request: Request) -> str | None:
     if header:
         return request.headers.get(header)
     return request.client.host if request.client else None
+
+
+def client_address(request: Request) -> str | None:
+    """Return the verified client address itself, not its bucket.
+
+    The same trust rule as :func:`client_prefix`: with the trusted header
+    configured only that header is read, so a caller cannot choose the
+    address an allowlist is checked against.
+
+    :param request: The incoming request
+    :return: The address, or None when none was supplied
+    """
+    value = _client_address(request)
+    return value.strip() if value else None

@@ -494,3 +494,28 @@ jobs:
             || echo "::warning::npm audit found issues in packages the web client SHIPS. These block the release gate."
           npm audit --audit-level=high \
             || echo "::warning::npm audit found high or critical issues in the web build toolchain."
+
+  site:
+    name: site
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # The public site (site/). Its own job for the same reason as the
+    # others: a copy change never waits on a Kotlin or backend build. No
+    # npm cache and no audit step -- it has no dependencies to fetch or
+    # audit.
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: make site
+        run: make site
+
+      # The CloudFront Functions behind the admin hostname's IP allowlist
+      # and the API host's /v1/admin* refusal (infra/modules/*/functions).
+      # Here because this job already has Node and nothing to install:
+      # node:test, zero dependencies, a second or two.
+      - name: make infra-functions
+        run: make infra-functions
