@@ -1683,4 +1683,32 @@
     <string name="summary_basis">Money that actually came in and went out, by the day it moved.</string>
     <string name="money_open_expenses">Expenses</string>
     <string name="money_open_summary">Summary</string>
+    <!-- The help centre: a signed-in person's own questions to ShikkhokPlus
+         support. A reply is signed "ShikkhokPlus support" and never names
+         the person who wrote it. -->
+    <string name="help_ticket_not_found">This question is no longer available.</string>
+    <string name="help_ticket_too_many">You have reached the limit for new questions for now. Try again later, or add to a question you already asked.</string>
+    <string name="more_help">Help centre</string>
+    <string name="more_help_sub">Ask ShikkhokPlus support a question</string>
+    <string name="help_title">Help centre</string>
+    <string name="help_my_questions">My questions</string>
+    <string name="help_ask">Ask a question</string>
+    <string name="help_empty_title">No questions yet</string>
+    <string name="help_empty_body">Ask ShikkhokPlus support anything about the app. Their replies appear here.</string>
+    <string name="help_status_open">With support</string>
+    <string name="help_status_answered">Answered</string>
+    <string name="help_status_closed">Closed</string>
+    <string name="help_new_reply">New reply</string>
+    <string name="help_subject_label">Subject</string>
+    <string name="help_subject_placeholder">In a few words, what is it about?</string>
+    <string name="help_body_label">Your question</string>
+    <string name="help_privacy_hint">Please don\'t include children\'s personal details such as phone numbers or addresses.</string>
+    <string name="help_char_count">%1$s / %2$s</string>
+    <string name="help_send">Send</string>
+    <string name="help_sending">Sending…</string>
+    <string name="help_thread_title">Question</string>
+    <string name="help_from_support">ShikkhokPlus support</string>
+    <string name="help_from_you">You</string>
+    <string name="help_closed_notice">This question is closed. Replying will reopen it.</string>
+    <string name="help_reply_label">Reply</string>
 </resources>

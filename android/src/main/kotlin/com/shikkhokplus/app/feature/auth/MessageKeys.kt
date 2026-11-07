@@ -333,6 +333,10 @@ object MessageKeys {
         // be cancelled [0019].
         "marks.exam.cancelled" to R.string.marks_exam_cancelled,
         "marks.exam.published" to R.string.marks_exam_published,
+        // The help centre: another account's question reads as not
+        // found, and the daily limit on new questions is a 409.
+        "help.ticket.not_found" to R.string.help_ticket_not_found,
+        "help.ticket.too_many" to R.string.help_ticket_too_many,
         // D6: the one deletion refusal that is NOT contentless. Every
         // other refusal on the deletion path discloses nothing, because
         // a stranger could be asking; this one is reached only after

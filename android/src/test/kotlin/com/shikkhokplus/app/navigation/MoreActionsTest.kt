@@ -147,4 +147,17 @@ class MoreActionsTest {
             routes,
         )
     }
+
+    @Test
+    fun `every lens, and a person with none, gets the Help centre`() {
+        // Asking for help needs no role: the server reads the account's
+        // own questions with no lens and no workspace.
+        listOf(Lens.TEACHER, Lens.CLASS_TEACHER, Lens.STUDENT, Lens.GUARDIAN, null).forEach { lens ->
+            val (actions, routes) = opened(lens)
+
+            assertNotNull(actions.onHelp, "$lens has no Help centre").invoke()
+
+            assertEquals(listOf(Destination.HelpCentre.route), routes, "$lens")
+        }
+    }
 }

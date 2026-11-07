@@ -1628,4 +1628,31 @@
     <string name="summary_basis">যেদিন টাকা এসেছে বা গেছে, সেই হিসাবে।</string>
     <string name="money_open_expenses">খরচ</string>
     <string name="money_open_summary">সারসংক্ষেপ</string>
+    <!-- সাহায্য কেন্দ্র: শিক্ষকপ্লাস সাপোর্টের কাছে নিজের প্রশ্ন। উত্তরে
+         "শিক্ষকপ্লাস সাপোর্ট" লেখা থাকে, যিনি লিখেছেন তার নাম কখনও নয়। -->
+    <string name="help_ticket_not_found">এই প্রশ্নটি আর পাওয়া যাচ্ছে না।</string>
+    <string name="help_ticket_too_many">এখনকার মতো নতুন প্রশ্নের সীমা পূর্ণ হয়েছে। পরে আবার চেষ্টা করুন, অথবা আগের কোনো প্রশ্নে লিখুন।</string>
+    <string name="more_help">সাহায্য কেন্দ্র</string>
+    <string name="more_help_sub">শিক্ষকপ্লাস সাপোর্টকে প্রশ্ন করুন</string>
+    <string name="help_title">সাহায্য কেন্দ্র</string>
+    <string name="help_my_questions">আমার প্রশ্ন</string>
+    <string name="help_ask">প্রশ্ন করুন</string>
+    <string name="help_empty_title">এখনও কোনো প্রশ্ন নেই</string>
+    <string name="help_empty_body">অ্যাপ নিয়ে যেকোনো কিছু শিক্ষকপ্লাস সাপোর্টকে জিজ্ঞেস করুন। তাদের উত্তর এখানে দেখা যাবে।</string>
+    <string name="help_status_open">সাপোর্টের কাছে আছে</string>
+    <string name="help_status_answered">উত্তর দেওয়া হয়েছে</string>
+    <string name="help_status_closed">বন্ধ</string>
+    <string name="help_new_reply">নতুন উত্তর</string>
+    <string name="help_subject_label">বিষয়</string>
+    <string name="help_subject_placeholder">কয়েক কথায়, প্রশ্নটি কী নিয়ে?</string>
+    <string name="help_body_label">আপনার প্রশ্ন</string>
+    <string name="help_privacy_hint">অনুগ্রহ করে শিশুদের ব্যক্তিগত তথ্য, যেমন ফোন নম্বর বা ঠিকানা, লিখবেন না।</string>
+    <string name="help_char_count">%1$s / %2$s</string>
+    <string name="help_send">পাঠান</string>
+    <string name="help_sending">পাঠানো হচ্ছে…</string>
+    <string name="help_thread_title">প্রশ্ন</string>
+    <string name="help_from_support">শিক্ষকপ্লাস সাপোর্ট</string>
+    <string name="help_from_you">আপনি</string>
+    <string name="help_closed_notice">এই প্রশ্নটি বন্ধ করা হয়েছে। উত্তর লিখলে এটি আবার খুলবে।</string>
+    <string name="help_reply_label">উত্তর লিখুন</string>
 </resources>

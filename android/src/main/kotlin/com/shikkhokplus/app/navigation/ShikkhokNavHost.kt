@@ -729,6 +729,7 @@ private fun ShikkhokGraph(
         }
 
         profileRoutes(client, navController, session.lens, session.settings)
+        helpRoutes(client, navController)
 
         composable(Destination.PaymentMethods.route) {
             val model: PaymentMethodsViewModel =
@@ -848,7 +849,8 @@ internal fun writeError(write: WriteState): String? =
  * where students pay and the money reports (T9); a student gets their
  * invitations (S4); a guardian gets invitations and their children
  * (G4). A lens-free person has invitations as their home tab already,
- * so More offers them nothing extra.
+ * so More offers them nothing extra. **Every lens, a lens-free person
+ * included, gets the Help centre**: asking for help needs no role.
  *
  * Internal rather than private so a test can hold each lens to its rows.
  *
@@ -861,10 +863,11 @@ internal fun moreActionsFor(
     lens: Lens?,
     base: MoreActions,
     navigate: (String) -> Unit,
-): MoreActions =
-    when (lens) {
+): MoreActions {
+    val rows = base.copy(onHelp = { navigate(Destination.HelpCentre.route) })
+    return when (lens) {
         Lens.TEACHER ->
-            base.copy(
+            rows.copy(
                 onPaymentMethods = { navigate(Destination.PaymentMethods.route) },
                 onCollections = { navigate(Destination.Collections.route) },
                 onExpenses = { navigate(Destination.Expenses.route) },
@@ -877,15 +880,16 @@ internal fun moreActionsFor(
                 onCentrePayroll = centreOpener(base, Destination.CentrePayroll.route, navigate),
             )
         // A centre teacher can still accept another centre's offer.
-        Lens.CLASS_TEACHER -> base.copy(onCentreOffers = { navigate(Destination.CentreOffers.route) })
-        Lens.STUDENT -> base.copy(onInvitations = { navigate(Destination.Invitations.route) })
+        Lens.CLASS_TEACHER -> rows.copy(onCentreOffers = { navigate(Destination.CentreOffers.route) })
+        Lens.STUDENT -> rows.copy(onInvitations = { navigate(Destination.Invitations.route) })
         Lens.GUARDIAN ->
-            base.copy(
+            rows.copy(
                 onInvitations = { navigate(Destination.Invitations.route) },
                 onMyChildren = { navigate(Destination.MyChildren.route) },
             )
-        null -> base
+        null -> rows
     }
+}
 
 /**
  * Whether this lens is a student's or a guardian's.

@@ -132,6 +132,9 @@ class ContractConformanceTest {
             // The owner's spending and the month's money in and out.
             Contract("/v1/expenses", ExpenseMonthDto.serializer()),
             Contract("/v1/money/summary", MoneySummaryDto.serializer()),
+            // The reader's own help-centre questions, any role.
+            Contract("/v1/me/help/tickets", HelpTicketListDto.serializer()),
+            Contract("/v1/me/help/tickets/{ticket_id}", HelpTicketDetailDto.serializer()),
         )
 
     @Test

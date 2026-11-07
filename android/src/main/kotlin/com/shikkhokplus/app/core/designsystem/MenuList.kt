@@ -102,6 +102,15 @@ object MenuIcons {
     val Person: ImageVector =
         outline("Person", "M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0", "M4 21c0-4 4-6 8-6s8 2 8 6")
 
+    /** A question mark in a circle: the Help centre. */
+    val Help: ImageVector =
+        outline(
+            "Help",
+            "M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0",
+            "M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6",
+            "M12 17.5h.01",
+        )
+
     /** An X: closes a pushed form (Edit profile). */
     val Close: ImageVector = outline("Close", "M6 6l12 12M18 6L6 18")
 

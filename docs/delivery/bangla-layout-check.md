@@ -118,6 +118,20 @@ rather than editing the old one.
 | Record payment | Teacher's "Record payment" sheet (fee history), short amount showing carry-or-waive | `T5` | *not yet checked* | `fees_record_reference` (33) / `verify_carry_forward_body` | |
 | Exam cancel | "Cancel exam" confirmation on mark entry, and the Cancelled chip on the Exams tab | `T3`, `T7` | *not yet checked* | `exam_cancel_confirm_body` (102) | |
 | Inbox | Payment recorded and exam cancelled items, and the cancelled exam's detail | `S4`, `G4` | *not yet checked* | `marks_exam_published` (61) / `inbox_payment_recorded_body` (43) | |
+| Help centre | My questions (status labels, new-reply mark, empty state with Ask a question) and the More row | — | *not yet checked* | `help_empty_body` (88) / `help_status_answered` (19) beside `help_new_reply` (10) | |
+| Help centre | Ask a question (privacy hint, subject and question with counters, failed-send banner) | — | *not yet checked* | `help_ticket_too_many` (95) / `help_privacy_hint` (72) | |
+| Help centre | Question thread (bubbles signed `help_from_support`, closed notice, reply box) | — | *not yet checked* | `help_closed_notice` (56) / `help_from_support` (19) | |
+
+**The three help-centre rows (2026-11-07) are open on the same terms**:
+nothing automated discharges them; the Robolectric screen tests assert
+what each state renders in English and say nothing about Bangla layout.
+The row to watch is My questions: each question's status label sits on
+one line beside the bold "new reply" mark, so `help_status_answered`
+(19) and `help_new_reply` (10) together must stay readable at a large
+font scale. On Ask a question, `help_ticket_too_many` (95) lands as an
+error banner between the question field and Send, so check it does not
+push Send below the fold with the keyboard open. Lengths computed from
+`values-bn/strings.xml` with the snippet above.
 
 **D4's seven rows are open, and nothing automated discharges them.**
 The obligation is a check on a device in Bangla locale [team: Testing
