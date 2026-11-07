@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Release (and every non-debug) build: no plaintext HTTP to any host [L-21].
+
+  At this targetSdk the platform already refuses cleartext by default;
+  stating it here makes the rule a file the build ships rather than a
+  default a future attribute could flip. ApiClient refuses a non-https
+  base URL in code as well, so the two checks fail independently.
+
+  The debug build replaces this file with src/debug/res/xml/
+  network_security_config.xml, which permits plaintext to the loopback
+  hosts the local backend runs on and nothing else.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

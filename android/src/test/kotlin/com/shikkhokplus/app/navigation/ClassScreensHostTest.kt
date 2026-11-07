@@ -19,6 +19,7 @@ import com.shikkhokplus.app.core.network.ApiClient
 import com.shikkhokplus.app.core.network.MonthViewDto
 import com.shikkhokplus.app.core.network.TokenStore
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.queue.TestQueueCipher
 import com.shikkhokplus.app.feature.auth.AuthResult
 import com.shikkhokplus.app.feature.batchdetail.ui.ClassesTab
 import com.shikkhokplus.app.feature.classcalendar.ClassCalendarRepository
@@ -137,7 +138,7 @@ class ClassScreensHostTest {
         return calendar
     }
 
-    private fun queue() = QueueStore(File(folder.root, QueueStore.FILE_NAME))
+    private fun queue() = QueueStore(File(folder.root, QueueStore.FILE_NAME), TestQueueCipher)
 
     private fun open() {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(day).fetchSemanticsNodes().isNotEmpty() }

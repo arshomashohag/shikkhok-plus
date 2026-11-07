@@ -79,7 +79,7 @@ class QueuedWriteTopicTest {
 
     @Test
     fun `the sync records why a topic was refused`() = runTest {
-        val store = QueueStore(File(folder.root, QueueStore.FILE_NAME))
+        val store = QueueStore(File(folder.root, QueueStore.FILE_NAME), TestQueueCipher)
         store.enqueue(QueuedWrite.topic("s-1", 4, "Friction", plan = true))
         val refusal =
             SendOutcome.Conflicted(

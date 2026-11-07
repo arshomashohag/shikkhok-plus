@@ -20,7 +20,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.ZeroCornerSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -253,19 +255,20 @@ private fun Loaded(state: DuesUiState.Loaded, actions: DuesActions) {
         )
     }
     RemindOutcome(state.remind, state.summary.remindable, actions)
-    LazyColumn(
-        modifier = Modifier.testTag(TAG_DUES_LIST),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    // **No `spacedBy` on this list** [L-25]. Each dues row is its own
+    // lazy item so a long list composes only what is on screen, and a
+    // uniform gap would split a group's card into separate rows. The gap
+    // the arrangement gave is written on the items that had it instead.
+    LazyColumn(modifier = Modifier.testTag(TAG_DUES_LIST)) {
         item { SummaryCard(state.summary) }
-        item { Filters(state, actions) }
+        item { Box(Modifier.padding(top = ITEM_GAP)) { Filters(state, actions) } }
         if (state.rows.isEmpty()) {
             item {
                 Text(
                     stringResource(R.string.dues_filter_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 16.dp),
+                    modifier = Modifier.padding(top = ITEM_GAP + 16.dp, bottom = 16.dp),
                 )
             }
         }
@@ -273,12 +276,21 @@ private fun Loaded(state: DuesUiState.Loaded, actions: DuesActions) {
             val rows = state.rows.filter { it.group == group.kind }
             if (rows.isNotEmpty()) groupSection(group, rows)
         }
-        item { Box(Modifier.height(16.dp)) }
+        item { Box(Modifier.height(ITEM_GAP + 16.dp)) }
     }
 }
 
+/** The space between the list's blocks. */
+private val ITEM_GAP = 8.dp
+
 /**
  * One group: its heading and total, then its rows in one card.
+ *
+ * **One lazy item per row, keyed by its seat**, so a group of two
+ * hundred students composes the dozen on screen rather than all of them
+ * at once, and a row keeps its place when the list reloads. Each row
+ * draws its own slice of the card: rounded at the top for the first,
+ * at the bottom for the last.
  *
  * @param group The group's total
  * @param rows Its rows, in the server's order
@@ -286,7 +298,7 @@ private fun Loaded(state: DuesUiState.Loaded, actions: DuesActions) {
 private fun LazyListScope.groupSection(group: DuesGroupTotal, rows: List<DuesRow>) {
     item(key = "group-${group.kind}") {
         Row(
-            Modifier.fillMaxWidth().padding(top = 6.dp).testTag(TAG_DUES_GROUP),
+            Modifier.fillMaxWidth().padding(top = ITEM_GAP + 6.dp).testTag(TAG_DUES_GROUP),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
@@ -298,17 +310,28 @@ private fun LazyListScope.groupSection(group: DuesGroupTotal, rows: List<DuesRow
             Text(Numerals.money(group.total), style = GroupHeading, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-    item(key = "rows-${group.kind}") {
-        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.medium)) {
-            rows.forEachIndexed { index, row ->
-                if (index > 0) {
-                    HorizontalDivider(
-                        Modifier.padding(start = 16.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    )
-                }
-                DuesRowItem(row)
+    itemsIndexed(rows, key = { _, row -> "row-${group.kind}-${row.enrollmentId}" }) { index, row ->
+        val card = MaterialTheme.shapes.medium
+        val shape =
+            card.copy(
+                topStart = if (index == 0) card.topStart else ZeroCornerSize,
+                topEnd = if (index == 0) card.topEnd else ZeroCornerSize,
+                bottomStart = if (index == rows.lastIndex) card.bottomStart else ZeroCornerSize,
+                bottomEnd = if (index == rows.lastIndex) card.bottomEnd else ZeroCornerSize,
+            )
+        Column(
+            Modifier
+                .padding(top = if (index == 0) ITEM_GAP else 0.dp)
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface, shape),
+        ) {
+            if (index > 0) {
+                HorizontalDivider(
+                    Modifier.padding(start = 16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                )
             }
+            DuesRowItem(row)
         }
     }
 }

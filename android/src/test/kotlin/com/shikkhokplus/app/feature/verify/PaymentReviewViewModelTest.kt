@@ -87,6 +87,40 @@ class PaymentReviewViewModelTest {
         PaymentReviewViewModel(fake).also { it.load("s-1") }
 
     @Test
+    fun `reopening the same payment after a rotation keeps the open sheet and reads nothing`() = runTest(dispatcher) {
+        // L-20: the route's LaunchedEffect runs again on recreation while
+        // the ViewModel survives; a re-read reset the screen and the sheet.
+        val fake = Fake(ok(review(comparison = "short", total = "1500.00", difference = "500.00")))
+        val model = opened(fake)
+        advanceUntilIdle()
+        model.openSheet("paid in two parts")
+
+        model.load("s-1")
+        advanceUntilIdle()
+
+        assertEquals(1, fake.reads)
+        assertIs<ReviewUiState.Loaded>(model.state.value)
+        assertEquals("paid in two parts", model.sheet.value?.note)
+    }
+
+    @Test
+    fun `a failed load is read again when the screen returns, and retry always reads`() = runTest(dispatcher) {
+        val fake = Fake(AuthResult.TransportFailure)
+        val model = opened(fake)
+        advanceUntilIdle()
+        assertIs<ReviewUiState.Failed>(model.state.value)
+
+        fake.detail = ok(review())
+        model.load("s-1")
+        advanceUntilIdle()
+        assertIs<ReviewUiState.Loaded>(model.state.value)
+
+        model.retry()
+        advanceUntilIdle()
+        assertEquals(3, fake.reads)
+    }
+
+    @Test
     fun `exact amount shows only approve`() = runTest(dispatcher) {
         val fake = Fake(ok(review()))
         val model = opened(fake)

@@ -30,7 +30,7 @@ class QueueOwnershipTest {
     private val file: File
         get() = File(folder.root, QueueStore.FILE_NAME)
 
-    private fun store(): QueueStore = QueueStore(file, currentAccount = { signedIn })
+    private fun store(): QueueStore = QueueStore(file, TestQueueCipher, currentAccount = { signedIn })
 
     private fun roster(sessionId: String): QueuedWrite =
         QueuedWrite.attendance(
@@ -153,7 +153,7 @@ class QueueOwnershipTest {
 
         signedIn = null
         assertEquals(1, store().read().size, "nobody signed in adopts nothing")
-        assertTrue(file.readText().contains("\"version\":1"), "and the file is left as it was")
+        assertTrue(file.readText().contains("\"version\":1"), "and the file keeps its old version")
 
         signedIn = ACCOUNT_A
         assertEquals(listOf(ACCOUNT_A), store().read().map { it.accountId })
