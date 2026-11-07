@@ -437,3 +437,10 @@ jobs:
 
       - name: make site
         run: make site
+
+      # The CloudFront Functions behind the admin hostname's IP allowlist
+      # and the API host's /v1/admin* refusal (infra/modules/*/functions).
+      # Here because this job already has Node and nothing to install:
+      # node:test, zero dependencies, a second or two.
+      - name: make infra-functions
+        run: make infra-functions

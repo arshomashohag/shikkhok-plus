@@ -10,9 +10,9 @@
 
 PY ?= python3
 
-.PHONY: check format lint typecheck test gates contract openapi install clean android lock audit android-quality web web-dev site
+.PHONY: check format lint typecheck test gates contract openapi install clean android lock audit android-quality web web-dev site infra-functions
 
-check: lint typecheck test android android-quality web site
+check: lint typecheck test android android-quality web site infra-functions
 	@echo ""
 	@echo "All gates passed."
 
@@ -32,6 +32,14 @@ web:
 ## localhost (preview with `python3 -m http.server 8080 -d site/dist`).
 site:
 	cd site && npm run check
+
+## The CloudFront Functions that carry security decisions -- the admin
+## host's IP allowlist and the API host's /v1/admin* refusal -- run as
+## written, the template rendered as Terraform renders it. node:test, zero
+## dependencies, so nothing to install. A glob rather than a directory:
+## Node 22's --test does not search a directory argument.
+infra-functions:
+	node --test 'infra/modules/*/functions/*.test.mjs'
 
 ## Run the web client against a local API on :8000 (`make up` first).
 web-dev:

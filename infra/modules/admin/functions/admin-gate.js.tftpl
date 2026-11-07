@@ -1,0 +1,149 @@
+// Viewer-request function for BOTH behaviours of the admin distribution.
+//
+// A behaviour takes exactly one viewer-request function, so the one
+// function does everything, in this order:
+//
+//   1. **The IP allowlist, first and on every path.** The viewer's address
+//      as CloudFront saw it (event.viewer.ip, not a header anyone can set)
+//      must fall inside one of the CIDRs Terraform rendered below, or the
+//      answer is 403 and nothing reaches the bucket or the API. The check
+//      runs before the cache is consulted, so a cached admin page is never
+//      served to a viewer outside the list either.
+//
+//      **IPv4 only, deliberately.** The distribution has IPv6 turned off
+//      and its DNS name has no AAAA record, so every viewer arrives over
+//      IPv4 and the list never has to express an IPv6 prefix. An address
+//      that does not parse as a dotted quad -- which includes any IPv6
+//      address, should one ever arrive -- is refused.
+//
+//      **An empty list lets nobody in.** Fail closed: forgetting to set the
+//      allowlist must look like an outage to the operator, never like an
+//      open admin surface to everyone else.
+//
+//   2. **A viewer-supplied X-Admin-Edge is dropped.** The distribution sets
+//      that header as a custom origin header on the API behaviour, and
+//      CloudFront overwrites a viewer header of the same name with the
+//      configured value anyway -- so this is defence in depth, not the
+//      control: a stray guess never even reaches the origin.
+//
+//   3. **/v1/admin/... passes through untouched**: that path pattern is the
+//      API behaviour. Any other /v1/ path is answered 404 here, because
+//      this host serves the admin API and nothing else of the API; without
+//      this it would fall to the bucket and come back as S3's 403 XML.
+//
+//   4. **SPA fallback for everything else.** The admin UI is a single-page
+//      app: /teachers, /help/tickets/<id> and every other screen are routes
+//      inside index.html, not objects in the bucket, which would answer
+//      them 403. A path whose last segment has no dot is served
+//      /index.html; a path with a dot is a real file and goes to S3
+//      unchanged, so a missing asset is still an error rather than a page.
+//
+// cloudfront-js-2.0 runtime, kept to what it supports. This is a Terraform
+// template: the one placeholder is the JSON array of CIDR strings, and the
+// file must contain no other dollar-brace or percent-brace sequence.
+// Tested by admin-gate.test.mjs beside it (`make infra-functions`).
+
+var ALLOWED = ${allowed_cidrs_json};
+
+// Dotted quad -> unsigned 32-bit integer, or -1 when it is not one.
+function parseIPv4(text) {
+  if (typeof text !== 'string') {
+    return -1;
+  }
+  var parts = text.split('.');
+  if (parts.length !== 4) {
+    return -1;
+  }
+  var value = 0;
+  for (var i = 0; i < 4; i++) {
+    var part = parts[i];
+    if (!/^[0-9]{1,3}$/.test(part)) {
+      return -1;
+    }
+    var octet = parseInt(part, 10);
+    if (octet > 255) {
+      return -1;
+    }
+    value = value * 256 + octet;
+  }
+  return value >>> 0;
+}
+
+// "a.b.c.d/n" -> { network, mask }, both unsigned, or null when malformed.
+// A /0 masks with 0: JavaScript shifts by the count modulo 32, so
+// 0xffffffff << 32 is 0xffffffff, not 0, and must not be computed.
+function parseCidr(text) {
+  var slash = text.indexOf('/');
+  if (slash === -1) {
+    return null;
+  }
+  var network = parseIPv4(text.substring(0, slash));
+  var bitsText = text.substring(slash + 1);
+  if (network === -1 || !/^[0-9]{1,2}$/.test(bitsText)) {
+    return null;
+  }
+  var bits = parseInt(bitsText, 10);
+  if (bits > 32) {
+    return null;
+  }
+  var mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+  return { network: (network & mask) >>> 0, mask: mask };
+}
+
+var RANGES = [];
+for (var r = 0; r < ALLOWED.length; r++) {
+  var range = parseCidr(ALLOWED[r]);
+  if (range !== null) {
+    RANGES.push(range);
+  }
+}
+
+function isAllowed(ip) {
+  var address = parseIPv4(ip);
+  if (address === -1) {
+    return false;
+  }
+  for (var i = 0; i < RANGES.length; i++) {
+    if (((address & RANGES[i].mask) >>> 0) === RANGES[i].network) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function plain(statusCode, statusDescription, text) {
+  return {
+    statusCode: statusCode,
+    statusDescription: statusDescription,
+    headers: {
+      'content-type': { value: 'text/plain; charset=utf-8' },
+      'cache-control': { value: 'no-store' },
+    },
+    body: { encoding: 'text', data: text },
+  };
+}
+
+function handler(event) {
+  var request = event.request;
+  var viewer = event.viewer || {};
+
+  if (!isAllowed(viewer.ip)) {
+    return plain(403, 'Forbidden', 'Not available from this network.\n');
+  }
+
+  delete request.headers['x-admin-edge'];
+
+  var uri = request.uri;
+  if (uri.indexOf('/v1/') === 0) {
+    if (uri.indexOf('/v1/admin/') === 0) {
+      return request;
+    }
+    return plain(404, 'Not Found', 'Not found.\n');
+  }
+
+  var last = uri.substring(uri.lastIndexOf('/') + 1);
+  if (last.indexOf('.') === -1) {
+    request.uri = '/index.html';
+  }
+  return request;
+}
