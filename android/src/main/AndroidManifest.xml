@@ -50,6 +50,10 @@
       targetSdk, allowBackup="false" leaves device-to-device transfer on.
       The rules exclude every domain from both paths; the file says why.
       fullBackupContent repeats the exclusions for Android 11 and lower.
+
+      localeConfig lists bn and en for the per-app language setting in
+      the phone's Settings on Android 13 and later; the in-app choice is
+      in Settings, see core/settings/AppLanguage.kt [C-39].
     -->
     <application
         android:label="@string/app_name"
@@ -61,7 +65,8 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:networkSecurityConfig="@xml/network_security_config"
-        tools:targetApi="31">
+        android:localeConfig="@xml/locales_config"
+        tools:targetApi="33">
 
         <activity
             android:name=".MainActivity"

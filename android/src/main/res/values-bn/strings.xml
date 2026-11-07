@@ -1239,12 +1239,15 @@
     <string name="settings_theme_light">লাইট</string>
     <string name="settings_theme_dark">ডার্ক</string>
     <string name="settings_same_as_phone">ফোনের মতো</string>
+    <string name="settings_section_language">ভাষা</string>
+    <string name="settings_language_bangla">বাংলা</string>
+    <string name="settings_language_english">English</string>
     <string name="settings_section_text">লেখার আকার</string>
     <string name="settings_text_large">বড়</string>
     <string name="settings_text_largest">সবচেয়ে বড়</string>
     <string name="more_section_app">অ্যাপ</string>
     <string name="more_settings">সেটিংস</string>
-    <string name="more_settings_sub">নোটিফিকেশন, থিম ও লেখার আকার</string>
+    <string name="more_settings_sub">ভাষা, নোটিফিকেশন, থিম ও লেখার আকার</string>
     <!-- Address in four parts (2026-11-05). -->
     <string name="address_house_label">বাসা বা ফ্ল্যাট</string>
     <string name="address_road_label">রোড ও এলাকা</string>

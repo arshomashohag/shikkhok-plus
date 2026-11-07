@@ -30,6 +30,7 @@ import com.shikkhokplus.app.core.designsystem.MenuDivider
 import com.shikkhokplus.app.core.designsystem.MenuSectionHeader
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.settings.AppSettings
+import com.shikkhokplus.app.core.settings.LanguageChoice
 import com.shikkhokplus.app.core.settings.TextSizeChoice
 import com.shikkhokplus.app.core.settings.ThemeChoice
 
@@ -45,12 +46,16 @@ const val TAG_SETTINGS_THEME: String = "settings_theme_"
 /** One text-size option, suffixed with the choice's name. */
 const val TAG_SETTINGS_TEXT: String = "settings_text_"
 
+/** One language option, suffixed with the choice's name. */
+const val TAG_SETTINGS_LANGUAGE: String = "settings_language_"
+
 /**
  * Settings, reached from More for every role.
  *
- * Three things this phone decides for itself: whether new messages show
- * in the notification tray, light or dark, and how large text is. Each
- * applies the moment it is chosen.
+ * Four things this phone decides for itself: the language, whether new
+ * messages show in the notification tray, light or dark, and how large
+ * text is. Each applies the moment it is chosen; a new language redraws
+ * the screen in it [C-39].
  *
  * @param settings What is set now
  * @param onChange Called with the settings after a change
@@ -59,6 +64,9 @@ const val TAG_SETTINGS_TEXT: String = "settings_text_"
  * @param supportPhone The support line, as the release build was given
  *   it, or null to draw no help row
  * @param onCallForHelp Called with the number to dial it
+ * @param language The language in effect, or null to draw no language
+ *   choice
+ * @param onLanguage Called with the language chosen
  */
 @Composable
 fun SettingsScreen(
@@ -68,8 +76,22 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     supportPhone: String? = null,
     onCallForHelp: (String) -> Unit = {},
+    language: LanguageChoice? = null,
+    onLanguage: (LanguageChoice) -> Unit = {},
 ) {
     ScreenScaffold(title = stringResource(R.string.settings_title), onBack = onBack, modifier = modifier) {
+        // First, because someone who cannot read the rest needs it most.
+        language?.let { current ->
+            Section(stringResource(R.string.settings_section_language)) {
+                Choices(
+                    options = LanguageChoice.entries,
+                    selected = current,
+                    label = { stringResource(languageLabel(it)) },
+                    tag = { TAG_SETTINGS_LANGUAGE + it.name },
+                    onSelect = { if (it != current) onLanguage(it) },
+                )
+            }
+        }
         Section(stringResource(R.string.settings_section_notifications)) {
             Row(
                 Modifier
@@ -190,6 +212,22 @@ private fun themeLabel(choice: ThemeChoice): Int =
         ThemeChoice.SYSTEM -> R.string.settings_same_as_phone
         ThemeChoice.LIGHT -> R.string.settings_theme_light
         ThemeChoice.DARK -> R.string.settings_theme_dark
+    }
+
+/**
+ * The words for a language choice.
+ *
+ * Each language is named in itself, in both bundles, so it can be found
+ * by someone who cannot read the language the app is in now.
+ *
+ * @param choice The choice
+ * @return Its string
+ */
+private fun languageLabel(choice: LanguageChoice): Int =
+    when (choice) {
+        LanguageChoice.SYSTEM -> R.string.settings_same_as_phone
+        LanguageChoice.BANGLA -> R.string.settings_language_bangla
+        LanguageChoice.ENGLISH -> R.string.settings_language_english
     }
 
 /**

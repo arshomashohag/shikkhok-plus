@@ -12,6 +12,7 @@ import com.shikkhokplus.app.core.offline.OfflineCopies
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.shikkhokplus.app.core.designsystem.TextScale
 import com.shikkhokplus.app.core.settings.SettingsHolder
+import com.shikkhokplus.app.core.settings.AppLanguage
 import com.shikkhokplus.app.core.settings.PreferencesSettingsStore
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -109,8 +110,16 @@ class MainActivity : ComponentActivity() {
         if (UnreadNotifier.wantsInbox(intent)) openInbox = true
     }
 
+    // **The chosen language, before Android 13** [C-39]. From 13 on the
+    // platform applies the per-app language itself and this is a no-op.
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // A fresh install opens in Bangla, once; see LanguageChoice.
+        AppLanguage.applyFirstLaunchDefault(this)
         openInbox = UnreadNotifier.opensInboxOnCreate(intent, savedInstanceState)
         // This phone's own preferences (Settings): theme, text size and
         // the tray notifications. Read before the first frame so the app

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The languages this app ships, for the per-app language setting
+  Android 13 and later offer in the phone's own Settings [C-39].
+
+  Bangla first, matching the product. Each entry must have a bundle:
+  values-bn/strings.xml for bn, and values/strings.xml, the default, for
+  en. A language listed here without a bundle would be offered and then
+  drawn in English.
+-->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="bn" />
+    <locale android:name="en" />
+</locale-config>
