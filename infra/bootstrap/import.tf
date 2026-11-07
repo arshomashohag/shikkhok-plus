@@ -13,7 +13,8 @@
 #
 #   1. terraform init
 #   2. terraform plan -var recover_existing=true
-#        -> "2 to import, 0 to add, 0 to change, 0 to destroy"
+#        -> "N to import, 0 to add, 0 to change, 0 to destroy", one
+#           import per target the blocks below name
 #      ANY "to add" or "to destroy" means the names below do not match
 #      what is actually in the account. STOP and read them.
 #   3. terraform apply -var recover_existing=true
@@ -29,10 +30,10 @@ import {
 }
 
 import {
-  for_each = var.recover_existing ? toset(["x"]) : toset([])
+  for_each = var.recover_existing ? local.infra_role_names : {}
 
-  to = aws_iam_role.ci
-  id = "shikkhokplus-github-actions"
+  to = aws_iam_role.ci[each.key]
+  id = each.value
 }
 
 # **No import block for the OIDC provider.** This module references an
