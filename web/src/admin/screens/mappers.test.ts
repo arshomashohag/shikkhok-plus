@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '../../api/errors'
 import { translate } from '../../i18n/i18n'
+import '../strings'
 import {
   filterWorkspaces,
   isNotAdmin,

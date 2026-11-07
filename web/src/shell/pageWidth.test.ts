@@ -25,8 +25,6 @@ describe('pageWidth', () => {
     ['/help', 'reading'],
     ['/help/new', 'form'],
     ['/help/t1', 'reading'],
-    ['/admin', 'full'],
-    ['/admin/help/tickets/t1', 'full'],
   ])('%s is %s', (path, width) => {
     expect(pageWidth(path)).toBe(width)
   })

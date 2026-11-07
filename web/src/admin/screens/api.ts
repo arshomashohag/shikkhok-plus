@@ -1,13 +1,14 @@
 /**
- * The platform administrators' API calls. The server answers them only
- * for an account on its administrator allowlist and refuses everyone
- * else with a 403; it also decides what an administrator may see, so
- * students and guardians arrive as counts or as a role and an opaque
- * reference, never by name or number [TC-14] [D-6].
+ * The platform administrators' API calls, on the admin host with the
+ * admin token (`../client.ts`). The server answers them only for an
+ * admin session, from an allowlisted number with a confirmed
+ * authenticator, and refuses everyone else; it also decides what an
+ * administrator may see, so students and guardians arrive as counts or
+ * as a role and an opaque reference, never by name or number [TC-14] [D-6].
  */
-import { request } from '../../api/client'
+import { adminRequest as request } from '../client'
 import type { Schemas } from '../../api/endpoints'
-import type { HelpStatus } from '../help/mappers'
+import type { HelpStatus } from '../../features/help/mappers'
 
 const enc = encodeURIComponent
 

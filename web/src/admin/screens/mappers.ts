@@ -8,9 +8,8 @@
  * and an opaque reference. If a name ever arrived for a student or
  * guardian alone, it is dropped here rather than shown.
  */
-import type { ApiError } from '../../api/errors'
 import type { Schemas } from '../../api/endpoints'
-import { mapMessage, type HelpMessage, type HelpStatus } from '../help/mappers'
+import { mapMessage, type HelpMessage, type HelpStatus } from '../../features/help/mappers'
 
 type T = (key: string, ...args: (string | number)[]) => string
 
@@ -46,10 +45,7 @@ export function statusParam(raw: string | null): HelpStatus | null {
   return STATUSES.includes(raw as HelpStatus) ? (raw as HelpStatus) : null
 }
 
-/** True when the server refused because this account is not an administrator. */
-export function isNotAdmin(error: ApiError): boolean {
-  return error.status === 403
-}
+export { isNotAdmin, isUnavailable } from '../errors'
 
 // -------------------------------------------------------------- requester
 

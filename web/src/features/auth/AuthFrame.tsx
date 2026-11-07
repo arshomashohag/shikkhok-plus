@@ -8,8 +8,8 @@ import type { ReactNode } from 'react'
 import { useT } from '../../i18n/i18n'
 import { CheckIcon } from '../../ui/icons'
 
-/** The mark in its on-blue colours: white and the light accent. */
-function MarkOnBlue() {
+/** The mark in its on-blue colours: white and the light accent. Also the admin app's. */
+export function MarkOnBlue() {
   return (
     <svg width="48" height="50" viewBox="24 20 66 68" aria-hidden="true">
       <circle cx="40" cy="33" r="9" fill="#FFFFFF" />

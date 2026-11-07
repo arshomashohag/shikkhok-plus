@@ -165,6 +165,87 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/admin/auth/mfa': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Finish
+     * @description Finish signing in with an authenticator code or a recovery code.
+     *
+     *     :param body: The challenge and one code
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :return: The admin access token, and recovery codes at a first sign-in
+     */
+    post: operations['finish_v1_admin_auth_mfa_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/auth/otp': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Send Code
+     * @description Send an admin sign-in code, answering every number the same way.
+     *
+     *     The sign-in ceilings apply before anything else, for every number, as
+     *     they do for app sign-in; the code is texted after the response, so a
+     *     send cannot be timed either.
+     *
+     *     :param body: The number
+     *     :param request: The incoming request
+     *     :param background: Runs the send after the response
+     *     :param session: The request-scoped session
+     *     :param gateway: The SMS gateway
+     *     :return: The contentless acknowledgement
+     */
+    post: operations['send_code_v1_admin_auth_otp_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/auth/verify': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Verify Code
+     * @description Spend the SMS code and start the authenticator step.
+     *
+     *     :param body: The number and the code
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :return: The challenge, with a secret to set up at a first sign-in
+     */
+    post: operations['verify_code_v1_admin_auth_verify_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/admin/help/requesters': {
     parameters: {
       query?: never
@@ -3925,6 +4006,69 @@ export interface components {
       version: string
     }
     /**
+     * AdminChallengeResponse
+     * @description The SMS step passed; now the authenticator step.
+     *
+     *     :ivar challenge: Carries the person to the next step; grants nothing
+     *     :ivar expires_in: Seconds until the challenge lapses
+     *     :ivar stage: ``enroll`` (set up the app first) or ``verify``
+     *     :ivar enrollment: The secret to set up, only when ``stage`` is enroll
+     */
+    AdminChallengeResponse: {
+      /** Challenge */
+      challenge: string
+      enrollment?: components['schemas']['AdminEnrollment'] | null
+      /** Expires In */
+      expires_in: number
+      /**
+       * Stage
+       * @enum {string}
+       */
+      stage: 'enroll' | 'verify'
+    }
+    /**
+     * AdminEnrollment
+     * @description A new authenticator secret, shown once at a first sign-in.
+     *
+     *     :ivar secret: The base32 secret, for typing into an app by hand
+     *     :ivar otpauth_uri: The same secret as a URI, for a QR code or a link
+     */
+    AdminEnrollment: {
+      /** Otpauth Uri */
+      otpauth_uri: string
+      /** Secret */
+      secret: string
+    }
+    /**
+     * AdminMfaRequest
+     * @description Finish signing in: exactly one of the two codes.
+     *
+     *     :ivar challenge: From the SMS step
+     *     :ivar code: Six digits from the authenticator app
+     *     :ivar recovery_code: A recovery code, only after setup
+     */
+    AdminMfaRequest: {
+      /** Challenge */
+      challenge: string
+      /** Code */
+      code?: string | null
+      /** Recovery Code */
+      recovery_code?: string | null
+    }
+    /**
+     * AdminOtpRequest
+     * @description Ask for an admin sign-in code by SMS.
+     *
+     *     :ivar phone: The administrator's number, in any spelling
+     */
+    AdminOtpRequest: {
+      /**
+       * Phone
+       * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
+       */
+      phone: string
+    }
+    /**
      * AdminOverviewResponse
      * @description The platform at a glance. Every figure is an aggregate.
      *
@@ -4078,6 +4222,22 @@ export interface components {
       requesters: components['schemas']['AdminRequesterSummary'][]
     }
     /**
+     * AdminSessionResponse
+     * @description A signed-in administrator.
+     *
+     *     :ivar access_token: Send as ``Authorization: Bearer`` to admin routes
+     *     :ivar expires_in: Seconds until it lapses; sign in again after
+     *     :ivar recovery_codes: Ten one-time codes, shown once at setup
+     */
+    AdminSessionResponse: {
+      /** Access Token */
+      access_token: string
+      /** Expires In */
+      expires_in: number
+      /** Recovery Codes */
+      recovery_codes?: string[] | null
+    }
+    /**
      * AdminTicket
      * @description A ticket in an administrator's list.
      *
@@ -4156,6 +4316,22 @@ export interface components {
        * @enum {string}
        */
       status: 'closed' | 'open'
+    }
+    /**
+     * AdminVerifyRequest
+     * @description Spend the SMS code.
+     *
+     *     :ivar phone: The number the code was sent to
+     *     :ivar code: The code from the SMS
+     */
+    AdminVerifyRequest: {
+      /** Code */
+      code: string
+      /**
+       * Phone
+       * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
+       */
+      phone: string
     }
     /**
      * AdminWorkspace
@@ -9718,6 +9894,105 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['AlreadyAddedResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  finish_v1_admin_auth_mfa_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminMfaRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminSessionResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  send_code_v1_admin_auth_otp_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminOtpRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['IssueResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  verify_code_v1_admin_auth_verify_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminVerifyRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminChallengeResponse']
         }
       }
       /** @description Validation Error */
