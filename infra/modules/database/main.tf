@@ -55,7 +55,7 @@ resource "aws_security_group" "database" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description = "PostgreSQL from the app security group, and the seeder's when enabled"
+    description = "PostgreSQL from the app security group, and from the seeder security group when enabled"
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
