@@ -260,3 +260,41 @@ variable "enable_seeder" {
   type        = bool
   default     = false
 }
+
+variable "admin_subdomain" {
+  description = <<-EOT
+    Host part of the platform admin hostname under the project zone, e.g.
+    "admin" -> admin.shikkhokplus.nirmatabd.com (staging). A distribution of
+    its own (modules/admin), not an alias on the API's: the IP allowlist is
+    a CloudFront Function, and it can gate only a distribution's own
+    behaviours.
+  EOT
+  type        = string
+  default     = "admin"
+}
+
+variable "admin_allowed_cidrs" {
+  description = <<-EOT
+    IPv4 CIDRs that may reach the admin hostname at all, e.g.
+    ["203.0.113.7/32"]. Checked at the edge on CloudFront's own view of the
+    viewer address, and again by the application on X-Client-Address.
+
+    **Empty (the default) lets nobody in.** Fail closed: an environment
+    nobody has allowlisted shows the operator a 403, never shows everyone
+    an admin surface.
+
+    IPv4 only: the admin distribution has IPv6 off and no AAAA record, so
+    every viewer arrives over IPv4. Use /32 for a fixed address; a
+    residential address that changes is re-allowlisted by editing the
+    SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS repository secret and deploying.
+
+    In CI this is that secret, comma-separated, turned into a list by
+    deploy.yml. A secret rather than a variable, and `sensitive` here,
+    because the repository and its Actions logs are public.
+  EOT
+  type        = list(string)
+  default     = []
+  # The repository is public, and a plan is printed to its public
+  # Actions logs: an administrator's address stays out of them.
+  sensitive = true
+}

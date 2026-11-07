@@ -244,10 +244,11 @@ def test_no_life_of_account_table_appears_in_the_window_map(
     # since 0022 added a centre's record of its members; 27 since 0023
     # added its staff records; 28 since 0024 added its rooms; 30 since
     # 0026 added its payroll; 33 since 0027 added the help centre's two
-    # tables and which app each account uses.
-    assert len(life_of_account) == 33, (
+    # tables and which app each account uses; 35 since 0028 added the
+    # authenticator factor and its recovery codes.
+    assert len(life_of_account) == 35, (
         f"the manifest now marks {len(life_of_account)} tables "
-        "LIFE_OF_ACCOUNT, not 33. If that is deliberate, this count is "
+        "LIFE_OF_ACCOUNT, not 35. If that is deliberate, this count is "
         "the claim that needs updating with it."
     )
 

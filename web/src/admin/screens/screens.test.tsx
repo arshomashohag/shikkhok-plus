@@ -1,29 +1,30 @@
 /**
- * The admin area against a mocked API, signed in for real. Who is an
- * administrator is the server's to say; the client only reacts to a 403.
+ * The admin screens inside the admin app, against a mocked API, signed
+ * in with an admin token. Who is an administrator is the server's to
+ * say; the client only reacts to a 403 (and a 401, in AdminApp.test).
  */
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearTokens } from '../../api/tokens'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { translate } from '../../i18n/i18n'
 import { json } from '../../test/render'
-import { mockSignedIn, renderRoutes, type Call, type Handler } from '../../test/signedIn'
-import { adminRoutes } from './index'
+import '../strings'
+import { peekAdminSession, resetAdminSessionForTests } from '../session'
+import { renderAdmin, serveAdmin, type Call, type Handler } from '../test/renderAdmin'
 
 const en = (key: string, ...args: (string | number)[]) => translate('en', key, ...args)
 let calls: Call[] = []
 const now = new Date().toISOString()
 
 function serve(handler: Handler) {
-  calls = mockSignedIn(handler, 'teacher')
+  calls = serveAdmin(handler)
 }
-const renderAt = (path: string) => renderRoutes(adminRoutes, path)
+const renderAt = (path: string) => renderAdmin(path)
 
-beforeEach(() => localStorage.clear())
 afterEach(() => {
   vi.unstubAllGlobals()
-  clearTokens()
+  resetAdminSessionForTests()
+  sessionStorage.clear()
 })
 
 const overview = {
@@ -62,7 +63,7 @@ const forbidden = json(403, {
 describe('Overview', () => {
   it('shows the server’s counts, with Android and web side by side', async () => {
     serve((_m, url) => (url.endsWith('/v1/admin/overview') ? json(200, overview) : undefined))
-    renderAt('/admin')
+    renderAt('/')
     expect(await screen.findByText('1,234')).toBeInTheDocument()
     expect(screen.getByText('640')).toBeInTheDocument()
     expect(screen.getByText('901')).toBeInTheDocument()
@@ -74,17 +75,39 @@ describe('Overview', () => {
     expect(screen.getByText(en('web_admin_not_reported_help'))).toBeInTheDocument()
     expect(screen.getByText('1.4.0')).toBeInTheDocument()
     const open = screen.getByText(en('web_admin_status_open')).closest('a')!
-    expect(open).toHaveAttribute('href', '/admin/help/tickets?status=open')
+    expect(open).toHaveAttribute('href', '/help/tickets?status=open')
     expect(within(open).getByText('3')).toBeInTheDocument()
   })
 
-  it('tells an account that is not an administrator, with no Try again', async () => {
+  it('sends the admin token, to the same origin', async () => {
+    serve((_m, url) => (url === '/v1/admin/overview' ? json(200, overview) : undefined))
+    renderAt('/')
+    expect(await screen.findByText('1,234')).toBeInTheDocument()
+    const call = calls.find((c) => c.url === '/v1/admin/overview')!
+    expect(call.headers.Authorization).toBe('Bearer ADMIN')
+  })
+
+  it('tells a number that is no longer an administrator, with Log out and no Try again', async () => {
     serve((_m, url) => (url.endsWith('/v1/admin/overview') ? forbidden : undefined))
-    renderAt('/admin')
+    renderAt('/')
     expect(await screen.findByText(en('web_admin_not_admin_title'))).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: en('auth_retry') })).toBeNull()
     expect(screen.queryByRole('navigation')).toBeNull()
-    expect(screen.getByRole('link', { name: en('web_admin_go_home') })).toHaveAttribute('href', '/')
+    const main = screen.getByRole('main')
+    await userEvent.click(within(main).getByRole('button', { name: en('more_log_out') }))
+    expect(peekAdminSession()).toBeNull()
+    expect(await screen.findByText(en('web_admin_signin_title'))).toBeInTheDocument()
+  })
+
+  it('says admin is not available here on a 404 from off the admin edge', async () => {
+    serve(() =>
+      json(404, {
+        error: { code: 'NOT_AVAILABLE', message_key: 'authz.lens.not_available', retryable: false },
+      }),
+    )
+    renderAt('/')
+    expect(await screen.findByText(en('web_admin_unavailable'))).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: en('auth_retry') })).toBeNull()
   })
 })
 
@@ -116,13 +139,13 @@ describe('Teachers & centres', () => {
           })
         : undefined,
     )
-    renderAt('/admin/teachers')
+    renderAt('/teachers')
     expect(await screen.findByText('Karim Uddin')).toBeInTheDocument()
     expect(screen.getByText(en('web_admin_unnamed_centre'))).toBeInTheDocument()
     expect(screen.getByText(en('web_admin_never_seen'))).toBeInTheDocument()
     const links = screen.getAllByRole('link', { name: en('web_admin_help_questions') })
     expect(links).toHaveLength(1)
-    expect(links[0]).toHaveAttribute('href', '/admin/help/tickets?ref=a1b2c3d4e5')
+    expect(links[0]).toHaveAttribute('href', '/help/tickets?ref=a1b2c3d4e5')
 
     await userEvent.type(screen.getByRole('searchbox'), 'karim')
     expect(screen.queryByText(en('web_admin_unnamed_centre'))).toBeNull()
@@ -164,14 +187,14 @@ describe('Help centre, support side', () => {
           })
         : undefined,
     )
-    renderAt('/admin/help')
+    renderAt('/help')
     expect(await screen.findByText('Nasrin · Alo Coaching')).toBeInTheDocument()
     expect(screen.getByText('Student · #A1B2C3D4E5')).toBeInTheDocument()
     expect(screen.getByText('Guardian · #FFFFEEEE00')).toBeInTheDocument()
     expect(screen.queryByText(/Rokeya/)).toBeNull()
     expect(screen.getByText('Student · #A1B2C3D4E5').closest('a')).toHaveAttribute(
       'href',
-      '/admin/help/tickets?ref=a1b2c3d4e5',
+      '/help/tickets?ref=a1b2c3d4e5',
     )
   })
 
@@ -195,7 +218,7 @@ describe('Help centre, support side', () => {
           })
         : undefined,
     )
-    renderAt('/admin/help/tickets')
+    renderAt('/help/tickets')
     expect(await screen.findByText('Marks not saving')).toBeInTheDocument()
     expect(screen.getByText('Guardian · #A1B2C3D4E5')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: en('web_admin_status_answered') }))
@@ -242,7 +265,7 @@ describe('Help centre, support side', () => {
         })
       return undefined
     })
-    renderAt('/admin/help/tickets/t1')
+    renderAt('/help/tickets/t1')
     expect(await screen.findByText('Where is my fee?')).toBeInTheDocument()
     // The person who asked is a role and a reference, in the header and the thread.
     expect(screen.getAllByText('Student · #A1B2C3D4E5')).toHaveLength(2)
@@ -264,7 +287,7 @@ describe('Help centre, support side', () => {
 
   it('a refused ticket read shows the administrators-only page', async () => {
     serve(() => forbidden)
-    renderAt('/admin/help/tickets/t1')
+    renderAt('/help/tickets/t1')
     expect(await screen.findByText(en('web_admin_not_admin_title'))).toBeInTheDocument()
   })
 })

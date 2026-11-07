@@ -6,8 +6,11 @@
   "description": "ShikkhokPlus web client: an installable PWA over the same /v1 API the Android app uses.",
   "scripts": {
     "dev": "vite",
+    "dev:admin": "vite --config vite.admin.config.ts",
     "build": "tsc -b && vite build",
+    "build:admin": "vite build --config vite.admin.config.ts",
     "preview": "vite preview",
+    "preview:admin": "vite preview --config vite.admin.config.ts",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
@@ -18,13 +21,15 @@
     "gen:strings": "node scripts/sync-strings.mjs",
     "gen:icons": "node scripts/make-icons.mjs",
     "check:generated": "node scripts/check-generated.mjs",
-    "check": "npm run check:generated && npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
+    "check:bundles": "node scripts/check-bundles.mjs",
+    "check": "npm run check:generated && npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build && npm run build:admin && npm run check:bundles"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "@types/node": "22.19.1",
+    "qrcode-generator": "2.0.4",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-router": "7.18.5"

@@ -605,6 +605,23 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "with it."
         ),
     ),
+    "mfa_factor": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "The account's authenticator-app secret, encrypted, and the "
+            "counters that stop a code being guessed or reused. A "
+            "credential: nothing survives the account it protects."
+        ),
+    ),
+    "mfa_recovery_code": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "One-time recovery codes for the authenticator factor, stored "
+            "only as salted hashes. Credentials, removed with the account."
+        ),
+    ),
 }
 
 #: The retention half, derived so the two can never disagree.

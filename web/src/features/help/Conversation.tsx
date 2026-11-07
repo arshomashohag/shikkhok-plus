@@ -1,6 +1,6 @@
 /**
  * The pieces a help thread is drawn from, shared by the person who asked
- * (`HelpThread`) and by support (`features/admin`): the messages as
+ * (`HelpThread`) and by support (the admin app, `src/admin`): the messages as
  * bubbles, a text field that shows its limit, and the reply box.
  *
  * A reply is a write, so it needs a connection [D-9]: a failed send keeps

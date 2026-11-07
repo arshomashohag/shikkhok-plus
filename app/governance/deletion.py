@@ -190,6 +190,16 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
         column=None,
         note="Cascades from `help_ticket`, which this module deletes.",
     ),
+    "mfa_factor": _Target(
+        scope=Scope.ACCOUNT_COLUMN,
+        column="account_id",
+        note="A credential. Nothing survives the account it protects.",
+    ),
+    "mfa_recovery_code": _Target(
+        scope=Scope.ACCOUNT_COLUMN,
+        column="account_id",
+        note="Hashed recovery codes for that credential.",
+    ),
     "otp_request": _Target(
         scope=Scope.PHONE_COLUMN,
         column="phone",

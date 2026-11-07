@@ -335,21 +335,24 @@ data "aws_iam_policy_document" "ci_state" {
 
   # **The app's own buckets**, which the main module creates and owns:
   # the config bucket (the compose file the host fetches at boot), the
-  # web bucket (the built web client CloudFront serves under /ui/) and
-  # the site bucket (the public site, modules/site).
+  # web bucket (the built web client CloudFront serves under /ui/), the
+  # site bucket (the public site, modules/site) and the admin bucket (the
+  # platform admin UI, modules/admin).
   #
   # Scoped by NAME PREFIX rather than granted account-wide: this role
   # can create and destroy `shikkhokplus-*-config-*`,
-  # `shikkhokplus-*-web-*` and `shikkhokplus-*-site-*` and nothing else,
-  # so it cannot touch the state bucket's siblings or another project's
-  # data. It writes no object into the web or site bucket -- the deploy
-  # role uploads those builds.
+  # `shikkhokplus-*-web-*`, `shikkhokplus-*-site-*` and
+  # `shikkhokplus-*-admin-*` and nothing else, so it cannot touch the
+  # state bucket's siblings or another project's data. It writes no
+  # object into the web, site or admin bucket -- the deploy role uploads
+  # those builds.
   #
-  # The site's other resources -- its distribution, certificate, cache
-  # and headers policies, CloudFront Function and the apex and www
-  # records -- need nothing new: cloudfront:*, acm:* and route53:* in
-  # the infrastructure policy below already cover them, and every record
-  # name they write contains `shikkhokplus`.
+  # The site's and the admin surface's other resources -- distributions,
+  # certificates, cache and headers policies, CloudFront Functions, alias
+  # records and SSM parameters (the admin edge secret included) -- need
+  # nothing new: cloudfront:*, acm:*, route53:* and the /shikkhokplus/
+  # parameter grant in the infrastructure policy below already cover
+  # them, and every record name they write contains `shikkhokplus`.
   #
   # Both halves are needed and neither is obvious from the create
   # alone: the Get* actions are how Terraform reads a bucket back to
@@ -390,6 +393,7 @@ data "aws_iam_policy_document" "ci_state" {
       "arn:aws:s3:::shikkhokplus-*-config-*",
       "arn:aws:s3:::shikkhokplus-*-web-*",
       "arn:aws:s3:::shikkhokplus-*-site-*",
+      "arn:aws:s3:::shikkhokplus-*-admin-*",
     ]
   }
 

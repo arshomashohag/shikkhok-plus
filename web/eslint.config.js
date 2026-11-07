@@ -7,7 +7,16 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'dev-dist', 'coverage', 'src/api/schema.d.ts', 'src/i18n/generated'] },
+  {
+    ignores: [
+      'dist',
+      'dist-admin',
+      'dev-dist',
+      'coverage',
+      'src/api/schema.d.ts',
+      'src/i18n/generated',
+    ],
+  },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.strict],

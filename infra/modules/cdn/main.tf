@@ -174,6 +174,42 @@ resource "aws_cloudfront_distribution" "api" {
     origin_access_control_id = aws_cloudfront_origin_access_control.web.id
   }
 
+  # **/v1/admin* is refused at this edge, 404, for every method.** The
+  # admin API is reachable only through the admin hostname
+  # (modules/admin), which checks the viewer's IP and adds the
+  # X-Admin-Edge header; the application refuses an admin route that
+  # arrives without that header. Two independent locks: either one alone
+  # keeps the admin API off the public API host.
+  #
+  # First among the ordered behaviours, so it wins over the default (the
+  # API, which would otherwise forward it). The target origin is the API
+  # only because a behaviour must name one; the viewer-request function
+  # answers every request itself, so nothing is ever forwarded. All
+  # methods, so a POST gets the same 404 rather than a 403 that admits
+  # the path is special.
+  #
+  # **Not the boundary on its own.** CloudFront matches path patterns
+  # case-sensitively and after its own RFC 3986 normalisation; the
+  # application's header check is what holds for any spelling of the path
+  # that slipped past this pattern.
+  ordered_cache_behavior {
+    path_pattern           = "/v1/admin*"
+    target_origin_id       = "shikkhokplus-origin"
+    viewer_protocol_policy = "redirect-to-https"
+
+    allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods  = ["GET", "HEAD"]
+
+    cache_policy_id          = data.aws_cloudfront_cache_policy.disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    compress                 = true
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.admin_block.arn
+    }
+  }
+
   # **/ui and /ui/* go to the bucket; everything else stays the API.**
   # Listed before the default, and CloudFront takes the first match, so
   # no API route can be shadowed unless it starts with /ui -- and none
@@ -257,6 +293,16 @@ resource "aws_cloudfront_distribution" "api" {
   tags = {
     Role = "cdn"
   }
+}
+
+# Answers every /v1/admin* request on this distribution 404. See the
+# source; tested from functions/admin-block.test.mjs.
+resource "aws_cloudfront_function" "admin_block" {
+  name    = "${var.name_prefix}-admin-block"
+  runtime = "cloudfront-js-2.0"
+  comment = "API host: the admin API is served only on the admin hostname"
+  publish = true
+  code    = file("${path.module}/functions/admin-block.js")
 }
 
 data "aws_cloudfront_cache_policy" "disabled" {

@@ -128,6 +128,124 @@
         "title": "AdminAppVersion",
         "type": "object"
       },
+      "AdminChallengeResponse": {
+        "additionalProperties": false,
+        "description": "The SMS step passed; now the authenticator step.\n\n:ivar challenge: Carries the person to the next step; grants nothing\n:ivar expires_in: Seconds until the challenge lapses\n:ivar stage: ``enroll`` (set up the app first) or ``verify``\n:ivar enrollment: The secret to set up, only when ``stage`` is enroll",
+        "properties": {
+          "challenge": {
+            "title": "Challenge",
+            "type": "string"
+          },
+          "enrollment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdminEnrollment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "stage": {
+            "enum": [
+              "enroll",
+              "verify"
+            ],
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge",
+          "expires_in",
+          "stage"
+        ],
+        "title": "AdminChallengeResponse",
+        "type": "object"
+      },
+      "AdminEnrollment": {
+        "additionalProperties": false,
+        "description": "A new authenticator secret, shown once at a first sign-in.\n\n:ivar secret: The base32 secret, for typing into an app by hand\n:ivar otpauth_uri: The same secret as a URI, for a QR code or a link",
+        "properties": {
+          "otpauth_uri": {
+            "title": "Otpauth Uri",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "otpauth_uri",
+          "secret"
+        ],
+        "title": "AdminEnrollment",
+        "type": "object"
+      },
+      "AdminMfaRequest": {
+        "additionalProperties": false,
+        "description": "Finish signing in: exactly one of the two codes.\n\n:ivar challenge: From the SMS step\n:ivar code: Six digits from the authenticator app\n:ivar recovery_code: A recovery code, only after setup",
+        "properties": {
+          "challenge": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Challenge",
+            "type": "string"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "maxLength": 8,
+                "minLength": 6,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "recovery_code": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "minLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Code"
+          }
+        },
+        "required": [
+          "challenge"
+        ],
+        "title": "AdminMfaRequest",
+        "type": "object"
+      },
+      "AdminOtpRequest": {
+        "additionalProperties": false,
+        "description": "Ask for an admin sign-in code by SMS.\n\n:ivar phone: The administrator's number, in any spelling",
+        "properties": {
+          "phone": {
+            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone"
+        ],
+        "title": "AdminOtpRequest",
+        "type": "object"
+      },
       "AdminOverviewResponse": {
         "additionalProperties": false,
         "description": "The platform at a glance. Every figure is an aggregate.\n\n:ivar generated_at: When these figures were read\n:ivar accounts: Accounts that have signed in at least once\n:ivar new_7_days: First signed in during the last 7 days\n:ivar new_30_days: First signed in during the last 30 days\n:ivar active_7_days: Seen on any app in the last 7 days\n:ivar active_30_days: Seen on any app in the last 30 days\n:ivar teachers: Accounts owning a solo-tutor workspace\n:ivar centres: Coaching centres\n:ivar centre_members: Accounts holding a live centre membership\n:ivar students: Accounts holding an accepted student seat\n:ivar guardians: Accounts holding an accepted guardian seat\n:ivar batches: Active batches\n:ivar seats: Accepted student seats in active batches\n:ivar platforms: Usage per app\n:ivar both_platforms: Accounts seen on both apps\n:ivar no_platform: Signed-in accounts no app has reported yet, such\n    as those last seen on an app build that predates reporting\n:ivar versions: App versions seen in the last 30 days\n:ivar help_open: Tickets waiting on support\n:ivar help_answered: Tickets waiting on the requester\n:ivar help_closed: Closed tickets",
@@ -395,6 +513,40 @@
         "title": "AdminRequestersResponse",
         "type": "object"
       },
+      "AdminSessionResponse": {
+        "additionalProperties": false,
+        "description": "A signed-in administrator.\n\n:ivar access_token: Send as ``Authorization: Bearer`` to admin routes\n:ivar expires_in: Seconds until it lapses; sign in again after\n:ivar recovery_codes: Ten one-time codes, shown once at setup",
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "recovery_codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Codes"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in"
+        ],
+        "title": "AdminSessionResponse",
+        "type": "object"
+      },
       "AdminTicket": {
         "additionalProperties": false,
         "description": "A ticket in an administrator's list.\n\n:ivar ticket_id: The ticket\n:ivar subject: The one-line summary\n:ivar status: ``open``, ``answered`` or ``closed``\n:ivar platform: The app it was asked from, if known\n:ivar created_at: When it was asked\n:ivar updated_at: The latest activity\n:ivar message_count: Messages in the thread\n:ivar preview: The start of the latest message\n:ivar requester: Who asked",
@@ -524,6 +676,29 @@
           "status"
         ],
         "title": "AdminTicketStatusRequest",
+        "type": "object"
+      },
+      "AdminVerifyRequest": {
+        "additionalProperties": false,
+        "description": "Spend the SMS code.\n\n:ivar phone: The number the code was sent to\n:ivar code: The code from the SMS",
+        "properties": {
+          "code": {
+            "maxLength": 10,
+            "minLength": 4,
+            "title": "Code",
+            "type": "string"
+          },
+          "phone": {
+            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "phone"
+        ],
+        "title": "AdminVerifyRequest",
         "type": "object"
       },
       "AdminWorkspace": {
@@ -10547,6 +10722,132 @@
         "summary": "Lookup Already Added",
         "tags": [
           "accounts"
+        ]
+      }
+    },
+    "/v1/admin/auth/mfa": {
+      "post": {
+        "description": "Finish signing in with an authenticator code or a recovery code.\n\n:param body: The challenge and one code\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The admin access token, and recovery codes at a first sign-in",
+        "operationId": "finish_v1_admin_auth_mfa_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminMfaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finish",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/auth/otp": {
+      "post": {
+        "description": "Send an admin sign-in code, answering every number the same way.\n\nThe sign-in ceilings apply before anything else, for every number, as\nthey do for app sign-in; the code is texted after the response, so a\nsend cannot be timed either.\n\n:param body: The number\n:param request: The incoming request\n:param background: Runs the send after the response\n:param session: The request-scoped session\n:param gateway: The SMS gateway\n:return: The contentless acknowledgement",
+        "operationId": "send_code_v1_admin_auth_otp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminOtpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send Code",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/auth/verify": {
+      "post": {
+        "description": "Spend the SMS code and start the authenticator step.\n\n:param body: The number and the code\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The challenge, with a secret to set up at a first sign-in",
+        "operationId": "verify_code_v1_admin_auth_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminChallengeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Code",
+        "tags": [
+          "admin"
         ]
       }
     },

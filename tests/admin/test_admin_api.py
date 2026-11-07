@@ -22,6 +22,7 @@ from app.accounts.clients import record_client
 from app.authz.admin import PLATFORM_ADMIN_PHONES_ENV, platform_admin_phones
 from app.errors import ValidationError
 from app.help.identity import requester_ref
+from tests.admin.conftest import EDGE, admin_headers
 from tests.conftest import bearer
 from tests.help.conftest import (
     STUDENT_SEAT_NAME,
@@ -70,9 +71,7 @@ def admin(
         PLATFORM_ADMIN_PHONES_ENV,
         f" {_local(phone_of(owner_session, people.stranger))} , ",
     )
-    headers = bearer(owner_session, people.stranger)
-    owner_session.commit()
-    return headers
+    return admin_headers(owner_session, people.stranger)
 
 
 def _ask(client: TestClient, session: Session, account: uuid.UUID, subject: str) -> str:
@@ -121,6 +120,9 @@ def test_an_ordinary_account_reaches_no_admin_route(
 ) -> None:
     """Teachers included: the lens is the allowlist, not a role.
 
+    Even holding an admin token and a confirmed factor -- the strongest
+    thing a non-administrator could have -- every route answers 403.
+
     :param api_client: The HTTP client
     :param owner_session: An arranging session
     :param people: The arranged accounts
@@ -132,7 +134,7 @@ def test_an_ordinary_account_reaches_no_admin_route(
     )
     ticket = _ask(api_client, owner_session, people.student, "x")
     for account in (people.teacher.account_id, people.member, people.student):
-        headers = bearer(owner_session, account)
+        headers = admin_headers(owner_session, account)
         for method, path, body in ROUTES:
             response = _call(api_client, method, path.format(t=ticket), body, headers)
             assert response.status_code == 403, (method, path)  # type: ignore[attr-defined]
@@ -140,6 +142,34 @@ def test_an_ordinary_account_reaches_no_admin_route(
                 response.json()["error"]["message_key"]  # type: ignore[attr-defined]
                 == "authz.lens.not_available"
             )
+
+
+def test_an_app_token_reaches_no_admin_route_even_for_an_admin(
+    api_client: TestClient,
+    owner_session: Session,
+    people: People,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only the admin sign-in's token works; the app's is a 401.
+
+    The administrator's own number, through the admin hostname, with the
+    app token they would hold from signing in to the app.
+
+    :param api_client: The HTTP client
+    :param owner_session: An arranging session
+    :param people: The arranged accounts
+    :param monkeypatch: The patcher
+    :return: None
+    """
+    monkeypatch.setenv(
+        PLATFORM_ADMIN_PHONES_ENV, phone_of(owner_session, people.stranger)
+    )
+    ticket = _ask(api_client, owner_session, people.student, "x")
+    headers = {**EDGE, **bearer(owner_session, people.stranger)}
+    owner_session.commit()
+    for method, path, body in ROUTES:
+        response = _call(api_client, method, path.format(t=ticket), body, headers)
+        assert response.status_code == 401, (method, path)  # type: ignore[attr-defined]
 
 
 def test_an_unset_allowlist_admits_nobody(
@@ -158,7 +188,7 @@ def test_an_unset_allowlist_admits_nobody(
     """
     monkeypatch.delenv(PLATFORM_ADMIN_PHONES_ENV, raising=False)
     response = api_client.get(
-        "/v1/admin/overview", headers=bearer(owner_session, people.stranger)
+        "/v1/admin/overview", headers=admin_headers(owner_session, people.stranger)
     )
     assert response.status_code == 403
 
@@ -184,7 +214,7 @@ def test_a_malformed_allowlist_admits_nobody_and_says_why(
     with pytest.raises(ValidationError):
         platform_admin_phones()
     response = api_client.get(
-        "/v1/admin/overview", headers=bearer(owner_session, people.stranger)
+        "/v1/admin/overview", headers=admin_headers(owner_session, people.stranger)
     )
     assert response.status_code == 403
 
@@ -195,7 +225,7 @@ def test_no_token_is_401(api_client: TestClient) -> None:
     :param api_client: The HTTP client
     :return: None
     """
-    assert api_client.get("/v1/admin/overview").status_code == 401
+    assert api_client.get("/v1/admin/overview", headers=EDGE).status_code == 401
 
 
 def test_the_overview_counts_everyone_and_names_nobody(

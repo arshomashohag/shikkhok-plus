@@ -41,13 +41,19 @@ from app.errors import AuthorizationError
 
 __all__ = [
     "ACCESS_TOKEN_LIFETIME",
+    "ADMIN_AUDIENCE",
+    "ADMIN_TOKEN_LIFETIME",
     "JWT_ACTIVE_KID_ENV",
+    "MFA_CHALLENGE_AUDIENCE",
+    "MFA_CHALLENGE_LIFETIME",
     "REFRESH_GRACE_WINDOW",
     "REFRESH_TOKEN_LIFETIME",
     "TokenPair",
     "issue_pair",
+    "issue_scoped_token",
     "rotate",
     "verify_access_token",
+    "verify_scoped_token",
 ]
 
 #: Fifteen minutes, enforced server-side [BR4.2].
@@ -73,6 +79,25 @@ JWT_ACTIVE_KID_ENV: Final = "SHIKKHOKPLUS_JWT_ACTIVE_KID"
 JWT_KEYS_ENV: Final = "SHIKKHOKPLUS_JWT_KEYS"
 
 _ALGORITHM: Final = "HS256"
+
+#: The audience of a platform administrator's access token. **Only the
+#: admin sign-in issues one, and only the admin routes accept one**: an
+#: app token carries no audience and is refused on admin routes, and an
+#: admin token is refused everywhere else, so neither can stand in for
+#: the other [TC-14, D-6].
+ADMIN_AUDIENCE: Final = "shikkhokplus-admin"
+
+#: An hour, with no refresh token: an administrator signs in again with
+#: an SMS code and an authenticator code when it lapses.
+ADMIN_TOKEN_LIFETIME: Final = dt.timedelta(hours=1)
+
+#: The audience of the short-lived token that carries an administrator
+#: from the SMS step to the authenticator step. It grants nothing on
+#: its own.
+MFA_CHALLENGE_AUDIENCE: Final = "shikkhokplus-admin-mfa"
+
+#: Long enough to open an authenticator app, or to scan a QR code.
+MFA_CHALLENGE_LIFETIME: Final = dt.timedelta(minutes=5)
 
 
 @dataclass(frozen=True, slots=True)
@@ -214,6 +239,13 @@ def verify_access_token(token: str, now: dt.datetime | None = None) -> uuid.UUID
     except jwt.PyJWTError as error:
         raise _unauthenticated("TOKEN_MISSING") from error
 
+    # An app token carries no audience. One that does was issued for the
+    # admin surface or the MFA step and is not an app session -- refused
+    # explicitly here rather than relying on the library's behaviour for
+    # an unexpected audience.
+    if "aud" in claims:
+        raise _unauthenticated("TOKEN_MISSING")
+
     # Expiry is compared SERVER-SIDE against our own clock rather than
     # trusted from the library's default, so the one assertion the rule
     # names is the one actually made [BR4.2].
@@ -221,6 +253,69 @@ def verify_access_token(token: str, now: dt.datetime | None = None) -> uuid.UUID
         raise _unauthenticated("ACCESS_TOKEN_EXPIRED")
 
     return uuid.UUID(claims["sub"])
+
+
+def issue_scoped_token(
+    account_id: uuid.UUID,
+    audience: str,
+    lifetime: dt.timedelta,
+    extra: dict[str, str] | None = None,
+    now: dt.datetime | None = None,
+) -> str:
+    """Sign a token for one audience: the admin surface or the MFA step.
+
+    :param account_id: The subject
+    :param audience: :data:`ADMIN_AUDIENCE` or :data:`MFA_CHALLENGE_AUDIENCE`
+    :param lifetime: How long it lives
+    :param extra: Further string claims, such as the MFA stage
+    :param now: The issue time, or None for the clock
+    :return: The encoded token
+    """
+    moment = now or dt.datetime.now(tz=dt.UTC)
+    kid = _active_kid()
+    claims: dict[str, Any] = {
+        **(extra or {}),
+        "sub": str(account_id),
+        "aud": audience,
+        "iat": int(moment.timestamp()),
+        "exp": int((moment + lifetime).timestamp()),
+    }
+    return jwt.encode(claims, _keys()[kid], algorithm=_ALGORITHM, headers={"kid": kid})
+
+
+def verify_scoped_token(
+    token: str, audience: str, now: dt.datetime | None = None
+) -> dict[str, Any]:
+    """Verify a token issued for exactly one audience.
+
+    :param token: The presented token
+    :param audience: The audience it must carry
+    :param now: The moment to compare expiry against, or None for the clock
+    :return: Its claims
+    :raises AuthorizationError: 401 when it is unverifiable, expired, or
+        issued for any other audience, including an app token with none
+    """
+    moment = now or dt.datetime.now(tz=dt.UTC)
+    try:
+        header = jwt.get_unverified_header(token)
+    except jwt.PyJWTError as error:
+        raise _unauthenticated("TOKEN_MISSING") from error
+    secret = _keys().get(header.get("kid", ""))
+    if secret is None:
+        raise _unauthenticated("TOKEN_MISSING")
+    try:
+        claims: dict[str, Any] = jwt.decode(
+            token,
+            secret,
+            algorithms=[_ALGORITHM],
+            audience=audience,
+            options={"verify_exp": False, "require": ["aud", "sub", "exp"]},
+        )
+    except jwt.PyJWTError as error:
+        raise _unauthenticated("TOKEN_MISSING") from error
+    if moment.timestamp() >= float(claims["exp"]):
+        raise _unauthenticated("ACCESS_TOKEN_EXPIRED")
+    return claims
 
 
 def rotate(
