@@ -211,5 +211,6 @@ locals {
     aws_cloudwatch_metric_alarm.rds_free_storage[*].alarm_name,
     aws_cloudwatch_metric_alarm.cloudfront_5xx[*].alarm_name,
     [for alarm in aws_cloudwatch_metric_alarm.rds : alarm.alarm_name],
+    module.email.alarm_names,
   )
 }

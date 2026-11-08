@@ -198,6 +198,68 @@ The CloudFront Functions are tested without dependencies:
 `make infra-functions` (`node --test`). The first deploy needs
 `bootstrap/` re-applied (see `bootstrap/README.md`).
 
+## Email: one-time codes through SES
+
+`modules/email` sends from `no-reply@<project zone>` --
+`no-reply@shikkhokplus.<apex>` in staging,
+`no-reply@shikkhokplus-prod.<apex>` in production -- through Amazon SES's
+**SMTP interface**, with the credentials of an IAM user that can do
+nothing but send from that one address.
+
+- **One identity per environment, on its own zone.** Both environments
+  share one account and one region but not one domain, so each owns its
+  identity, DKIM/MAIL FROM/DMARC records, configuration set, alarms and
+  SMTP user, and the two applies never contend for a resource.
+- **SMTP and an IAM user, because the container has no role.** The host's
+  IMDS hop limit is 1 (`modules/app/main.tf`), deliberately, so the API
+  container cannot reach the instance role. The user's key is the one
+  long-lived AWS credential in the project; it is bounded by its inline
+  policy (`ses:SendRawEmail` on this identity and configuration set, From
+  `no-reply@<zone>` only) and by bootstrap's
+  `shikkhokplus-email-sender-boundary-<env>`. Rotation: raise
+  `smtp_credential_generation` in `modules/email/main.tf` and deploy.
+- **DNS.** Easy DKIM (three CNAMEs), MAIL FROM `bounce.<zone>` (MX to
+  `feedback-smtp.<region>.amazonses.com` and SPF), and
+  `_dmarc.<zone>` at **`p=none`** -- a published policy that changes no
+  delivery outcome. Move it to `p=quarantine` once real traffic shows DKIM
+  and SPF aligned.
+- **Alarms.** Bounce rate at 4% and complaint rate at 0.08%, per
+  configuration set, to the environment's alert topic -- below the 5% and
+  0.1% at which AWS reviews the account.
+- **Cost.** USD 0.10 per 1,000 messages, priced in `monthly_cost_estimate`
+  as the whole daily ceiling (`SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL`, default
+  1,000) sent every day: about USD 3 a month. No dedicated IP, no Virtual
+  Deliverability Manager.
+
+### Manual steps, in order
+
+1. **Re-apply `bootstrap/`** from a laptop (see `bootstrap/README.md`).
+   It creates the sender boundary and gives the infrastructure, plan and
+   deploy roles the SES, IAM-user and parameter grants. Without it the
+   infrastructure job stops at `CreateEmailIdentity` or `CreateUser` with
+   AccessDenied, and the release at "Cannot read the SES sender from SSM",
+   having changed nothing.
+2. **Deploy** each environment. The apply creates the identity and writes
+   its DNS records into the environment's zone; SES verifies the domain
+   and DKIM once they resolve -- usually minutes, at most 72 hours. Until
+   then SES refuses to send from it. Check with
+   `aws sesv2 get-email-identity --email-identity <zone>`
+   (`VerifiedForSendingStatus: true`, `DkimAttributes.Status: SUCCESS`).
+3. **Request production access** in the SES console for **us-east-1**
+   (Account dashboard -> Request production access). A new account is in
+   the **sandbox**: it can send only to addresses verified in SES, at most
+   200 messages a day. The sandbox is per account and region, so one
+   request covers staging and production. AWS answers within about a day
+   and asks how bounces and complaints are handled: suppression of both
+   is on in the configuration set, and the two alarms above report rates.
+4. **Confirm the alarm subscription** (`alert_email_status`) if not done,
+   and after the first real sends check that CloudWatch shows
+   `AWS/SES Reputation.BounceRate` for the configuration set -- the alarms
+   treat no data as OK, so a metric that never arrives looks the same as
+   a healthy one.
+5. Optionally set `SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL` per environment; unset
+   means 1,000.
+
 ## Reading the outputs
 
 The apply job writes `api_url`, `app_static_ip` and

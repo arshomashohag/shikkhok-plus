@@ -66,6 +66,18 @@ x-app-environment: &app-environment
   SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES: ${SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES:-}
   SHIKKHOKPLUS_ADMIN_EDGE_SECRET: ${SHIKKHOKPLUS_ADMIN_EDGE_SECRET:-}
   SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS: ${SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS:-}
+  # **One-time codes by email** (infra/modules/email): the SES SMTP
+  # interface with the sender user's credentials, which the deploy reads
+  # from SSM. No `:?` here either: a missing value is reported by the
+  # application's own startup check, with a reason, not by compose.
+  SHIKKHOKPLUS_EMAIL_ADAPTER: ${SHIKKHOKPLUS_EMAIL_ADAPTER:-}
+  SHIKKHOKPLUS_SES_SMTP_HOST: ${SHIKKHOKPLUS_SES_SMTP_HOST:-}
+  SHIKKHOKPLUS_SES_SMTP_PORT: ${SHIKKHOKPLUS_SES_SMTP_PORT:-}
+  SHIKKHOKPLUS_SES_SMTP_USERNAME: ${SHIKKHOKPLUS_SES_SMTP_USERNAME:-}
+  SHIKKHOKPLUS_SES_SMTP_PASSWORD: ${SHIKKHOKPLUS_SES_SMTP_PASSWORD:-}
+  SHIKKHOKPLUS_EMAIL_FROM: ${SHIKKHOKPLUS_EMAIL_FROM:-}
+  SHIKKHOKPLUS_SES_CONFIGURATION_SET: ${SHIKKHOKPLUS_SES_CONFIGURATION_SET:-}
+  SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL: ${SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL:-}
 
 # **Every container ships its output to CloudWatch** [OPS-11] -- the
 # API, the migrate runs and each scheduled job (`run --rm api` inherits

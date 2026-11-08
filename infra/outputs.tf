@@ -153,3 +153,18 @@ output "seeder_function_name" {
   description = "The seeder to invoke (deploy/README.md), or null when enable_seeder is off."
   value       = module.seeder.function_name
 }
+
+output "email_sender" {
+  description = <<-EOT
+    The SES sender (modules/email): the From address, the configuration
+    set and the SMTP endpoint. The SMTP credentials are not here: they are
+    SecureStrings under this environment's SSM path, named below.
+  EOT
+  value = {
+    from_address          = module.email.from_address
+    configuration_set     = module.email.configuration_set_name
+    smtp_host             = module.email.smtp_host
+    smtp_user             = module.email.smtp_user_name
+    credential_parameters = module.email.smtp_credential_parameters
+  }
+}

@@ -70,6 +70,11 @@ GitHub environment's secrets and variables.
 | `SHIKKHOKPLUS_STAGING_OUTBOX` | variable, default `0` | a production process with it set refuses to start |
 | `SHIKKHOKPLUS_STAGING_OUTBOX_NUMBERS` | variable, staging only | the operator numbers the outbox serves; on staging the outbox is off without it [C-19] |
 | `SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER` | fixed: `X-Client-Address` | **every environment**; production refuses to start without it |
+| `SHIKKHOKPLUS_EMAIL_ADAPTER` | fixed: `ses` | one-time codes by email; see `infra/README.md` "Email" |
+| `SHIKKHOKPLUS_SES_SMTP_USERNAME`, `SHIKKHOKPLUS_SES_SMTP_PASSWORD` | SSM `ses-smtp-username`, `ses-smtp-password` (SecureStrings, Terraform) | the sender IAM user's SMTP credentials; the release stops before writing anything if either is unreadable |
+| `SHIKKHOKPLUS_SES_SMTP_HOST`, `SHIKKHOKPLUS_SES_SMTP_PORT` | SSM `ses-smtp-host`, fixed `587` | STARTTLS |
+| `SHIKKHOKPLUS_EMAIL_FROM`, `SHIKKHOKPLUS_SES_CONFIGURATION_SET` | SSM `email-from`, `ses-configuration-set` | the only From address the credentials may send as |
+| `SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL` | variable, default `1000` | the daily send ceiling; the same variable prices email in the plan's budget guard |
 | `SHIKKHOKPLUS_DATABASE_URL` | SSM `database-url`, by the boot script | the `shikkhok_app` role |
 | `SHIKKHOKPLUS_MIGRATION_DATABASE_URL`, `SHIKKHOKPLUS_APP_DB_PASSWORD` | SSM, by the boot script | `migrate` service only, never written to `.env` |
 | `API_IMAGE` | the image tag in SSM | a commit SHA, never `latest` |

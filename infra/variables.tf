@@ -298,3 +298,23 @@ variable "admin_allowed_cidrs" {
   # Actions logs: an administrator's address stays out of them.
   sensitive = true
 }
+
+variable "email_daily_ceiling" {
+  description = <<-EOT
+    The most email the application may send in a day, for the cost model
+    only (main.tf's `email` line, at USD 0.10 per 1,000 messages). The
+    application enforces the ceiling itself, from
+    SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL in the runtime env.
+
+    In CI both come from ONE GitHub variable, SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL
+    (default 1000), so the budget guard prices the ceiling the
+    application actually enforces rather than a second copy of it.
+  EOT
+  type        = number
+  default     = 1000
+
+  validation {
+    condition     = var.email_daily_ceiling >= 0 && floor(var.email_daily_ceiling) == var.email_daily_ceiling
+    error_message = "email_daily_ceiling must be a whole number of messages, zero or more."
+  }
+}

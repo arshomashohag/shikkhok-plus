@@ -45,6 +45,12 @@ locals {
   # role may create roles under no other.
   permissions_boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/shikkhokplus/shikkhokplus-workload-boundary-${var.environment}"
 
+  # **The SES sender's boundary** (modules/email), created by bootstrap
+  # beside the workload boundary and derived the same way: a ceiling of
+  # ses:SendRawEmail on this environment's identity. The infrastructure
+  # role may create or edit an IAM user only under it.
+  email_sender_boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/shikkhokplus/shikkhokplus-email-sender-boundary-${var.environment}"
+
   # **The zone label is per ENVIRONMENT** [OPS-10]. It was one label
   # for every environment, so a production apply would have created a
   # second zone with staging's name, failed on the NS delegation staging
@@ -129,6 +135,12 @@ locals {
     # Pay per invocation: a three-month seed is about 60 GB-seconds on
     # arm64, a fraction of a cent, and inside the free tier anyway.
     seeder = 0.00
+    # SES (modules/email): USD 0.10 per 1,000 messages, counted as if the
+    # application sent its whole daily ceiling every day of the month --
+    # the most it can send, so the guard holds whatever the traffic. No
+    # dedicated IP and no Virtual Deliverability Manager, each of which
+    # bills monthly regardless of volume. Its two alarms are in `alarms`.
+    email = ceil(var.email_daily_ceiling * 30.5) * 0.10 / 1000
   }
 
   monthly_cost = sum(values(local.cost_breakdown))
@@ -446,6 +458,30 @@ module "database" {
   app_security_group_id = module.app.security_group_id
   # The staging seeder, when on: also an exact group reference.
   client_security_group_ids = compact([module.seeder.security_group_id])
+}
+
+# ---------------------------------------------------------------------
+# Email: one-time codes through Amazon SES, over SMTP
+# ---------------------------------------------------------------------
+#
+# modules/email carries the design: a domain identity on this
+# environment's own zone (Easy DKIM, a bounce. MAIL FROM, DMARC p=none), a
+# configuration set with reputation metrics and two alarms, and an IAM
+# user that may only send from no-reply@<project zone>. Its SMTP
+# credentials are SecureStrings deploy.yml copies into the runtime env --
+# the container cannot use the instance role (IMDS hop limit 1). Always
+# on: it costs nothing until mail is sent, and every environment signs
+# people in.
+module "email" {
+  source = "./modules/email"
+
+  name_prefix         = local.name_prefix
+  domain_name         = local.project_domain
+  zone_id             = aws_route53_zone.project.zone_id
+  aws_region          = var.region
+  account_id          = data.aws_caller_identity.current.account_id
+  sender_boundary_arn = local.email_sender_boundary_arn
+  alarm_topic_arn     = aws_sns_topic.alerts.arn
 }
 
 # ---------------------------------------------------------------------

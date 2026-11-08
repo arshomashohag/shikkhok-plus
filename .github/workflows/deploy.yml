@@ -261,7 +261,17 @@ jobs:
           PLATFORM_ADMIN_PHONES: ${{ secrets.SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES }}
           MFA_KEYS: ${{ secrets.SHIKKHOKPLUS_MFA_KEYS }}
           ADMIN_ALLOWED_CIDRS: ${{ secrets.SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS }}
+          DAILY_EMAIL: ${{ vars.SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL }}
         run: |
+          # **The email ceiling is a whole number, or unset** (unset means
+          # 1000). It is priced by the plan's budget guard and enforced by
+          # the application, so a typo is refused here rather than at the
+          # plan or at startup.
+          if [ -n "$DAILY_EMAIL" ] && ! [[ "$DAILY_EMAIL" =~ ^[0-9]+$ ]]; then
+            echo "::error::Variable SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL must be a whole number of messages, not '$DAILY_EMAIL'."
+            exit 1
+          fi
+
           # **The MFA keyring, for every account.** Any account can turn
           # on two-step verification, so a production process without a
           # keyring refuses to start (app/config.py) -- which would
@@ -439,6 +449,11 @@ jobs:
           TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
           # The performance-test seeder: decided by the step above.
           TF_VAR_enable_seeder: ${{ steps.seeder.outputs.enable }}
+          # The daily email ceiling, priced by the budget guard at its
+          # maximum (infra/main.tf). The SAME variable the release writes
+          # into the runtime env, so the guard prices what the application
+          # enforces. Unset is 1000 in both places.
+          TF_VAR_email_daily_ceiling: ${{ vars.SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL || '1000' }}
           # Who may reach the admin hostname (infra/modules/admin): a
           # comma-separated repository SECRET, not a variable, because this
           # repository is public and so are its Actions logs -- an admin's
@@ -812,6 +827,8 @@ jobs:
           PLATFORM_ADMIN_PHONES: ${{ secrets.SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES }}
           ADMIN_ALLOWED_CIDRS: ${{ secrets.SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS }}
           MFA_KEYS: ${{ secrets.SHIKKHOKPLUS_MFA_KEYS }}
+          # The daily email send ceiling; unset means 1000.
+          DAILY_EMAIL: ${{ vars.SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL }}
           SHA: ${{ needs.plan.outputs.sha }}
         run: |
           umask 077
@@ -851,6 +868,41 @@ jobs:
             exit 1
           fi
 
+          # **The SES sender, read before anything is written, on the edge
+          # secret's terms.** Terraform creates the SMTP user and publishes
+          # its credentials, the From address, the configuration set and
+          # the endpoint (infra/modules/email); the container cannot use the
+          # instance role, so these are how it authenticates to SES. Read
+          # here rather than kept as GitHub secrets, so a key rotation in
+          # Terraform reaches the application on the same run. Failing now
+          # leaves the previous image tag and runtime env untouched.
+          ses_param() {
+            aws ssm get-parameter --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/$1" \
+              --with-decryption --query 'Parameter.Value' --output text
+          }
+          if ! SES_SMTP_USERNAME=$(ses_param ses-smtp-username) \
+             || ! SES_SMTP_PASSWORD=$(ses_param ses-smtp-password) \
+             || ! EMAIL_FROM=$(ses_param email-from) \
+             || ! SES_CONFIGURATION_SET=$(ses_param ses-configuration-set) \
+             || ! SES_SMTP_HOST=$(ses_param ses-smtp-host) \
+             || ! [[ "$SES_SMTP_USERNAME" =~ ^AKIA[A-Z0-9]{16}$ ]] \
+             || ! [[ "$SES_SMTP_PASSWORD" =~ ^[A-Za-z0-9+/=]{40,}$ ]] \
+             || ! [[ "$EMAIL_FROM" =~ ^[^\<\>]+\ \<[^@\<\>[:space:]]+@[^@\<\>[:space:]]+\>$ ]] \
+             || ! [[ "$SES_CONFIGURATION_SET" =~ ^[A-Za-z0-9_-]+$ ]] \
+             || ! [[ "$SES_SMTP_HOST" =~ ^email-smtp\.[a-z0-9-]+\.amazonaws\.com$ ]]; then
+            echo "::error::Cannot read the SES sender from SSM."
+            echo "Either the infrastructure job has not applied infra/modules/email,"
+            echo "or the deploy role predates it: re-apply infra/bootstrap once,"
+            echo "from a laptop. Nothing has been recorded or rolled."
+            exit 1
+          fi
+          echo "::add-mask::$SES_SMTP_PASSWORD"
+          DAILY_EMAIL="${DAILY_EMAIL:-1000}"
+          if ! [[ "$DAILY_EMAIL" =~ ^[0-9]+$ ]]; then
+            echo "::error::Variable SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL must be a whole number."
+            exit 1
+          fi
+
           {
             echo "SHIKKHOKPLUS_ENVIRONMENT=${ENVIRONMENT}"
             echo "SHIKKHOKPLUS_OTP_HMAC_KEY=${OTP_HMAC_KEY}"
@@ -877,9 +929,10 @@ jobs:
             # refuses to start.
             echo "SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER=X-Client-Address"
             # Who may open the platform administration surface: a
-            # comma-separated list of phone numbers. A secret rather than
-            # a variable because it is people's numbers. Unset means
-            # nobody -- the routes answer 403 to every account.
+            # comma-separated list of phone numbers and email addresses
+            # (an entry with an @ is an address). A secret rather than a
+            # variable because it is people's contact details. Unset
+            # means nobody -- the routes answer 403 to every account.
             echo "SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES=${PLATFORM_ADMIN_PHONES}"
             # The admin surface's two network locks behind the edge
             # function (app/authz/admin.py): the secret only the admin
@@ -896,6 +949,20 @@ jobs:
             # means adding k2 beside k1, not replacing k1.
             echo "SHIKKHOKPLUS_MFA_KEYS=${MFA_KEYS}"
             echo "SHIKKHOKPLUS_MFA_ACTIVE_KID=k1"
+            # One-time codes by email, through the SES SMTP interface
+            # (STARTTLS on 587) with the narrowly scoped sender user's
+            # credentials -- the container cannot reach the instance role.
+            # Every value but the ceiling comes from Terraform, read above.
+            # The From header is unquoted: compose's .env parser keeps the
+            # spaces in an unquoted value.
+            echo "SHIKKHOKPLUS_EMAIL_ADAPTER=ses"
+            echo "SHIKKHOKPLUS_SES_SMTP_HOST=${SES_SMTP_HOST}"
+            echo "SHIKKHOKPLUS_SES_SMTP_PORT=587"
+            echo "SHIKKHOKPLUS_SES_SMTP_USERNAME=${SES_SMTP_USERNAME}"
+            echo "SHIKKHOKPLUS_SES_SMTP_PASSWORD=${SES_SMTP_PASSWORD}"
+            echo "SHIKKHOKPLUS_EMAIL_FROM=${EMAIL_FROM}"
+            echo "SHIKKHOKPLUS_SES_CONFIGURATION_SET=${SES_CONFIGURATION_SET}"
+            echo "SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL=${DAILY_EMAIL}"
           } > runtime.env
 
           aws ssm put-parameter \
