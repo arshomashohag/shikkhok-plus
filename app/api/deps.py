@@ -74,7 +74,7 @@ _SUBJECT_MEMO = "_aidlc_token_subject"
 #: Whether the account a token names still exists. Indexed on the key.
 _ACCOUNT_EXISTS = sa.text("SELECT 1 FROM account WHERE id = :account_id")
 _ADMIN_STANDING = sa.text(
-    "SELECT a.phone, EXISTS (SELECT 1 FROM mfa_factor f "
+    "SELECT a.phone, a.email, EXISTS (SELECT 1 FROM mfa_factor f "
     "WHERE f.account_id = a.id AND f.confirmed_at IS NOT NULL) AS confirmed "
     "FROM account a WHERE a.id = :account_id"
 )
@@ -506,7 +506,7 @@ def platform_admin_lens(
         raise AuthorizationError(
             code="NOT_AUTHENTICATED", message_key="auth.token.not_valid", status=401
         )
-    if not is_platform_admin(str(row.phone)) or not row.confirmed:
+    if not is_platform_admin(row.phone, row.email) or not row.confirmed:
         raise AuthorizationError(
             code="NO_PLATFORM_ADMIN_LENS",
             message_key="authz.lens.not_available",

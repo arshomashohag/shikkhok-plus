@@ -128,4 +128,21 @@ class DeleteAccountScreenTest {
 
         compose.onNodeWithTag(TAG_DELETE_TEACHER).assertDoesNotExist()
     }
+
+    @Test
+    fun `an account with no number confirms with its email`() {
+        compose.setContent {
+            DeleteAccountScreen(
+                DeletionState.Confirming(phone = null, email = "rafi@example.com"),
+                onDelete = {},
+                onKeep = {},
+                onDone = {},
+            )
+        }
+
+        compose.onNodeWithText("Type your email to confirm.").assertExists()
+        compose.onNodeWithTag(TAG_DELETE_CONFIRM).performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag(TAG_DELETE_NUMBER).performTextInput("Rafi@Example.com")
+        compose.onNodeWithTag(TAG_DELETE_CONFIRM).performScrollTo().assertIsEnabled()
+    }
 }

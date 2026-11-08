@@ -1,6 +1,9 @@
 package com.shikkhokplus.app.feature.auth
 
+import com.shikkhokplus.app.core.model.Identifier
+import com.shikkhokplus.app.core.model.IdentifierKind
 import com.shikkhokplus.app.core.model.PostalAddress
+import com.shikkhokplus.app.core.model.emailIsWellFormed
 import com.shikkhokplus.app.core.model.SignupRole
 import com.shikkhokplus.app.core.network.AlreadyAddedDto
 import com.shikkhokplus.app.core.network.ErrorEnvelope
@@ -27,6 +30,9 @@ object SignupStateMapper {
 
     /** A part of the address missing, or a postcode that is not four digits. */
     const val ADDRESS_KEY: String = "signup.address.required"
+
+    /** The key shown beside an email field that is not an address. Client-side only. */
+    const val EMAIL_KEY: String = "signup.email.invalid"
 
     /**
      * Map the already-added lookup.
@@ -93,13 +99,45 @@ object SignupStateMapper {
     }
 
     /**
+     * Check the whole form: the identifier of either kind, the name, the
+     * address, and the password with its confirmation.
+     *
+     * **Format only, never policy**, as [validate] for a number: an email
+     * must look like an address, a password must be 8 to 128 characters
+     * and typed the same twice. Whether the password is too common, and
+     * whether the phone or email already has an account, are the server's
+     * to say.
+     *
+     * @param form What was typed
+     * @return [SignupUiState.Invalid] with a key per bad field, or null
+     *   when the form may be submitted
+     */
+    fun validate(form: SignupForm): SignupUiState.Invalid? {
+        val problems = mutableListOf<String>()
+        val identifier = form.identifier
+        when (identifier.kind) {
+            IdentifierKind.PHONE ->
+                validate(identifier.value, form.selfName, form.address)?.let { problems += it.fieldKeys }
+            IdentifierKind.EMAIL -> {
+                if (!emailIsWellFormed(identifier.value)) problems += EMAIL_KEY
+                validate(VALID_SHAPED_PHONE, form.selfName, form.address)?.let { problems += it.fieldKeys }
+            }
+        }
+        PasswordRules.check(form.password, form.confirm)?.let { problems += it }
+        return if (problems.isEmpty()) null else SignupUiState.Invalid(problems)
+    }
+
+    /**
      * Map a successful signup.
      *
      * @param dto The server's answer
+     * @param kind Whether the account was keyed on a phone or an email
      * @return The code-sent state, naming the destination
      */
-    fun afterSignup(dto: SignupResponseDto): SignupUiState =
-        SignupUiState.CodeSent(dto.codeSentTo)
+    fun afterSignup(
+        dto: SignupResponseDto,
+        kind: IdentifierKind = IdentifierKind.PHONE,
+    ): SignupUiState = SignupUiState.CodeSent(dto.codeSentTo, kind)
 
     /**
      * Map a server error envelope.
@@ -125,9 +163,45 @@ object SignupStateMapper {
     fun afterTransportFailure(): SignupUiState =
         SignupUiState.Failed(OFFLINE_KEY, retryable = true)
 
+    /**
+     * A number of the right shape, standing in while only the name and
+     * address of an email sign-up are judged by [validate].
+     */
+    private const val VALID_SHAPED_PHONE = "01700000000"
+
     /** The shortest number the API accepts. */
     private const val MIN_PHONE = 8
 
     /** The longest number the API accepts. */
     private const val MAX_PHONE = 20
+}
+
+/**
+ * Everything the sign-up form submits.
+ *
+ * Bundled because the form has grown past a readable argument list, and
+ * because the password and its confirmation travel together.
+ *
+ * **[toString] leaves both passwords out**, so a stray log line or a
+ * test failure message can never print one.
+ *
+ * @property identifier The phone or email this identity is keyed on
+ * @property selfName The name the person chose for themselves
+ * @property address Owner-private, in its four parts; required
+ * @property role The claimed role
+ * @property password The password chosen; sent after the code is verified
+ * @property confirm The password typed a second time
+ * @property centreName The coaching centre to open; with Coaching only
+ */
+data class SignupForm(
+    val identifier: Identifier,
+    val selfName: String,
+    val address: PostalAddress,
+    val role: SignupRole,
+    val password: String,
+    val confirm: String,
+    val centreName: String? = null,
+) {
+    override fun toString(): String =
+        "SignupForm(identifier=$identifier, selfName=$selfName, role=$role, centreName=$centreName, password=***)"
 }

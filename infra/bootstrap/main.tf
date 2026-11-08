@@ -671,6 +671,50 @@ resource "aws_iam_policy" "environment_boundary" {
   })
 }
 
+# **The SES sender's boundary, per environment** (infra/modules/email).
+#
+# The main module creates one IAM user per environment whose SMTP
+# credentials the API container holds -- a long-lived key, because the
+# container cannot reach the instance role (IMDS hop limit 1). This is the
+# ceiling on that user: ses:SendRawEmail, the action SES's SMTP interface
+# authorizes, on this environment's identity and configuration sets, and
+# nothing else. The infrastructure role may create a user, or give one a
+# policy, only under it (GrantUserOnlyWithinTheSenderBoundary), so the
+# worst a compromised apply can mint is a key that sends mail as this
+# environment's domain -- not a key into the account.
+#
+# The identity is the environment's project zone, named by the same
+# patterns that scope its DNS records, so staging's ceiling cannot match
+# production's domain.
+resource "aws_iam_policy" "email_sender_boundary" {
+  for_each = local.environments
+
+  name        = "shikkhokplus-email-sender-boundary-${each.key}"
+  path        = "/shikkhokplus/"
+  description = "Permissions boundary for the ${each.key} SES SMTP user: send through this environment's identity only."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "SendThroughOurIdentityOnly"
+      Effect   = "Allow"
+      Action   = ["ses:SendRawEmail"]
+      Resource = local.email_resource_arns[each.key]
+    }]
+  })
+}
+
+locals {
+  # This environment's SES identity (its project zone, by the record-name
+  # patterns) and configuration sets (`shikkhokplus-<env>-*`).
+  email_resource_arns = {
+    for env in local.environments : env => concat(
+      [for pattern in var.record_name_patterns[env] : "arn:aws:ses:*:${local.account_id}:identity/${pattern}"],
+      ["arn:aws:ses:*:${local.account_id}:configuration-set/shikkhokplus-${env}-*"],
+    )
+  }
+}
+
 # **The retired single boundary**, kept UNCHANGED only because roles
 # still carry it until each environment's main module has been applied
 # once with the per-environment boundary above. IAM refuses to delete a
@@ -904,6 +948,88 @@ resource "aws_iam_role_policy" "ci_infrastructure" {
         Resource = "arn:aws:lambda:*:${local.account_id}:function:shikkhokplus-${each.key}-*"
       },
       {
+        # **The SES identity and configuration set** (modules/email), by
+        # this environment's names only. Enumerated rather than ses:*, so
+        # the role that applies infrastructure is not also a sender. The
+        # Put* wildcards are the per-attribute setters Terraform calls on
+        # an update (DKIM, MAIL FROM, reputation, suppression, delivery).
+        Sid    = "EmailIdentity"
+        Effect = "Allow"
+        Action = [
+          "ses:CreateEmailIdentity",
+          "ses:DeleteEmailIdentity",
+          "ses:GetEmailIdentity",
+          "ses:PutEmailIdentity*",
+          "ses:CreateConfigurationSet",
+          "ses:DeleteConfigurationSet",
+          "ses:GetConfigurationSet",
+          "ses:PutConfigurationSet*",
+          "ses:TagResource",
+          "ses:UntagResource",
+          "ses:ListTagsForResource",
+        ]
+        Resource = local.email_resource_arns[each.key]
+      },
+      {
+        # **The SES SMTP user** (modules/email): reading, tagging,
+        # deleting, its access keys, and edits that can only reduce what it
+        # holds. Under /shikkhokplus/ and named for this environment.
+        # Giving it a policy is GrantUserOnlyWithinTheSenderBoundary below.
+        # The List* calls are what Terraform reads back, and what deleting
+        # a user checks first. No login profile, no MFA, no group, no
+        # managed policy: none is granted.
+        Sid    = "ManageOurSender"
+        Effect = "Allow"
+        Action = [
+          "iam:GetUser",
+          "iam:DeleteUser",
+          "iam:TagUser",
+          "iam:UntagUser",
+          "iam:ListUserTags",
+          "iam:ListUserPolicies",
+          "iam:GetUserPolicy",
+          "iam:DeleteUserPolicy",
+          "iam:ListAttachedUserPolicies",
+          "iam:ListGroupsForUser",
+          "iam:ListAccessKeys",
+          "iam:CreateAccessKey",
+          "iam:DeleteAccessKey",
+          "iam:UpdateAccessKey",
+          "iam:ListSSHPublicKeys",
+          "iam:ListServiceSpecificCredentials",
+          "iam:ListSigningCertificates",
+          "iam:ListMFADevices",
+          "iam:GetLoginProfile",
+        ]
+        Resource = "arn:aws:iam::${local.account_id}:user/shikkhokplus/shikkhokplus-${each.key}-*"
+      },
+      {
+        # **A user is created, or given a policy, only under the sender
+        # boundary**: a ceiling of ses:SendRawEmail on this environment's
+        # identity. So this role cannot mint a long-lived key that reaches
+        # anything else, whatever policy it writes.
+        Sid    = "GrantUserOnlyWithinTheSenderBoundary"
+        Effect = "Allow"
+        Action = [
+          "iam:CreateUser",
+          "iam:PutUserPolicy",
+          "iam:PutUserPermissionsBoundary",
+        ]
+        Resource = "arn:aws:iam::${local.account_id}:user/shikkhokplus/shikkhokplus-${each.key}-*"
+        Condition = {
+          StringEquals = { "iam:PermissionsBoundary" = aws_iam_policy.email_sender_boundary[each.key].arn }
+        }
+      },
+      {
+        Sid      = "OnlyTheSenderBoundary"
+        Effect   = "Deny"
+        Action   = ["iam:CreateUser", "iam:PutUserPolicy", "iam:PutUserPermissionsBoundary"]
+        Resource = "*"
+        Condition = {
+          StringNotEquals = { "iam:PermissionsBoundary" = aws_iam_policy.email_sender_boundary[each.key].arn }
+        }
+      },
+      {
         # **Logs, alarms and the alert topic** [OPS-11], each scoped to
         # this environment's names.
         Sid    = "Observability"
@@ -1069,7 +1195,7 @@ resource "aws_iam_role_policy" "ci_infrastructure" {
         # **A boundary, once set, stays.**
         Sid      = "KeepTheBoundary"
         Effect   = "Deny"
-        Action   = ["iam:DeleteRolePermissionsBoundary"]
+        Action   = ["iam:DeleteRolePermissionsBoundary", "iam:DeleteUserPermissionsBoundary"]
         Resource = "*"
       },
       {
@@ -1296,6 +1422,36 @@ resource "aws_iam_role_policy" "plan" {
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:GetObjectTagging"]
         Resource = "arn:aws:s3:::shikkhokplus-${each.key}-*config-*/docker-compose.yml"
+      },
+      {
+        # **The SES identity and configuration set**, read back
+        # (modules/email). No send action.
+        Sid    = "ReadOurEmail"
+        Effect = "Allow"
+        Action = [
+          "ses:GetEmailIdentity",
+          "ses:GetConfigurationSet",
+          "ses:ListTagsForResource",
+        ]
+        Resource = local.email_resource_arns[each.key]
+      },
+      {
+        # **The SES SMTP user, read back** (modules/email): the user, its
+        # inline policy and its access key's id and status. Never a secret
+        # -- the SMTP password exists only at key creation, in state and
+        # in the SSM SecureString this role reads above, as it reads every
+        # SecureString of this environment to detect drift.
+        Sid    = "ReadOurSender"
+        Effect = "Allow"
+        Action = [
+          "iam:GetUser",
+          "iam:ListUserTags",
+          "iam:GetUserPolicy",
+          "iam:ListUserPolicies",
+          "iam:ListAttachedUserPolicies",
+          "iam:ListAccessKeys",
+        ]
+        Resource = "arn:aws:iam::${local.account_id}:user/shikkhokplus/shikkhokplus-${each.key}-*"
       },
       {
         Sid    = "ReadOurRoles"

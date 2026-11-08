@@ -22,7 +22,6 @@ sees them as lensed and a handler cannot widen to a second seat.
 from __future__ import annotations
 
 import datetime as dt
-import os
 import uuid
 from typing import Annotated, Literal
 
@@ -31,26 +30,25 @@ from sqlalchemy.orm import Session
 
 from app.accounts import decisions, service
 from app.api.auth import (
-    APP_HASH_ENV,
     coarse_prefix_of,
     correlation_of,
+    get_email_gateway,
     ip_prefix_of,
 )
 from app.api.deps import authenticated_account, get_session, invitation_lens
 from app.audit.log import AuthEvent, write_audit
 from app.auth import otp, pending
 from app.auth.ceilings import CeilingBreach, CeilingChecker, SendBudget
-from app.auth.delivery import send_within_budget
+from app.auth.delivery import deliver_code
 from app.authz.invitations import (
     InvitationRow,
     available_invitations,
     read_invitation,
 )
 from app.authz.lenses import InvitationLens
+from app.gateway.email import EmailGateway
 from app.gateway.null import build_gateway
-from app.gateway.outbox import outbox_enabled, record_outbox
 from app.gateway.sms import SmsGateway
-from app.gateway.template import render_otp_message
 from app.money import Money as DomainMoney
 from app.money.wire import to_wire
 from app.schemas.accounts import (
@@ -147,6 +145,7 @@ def sign_up(
     background: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
     gateway: Annotated[SmsGateway, Depends(get_gateway)],
+    email_gateway: Annotated[EmailGateway, Depends(get_email_gateway)],
 ) -> SignupResponse:
     """Hold the signup form, then send the code that completes it [C-07].
 
@@ -180,15 +179,17 @@ def sign_up(
     :param background: Runs the SMS send after the response is written
     :param session: The request-scoped session
     :param gateway: The configured SMS gateway
-    :return: The draft's id and the number its code went to
+    :param email_gateway: The configured email gateway
+    :return: The draft's id and where its code went
     :raises CeilingBreach: A signup ceiling refused this request
     """
     correlation_id = correlation_of(request)
     checker = CeilingChecker(session)
+    identifier = body.identifier
 
     try:
         checker.check_and_consume_signup(
-            number=body.phone,
+            number=identifier.rate_key,
             ip_prefix=ip_prefix_of(request),
             coarse_prefix=coarse_prefix_of(request),
         )
@@ -203,7 +204,7 @@ def sign_up(
     moment = dt.datetime.now(tz=dt.UTC)
     draft_id = pending.save_draft(
         session,
-        phone=body.phone,
+        identifier=identifier,
         role=body.role,
         self_name=body.self_name,
         address_house=body.address_house,
@@ -223,39 +224,29 @@ def sign_up(
     # the code it issues and commits both together, so a failure between
     # them leaves neither.
     issued = otp.issue(
-        session, body.phone, correlation_id, purpose=otp.OTP_PURPOSE, now=moment
+        session, identifier, correlation_id, purpose=otp.OTP_PURPOSE, now=moment
     )
-    message = render_otp_message(issued.code, os.environ.get(APP_HASH_ENV, ""))
 
-    # After the response, so a known and an unknown number return having
-    # done the same work, and from signup's budget whichever it is
-    # [C-05]. A skipped send kills the code [C-20].
-    background.add_task(
-        send_within_budget,
-        session.get_bind(),
-        gateway,
-        body.phone,
-        message,
+    # After the response, so a known and an unknown destination return
+    # having done the same work, and a text spends signup's budget [C-05]
+    # (an email spends the email budget [0032]). A skipped send kills the
+    # code [C-20]. The staging outbox records it unconditionally, because
+    # every signup sends: nothing there differs between destinations.
+    deliver_code(
+        background,
+        session,
+        identifier,
+        issued.code,
         correlation_id,
-        budget=SendBudget.SIGNUP,
+        sms_budget=SendBudget.SIGNUP,
+        sms_gateway=gateway,
+        email_gateway=email_gateway,
         otp_request_id=issued.request_id,
     )
 
-    # The staging outbox, so a host with no SMS credentials can still
-    # complete a signup. Unconditional, because every signup sends: the
-    # outbox records nothing here that it would not record for any other
-    # number, and production runs it to no effect.
-    if outbox_enabled():
-        record_outbox(
-            session,
-            phone=body.phone,
-            message=message,
-            correlation_id=correlation_id,
-        )
-
     session.commit()
 
-    return SignupResponse(account_id=draft_id, code_sent_to=body.phone)
+    return SignupResponse(account_id=draft_id, code_sent_to=identifier.value)
 
 
 @router.get("/accounts/already-added", response_model=AlreadyAddedResponse)

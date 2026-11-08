@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.Identifier
 import com.shikkhokplus.app.feature.auth.AuthResult
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -30,13 +31,14 @@ class HttpAuthSecondStepTest {
         """{"error":{"code":"MFA_CHALLENGE_EXPIRED","retryable":false,"message_key":"mfa.challenge_expired"}}"""
 
     @Test
-    fun `an account without the second step is signed in by the SMS code, as before`() = runTest {
+    fun `an account without the second step is signed in by its password`() = runTest {
         val tokens = TokenStore.InMemory()
         val engine = MockEngine { respond(pair.replace("}", ""","mfa_required":false}"""), HttpStatusCode.OK, json) }
 
         val ok =
             assertIs<AuthResult.Ok<VerifyResponse>>(
-                HttpAuthRepository(ApiClient.build(BASE, engine, tokens), tokens).verify("01711234567", "123456"),
+                HttpAuthRepository(ApiClient.build(BASE, engine, tokens), tokens)
+                    .signIn(Identifier.phone("01711234567"), "correct horse"),
             )
 
         assertEquals(false, ok.value.mfaRequired)
@@ -55,7 +57,8 @@ class HttpAuthSecondStepTest {
 
         val ok =
             assertIs<AuthResult.Ok<VerifyResponse>>(
-                HttpAuthRepository(ApiClient.build(BASE, engine, tokens), tokens).verify("01711234567", "123456"),
+                HttpAuthRepository(ApiClient.build(BASE, engine, tokens), tokens)
+                    .signIn(Identifier.phone("01711234567"), "correct horse"),
             )
 
         assertEquals("chal", ok.value.mfaChallenge)

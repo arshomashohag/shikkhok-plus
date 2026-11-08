@@ -97,7 +97,7 @@
   "web_admin_auth_point_two_codes": "প্রতিবার লগ ইন করতে এসএমএস কোড আর অথেনটিকেটর অ্যাপের কোড, দুটোই লাগে।",
   "web_admin_auth_point_hour": "একটি সেশন এক ঘণ্টা চলে, আর ট্যাব বন্ধ করলেই শেষ হয়।",
   "web_admin_signin_title": "শিক্ষকপ্লাস অ্যাডমিনে লগ ইন করুন",
-  "web_admin_signin_sub": "অ্যাডমিনের নম্বরে এসএমএসে 6 সংখ্যার একটি কোড পাঠানো হবে।",
+  "web_admin_signin_sub": "অ্যাডমিনের নম্বরে এসএমএসে, অথবা ইমেইল ঠিকানায় একটি ৬ সংখ্যার কোড পাঠানো হবে।",
   "web_admin_signin_code_sent": "নম্বরটি অ্যাডমিনের হলে, এসএমএসে 6 সংখ্যার একটি কোড পাঠানো হয়েছে।",
   "web_admin_signin_not_admin": "এই নম্বর দিয়ে শিক্ষকপ্লাস অ্যাডমিনে লগ ইন করা যায় না।",
   "web_admin_unavailable": "এই সংযোগ থেকে শিক্ষকপ্লাস অ্যাডমিন ব্যবহার করা যায় না। অনুমোদিত নেটওয়ার্ক থেকে অ্যাডমিনের ঠিকানায় খুলুন।",
@@ -133,5 +133,8 @@
   "web_admin_codes_label": "রিকভারি কোড",
   "web_admin_copy_all": "সবগুলো কপি করুন",
   "web_admin_codes_saved": "সংরক্ষণ করেছি",
-  "web_admin_signed_in_until": "{1} পর্যন্ত লগ ইন থাকবে"
+  "web_admin_signed_in_until": "{1} পর্যন্ত লগ ইন থাকবে",
+  "web_admin_identifier_label": "ফোন নম্বর বা ইমেইল",
+  "web_admin_identifier_hint": "01XXXXXXXXX অথবা you@example.com",
+  "web_admin_email_invalid": "you@example.com এর মতো একটি ইমেইল ঠিকানা লিখুন।"
 }

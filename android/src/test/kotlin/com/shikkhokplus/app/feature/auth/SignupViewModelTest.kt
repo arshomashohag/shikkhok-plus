@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.auth
 
+import com.shikkhokplus.app.core.model.Identifier
+import com.shikkhokplus.app.core.model.IdentifierKind
 import com.shikkhokplus.app.core.model.PostalAddress
 import com.shikkhokplus.app.core.model.SignupRole
 import com.shikkhokplus.app.core.network.AlreadyAddedDto
@@ -18,6 +20,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 /**
  * The signup ViewModel's own state machine.
@@ -67,14 +70,17 @@ class SignupViewModelTest {
             return lookupResult
         }
 
+        val sentIdentifiers = mutableListOf<Identifier>()
+
         override suspend fun signup(
-            phone: String,
+            identifier: Identifier,
             role: String,
             selfName: String,
             address: PostalAddress,
             centreName: String?,
         ): AuthResult<SignupResponseDto> {
             signupCalls++
+            sentIdentifiers += identifier
             sentRoles += role to centreName
             return signupResult
         }
@@ -84,6 +90,18 @@ class SignupViewModelTest {
         key: String,
         retryable: Boolean,
     ) = ErrorEnvelope(ErrorBody(code = "REFUSED", messageKey = key, retryable = retryable))
+
+    /** A complete form, by phone unless an identifier is given. */
+    private fun form(
+        phone: String,
+        selfName: String = "Rahim",
+        address: PostalAddress = HOME,
+        role: SignupRole = SignupRole.STUDENT,
+        centreName: String? = null,
+        identifier: Identifier = Identifier.phone(phone),
+        password: String = "correct horse",
+        confirm: String = password,
+    ) = SignupForm(identifier, selfName, address, role, password, confirm, centreName)
 
     @Test
     fun `editing the number drops what was said about the old one`() = runTest(dispatcher) {
@@ -231,7 +249,7 @@ class SignupViewModelTest {
         val repo = FakeRepository()
         val model = SignupViewModel(repo)
 
-        model.submit("12", "Rahim", HOME, SignupRole.STUDENT)
+        model.submit(form("12"))
         advanceUntilIdle()
 
         assertIs<SignupUiState.Invalid>(model.state.value)
@@ -243,7 +261,7 @@ class SignupViewModelTest {
         val repo = FakeRepository()
         val model = SignupViewModel(repo)
 
-        model.submit("+8801700000000", selfName = "  ", address = HOME, role = SignupRole.STUDENT)
+        model.submit(form("+8801700000000", selfName = "  "))
         advanceUntilIdle()
 
         assertIs<SignupUiState.Invalid>(model.state.value)
@@ -255,7 +273,7 @@ class SignupViewModelTest {
         val repo = FakeRepository()
         val model = SignupViewModel(repo)
 
-        model.submit("+8801700000000", "Rahim", HOME, SignupRole.STUDENT)
+        model.submit(form("+8801700000000"))
         advanceUntilIdle()
 
         val state = assertIs<SignupUiState.CodeSent>(model.state.value)
@@ -275,7 +293,7 @@ class SignupViewModelTest {
                 )
             val model = SignupViewModel(repo)
 
-            model.submit("+8801700000000", "Rahim", HOME, SignupRole.STUDENT)
+            model.submit(form("+8801700000000"))
             advanceUntilIdle()
 
             val state = assertIs<SignupUiState.Failed>(model.state.value)
@@ -292,7 +310,7 @@ class SignupViewModelTest {
             val repo = FakeRepository(signupResult = AuthResult.TransportFailure)
             val model = SignupViewModel(repo)
 
-            model.submit("+8801700000000", "Rahim", HOME, SignupRole.STUDENT)
+            model.submit(form("+8801700000000"))
             advanceUntilIdle()
 
             val state = assertIs<SignupUiState.Failed>(model.state.value)
@@ -344,7 +362,7 @@ class SignupViewModelTest {
         val repo = FakeRepository()
         val model = SignupViewModel(repo)
 
-        model.submit("+8801700000000", "Rahima", HOME, SignupRole.COACHING, centreName = "  Udayan Coaching ")
+        model.submit(form("+8801700000000", "Rahima", role = SignupRole.COACHING, centreName = "  Udayan Coaching "))
         advanceUntilIdle()
 
         assertEquals(listOf<Pair<String, String?>>("coaching" to "Udayan Coaching"), repo.sentRoles)
@@ -355,10 +373,94 @@ class SignupViewModelTest {
         val repo = FakeRepository()
         val model = SignupViewModel(repo)
 
-        model.submit("+8801700000000", "Rahim", HOME, SignupRole.TEACHER, centreName = "Stale")
+        model.submit(form("+8801700000000", role = SignupRole.TEACHER, centreName = "Stale"))
         advanceUntilIdle()
 
         assertEquals(listOf<Pair<String, String?>>("teacher" to null), repo.sentRoles)
     }
 
+    @Test
+    fun `an email sign-up sends the email and asks nothing about a number`() = runTest(dispatcher) {
+        val repo = FakeRepository(signupResult = AuthResult.Ok(SignupResponseDto("acc-1", "rafi@example.com")))
+        val model = SignupViewModel(repo)
+
+        model.kindChanged(IdentifierKind.EMAIL)
+        model.submit(form("", identifier = Identifier.email("rafi@example.com")))
+        advanceUntilIdle()
+
+        assertEquals(listOf(Identifier.email("rafi@example.com")), repo.sentIdentifiers)
+        assertEquals(0, repo.lookupCalls)
+        assertEquals(SignupUiState.CodeSent("rafi@example.com", IdentifierKind.EMAIL), model.state.value)
+    }
+
+    @Test
+    fun `a malformed email is refused on submit and never sent`() = runTest(dispatcher) {
+        val repo = FakeRepository()
+        val model = SignupViewModel(repo)
+
+        model.submit(form("", identifier = Identifier.email("rafi.example.com")))
+        advanceUntilIdle()
+
+        assertEquals(SignupUiState.Invalid(listOf(SignupStateMapper.EMAIL_KEY)), model.state.value)
+        assertEquals(0, repo.signupCalls)
+    }
+
+    @Test
+    fun `a short or mismatched password is refused on submit and never sent`() = runTest(dispatcher) {
+        val repo = FakeRepository()
+        val model = SignupViewModel(repo)
+
+        model.submit(form("+8801700000000", password = "short"))
+        assertEquals(SignupUiState.Invalid(listOf(PasswordRules.TOO_SHORT_KEY)), model.state.value)
+
+        model.submit(form("+8801700000000", password = "correct horse", confirm = "correct horsE"))
+        assertEquals(SignupUiState.Invalid(listOf(PasswordRules.MISMATCH_KEY)), model.state.value)
+
+        advanceUntilIdle()
+        assertEquals(0, repo.signupCalls)
+    }
+
+    @Test
+    fun `the password is handed over once, and only after the account exists`() = runTest(dispatcher) {
+        val repo = FakeRepository(signupResult = AuthResult.TransportFailure)
+        val model = SignupViewModel(repo)
+
+        model.submit(form("+8801700000000"))
+        advanceUntilIdle()
+        assertEquals(null, model.takePassword(), "no account, so nothing to hand over")
+
+        repo.signupResult = AuthResult.Ok(SignupResponseDto("acc-1", "+8801700000000"))
+        model.retry()
+        advanceUntilIdle()
+
+        assertEquals("correct horse", model.takePassword())
+        assertEquals(null, model.takePassword(), "this ViewModel keeps no copy after handing it over")
+    }
+
+    @Test
+    fun `the form never prints a password`() {
+        val printed = form("+8801700000000", password = "correct horse").toString()
+
+        assertTrue("correct horse" !in printed)
+    }
+
+    @Test
+    fun `a ViewModel that is cleared drops the password it held`() = runTest(dispatcher) {
+        val store = androidx.lifecycle.ViewModelStore()
+        val model =
+            androidx.lifecycle.ViewModelProvider(
+                store,
+                object : androidx.lifecycle.ViewModelProvider.Factory {
+                    @Suppress("UNCHECKED_CAST")
+                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                        SignupViewModel(FakeRepository()) as T
+                },
+            )[SignupViewModel::class.java]
+        model.submit(form("+8801700000000"))
+        advanceUntilIdle()
+
+        store.clear()
+
+        assertEquals(null, model.takePassword())
+    }
 }

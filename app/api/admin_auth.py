@@ -21,7 +21,6 @@ network, before any of the work below.
 
 from __future__ import annotations
 
-import os
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
@@ -33,20 +32,19 @@ from app.admin.signin import (
     complete_mfa,
 )
 from app.api.auth import (
-    APP_HASH_ENV,
     correlation_of,
+    get_email_gateway,
     get_gateway,
     ip_prefix_of,
 )
 from app.api.deps import admin_gate, get_session
 from app.auth import otp
 from app.auth.ceilings import CeilingChecker, SendBudget
-from app.auth.delivery import send_within_budget
+from app.auth.delivery import deliver_code
 from app.auth.tokens import MFA_CHALLENGE_LIFETIME
 from app.authz.admin import is_platform_admin
-from app.gateway.outbox import record_outbox
+from app.gateway.email import EmailGateway
 from app.gateway.sms import SmsGateway
-from app.gateway.template import render_otp_message
 from app.schemas.admin import (
     AdminChallengeResponse,
     AdminEnrollment,
@@ -73,38 +71,45 @@ def send_code(
     background: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
     gateway: Annotated[SmsGateway, Depends(get_gateway)],
+    email_gateway: Annotated[EmailGateway, Depends(get_email_gateway)],
 ) -> IssueResponse:
-    """Send an admin sign-in code, answering every number the same way.
+    """Send an admin sign-in code, answering every destination the same way.
 
-    The sign-in ceilings apply before anything else, for every number, as
-    they do for app sign-in; the code is texted after the response, so a
-    send cannot be timed either.
+    The sign-in ceilings apply before anything else, for every number or
+    address, as they do for app sign-in; the code is sent after the
+    response, so a send cannot be timed either. An administrator named
+    by email address [0032] is sent the code by email.
 
-    :param body: The number
+    :param body: The number or the address
     :param request: The incoming request
     :param background: Runs the send after the response
     :param session: The request-scoped session
     :param gateway: The SMS gateway
+    :param email_gateway: The email gateway
     :return: The contentless acknowledgement
     """
     correlation_id = correlation_of(request)
+    identifier = body.identifier
     CeilingChecker(session).check_and_consume(
-        number=body.phone, ip_prefix=ip_prefix_of(request)
+        number=identifier.rate_key, ip_prefix=ip_prefix_of(request)
     )
-    issued = otp.issue(session, body.phone, correlation_id, purpose=ADMIN_OTP_PURPOSE)
-    if issued.account_exists and is_platform_admin(body.phone):
-        message = render_otp_message(issued.code, os.environ.get(APP_HASH_ENV, ""))
-        background.add_task(
-            send_within_budget,
-            session.get_bind(),
-            gateway,
-            body.phone,
-            message,
+    issued = otp.issue(session, identifier, correlation_id, purpose=ADMIN_OTP_PURPOSE)
+    listed = (
+        is_platform_admin(identifier.value)
+        if identifier.is_phone
+        else is_platform_admin(None, identifier.value)
+    )
+    if issued.account_exists and listed:
+        deliver_code(
+            background,
+            session,
+            identifier,
+            issued.code,
             correlation_id,
-            budget=SendBudget.SIGN_IN,
-        )
-        record_outbox(
-            session, phone=body.phone, message=message, correlation_id=correlation_id
+            sms_budget=SendBudget.SIGN_IN,
+            sms_gateway=gateway,
+            email_gateway=email_gateway,
+            otp_request_id=issued.request_id,
         )
     session.commit()
     return IssueResponse()
@@ -125,12 +130,12 @@ def verify_code(
     """
     account_id = otp.verify(
         session,
-        body.phone,
+        body.identifier,
         body.code,
         correlation_of(request),
         purpose=ADMIN_OTP_PURPOSE,
     )
-    challenge = begin_mfa(session, account_id, body.phone)
+    challenge = begin_mfa(session, account_id, body.identifier.value)
     session.commit()
     return AdminChallengeResponse(
         challenge=challenge.token,

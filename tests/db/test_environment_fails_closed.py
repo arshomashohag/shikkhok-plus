@@ -24,6 +24,13 @@ COMPLETE = {
     "SHIKKHOKPLUS_OTP_HMAC_KEY": "a-real-key",
     "SHIKKHOKPLUS_SMS_ADAPTER": "bulksmsbd",
     "SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER": "X-Client-Address",
+    "SHIKKHOKPLUS_MFA_KEYS": "k1:" + "B" * 43 + "=",
+    "SHIKKHOKPLUS_MFA_ACTIVE_KID": "k1",
+    "SHIKKHOKPLUS_EMAIL_ADAPTER": "ses",
+    "SHIKKHOKPLUS_SES_SMTP_HOST": "email-smtp.us-east-1.amazonaws.com",
+    "SHIKKHOKPLUS_SES_SMTP_USERNAME": "AKIAEXAMPLE",
+    "SHIKKHOKPLUS_SES_SMTP_PASSWORD": "smtp-password",
+    "SHIKKHOKPLUS_EMAIL_FROM": "ShikkhokPlus <no-reply@example.com>",
 }
 
 

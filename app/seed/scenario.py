@@ -570,6 +570,12 @@ class _Simulation:
         self.clock = SimulatedClock(_at(self.start, "00:00"))
         self._queue: list[tuple[dt.datetime, int, Callable[[], None]]] = []
         self._sequence = itertools.count()
+        # Every short payment alternates carried, waived, carried, ... so
+        # both dispositions appear in any history with two short payments.
+        # Choosing by the student's index made it depend on which
+        # students the RNG -- seeded with the random owner id -- happened
+        # to make pay short, and some histories had no waiver at all.
+        self._shortfalls = itertools.count()
 
         self.batch_ids: dict[str, uuid.UUID] = {}
         self.subject_ids: dict[tuple[str, str], uuid.UUID] = {}
@@ -754,12 +760,10 @@ class _Simulation:
 
         :return: None
         """
-        local = (
-            "0"
-            + self.session.execute(
-                sa.select(Account.phone).where(Account.id == self.teacher.account_id)
-            ).scalar_one()[4:]
-        )
+        teacher_phone = self.session.execute(
+            sa.select(Account.phone).where(Account.id == self.teacher.account_id)
+        ).scalar_one()
+        local = "0" + (teacher_phone or "")[4:]
         for key, draft in (
             (
                 "bkash",
@@ -1164,7 +1168,7 @@ class _Simulation:
                     amount=value,
                     paid_on=day,
                     shortfall_disposition=(
-                        ("waived" if kid.index % 2 else "carried") if short else None
+                        self._shortfall_disposition() if short else None
                     ),
                     note=None,
                 ),
@@ -1278,7 +1282,7 @@ class _Simulation:
         first = claims[0] if len(claims) > 1 else None
         disposition: Disposition | None = None
         if short:
-            disposition = "waived" if kid.index % 2 else "carried"
+            disposition = self._shortfall_disposition()
         approve_submission(
             self.session,
             lens=self.teacher,
@@ -1325,6 +1329,13 @@ class _Simulation:
             batch_id=self.batch_ids[key],
         )
         return owed_for_target(self.session, target=target, enrollment_id=seat)
+
+    def _shortfall_disposition(self) -> Disposition:
+        """Choose what happens to the next short payment's shortfall.
+
+        :return: ``carried`` and ``waived`` in turn
+        """
+        return "waived" if next(self._shortfalls) % 2 else "carried"
 
     def _amount(self, owed: Money, kid: _Kid, key: str, kind: str) -> Money:
         """Turn what is owed into what this family sends.

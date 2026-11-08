@@ -54,9 +54,15 @@ import com.shikkhokplus.app.core.designsystem.RoleIcons
 import com.shikkhokplus.app.core.designsystem.SecondaryButton
 import com.shikkhokplus.app.core.designsystem.ShikkhokTextField
 import com.shikkhokplus.app.core.designsystem.TextAction
+import com.shikkhokplus.app.core.model.Identifier
+import com.shikkhokplus.app.core.model.IdentifierKind
 import com.shikkhokplus.app.core.model.SignupRole
-import com.shikkhokplus.app.core.ui.PhoneNumberField
+import com.shikkhokplus.app.core.ui.IdentifierField
+import com.shikkhokplus.app.core.ui.IdentifierKindToggle
+import com.shikkhokplus.app.core.ui.NewPasswordFields
 import com.shikkhokplus.app.feature.auth.MessageKeys
+import com.shikkhokplus.app.feature.auth.PasswordRules
+import com.shikkhokplus.app.feature.auth.SignupForm
 import com.shikkhokplus.app.feature.auth.SignupStateMapper
 import com.shikkhokplus.app.feature.auth.SignupUiState
 
@@ -65,6 +71,12 @@ const val TAG_SIGNUP_PHONE: String = "signup_phone"
 
 /** Test tag for the name field. */
 const val TAG_SIGNUP_NAME: String = "signup_name"
+
+/** Test tag for the password field. */
+const val TAG_SIGNUP_PASSWORD: String = "signup_password"
+
+/** Test tag for the password's second copy. */
+const val TAG_SIGNUP_CONFIRM: String = "signup_confirm"
 
 
 /** Test tag for the submit control. */
@@ -115,8 +127,15 @@ private const val CENTRE_NAME_MAX: Int = 120
  * four-digit postcode (decided 2026-11-05). Send code waits for all
  * four, and the board's "Add your address" names what is missing.
  *
+ * **Phone or email, and a password.** The account is keyed on one of
+ * the two, chosen with a toggle; the already-added lookup applies to a
+ * phone only, because teachers record students and guardians by number.
+ * The password is chosen here, checked for length and match only, and
+ * sent after the code is verified. Both copies live in `remember`, never
+ * in saved state.
+ *
  * @param state What to render
- * @param onSubmit Called with the whole payload, on the button: the
+ * @param onSubmit Called with the whole form, on the button: the
  *   centre's name is passed with the Coaching role only
  * @param onGoToLogin Called from "Log in"
  * @param onRetry Called when a retryable failure offers a retry
@@ -125,19 +144,25 @@ private const val CENTRE_NAME_MAX: Int = 120
  *   well-formed number, to ask whether a teacher already added it
  * @param onNumberEdited Called on each edit of the number, so an answer
  *   given for the previous number stops applying to this one
+ * @param onKindChange Called when Phone | Email changes
  */
 @Composable
 fun SignupScreen(
     state: SignupUiState,
-    onSubmit: (phone: String, name: String, address: PostalAddress, role: SignupRole, centreName: String?) -> Unit,
+    onSubmit: (SignupForm) -> Unit,
     onGoToLogin: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     onLookup: (String) -> Unit = {},
     onNumberEdited: () -> Unit = {},
+    onKindChange: (IdentifierKind) -> Unit = {},
 ) {
-    // Typed fields survive a rotation or a language change [L-20].
+    // Typed fields survive a rotation or a language change [L-20]; the
+    // passwords deliberately do not.
+    var kind by rememberSaveable { mutableStateOf(IdentifierKind.PHONE) }
     var phone by rememberSaveable { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirm by remember { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
     var address by rememberSaveable(stateSaver = PostalAddressSaver) { mutableStateOf(PostalAddress()) }
     var centreName by rememberSaveable { mutableStateOf("") }
@@ -179,12 +204,28 @@ fun SignupScreen(
                         Form(
                             state = state,
                             prefilled = prefilled,
-                            phone = phone,
-                            onPhoneChange = {
-                                phone = it
-                                onNumberEdited()
-                            },
-                            onPhoneLeft = onLookup,
+                            identifier =
+                                IdentifierInput(
+                                    kind = kind,
+                                    value = phone,
+                                    onKindChange = {
+                                        kind = it
+                                        phone = ""
+                                        onKindChange(it)
+                                    },
+                                    onValueChange = {
+                                        phone = it
+                                        onNumberEdited()
+                                    },
+                                    onPhoneLeft = onLookup,
+                                ),
+                            passwords =
+                                PasswordInput(
+                                    password = password,
+                                    onPasswordChange = { password = it },
+                                    confirm = confirm,
+                                    onConfirmChange = { confirm = it },
+                                ),
                             name = name,
                             onNameChange = { name = it },
                             address = address,
@@ -200,16 +241,22 @@ fun SignupScreen(
                     }
                     Bar(
                         phone = phone,
-                        enabled = canSend(state, role, name, phone, address, centreName),
+                        enabled =
+                            canSend(state, role, name, phone, address, centreName) &&
+                                password.isNotEmpty() && confirm.isNotEmpty(),
                         offerLogin = prefilled == null && !alreadyRegistered,
                         onSubmit = {
                             role?.let {
                                 onSubmit(
-                                    phone,
-                                    name.ifEmpty { prefilled?.prefilledName.orEmpty() },
-                                    address,
-                                    it,
-                                    centreName.takeIf { _ -> it == SignupRole.COACHING },
+                                    SignupForm(
+                                        identifier = Identifier(kind, phone),
+                                        selfName = name.ifEmpty { prefilled?.prefilledName.orEmpty() },
+                                        address = address,
+                                        role = it,
+                                        password = password,
+                                        confirm = confirm,
+                                        centreName = centreName.takeIf { _ -> it == SignupRole.COACHING },
+                                    ),
                                 )
                             }
                         },
@@ -252,9 +299,8 @@ private fun Header() {
  *
  * @param state What to render
  * @param prefilled The already-added answer, while it applies
- * @param phone The number typed so far
- * @param onPhoneChange Called on each edit of the number
- * @param onPhoneLeft Called when the number field is left holding a valid number
+ * @param identifier The phone or email, and its kind
+ * @param passwords The password and its second copy
  * @param name The name field's value
  * @param onNameChange Called on each edit of the name
  * @param address The address, in its four parts
@@ -269,9 +315,8 @@ private fun Header() {
 private fun Form(
     state: SignupUiState,
     prefilled: SignupUiState.AlreadyAdded?,
-    phone: String,
-    onPhoneChange: (String) -> Unit,
-    onPhoneLeft: (String) -> Unit,
+    identifier: IdentifierInput,
+    passwords: PasswordInput,
     name: String,
     onNameChange: (String) -> Unit,
     address: PostalAddress,
@@ -288,12 +333,9 @@ private fun Form(
     // failure that is about no field is a banner above the form.
     val invalidKeys = (state as? SignupUiState.Invalid)?.fieldKeys.orEmpty()
     val failure = state as? SignupUiState.Failed
-    val phoneError =
-        if (SignupStateMapper.PHONE_KEY in invalidKeys || failure?.messageKey in PHONE_MESSAGE_KEYS) {
-            stringResource(R.string.phone_invalid)
-        } else {
-            null
-        }
+    val phoneError = identifierErrorOf(identifier.kind, invalidKeys, failure)?.let { stringResource(it) }
+    val passwordError =
+        invalidKeys.firstOrNull { it in PASSWORD_KEYS }?.let { stringResource(MessageKeys.resolve(it)) }
     val nameError =
         invalidKeys.firstOrNull { it == SignupStateMapper.NAME_KEY }?.let { stringResource(MessageKeys.resolve(it)) }
     val generalFailure = failure?.takeIf { phoneError == null && !alreadyRegistered }
@@ -336,20 +378,41 @@ private fun Form(
         }
         val phoneField: @Composable () -> Unit = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                PhoneNumberField(
-                    value = phone,
-                    onValueChange = onPhoneChange,
-                    label = stringResource(R.string.signup_phone_label),
-                    help = if (phone.isEmpty()) stringResource(R.string.signup_phone_help) else null,
+                // A number a teacher added fixes the kind: the seat is on it.
+                IdentifierKindToggle(
+                    kind = identifier.kind,
+                    onKindChange = identifier.onKindChange,
+                    enabled = prefilled == null,
+                )
+                IdentifierField(
+                    kind = identifier.kind,
+                    value = identifier.value,
+                    onValueChange = identifier.onValueChange,
+                    phoneLabel = stringResource(R.string.signup_phone_label),
+                    help =
+                        stringResource(
+                            if (identifier.kind == IdentifierKind.PHONE) {
+                                R.string.signup_phone_help
+                            } else {
+                                R.string.signup_email_help
+                            },
+                        ).takeIf { identifier.value.isEmpty() },
                     error = phoneError,
-                    onLeftWithValidNumber = onPhoneLeft,
+                    onLeftWithValidNumber = identifier.onPhoneLeft,
                     fieldModifier = Modifier.testTag(TAG_SIGNUP_PHONE),
                 )
                 // The taken number is named under the number, with the
                 // way to log in beside it (O1's error board).
                 if (alreadyRegistered) {
                     Banner(
-                        title = stringResource(R.string.signup_number_already_registered),
+                        title =
+                            stringResource(
+                                if (identifier.kind == IdentifierKind.EMAIL) {
+                                    R.string.signup_email_already_registered
+                                } else {
+                                    R.string.signup_number_already_registered
+                                },
+                            ),
                         tone = BannerTone.ERROR,
                         action = {
                             TextAction(text = stringResource(R.string.signup_log_in), onClick = onGoToLogin)
@@ -373,8 +436,82 @@ private fun Form(
             onChange = onAddressChange,
             showMissing = SignupStateMapper.ADDRESS_KEY in invalidKeys,
         )
+
+        NewPasswordFields(
+            password = passwords.password,
+            onPasswordChange = passwords.onPasswordChange,
+            confirm = passwords.confirm,
+            onConfirmChange = passwords.onConfirmChange,
+            passwordLabel = stringResource(R.string.password_choose_label),
+            error = passwordError,
+            passwordTag = TAG_SIGNUP_PASSWORD,
+            confirmTag = TAG_SIGNUP_CONFIRM,
+        )
     }
 }
+
+/**
+ * The refusal shown under the identifier, if any: a malformed email, or
+ * a malformed number from either the form's own check or the server.
+ *
+ * @param kind Phone or email
+ * @param invalidKeys The form check's keys
+ * @param failure The server's refusal, or null
+ * @return The string resource, or null when nothing is wrong with it
+ */
+private fun identifierErrorOf(
+    kind: IdentifierKind,
+    invalidKeys: List<String>,
+    failure: SignupUiState.Failed?,
+): Int? =
+    when {
+        kind == IdentifierKind.EMAIL && SignupStateMapper.EMAIL_KEY in invalidKeys -> R.string.signup_email_invalid
+        failure?.messageKey in EMAIL_MESSAGE_KEYS -> R.string.signup_email_invalid
+        SignupStateMapper.PHONE_KEY in invalidKeys -> R.string.phone_invalid
+        failure?.messageKey in PHONE_MESSAGE_KEYS -> R.string.phone_invalid
+        else -> null
+    }
+
+/**
+ * The identifier half of the sign-up form.
+ *
+ * @property kind Phone or email
+ * @property value What is typed
+ * @property onKindChange Called when the toggle changes
+ * @property onValueChange Called on each edit
+ * @property onPhoneLeft Called when a phone field is left holding a
+ *   well-formed number, for the already-added lookup
+ */
+private data class IdentifierInput(
+    val kind: IdentifierKind,
+    val value: String,
+    val onKindChange: (IdentifierKind) -> Unit,
+    val onValueChange: (String) -> Unit,
+    val onPhoneLeft: (String) -> Unit,
+)
+
+/**
+ * The password half of the sign-up form. Never saved across recreation.
+ *
+ * @property password The first copy
+ * @property onPasswordChange Called on each edit of it
+ * @property confirm The second copy
+ * @property onConfirmChange Called on each edit of it
+ */
+private class PasswordInput(
+    val password: String,
+    val onPasswordChange: (String) -> Unit,
+    val confirm: String,
+    val onConfirmChange: (String) -> Unit,
+)
+
+/**
+ * The client's own password refusals, shown under the password. The
+ * server's (a too-common password) arrives later, on the step that sets
+ * it, because the password is not sent with the account.
+ */
+private val PASSWORD_KEYS: Set<String> =
+    setOf(PasswordRules.TOO_SHORT_KEY, PasswordRules.TOO_LONG_KEY, PasswordRules.MISMATCH_KEY)
 
 /**
  * The banners above the form: code sent, already added, or a failure

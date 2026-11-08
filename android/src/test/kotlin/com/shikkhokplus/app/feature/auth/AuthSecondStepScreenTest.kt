@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.designsystem.TAG_OTP_FIELD
+import com.shikkhokplus.app.feature.auth.ui.AuthActions
 import com.shikkhokplus.app.feature.auth.ui.AuthScreen
 import com.shikkhokplus.app.feature.auth.ui.TAG_ERROR
 import com.shikkhokplus.app.feature.auth.ui.TAG_PHONE_FIELD
@@ -44,12 +45,12 @@ class AuthSecondStepScreenTest {
             ShikkhokTheme {
                 AuthScreen(
                     state = state,
-                    onRequestCode = {},
-                    onSubmitCode = {},
-                    onRetry = {},
-                    onChangeNumber = { backs++ },
-                    onSubmitSecondStep = { submitted += it },
-                    onToggleRecoveryCode = { toggled++ },
+                    actions =
+                        AuthActions(
+                            onBackToSignIn = { backs++ },
+                            onSubmitSecondStep = { submitted += it },
+                            onToggleRecoveryCode = { toggled++ },
+                        ),
                 )
             }
         }

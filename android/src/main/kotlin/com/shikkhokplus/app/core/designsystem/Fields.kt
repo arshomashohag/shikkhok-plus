@@ -33,6 +33,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,6 +65,10 @@ import androidx.compose.ui.unit.sp
  * @param fieldModifier Applied to the editable text itself, for a test tag
  * @param large The log-in board's field (O2): 60dp tall, radius 10, its
  *   digits at 22sp Medium, for the one field a screen is about
+ * @param visualTransformation How the text is drawn; a password field
+ *   passes `PasswordVisualTransformation` so the characters are masked
+ * @param trailing A control at the box's end, such as Show / Hide on a
+ *   password, or null
  */
 @Composable
 fun ShikkhokTextField(
@@ -83,6 +88,8 @@ fun ShikkhokTextField(
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     fieldModifier: Modifier = Modifier,
     large: Boolean = false,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
@@ -107,6 +114,7 @@ fun ShikkhokTextField(
             interactionSource = interaction,
             keyboardOptions = keyboardOptions ?: KeyboardOptions(keyboardType = keyboardType),
             keyboardActions = keyboardActions,
+            visualTransformation = visualTransformation,
             modifier =
                 fieldModifier
                     .fillMaxWidth()
@@ -133,6 +141,9 @@ fun ShikkhokTextField(
                             Text(placeholder, style = textStyle.copy(color = colors.onSurfaceVariant))
                         }
                         inner()
+                    }
+                    trailing?.let { control ->
+                        Box(Modifier.padding(end = 6.dp)) { control() }
                     }
                 }
             },

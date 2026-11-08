@@ -30,12 +30,14 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from app.accounts.identifier import Identifier
 from app.auth.hashing import OTP_HMAC_KEY_ENV
 from app.auth.otp import DELETION_PURPOSE, OTP_PURPOSE, issue, verify
 from app.db.models import Account
 from app.errors import ValidationError
 
 PHONE = "+8801733333333"
+DESTINATION = Identifier.phone(PHONE)
 CORRELATION = "test-correlation-id"
 
 
@@ -71,12 +73,12 @@ def test_a_sign_in_code_does_not_verify_for_deletion(
     :param account: The account under test
     :return: None
     """
-    issued = issue(restricted_session, PHONE, CORRELATION, purpose=OTP_PURPOSE)
+    issued = issue(restricted_session, DESTINATION, CORRELATION, purpose=OTP_PURPOSE)
 
     with pytest.raises(ValidationError):
         verify(
             restricted_session,
-            PHONE,
+            DESTINATION,
             issued.code,
             CORRELATION,
             purpose=DELETION_PURPOSE,
@@ -92,12 +94,14 @@ def test_a_deletion_code_does_not_sign_in(
     :param account: The account under test
     :return: None
     """
-    issued = issue(restricted_session, PHONE, CORRELATION, purpose=DELETION_PURPOSE)
+    issued = issue(
+        restricted_session, DESTINATION, CORRELATION, purpose=DELETION_PURPOSE
+    )
 
     with pytest.raises(ValidationError):
         verify(
             restricted_session,
-            PHONE,
+            DESTINATION,
             issued.code,
             CORRELATION,
             purpose=OTP_PURPOSE,
@@ -116,11 +120,11 @@ def test_each_purpose_verifies_its_own_code(
     :param account: The account under test
     :return: None
     """
-    sign_in = issue(restricted_session, PHONE, CORRELATION, purpose=OTP_PURPOSE)
+    sign_in = issue(restricted_session, DESTINATION, CORRELATION, purpose=OTP_PURPOSE)
     assert (
         verify(
             restricted_session,
-            PHONE,
+            DESTINATION,
             sign_in.code,
             CORRELATION,
             purpose=OTP_PURPOSE,
@@ -128,11 +132,13 @@ def test_each_purpose_verifies_its_own_code(
         == account
     )
 
-    deletion = issue(restricted_session, PHONE, CORRELATION, purpose=DELETION_PURPOSE)
+    deletion = issue(
+        restricted_session, DESTINATION, CORRELATION, purpose=DELETION_PURPOSE
+    )
     assert (
         verify(
             restricted_session,
-            PHONE,
+            DESTINATION,
             deletion.code,
             CORRELATION,
             purpose=DELETION_PURPOSE,
@@ -167,13 +173,15 @@ def test_a_later_sign_in_code_does_not_shadow_a_deletion_code(
     :param account: The account under test
     :return: None
     """
-    deletion = issue(restricted_session, PHONE, CORRELATION, purpose=DELETION_PURPOSE)
-    issue(restricted_session, PHONE, CORRELATION, purpose=OTP_PURPOSE)
+    deletion = issue(
+        restricted_session, DESTINATION, CORRELATION, purpose=DELETION_PURPOSE
+    )
+    issue(restricted_session, DESTINATION, CORRELATION, purpose=OTP_PURPOSE)
 
     assert (
         verify(
             restricted_session,
-            PHONE,
+            DESTINATION,
             deletion.code,
             CORRELATION,
             purpose=DELETION_PURPOSE,
@@ -195,13 +203,13 @@ def test_a_later_deletion_code_does_not_shadow_a_sign_in_code(
     :param account: The account under test
     :return: None
     """
-    sign_in = issue(restricted_session, PHONE, CORRELATION, purpose=OTP_PURPOSE)
-    issue(restricted_session, PHONE, CORRELATION, purpose=DELETION_PURPOSE)
+    sign_in = issue(restricted_session, DESTINATION, CORRELATION, purpose=OTP_PURPOSE)
+    issue(restricted_session, DESTINATION, CORRELATION, purpose=DELETION_PURPOSE)
 
     assert (
         verify(
             restricted_session,
-            PHONE,
+            DESTINATION,
             sign_in.code,
             CORRELATION,
             purpose=OTP_PURPOSE,
@@ -223,10 +231,12 @@ def test_a_consumed_deletion_code_cannot_be_replayed(
     :param account: The account under test
     :return: None
     """
-    issued = issue(restricted_session, PHONE, CORRELATION, purpose=DELETION_PURPOSE)
+    issued = issue(
+        restricted_session, DESTINATION, CORRELATION, purpose=DELETION_PURPOSE
+    )
     verify(
         restricted_session,
-        PHONE,
+        DESTINATION,
         issued.code,
         CORRELATION,
         purpose=DELETION_PURPOSE,
@@ -235,7 +245,7 @@ def test_a_consumed_deletion_code_cannot_be_replayed(
     with pytest.raises(ValidationError):
         verify(
             restricted_session,
-            PHONE,
+            DESTINATION,
             issued.code,
             CORRELATION,
             purpose=DELETION_PURPOSE,
@@ -256,7 +266,7 @@ def test_the_purpose_is_written_to_the_row(
     :param account: The account under test
     :return: None
     """
-    issue(restricted_session, PHONE, CORRELATION, purpose=DELETION_PURPOSE)
+    issue(restricted_session, DESTINATION, CORRELATION, purpose=DELETION_PURPOSE)
 
     stored = (
         restricted_session.execute(

@@ -51,6 +51,33 @@ x-app-environment: &app-environment
   # application may trust for the per-IP OTP ceiling. uvicorn trusts no
   # forwarded header at all.
   SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER: X-Client-Address
+  # **The MFA keyring and the admin surface's locks.** The deploy writes
+  # all five into the runtime env, but compose hands a container only
+  # what is listed here, so for as long as they were missing every
+  # authenticator enrollment raised MfaKeyError and every admin route
+  # answered 403. tests/gates/test_compose_forwards_runtime_env.py now
+  # fails when the deploy writes a variable this block does not forward.
+  #
+  # No `:?` on any of them: the deploy writes them empty when the
+  # GitHub secret is unset, and the production startup check
+  # (app/config.py) is what reports a missing keyring, with a reason.
+  SHIKKHOKPLUS_MFA_KEYS: ${SHIKKHOKPLUS_MFA_KEYS:-}
+  SHIKKHOKPLUS_MFA_ACTIVE_KID: ${SHIKKHOKPLUS_MFA_ACTIVE_KID:-k1}
+  SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES: ${SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES:-}
+  SHIKKHOKPLUS_ADMIN_EDGE_SECRET: ${SHIKKHOKPLUS_ADMIN_EDGE_SECRET:-}
+  SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS: ${SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS:-}
+  # **One-time codes by email** (infra/modules/email): the SES SMTP
+  # interface with the sender user's credentials, which the deploy reads
+  # from SSM. No `:?` here either: a missing value is reported by the
+  # application's own startup check, with a reason, not by compose.
+  SHIKKHOKPLUS_EMAIL_ADAPTER: ${SHIKKHOKPLUS_EMAIL_ADAPTER:-}
+  SHIKKHOKPLUS_SES_SMTP_HOST: ${SHIKKHOKPLUS_SES_SMTP_HOST:-}
+  SHIKKHOKPLUS_SES_SMTP_PORT: ${SHIKKHOKPLUS_SES_SMTP_PORT:-}
+  SHIKKHOKPLUS_SES_SMTP_USERNAME: ${SHIKKHOKPLUS_SES_SMTP_USERNAME:-}
+  SHIKKHOKPLUS_SES_SMTP_PASSWORD: ${SHIKKHOKPLUS_SES_SMTP_PASSWORD:-}
+  SHIKKHOKPLUS_EMAIL_FROM: ${SHIKKHOKPLUS_EMAIL_FROM:-}
+  SHIKKHOKPLUS_SES_CONFIGURATION_SET: ${SHIKKHOKPLUS_SES_CONFIGURATION_SET:-}
+  SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL: ${SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL:-}
 
 # **Every container ships its output to CloudWatch** [OPS-11] -- the
 # API, the migrate runs and each scheduled job (`run --rm api` inherits

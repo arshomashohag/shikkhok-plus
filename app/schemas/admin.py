@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.accounts.clients import Platform
 from app.schemas.help import HelpBody, HelpMessageResponse
-from app.schemas.phone import PhoneField
+from app.schemas.identifier import IdentifierFields
 
 __all__ = [
     "AdminAppVersion",
@@ -278,27 +278,26 @@ class AdminTicketStatusRequest(BaseModel):
     status: Literal["open", "closed"]
 
 
-class AdminOtpRequest(BaseModel):
-    """Ask for an admin sign-in code by SMS.
+class AdminOtpRequest(IdentifierFields):
+    """Ask for an admin sign-in code, by SMS or by email [0032].
 
-    :ivar phone: The administrator's number, in any spelling
+    :ivar phone: The administrator's number, in any spelling, or None
+    :ivar email: Or the administrator's address; exactly one of the two
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    phone: PhoneField
 
+class AdminVerifyRequest(IdentifierFields):
+    """Spend the code.
 
-class AdminVerifyRequest(BaseModel):
-    """Spend the SMS code.
-
-    :ivar phone: The number the code was sent to
-    :ivar code: The code from the SMS
+    :ivar phone: The number the code was sent to, or None
+    :ivar email: Or the address [0032]
+    :ivar code: The code from the SMS or the email
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    phone: PhoneField
     code: str = Field(min_length=4, max_length=10)
 
 

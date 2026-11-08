@@ -61,6 +61,7 @@ from typing import Final
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from app.accounts.identifier import Channel, Identifier
 from app.governance.dispositions import DISPOSITIONS, Disposition
 from app.teaching.unassign import unassign_member
 
@@ -302,8 +303,8 @@ _LIVE_MEMBERSHIPS: Final = sa.text(
 )
 
 
-def delete_account(session: Session, phone: str) -> DeletionResult:
-    """Delete the account registered to a number, or report it absent.
+def delete_account(session: Session, destination: str | Identifier) -> DeletionResult:
+    """Delete the account registered to a number or address, or report it absent.
 
     **Idempotent by nature, not by a lookup-then-delete guard** [BR1.4].
     A second request for a number that no longer has an account reports
@@ -337,25 +338,52 @@ def delete_account(session: Session, phone: str) -> DeletionResult:
     A teacher's batches are retired inside the same transaction, before
     the account row goes, so a failure leaves them exactly as they were.
 
+    **Both destinations go** [0032]. An account may hold a phone number,
+    an email address or both; the destination-scoped tables are cleared
+    for every one the account holds and for the one the request named,
+    so a code or a draft for either cannot outlive the account.
+
     :param session: The session to work through
-    :param phone: The number whose account is being deleted
+    :param destination: The number or address whose account is being
+        deleted; a bare string is a phone number
     :return: What was deleted
     """
-    account_id: uuid.UUID | None = session.execute(
-        sa.text("SELECT id FROM account WHERE phone = :phone"),
-        {"phone": phone},
-    ).scalar_one_or_none()
+    identifier = (
+        destination
+        if isinstance(destination, Identifier)
+        else Identifier(Channel.PHONE, destination)
+    )
+    row = session.execute(
+        sa.text(
+            "SELECT id, phone, email FROM account "  # noqa: S608
+            f"WHERE {identifier.column} = :value"
+        ),
+        {"value": identifier.value},
+    ).one_or_none()
+    account_id: uuid.UUID | None = row.id if row else None
+    phones = {identifier.value} if identifier.is_phone else set()
+    emails = set() if identifier.is_phone else {identifier.value}
+    if row is not None:
+        phones |= {row.phone} - {None}
+        emails |= {row.email} - {None}
 
     rows_deleted: dict[str, int] = {}
 
-    # The phone-scoped tables go FIRST, while the number is still known
-    # and before the account row disappears. Nothing reaches them by
-    # constraint, so an ordering mistake here is a silent leak of a
-    # phone number sitting beside a code.
+    # The destination-scoped tables go FIRST, while the number and the
+    # address are still known and before the account row disappears.
+    # Nothing reaches them by constraint, so an ordering mistake here is
+    # a silent leak of a phone number or an address sitting beside a code.
     for table, target in sorted(HARD_DELETE_SCOPES.items()):
         if target.scope is not Scope.PHONE_COLUMN:
             continue
-        rows_deleted[table] = _delete_where(session, table, target, phone=phone)
+        removed = 0
+        for phone in sorted(phones):
+            removed += _delete_where(session, table, target, phone=phone)
+        for email in sorted(emails):
+            removed += _delete_where(
+                session, table, _Target(Scope.PHONE_COLUMN, "email", ""), phone=email
+            )
+        rows_deleted[table] = removed
 
     if account_id is None:
         session.commit()

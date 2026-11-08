@@ -99,6 +99,15 @@ class AuthEvent(enum.Enum):
     MFA_LOCKED = "MFA_LOCKED"
     MFA_RECOVERY_CODE_USED = "MFA_RECOVERY_CODE_USED"
     MFA_RECOVERY_CODES_RENEWED = "MFA_RECOVERY_CODES_RENEWED"
+    # Passwords and email [0032]. A password sign-in that failed says so
+    # without saying why: unknown account, no password and wrong
+    # password are one event, as they are one response.
+    PASSWORD_SET = "PASSWORD_SET"  # noqa: S105 -- a name, not a password
+    PASSWORD_CHANGED = "PASSWORD_CHANGED"  # noqa: S105 -- a name, not a password
+    PASSWORD_SIGN_IN_SUCCEEDED = "PASSWORD_SIGN_IN_SUCCEEDED"  # noqa: S105 -- a name, not a password
+    PASSWORD_SIGN_IN_FAILED = "PASSWORD_SIGN_IN_FAILED"  # noqa: S105 -- a name, not a password
+    PASSWORD_CEILING_BREACHED = "PASSWORD_CEILING_BREACHED"  # noqa: S105 -- a name, not a password
+    CONTACT_ADDED = "CONTACT_ADDED"
 
 
 def write_audit(

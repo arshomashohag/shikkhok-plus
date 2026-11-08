@@ -921,6 +921,42 @@ sealed interface Destination {
         override val route: String = "me/two-step"
     }
 
+    /**
+     * Set a first password, or change it: pushed over More, and opened by
+     * the persistent prompt an account without a password sees.
+     */
+    data object SetPassword : Destination {
+        override val route: String = "me/password?has={has}"
+
+        /** Whether the account already has a password, as `GET /v1/me` said. */
+        const val ARG_HAS: String = "has"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param hasPassword Whether the account already has one, which
+         *   decides whether the current one is asked for
+         * @return The route to navigate to
+         */
+        fun of(hasPassword: Boolean): String = "me/password?has=$hasPassword"
+    }
+
+    /** Add a phone number or an email the account lacks, pushed over More. */
+    data object AddContact : Destination {
+        override val route: String = "me/contact/{kind}"
+
+        /** The kind argument's name: `phone` or `email`. */
+        const val ARG_KIND: String = "kind"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param kind Which kind of contact is being added
+         * @return The route to navigate to
+         */
+        fun of(kind: com.shikkhokplus.app.core.model.IdentifierKind): String = "me/contact/${kind.name.lowercase()}"
+    }
+
     /** Edit profile (S4), pushed over More. */
     data object EditProfile : Destination {
         override val route: String = "profile/edit"

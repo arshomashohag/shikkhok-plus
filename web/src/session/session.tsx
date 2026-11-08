@@ -19,7 +19,7 @@ import {
   type ReactNode,
 } from 'react'
 import { revokeSession } from '../api/client'
-import { readMe, type Schemas } from '../api/endpoints'
+import { readMe, type Me, type Schemas } from '../api/endpoints'
 import { ApiError, UNEXPECTED_KEY } from '../api/errors'
 import {
   clearTokens,
@@ -43,7 +43,7 @@ export type Session =
   | { state: 'failed'; error: ApiError }
   | {
       state: 'ready'
-      me: Schemas['MeResponse']
+      me: Me
       options: LensOption[]
       /** Null when the account holds no lens yet. */
       lens: Lens | null

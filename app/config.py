@@ -48,6 +48,7 @@ from app.authz.admin import (
     ADMIN_EDGE_SECRET_ENV,
     PLATFORM_ADMIN_PHONES_ENV,
 )
+from app.gateway.email import EMAIL_ADAPTER_ENV, email_gateway_configured
 from app.gateway.null import ADAPTER_ENV, REAL_ADAPTER_SENTINEL
 
 __all__ = [
@@ -74,6 +75,10 @@ APP_HASH_LENGTH: Final = 11
 #: length check alone passes it -- which is how a deploy fallback of this
 #: value would have reached production with autofill silently broken.
 PLACEHOLDER_APP_HASH: Final = "AAAAAAAAAAA"
+
+#: The MFA key docker-compose.yml supplies by default, base64 of
+#: ``local-dev-only-mfa-key-32-bytes!``. Public, so production refuses it.
+LOCAL_DEV_MFA_KEY: Final = "bG9jYWwtZGV2LW9ubHktbWZhLWtleS0zMi1ieXRlcyE="
 
 
 class ConfigurationError(RuntimeError):
@@ -171,8 +176,7 @@ def check_startup_configuration(environment: str | None = None) -> None:
 
     # An administrator configured without the locks that make the admin
     # surface safe. Each of these fails CLOSED on its own -- no edge
-    # secret or no networks means nobody gets in, no MFA key means no
-    # administrator can finish signing in -- so the process would run,
+    # secret or no networks means nobody gets in -- so the process would run,
     # and the admin surface would be silently unusable. Reported here
     # instead, at the deploy, where it can be fixed.
     if os.environ.get(PLATFORM_ADMIN_PHONES_ENV, "").strip():
@@ -183,12 +187,25 @@ def check_startup_configuration(environment: str | None = None) -> None:
                     "administrators, so no administrator can reach the admin "
                     "surface. Set it, or clear the administrator list."
                 )
-        if not keyring_configured():
-            problems.append(
-                f"{MFA_KEYS_ENV} / {MFA_ACTIVE_KID_ENV} are unset or "
-                f"malformed while {PLATFORM_ADMIN_PHONES_ENV} names "
-                "administrators, so no administrator can finish signing in."
-            )
+
+    # **Every account can turn on two-step verification**, not only
+    # administrators, so a production process without a keyring serves
+    # normally until someone tries -- and then their enrollment fails
+    # with a 500. Reported here instead. The development key is refused
+    # too: it is committed in docker-compose.yml, so a secret sealed
+    # with it is sealed with a key anyone can read.
+    if not keyring_configured():
+        problems.append(
+            f"{MFA_KEYS_ENV} / {MFA_ACTIVE_KID_ENV} are unset or "
+            "malformed, so no account can turn on two-step verification "
+            "and no administrator can finish signing in."
+        )
+    elif LOCAL_DEV_MFA_KEY in os.environ.get(MFA_KEYS_ENV, ""):
+        problems.append(
+            f"{MFA_KEYS_ENV} holds the local-development key committed "
+            "in docker-compose.yml. Generate a real one."
+        )
+
     if os.environ.get(ADAPTER_ENV) != REAL_ADAPTER_SENTINEL:
         # The null adapter defaulting is CORRECT everywhere else -- it
         # fails toward not sending. In production it means no teacher
@@ -197,6 +214,17 @@ def check_startup_configuration(environment: str | None = None) -> None:
             f"{ADAPTER_ENV} does not select the real adapter, so this "
             "production process would send no SMS at all while "
             "reporting every send as successful."
+        )
+
+    # The email twin of the SMS adapter check [0032]. The null adapter
+    # mails nobody and reports success, so an email-only account could
+    # neither finish signing up nor recover its password -- silently.
+    if not email_gateway_configured():
+        problems.append(
+            f"{EMAIL_ADAPTER_ENV} does not select the SES adapter, or its "
+            "SMTP settings are incomplete, so this production process "
+            "would email no code at all while reporting every send as "
+            "successful."
         )
 
     if problems:

@@ -18,8 +18,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.identifier import IdentifierFields
 from app.schemas.money import MoneyField
-from app.schemas.phone import PhoneField
 
 __all__ = [
     "DeletionOutcome",
@@ -29,7 +29,7 @@ __all__ = [
 ]
 
 
-class DeletionRequest(BaseModel):
+class DeletionRequest(IdentifierFields):
     """Ask for a deletion code, or confirm with one.
 
     **``code`` is optional and that is what selects the step.** The
@@ -38,7 +38,8 @@ class DeletionRequest(BaseModel):
     entries and asserts its own count -- a separate code endpoint would
     be a ninth public route [BR3.2].
 
-    :ivar phone: The number whose account is to be deleted
+    :ivar phone: The number whose account is to be deleted, or None
+    :ivar email: Or the address [0032]; exactly one of the two
     :ivar code: The deletion code, or None to be sent one
     :ivar authenticator_code: For an account with two-step verification
         on, six digits from the authenticator app or a recovery code.
@@ -48,7 +49,6 @@ class DeletionRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    phone: PhoneField
     code: str | None = Field(default=None, min_length=4, max_length=10)
     authenticator_code: str | None = Field(default=None, min_length=6, max_length=16)
 

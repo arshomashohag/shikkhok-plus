@@ -1,8 +1,9 @@
 package com.shikkhokplus.app.feature.auth
 
 /**
- * Everything the OTP screen renders, decided here rather than in a
- * composable.
+ * Everything the sign-in screen renders, decided here rather than in a
+ * composable: the password sign-in, the code flow, choosing a password
+ * and the authenticator step.
  *
  * **A composable receives a UiState and renders it with no conditionals
  * depending on domain values.** That rule is what stops badge and
@@ -28,10 +29,25 @@ sealed interface AuthUiState {
      */
     data object Restoring : AuthUiState
 
-    /** Nothing has been asked for yet; the sign-in screen is shown. */
+    /**
+     * The sign-in form: Phone | Email, the identifier, and a password.
+     *
+     * Nothing has been asked for yet. Reached at a cold start with no
+     * session, after signing out, and from "Back to sign in".
+     */
     data object Idle : AuthUiState
 
-    /** A request is in flight; the screen shows a spinner. */
+    /** A password sign-in is with the server; the form stays beneath a loader. */
+    data object SigningIn : AuthUiState
+
+    /**
+     * The code flow's first step: "Forgot password?" and "First time with
+     * a password? Get a code" both land here. The person names the phone
+     * or email a code should go to.
+     */
+    data object CodeFlowStart : AuthUiState
+
+    /** A code request is in flight; the screen shows a spinner. */
     data object Sending : AuthUiState
 
     /**
@@ -85,6 +101,31 @@ sealed interface AuthUiState {
         val retryable: Boolean = false,
     ) : AuthUiState
 
+    /**
+     * The code was right; the person now chooses a password, which is
+     * what finishes the code flow and creates the session.
+     *
+     * **No session exists yet.** What the server returned is a setup
+     * token, held in the ViewModel's memory only, which lapses on its own.
+     *
+     * @property mfaRequired The account has an authenticator app on: the
+     *   form also asks for its code, or a recovery code instead
+     * @property useRecovery True while a recovery code is asked for
+     *   instead of the authenticator code
+     * @property checking The password is with the server
+     * @property messageKey Why the last attempt was refused, as a string
+     *   key, or null when nothing was refused
+     * @property retryable Read from the server's envelope; true only when
+     *   sending the same form again could succeed
+     */
+    data class ChoosePassword(
+        val mfaRequired: Boolean = false,
+        val useRecovery: Boolean = false,
+        val checking: Boolean = false,
+        val messageKey: String? = null,
+        val retryable: Boolean = false,
+    ) : AuthUiState
+
     /** The code was accepted and a session exists. */
     data object SignedIn : AuthUiState
 
@@ -95,9 +136,25 @@ sealed interface AuthUiState {
      *   from the server, which could not be localized [TC-15, D-43].
      * @property retryable Read from the server's envelope, never
      *   inferred from a status code [TC-9].
+     * @property step Which form the failure is shown on: the password
+     *   sign-in, or the code flow's identifier step
+     * @property offerCodeFlow Whether to show the static hint that leads
+     *   to the code flow: decided by the mapper from the server's key, so
+     *   the screen holds no rule about which refusal earns it
      */
     data class Failed(
         val messageKey: String,
         val retryable: Boolean,
+        val step: AuthStep = AuthStep.SIGN_IN,
+        val offerCodeFlow: Boolean = false,
     ) : AuthUiState
+}
+
+/** Which form a [AuthUiState.Failed] belongs on. */
+enum class AuthStep {
+    /** The password sign-in form. */
+    SIGN_IN,
+
+    /** The code flow's identifier form. */
+    CODE_REQUEST,
 }

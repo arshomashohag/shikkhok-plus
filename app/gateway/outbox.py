@@ -90,21 +90,23 @@ RETENTION = dt.timedelta(minutes=5)
 class OutboxEntry:
     """One recorded message.
 
-    :ivar phone: The destination number
+    :ivar destination: The number or address it was for
     :ivar message: The rendered body, carrying the code
     :ivar recorded_at: When it was recorded
     """
 
-    __slots__ = ("message", "phone", "recorded_at")
+    __slots__ = ("destination", "message", "recorded_at")
 
-    def __init__(self, phone: str, message: str, recorded_at: dt.datetime) -> None:
+    def __init__(
+        self, destination: str, message: str, recorded_at: dt.datetime
+    ) -> None:
         """Hold one entry.
 
-        :param phone: The destination number
+        :param destination: The number or address it was for
         :param message: The rendered body
         :param recorded_at: When it was recorded
         """
-        self.phone = phone
+        self.destination = destination
         self.message = message
         self.recorded_at = recorded_at
 
@@ -112,10 +114,16 @@ class OutboxEntry:
 def _allowlist() -> frozenset[str]:
     """Read the operator numbers the outbox may serve.
 
-    :return: The numbers, empty when the variable is unset or blank
+    Operator email addresses may be listed too [0032], compared
+    lowercased as the account stores them.
+
+    :return: The numbers and addresses, empty when unset or blank
     """
     raw = os.environ.get(OUTBOX_NUMBERS_ENV, "")
-    return frozenset(raw.replace(",", " ").split())
+    return frozenset(
+        entry.lower() if "@" in entry else entry
+        for entry in raw.replace(",", " ").split()
+    )
 
 
 def outbox_enabled(environment: str | None = None) -> bool:
@@ -137,20 +145,21 @@ def outbox_enabled(environment: str | None = None) -> bool:
     return resolved not in ALLOWLIST_REQUIRED_ENVIRONMENTS or bool(_allowlist())
 
 
-def outbox_number_permitted(phone: str) -> bool:
-    """Report whether the outbox may record or read back this number.
+def outbox_number_permitted(destination: str) -> bool:
+    """Report whether the outbox may record or read back this destination.
 
-    :param phone: The number, as the request carried it
-    :return: True when no allowlist applies or the number is on it
+    :param destination: The canonical number or address
+    :return: True when no allowlist applies or it is on the list
     """
     allowed = _allowlist()
-    return not allowed or phone in allowed
+    return not allowed or destination in allowed
 
 
 def record_outbox(
     session: Session,
     *,
-    phone: str,
+    phone: str | None = None,
+    email: str | None = None,
     message: str,
     correlation_id: str,
 ) -> None:
@@ -160,23 +169,26 @@ def record_outbox(
     unconditionally and carries no environment branch of its own.
 
     :param session: The session to write through
-    :param phone: The destination number
+    :param phone: The destination number, or None for an email
+    :param email: The destination address [0032], or None for an SMS
     :param message: The rendered body
     :param correlation_id: Ties the entry to the issuing request
     :return: None
     """
-    if not outbox_enabled() or not outbox_number_permitted(phone):
+    destination = phone or email or ""
+    if not outbox_enabled() or not outbox_number_permitted(destination):
         return
 
     session.execute(
         sa.text(
             "INSERT INTO staging_sms_outbox "
-            "(id, phone, message, correlation_id, recorded_at) "
-            "VALUES (:id, :phone, :message, :correlation_id, :now)"
+            "(id, phone, email, message, correlation_id, recorded_at) "
+            "VALUES (:id, :phone, :email, :message, :correlation_id, :now)"
         ),
         {
             "id": uuid.uuid4(),
             "phone": phone,
+            "email": None if phone else email,
             "message": message,
             "correlation_id": correlation_id,
             "now": dt.datetime.now(tz=dt.UTC),
@@ -184,11 +196,14 @@ def record_outbox(
     )
 
 
-def read_outbox(session: Session, *, phone: str) -> OutboxEntry | None:
-    """Read the most recent unexpired message for a number.
+def read_outbox(
+    session: Session, *, phone: str | None = None, email: str | None = None
+) -> OutboxEntry | None:
+    """Read the most recent unexpired message for a number or an address.
 
     :param session: The session to query through
-    :param phone: The destination number
+    :param phone: The destination number, or None
+    :param email: The destination address, or None
     :return: The entry, or None when there is none within the window
     :raises RuntimeError: The outbox is not enabled in this environment
     """
@@ -197,21 +212,23 @@ def read_outbox(session: Session, *, phone: str) -> OutboxEntry | None:
         # so reaching this is already a programming error -- raising
         # makes it one that stops rather than one that serves a code.
         raise RuntimeError("the staging outbox is not enabled in this environment")
-    if not outbox_number_permitted(phone):
+    destination = phone or email or ""
+    if not destination or not outbox_number_permitted(destination):
         # The same answer as a number with no message, so the allowlist
         # does not say which numbers are on it.
         return None
 
     cutoff = dt.datetime.now(tz=dt.UTC) - RETENTION
+    where = "phone = :value" if phone else "email = :value"
     row = session.execute(
         sa.text(
-            "SELECT phone, message, recorded_at FROM staging_sms_outbox "
-            "WHERE phone = :phone AND recorded_at >= :cutoff "
+            "SELECT message, recorded_at FROM staging_sms_outbox "  # noqa: S608 -- fixed column
+            f"WHERE {where} AND recorded_at >= :cutoff "
             "ORDER BY recorded_at DESC LIMIT 1"
         ),
-        {"phone": phone, "cutoff": cutoff},
+        {"value": destination, "cutoff": cutoff},
     ).one_or_none()
 
     if row is None:
         return None
-    return OutboxEntry(phone=row[0], message=row[1], recorded_at=row[2])
+    return OutboxEntry(destination=destination, message=row[0], recorded_at=row[1])

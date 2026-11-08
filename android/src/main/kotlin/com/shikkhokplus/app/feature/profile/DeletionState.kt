@@ -14,13 +14,19 @@ sealed interface DeletionState {
     data object Idle : DeletionState
 
     /**
-     * Asking the person to type their number back.
+     * Asking the person to type their number back -- or, for an account
+     * with no number, their email.
      *
-     * @property phone The number to match, or null when the profile read
-     *   did not return one; confirmation then cannot pass, which is the
-     *   safe direction for an action that cannot be undone
+     * @property phone The number to match, or null when the account has
+     *   none or the profile read did not return one
+     * @property email The email to match when there is no number, or null.
+     *   With neither, confirmation cannot pass, which is the safe
+     *   direction for an action that cannot be undone
      */
-    data class Confirming(val phone: String?) : DeletionState
+    data class Confirming(
+        val phone: String?,
+        val email: String? = null,
+    ) : DeletionState
 
     /** The request is in flight. */
     data object Deleting : DeletionState
@@ -34,11 +40,13 @@ sealed interface DeletionState {
      * @property phone The number, kept so the person can try again
      * @property messageKey Names a string resource [TC-15, D-43]
      * @property retryable Read from the server's envelope [TC-9]
+     * @property email The email, kept likewise, for an account with no number
      */
     data class Failed(
         val phone: String?,
         val messageKey: String,
         val retryable: Boolean,
+        val email: String? = null,
     ) : DeletionState
 }
 
@@ -87,6 +95,28 @@ fun numberMatches(typed: String, phone: String?): Boolean {
     // and a short tail like `477203` does not.
     return theirs.length >= LOCAL_NUMBER_DIGITS && mine.endsWith(theirs)
 }
+
+/**
+ * Whether what was typed names this account: its number when it has one,
+ * otherwise its email address.
+ *
+ * **The number is asked for whenever there is one**, exactly as before;
+ * the email stands in only for an account signed up by email that never
+ * added a number, which would otherwise have no way to delete itself
+ * [TC-19]. The email is compared trimmed and without regard to case,
+ * because the server stores it lowercased.
+ *
+ * @param typed What the person typed
+ * @param phone The account's number, or null
+ * @param email The account's email, or null
+ * @return True when they match
+ */
+fun identityMatches(typed: String, phone: String?, email: String?): Boolean =
+    when {
+        phone != null -> numberMatches(typed, phone)
+        email != null -> typed.trim().equals(email.trim(), ignoreCase = true)
+        else -> false
+    }
 
 /**
  * Keep only the digits, reading Bangla digits as Latin ones.

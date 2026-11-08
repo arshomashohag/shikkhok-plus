@@ -1,6 +1,6 @@
 # ShikkhokPlus Privacy Policy
 
-**Last updated: 20 October 2026**
+**Last updated: 8 November 2026**
 
 ShikkhokPlus (`com.shikkhokplus.app`) helps private tutors in
 Bangladesh manage their classes — attendance, marks and fees — and
@@ -17,7 +17,9 @@ the code does cannot drift apart.
 
 ## The short version
 
-- We collect your **phone number**, your **name**, and the class
+- We collect your **phone number** or **email address** (or both),
+  a **password** you choose (stored only as a one-way hash), your
+  **name**, and the class
   records a teacher enters about a student — attendance, marks and
   fee payments.
 - We do **not** collect any device or advertising identifier, we do
@@ -37,8 +39,9 @@ the code does cannot drift apart.
 
 | Data | Why |
 |---|---|
-| Phone number | It is your account identity. There is no password. |
-| One-time code | Sent by SMS to prove the number is yours. |
+| Phone number or email address | It is your account identity. You can sign up with either and add the other later. Teachers find students and guardians by phone number, so a student or guardian who signs up with an email sees their classes once they add their phone number. |
+| Password | You sign in with it. We store only a one-way scrypt hash, never the password itself, and we cannot read it. |
+| One-time code | Sent by SMS or by email to prove the number or address is yours, when you sign up, when you add a number or address, and when you forget your password. |
 
 **You type your phone number.** The app never reads it from your SIM
 or your device, and it never requests permission to read your SMS
@@ -46,9 +49,8 @@ messages. The one-time code is filled in automatically using Android's
 SMS Retriever API, which lets the app read only our own message and
 nothing else in your inbox.
 
-The one-time code is stored only as an irreversible hash, exactly as a
-password would be, and is deleted after a short period. We never log
-it.
+The one-time code is stored only as an irreversible hash, as your
+password is, and is deleted after a short period. We never log either.
 
 ### When you use the app
 
@@ -203,7 +205,7 @@ These records are about how the service itself is running, not about any person.
 
 **A teacher's classes stay with their students.** If you are a teacher and delete your account, your sign-in, your own name and address are removed, and so are your name and payment number on each of your classes. The classes themselves stay as read-only history for your students and their guardians: their record of who came to each class, their results and fee records are theirs too. No new fees fall due on those classes, and amounts already recorded as owed stay on the records, where nobody can collect them.
 
-<!-- governance manifest digest: f2ffbdc91301a58594dbad00e066c48a6fd36718b4568667cc0910f4cfc030a5
+<!-- governance manifest digest: 2626a2fb4a76b5680b4958f915eab2de181c4496fee5743db879fa899f1a789d
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->
@@ -250,9 +252,16 @@ discuss it with the teacher concerned.
 On servers operated by Amazon Web Services. The database is encrypted
 at rest, and all traffic between the app and our servers uses HTTPS.
 
-We use one third-party service: an SMS gateway in Bangladesh, which
-receives your phone number and the one-time code in order to send it.
-It receives nothing else.
+We use two third-party services to send one-time codes, and each
+receives only what it needs to send one:
+
+- an SMS gateway in Bangladesh, which receives your phone number and
+  the code;
+- Amazon Simple Email Service (part of Amazon Web Services, which
+  already hosts our servers), which receives your email address and
+  the code.
+
+Neither receives anything else.
 
 ---
 
@@ -278,9 +287,10 @@ also notify you in the app before it takes effect.
 
 ## Security
 
-- Phone numbers and one-time codes never appear in our logs.
-- One-time codes and session tokens are stored only as irreversible
-  hashes.
+- Phone numbers, email addresses, passwords and one-time codes never
+  appear in our logs.
+- Passwords, one-time codes and session tokens are stored only as
+  irreversible hashes.
 - Access to production data is restricted, named and logged.
 - We never copy records containing a child's details into any external
   tool.

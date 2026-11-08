@@ -16,6 +16,7 @@ from unittest import mock
 
 from fastapi.testclient import TestClient
 
+from app.gateway.email import EmailMessage, NullEmailGateway
 from app.gateway.null import NullGateway
 
 __all__ = ["sign_up", "submit_signup"]
@@ -30,6 +31,7 @@ def submit_signup(client: TestClient, body: dict[str, Any]) -> tuple[Any, str | 
     """
     sent: list[str] = []
     original = NullGateway.send
+    original_email = NullEmailGateway.send
 
     def capture(
         self: NullGateway, number: str, message: str, correlation_id: str
@@ -45,7 +47,27 @@ def submit_signup(client: TestClient, body: dict[str, Any]) -> tuple[Any, str | 
         sent.append(message)
         return original(self, number, message, correlation_id)
 
-    with mock.patch.object(NullGateway, "send", capture):
+    def capture_email(
+        self: NullEmailGateway,
+        address: str,
+        message: EmailMessage,
+        correlation_id: str,
+    ) -> object:
+        """Record the email body, then send as the null gateway would.
+
+        :param self: The gateway
+        :param address: The destination
+        :param message: The rendered email
+        :param correlation_id: The request's correlation id
+        :return: The null gateway's result
+        """
+        sent.append(message.text)
+        return original_email(self, address, message, correlation_id)
+
+    with (
+        mock.patch.object(NullGateway, "send", capture),
+        mock.patch.object(NullEmailGateway, "send", capture_email),
+    ):
         response = client.post("/v1/accounts", json=body)
     code = next(
         (
@@ -69,8 +91,9 @@ def sign_up(client: TestClient, body: dict[str, Any]) -> uuid.UUID:
     response, code = submit_signup(client, body)
     assert response.status_code == 201, response.text
     assert code is not None, "signup sent no code"
-    verified = client.post(
-        "/v1/auth/verify", json={"phone": body["phone"], "code": code}
+    destination = (
+        {"phone": body["phone"]} if body.get("phone") else {"email": body["email"]}
     )
+    verified = client.post("/v1/auth/verify", json={**destination, "code": code})
     assert verified.status_code == 200, verified.text
     return uuid.UUID(response.json()["account_id"])

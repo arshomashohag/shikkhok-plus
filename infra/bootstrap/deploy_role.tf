@@ -181,6 +181,12 @@ resource "aws_iam_role_policy" "deploy" {
         # holds the JWT and OTP keys. Decryption is the existing
         # ParameterEncryption grant below, usable only through SSM, and
         # SSM lets this role read only the parameters named here.
+        #
+        # **And the SES sender** (modules/email): the SMTP username and
+        # password, two more SecureStrings, on exactly the edge secret's
+        # terms -- the release copies them into the runtime env it already
+        # writes, so this is no new reach -- plus three plain Strings: the
+        # From address, the configuration set and the SMTP endpoint.
         Sid    = "PublicUrl"
         Effect = "Allow"
         Action = ["ssm:GetParameter"]
@@ -190,6 +196,8 @@ resource "aws_iam_role_policy" "deploy" {
             "site-url", "site-bucket", "site-distribution-id",
             "admin-url", "admin-bucket", "admin-distribution-id",
             "admin-edge-secret",
+            "ses-smtp-username", "ses-smtp-password",
+            "email-from", "ses-configuration-set", "ses-smtp-host",
           ] :
           "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/shikkhokplus-${each.key}/${name}"
         ]

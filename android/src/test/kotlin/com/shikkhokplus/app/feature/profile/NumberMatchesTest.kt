@@ -57,4 +57,24 @@ class NumberMatchesTest {
     fun `blank does not match`() {
         assertFalse(numberMatches("", phone))
     }
+
+    @Test
+    fun `an account with a number confirms with the number, not the email`() {
+        assertTrue(identityMatches("01611477203", phone, "rafi@example.com"))
+        assertFalse(identityMatches("rafi@example.com", phone, "rafi@example.com"))
+    }
+
+    @Test
+    fun `an account with no number confirms with its email, ignoring case and spaces`() {
+        // Without this an email-only account could never delete itself
+        // [TC-19]: the number it would type back does not exist.
+        assertTrue(identityMatches(" Rafi@Example.com ", null, "rafi@example.com"))
+        assertFalse(identityMatches("rafi@example.org", null, "rafi@example.com"))
+        assertFalse(identityMatches("", null, "rafi@example.com"))
+    }
+
+    @Test
+    fun `an account with neither fails closed`() {
+        assertFalse(identityMatches("anything", null, null))
+    }
 }

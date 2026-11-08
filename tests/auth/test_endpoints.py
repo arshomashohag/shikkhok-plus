@@ -120,8 +120,18 @@ def test_the_full_sign_in_path_returns_a_working_token_pair(
 
     verified = client.post("/v1/auth/verify", json={"phone": KNOWN, "code": code})
     assert verified.status_code == 200
+    # A code never signs in by itself [0032]: it grants choosing a password.
+    assert verified.json()["access_token"] is None
 
-    pair = verified.json()
+    set_up = client.post(
+        "/v1/auth/password/setup",
+        json={
+            "token": verified.json()["password_setup_token"],
+            "password": "long passphrase",
+        },
+    )
+    assert set_up.status_code == 200, set_up.text
+    pair = set_up.json()
     assert pair["access_token"] and pair["refresh_token"]
     assert pair["expires_in"] == 900
 
@@ -202,7 +212,11 @@ def test_a_replayed_refresh_token_is_refused_over_http(
 
     client.post("/v1/auth/otp", json={"phone": KNOWN})
     code = next(part for part in sent[0].split() if part.isdigit())
-    pair = client.post("/v1/auth/verify", json={"phone": KNOWN, "code": code}).json()
+    grant = client.post("/v1/auth/verify", json={"phone": KNOWN, "code": code}).json()
+    pair = client.post(
+        "/v1/auth/password/setup",
+        json={"token": grant["password_setup_token"], "password": "long passphrase"},
+    ).json()
 
     rotated = client.post(
         "/v1/auth/refresh", json={"refresh_token": pair["refresh_token"]}
@@ -277,7 +291,7 @@ def test_health_reports_the_migration_revision(client: TestClient) -> None:
     # (canonical phones), deliberately rather than discovered as a
     # surprise CI failure -- which is the pressure under which a
     # constant gets edited to make a test pass.
-    assert body["migration_revision"] == "0031"
+    assert body["migration_revision"] == "0032"
 
 
 def test_health_discloses_nothing_beyond_its_three_fields(

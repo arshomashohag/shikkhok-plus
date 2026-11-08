@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.Identifier
 import com.shikkhokplus.app.feature.expenses.ExpenseCategory
 import com.shikkhokplus.app.feature.expenses.ExpenseDraft
 import com.shikkhokplus.app.core.model.PostalAddress
@@ -73,10 +74,58 @@ class WriteContractTest {
     private val writes: List<Write> =
         listOf(
             Write("post", "/v1/auth/otp") {
-                HttpAuthRepository(it, TokenStore.InMemory()).issue("01711234567")
+                HttpAuthRepository(it, TokenStore.InMemory()).issue(Identifier.phone("01711234567"))
+            },
+            // A code by email, for sign-up and the code flow.
+            Write("post", "/v1/auth/otp") {
+                HttpAuthRepository(it, TokenStore.InMemory()).issue(Identifier.email("rafi@example.com"))
             },
             Write("post", "/v1/auth/verify") {
-                HttpAuthRepository(it, TokenStore.InMemory()).verify("01711234567", "123456")
+                HttpAuthRepository(it, TokenStore.InMemory()).verify(Identifier.phone("01711234567"), "123456")
+            },
+            Write("post", "/v1/auth/verify") {
+                HttpAuthRepository(it, TokenStore.InMemory()).verify(Identifier.email("rafi@example.com"), "123456")
+            },
+            // Signing in with a password, by phone and by email.
+            Write("post", "/v1/auth/password") {
+                HttpAuthRepository(it, TokenStore.InMemory()).signIn(Identifier.phone("01711234567"), "correct horse")
+            },
+            Write("post", "/v1/auth/password") {
+                HttpAuthRepository(it, TokenStore.InMemory())
+                    .signIn(Identifier.email("rafi@example.com"), "correct horse")
+            },
+            // Finishing the code flow, with and without the authenticator code.
+            Write("post", "/v1/auth/password/setup") {
+                HttpAuthRepository(it, TokenStore.InMemory()).setupPassword("setup", "correct horse", null, null)
+            },
+            Write("post", "/v1/auth/password/setup") {
+                HttpAuthRepository(it, TokenStore.InMemory()).setupPassword("setup", "correct horse", "123456", null)
+            },
+            Write("post", "/v1/auth/password/setup") {
+                HttpAuthRepository(it, TokenStore.InMemory())
+                    .setupPassword("setup", "correct horse", null, "ABCDE-FGHJK")
+            },
+            // The signed-in password: a first one, and a change.
+            Write("post", "/v1/me/password") {
+                HttpAccountRepository(it, TokenStore.InMemory()).setPassword(null, "correct horse")
+            },
+            Write("post", "/v1/me/password") {
+                HttpAccountRepository(it, TokenStore.InMemory()).setPassword("old horse", "correct horse")
+            },
+            // Adding a phone or an email the account lacks.
+            Write("post", "/v1/me/contact") {
+                HttpAccountRepository(it, TokenStore.InMemory()).requestContact(Identifier.phone("01711234567"))
+            },
+            Write("post", "/v1/me/contact") {
+                HttpAccountRepository(it, TokenStore.InMemory()).requestContact(Identifier.email("rafi@example.com"))
+            },
+            Write("post", "/v1/me/contact/verify") {
+                HttpAccountRepository(it, TokenStore.InMemory())
+                    .verifyContact(Identifier.phone("01711234567"), "123456")
+            },
+            Write("post", "/v1/me/contact/verify") {
+                HttpAccountRepository(it, TokenStore.InMemory())
+                    .verifyContact(Identifier.email("rafi@example.com"), "123456")
             },
             // The sign-in's second step [0028], with each kind of code.
             Write("post", "/v1/auth/mfa") {
@@ -94,11 +143,21 @@ class WriteContractTest {
                 HttpAuthRepository(it, TokenStore.InMemory()).logout("refresh")
             },
             Write("post", "/v1/accounts") {
-                HttpSignupRepository(it).signup("01711234567", "student", "Rafi", ADDRESS)
+                HttpSignupRepository(it).signup(Identifier.phone("01711234567"), "student", "Rafi", ADDRESS)
+            },
+            // Signing up by email instead of by phone.
+            Write("post", "/v1/accounts") {
+                HttpSignupRepository(it).signup(Identifier.email("rafi@example.com"), "student", "Rafi", ADDRESS)
             },
             // Signing up as a coaching centre, with its name.
             Write("post", "/v1/accounts") {
-                HttpSignupRepository(it).signup("01711234567", "coaching", "Rahima", ADDRESS, "Udayan Coaching")
+                HttpSignupRepository(it).signup(
+                    Identifier.phone("01711234567"),
+                    "coaching",
+                    "Rahima",
+                    ADDRESS,
+                    "Udayan Coaching",
+                )
             },
             Write("patch", "/v1/me") { HttpProfileRepository(it).save("Rafi", ADDRESS) },
             Write("post", "/v1/exams/{exam_id}/publish") { HttpMarksRepository(it).publish(ID) },

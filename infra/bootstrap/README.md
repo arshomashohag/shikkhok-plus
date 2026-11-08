@@ -118,6 +118,33 @@ the re-apply, the infrastructure job stops at `CreateBucket` with
 AccessDenied, or the release stops at "Cannot read the admin edge secret"
 before it records anything, and nothing changes.
 
+**Email through SES (`infra/modules/email`) needs this bootstrap
+re-applied once more, from a laptop, before its first deploy.** It adds:
+
+- `shikkhokplus-email-sender-boundary-<env>` (path `/shikkhokplus/`), a
+  ceiling of `ses:SendRawEmail` on that environment's SES identity and
+  configuration sets;
+- to each infrastructure role: the SES identity and configuration-set
+  actions on its own names, and IAM **user** management under
+  `/shikkhokplus/shikkhokplus-<env>-*` -- `CreateUser`, `PutUserPolicy`
+  and `PutUserPermissionsBoundary` only with the sender boundary,
+  `CreateAccessKey`/`DeleteAccessKey` for the SMTP key, and
+  `DeleteUserPermissionsBoundary` denied. No login profile, group or
+  managed policy is grantable;
+- to each plan role: `ses:GetEmailIdentity`, `ses:GetConfigurationSet`,
+  `ses:ListTagsForResource` and read-back of that user (`GetUser`,
+  `GetUserPolicy`, `ListAccessKeys`, ...);
+- to each deploy role: reads of `ses-smtp-username` and
+  `ses-smtp-password` (SecureStrings, decrypted through the existing
+  SSM-only grant), `email-from`, `ses-configuration-set` and
+  `ses-smtp-host`.
+
+Until the re-apply the infrastructure job stops at `CreateEmailIdentity`
+or `CreateUser` with AccessDenied, or the release stops at "Cannot read
+the SES sender from SSM" before it records anything, and nothing changes.
+The SES sandbox lift is a separate, manual console request -- see
+`../README.md`, "Email".
+
 Until 2026-11-02 a single role trusted both environments, used
 `shikkhokplus-*` wildcards and could read both state files — so a
 staging approval could change production and read its database master

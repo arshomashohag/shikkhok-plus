@@ -189,7 +189,10 @@ def test_sign_in_records_the_app(
     owner_session: Session,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``POST /v1/auth/verify`` with the headers records the platform.
+    """Finishing a sign-in with the headers records the platform.
+
+    Since passwords [0032] a code yields a setup token, and the session
+    is issued by ``POST /v1/auth/password/setup`` -- which records it.
 
     :param api_client: The HTTP client
     :param owner_session: An arranging session
@@ -214,12 +217,18 @@ def test_sign_in_records_the_app(
     code = next(part for part in sent[0].split() if part.isdigit())
 
     verified = api_client.post(
-        "/v1/auth/verify",
-        json={"phone": KNOWN, "code": code},
+        "/v1/auth/verify", json={"phone": KNOWN, "code": code}
+    ).json()
+    signed_in = api_client.post(
+        "/v1/auth/password/setup",
+        json={
+            "token": verified["password_setup_token"],
+            "password": "a long enough passphrase",
+        },
         headers={"X-Client-Platform": "web", "X-Client-Version": "0.1.0"},
     )
 
-    assert verified.status_code == 200
+    assert signed_in.status_code == 200, signed_in.text
     (row,) = _rows(owner_session, account)
     assert (row.platform, row.app_version) == ("web", "0.1.0")
 

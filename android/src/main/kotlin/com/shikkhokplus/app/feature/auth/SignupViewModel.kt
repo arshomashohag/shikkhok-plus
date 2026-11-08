@@ -1,8 +1,10 @@
 package com.shikkhokplus.app.feature.auth
 
-import com.shikkhokplus.app.core.model.PostalAddress
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.shikkhokplus.app.core.model.Identifier
+import com.shikkhokplus.app.core.model.IdentifierKind
+import com.shikkhokplus.app.core.model.PostalAddress
 import com.shikkhokplus.app.core.model.SignupRole
 import com.shikkhokplus.app.core.network.AlreadyAddedDto
 import com.shikkhokplus.app.core.network.SignupResponseDto
@@ -28,9 +30,9 @@ interface SignupRepository {
     suspend fun lookup(phone: String): AuthResult<AlreadyAddedDto>
 
     /**
-     * Create an account for a number nobody has registered.
+     * Create an account for a phone or an email nobody has registered.
      *
-     * @param phone The number this identity is keyed on
+     * @param identifier The phone or email this identity is keyed on
      * @param role The claimed role; nothing verifies it
      * @param selfName The name the person chose for themselves
      * @param address Owner-private, in its four parts; required
@@ -38,7 +40,7 @@ interface SignupRepository {
      * @return The new account, a refusal, or a transport failure
      */
     suspend fun signup(
-        phone: String,
+        identifier: Identifier,
         role: String,
         selfName: String,
         address: PostalAddress,
@@ -83,6 +85,9 @@ class SignupViewModel(
 
     private var lastAction: (() -> Unit)? = null
 
+    // The password chosen on the form, between the account being created
+    // and the code step taking it. Memory only.
+    private var pendingPassword: String? = null
 
     // The last complete number looked up, so it is asked about once.
     private var lookedUp: String? = null
@@ -160,29 +165,24 @@ class SignupViewModel(
     /**
      * Submit the completed form.
      *
-     * The shape check is the mapper's and runs first, so a blank name
-     * never reaches the network. Whether the number is already
-     * registered is **not** checked here: that is the server's
-     * decision, and a client copy of it is the validation-divergence
-     * path the layer rule names.
+     * The shape check is the mapper's and runs first, so a blank name or
+     * a short password never reaches the network. Whether the phone or
+     * email is already registered, or the password too common, is **not**
+     * checked here: those are the server's decisions, and a client copy
+     * of either is the validation-divergence path the layer rule names.
      *
-     * @param phone The number this identity is keyed on
-     * @param selfName The name the person chose
-     * @param address Owner-private, in its four parts; required
-     * @param role The claimed role
-     * @param centreName The coaching centre to open; sent with Coaching only
+     * **The password is not sent with the account.** It is held here in
+     * memory until the code is on its way, then handed over once through
+     * [takePassword] to the step that verifies the code and sets it.
+     *
+     * @param form Everything the form holds
      */
-    fun submit(
-        phone: String,
-        selfName: String,
-        address: PostalAddress,
-        role: SignupRole,
-        centreName: String? = null,
-    ) {
-        lastPhone = phone
-        lastAction = { submit(phone, selfName, address, role, centreName) }
+    fun submit(form: SignupForm) {
+        lastPhone = form.identifier.phone.orEmpty()
+        lastAction = { submit(form) }
+        pendingPassword = null
 
-        val invalid = SignupStateMapper.validate(phone, selfName, address)
+        val invalid = SignupStateMapper.validate(form)
         if (invalid != null) {
             _state.value = invalid
             return
@@ -190,24 +190,54 @@ class SignupViewModel(
 
         _state.value = SignupUiState.Submitting
         viewModelScope.launch {
+            val role = form.role
+            val result =
+                repository.signup(
+                    identifier = form.identifier,
+                    role = role.wire,
+                    selfName = form.selfName,
+                    address = form.address,
+                    centreName = form.centreName?.trim()?.takeIf { role == SignupRole.COACHING && it.isNotEmpty() },
+                )
+            if (result is AuthResult.Ok) {
+                pendingPassword = form.password
+                lastAction = null
+            }
             _state.value =
-                when (
-                    val result =
-                        repository.signup(
-                            phone = phone,
-                            role = role.wire,
-                            selfName = selfName,
-                            address = address,
-                            centreName = centreName?.trim()?.takeIf { role == SignupRole.COACHING && it.isNotEmpty() },
-                        )
-                ) {
-                    is AuthResult.Ok -> SignupStateMapper.afterSignup(result.value)
-                    is AuthResult.Refused ->
-                        SignupStateMapper.afterError(result.envelope)
-                    AuthResult.TransportFailure ->
-                        SignupStateMapper.afterTransportFailure()
+                when (result) {
+                    is AuthResult.Ok -> SignupStateMapper.afterSignup(result.value, form.identifier.kind)
+                    is AuthResult.Refused -> SignupStateMapper.afterError(result.envelope)
+                    AuthResult.TransportFailure -> SignupStateMapper.afterTransportFailure()
                 }
         }
+    }
+
+    /**
+     * Hand over the password chosen on the form, once.
+     *
+     * Called when the code is on its way, by the step that will verify
+     * it. The second call returns null: this ViewModel keeps no copy
+     * after handing it over.
+     *
+     * @return The password, or null when there is none to hand over
+     */
+    fun takePassword(): String? = pendingPassword.also { pendingPassword = null }
+
+    /**
+     * Forget what was said about the identifier, because its kind changed
+     * between Phone and Email.
+     *
+     * @param kind The kind now chosen
+     */
+    fun kindChanged(kind: IdentifierKind) {
+        numberEdited()
+        if (kind == IdentifierKind.EMAIL) lastPhone = ""
+    }
+
+    override fun onCleared() {
+        pendingPassword = null
+        lastAction = null
+        super.onCleared()
     }
 
     /**

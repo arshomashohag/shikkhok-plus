@@ -66,6 +66,7 @@ import com.shikkhokplus.app.core.network.TokenStore
 import com.shikkhokplus.app.feature.mfa.MfaStatusHolder
 import com.shikkhokplus.app.feature.mfa.PreferencesMfaPromptStore
 import com.shikkhokplus.app.navigation.MfaOffer
+import com.shikkhokplus.app.navigation.PasswordPromptFrame
 import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.AuthViewModel
 import com.shikkhokplus.app.core.notify.ui.OpenInboxEffect
@@ -457,25 +458,33 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
             // "Recommended" mark never shows on another's More.
             val mfaStatus = remember { MfaStatusHolder() }
 
-            ShikkhokNavHost(
-                client = client,
-                queue = queue,
-                session =
-                    SessionBinding(
-                        lens = lens,
-                        onSwitch = if (multiLens) sessionModel::switchLens else null,
-                        onLensesChanged = sessionModel::refreshLenses,
-                        onEndSession = endSession,
-                        unsentWrites = { queue.read().size },
-                        settings = settings,
-                        mfaStatus = mfaStatus,
-                    ),
-                // Read ONCE per session. A live value here would rebuild the
-                // whole NavHost on every change, discarding the back stack.
-                signedIn = remember { signedIn },
-                navController = navController,
-                authModel = authModel,
-            )
+            // **The prompt to set a password, for an account from before
+            // passwords**, on the home screen and on More until the server
+            // says it has one.
+            val passwordMissing by sessionModel.passwordMissing.collectAsState()
+            PasswordPromptFrame(signedIn, passwordMissing, lens, navController) {
+                ShikkhokNavHost(
+                    client = client,
+                    queue = queue,
+                    session =
+                        SessionBinding(
+                            lens = lens,
+                            onSwitch = if (multiLens) sessionModel::switchLens else null,
+                            onLensesChanged = sessionModel::refreshLenses,
+                            onEndSession = endSession,
+                            unsentWrites = { queue.read().size },
+                            settings = settings,
+                            mfaStatus = mfaStatus,
+                            tokens = tokens,
+                            onPasswordSet = sessionModel::passwordSet,
+                        ),
+                    // Read ONCE per session. A live value here would rebuild the
+                    // whole NavHost on every change, discarding the back stack.
+                    signedIn = remember { signedIn },
+                    navController = navController,
+                    authModel = authModel,
+                )
+            }
 
             OpenInboxEffect(navController, openInbox && signedIn, onInboxOpened)
 

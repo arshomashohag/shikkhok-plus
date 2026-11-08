@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.Identifier
 import com.shikkhokplus.app.core.model.PostalAddress
 import com.shikkhokplus.app.feature.auth.AuthResult
 import com.shikkhokplus.app.feature.auth.SignupRepository
@@ -50,7 +51,7 @@ class HttpSignupRepository(
         }
 
     /**
-     * Create an account for a number nobody has registered.
+     * Create an account for a phone or an email nobody has registered.
      *
      * **This does not sign the person in.** The response carries no
      * token: the account exists and an OTP is on its way, and the
@@ -58,15 +59,15 @@ class HttpSignupRepository(
      * seven abuse controls live [BR2.2]. A signup that authenticated
      * directly would be a second, weaker way in.
      *
-     * @param phone The number this identity is keyed on
+     * @param identifier The phone or email this identity is keyed on
      * @param role The claimed role; nothing verifies it [BR4.2]
      * @param selfName The name the person chose for themselves
      * @param address Owner-private, in its four parts
      * @param centreName The coaching centre to open, or null
-     * @return The new account and the number the code went to
+     * @return The new account and where the code went
      */
     override suspend fun signup(
-        phone: String,
+        identifier: Identifier,
         role: String,
         selfName: String,
         address: PostalAddress,
@@ -76,7 +77,8 @@ class HttpSignupRepository(
             client.post("/v1/accounts") {
                 setBody(
                     SignupRequestDto(
-                        phone = phone,
+                        phone = identifier.phone,
+                        email = identifier.email,
                         role = role,
                         selfName = selfName,
                         addressHouse = address.house.trim(),

@@ -453,4 +453,61 @@ class ProfileViewModelTest {
 
         assertIs<ProfileUiState.Failed>(model.state.value)
     }
+
+    @Test
+    fun `an email-only account confirms deletion with its email, and nothing else`() = runTest(dispatcher) {
+        // Without this the account signed up by email has no number to
+        // type back and can never delete itself [TC-19].
+        val repository =
+            FakeRepository(result = AuthResult.Ok(MeDto(selfName = "Rafi", phone = null, email = "rafi@example.com")))
+        val model = confirming(repository)
+        assertEquals(DeletionState.Confirming(phone = null, email = "rafi@example.com"), model.deletion.value)
+
+        model.deleteAccount("01611-477203")
+        advanceUntilIdle()
+        assertEquals(0, repository.deletes)
+
+        model.deleteAccount("rafi@example.com")
+        advanceUntilIdle()
+        assertEquals(1, repository.deletes)
+        assertEquals(DeletionState.Deleted, model.deletion.value)
+    }
+
+    @Test
+    fun `the summary keeps the email and whether a password is set`() = runTest(dispatcher) {
+        val repository =
+            FakeRepository(result = AuthResult.Ok(MeDto(phone = null, email = "rafi@example.com", hasPassword = false)))
+        val model = ProfileViewModel(repository)
+
+        model.load()
+        advanceUntilIdle()
+
+        assertEquals("rafi@example.com", model.summary.value?.email)
+        assertEquals(false, model.summary.value?.hasPassword)
+    }
+
+    @Test
+    fun `a deletion with no answer keeps the email for the retry`() = runTest(dispatcher) {
+        val repository =
+            FakeRepository(result = AuthResult.Ok(MeDto(phone = null, email = "rafi@example.com")))
+        repository.deleteResult = AuthResult.TransportFailure
+        val model = confirming(repository)
+
+        model.deleteAccount("rafi@example.com")
+        advanceUntilIdle()
+        assertEquals(
+            DeletionState.Failed(
+                phone = null,
+                messageKey = ProfileStateMapper.OFFLINE_KEY,
+                retryable = true,
+                email = "rafi@example.com",
+            ),
+            model.deletion.value,
+        )
+
+        repository.deleteResult = AuthResult.Ok(Unit)
+        model.deleteAccount("rafi@example.com")
+        advanceUntilIdle()
+        assertEquals(DeletionState.Deleted, model.deletion.value)
+    }
 }

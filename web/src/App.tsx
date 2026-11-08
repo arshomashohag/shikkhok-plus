@@ -13,6 +13,7 @@ import { homeFor } from './shell/nav'
 import { ErrorCard, Loading } from './ui/components'
 import { SignIn } from './features/auth/SignIn'
 import { SignUp } from './features/auth/SignUp'
+import { PasswordCode } from './features/auth/PasswordCode'
 import { Today } from './features/teacher/Today'
 import { Batches, CreateBatch } from './features/teacher/Batches'
 import { BatchDetail } from './features/teacher/BatchDetail'
@@ -76,6 +77,7 @@ export function App() {
     return (
       <Routes>
         <Route path="/signin" element={<SignIn />} />
+        <Route path="/signin/code" element={<PasswordCode />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="*" element={<Navigate to="/signin" replace />} />
       </Routes>

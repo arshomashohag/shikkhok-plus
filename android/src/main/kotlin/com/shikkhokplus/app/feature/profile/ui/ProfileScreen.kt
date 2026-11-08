@@ -102,6 +102,15 @@ fun workspaceRowTag(ownerId: String): String = "profile_workspace_$ownerId"
 /** The two-step verification row, offered to every lens. */
 const val TAG_PROFILE_TWO_STEP: String = "profile_two_step"
 
+/** The password row: "Set a password" or "Change password". */
+const val TAG_PROFILE_PASSWORD: String = "profile_password"
+
+/** The add-phone row, for an account with no number. */
+const val TAG_PROFILE_ADD_PHONE: String = "profile_add_phone"
+
+/** The add-email row, for an account with no email. */
+const val TAG_PROFILE_ADD_EMAIL: String = "profile_add_email"
+
 /** The switch-role row. Absent for a person with one lens. */
 const val TAG_PROFILE_SWITCH_LENS: String = "profile_switch_lens"
 
@@ -154,6 +163,12 @@ const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
  * @property onTwoStep Opens two-step verification, or null
  * @property twoStepRecommended Marks that row "Recommended": the server
  *   recommends it for this account and it is off
+ * @property onPassword Opens the password screen, or null
+ * @property hasPassword Whether that row reads "Change password" (true)
+ *   or "Set a password" (false), as the server said
+ * @property onAddPhone Opens "Add phone number", or null when the account
+ *   has a number (or nothing is known yet)
+ * @property onAddEmail Opens "Add email", or null likewise
  */
 data class MoreActions(
     val onEdit: () -> Unit = {},
@@ -181,6 +196,10 @@ data class MoreActions(
     val onHelp: (() -> Unit)? = null,
     val onTwoStep: (() -> Unit)? = null,
     val twoStepRecommended: Boolean = false,
+    val onPassword: (() -> Unit)? = null,
+    val hasPassword: Boolean = true,
+    val onAddPhone: (() -> Unit)? = null,
+    val onAddEmail: (() -> Unit)? = null,
 )
 
 /**
@@ -283,8 +302,10 @@ fun ProfileScreen(
  */
 internal fun profileOf(state: ProfileUiState, summary: ProfileSummary?): ProfileSummary =
     when (state) {
-        is ProfileUiState.Viewing -> ProfileSummary(state.selfName, state.address, state.phone)
-        is ProfileUiState.Saved -> ProfileSummary(state.selfName, state.address, state.phone ?: summary?.phone)
+        is ProfileUiState.Viewing ->
+            ProfileSummary(state.selfName, state.address, state.phone, email = summary?.email)
+        is ProfileUiState.Saved ->
+            ProfileSummary(state.selfName, state.address, state.phone ?: summary?.phone, email = summary?.email)
         else -> summary ?: ProfileSummary(selfName = null, address = null, phone = null)
     }
 
@@ -306,7 +327,8 @@ private fun MoreMenu(
     offline: Boolean = false,
 ) {
     val name = profile.selfName?.takeIf { it.isNotBlank() }
-    val phone = profile.phone?.let(Numerals::phone)
+    // The number, or the email for an account signed up by email.
+    val phone = profile.phone?.let(Numerals::phone) ?: profile.email
     val role = lens?.let { stringResource(roleLabel(it)) }
     ProfileCard(
         initial = name?.trim()?.take(1)?.uppercase() ?: "?",
@@ -599,6 +621,7 @@ private fun TeacherRows(actions: MoreActions, offline: Boolean) {
 @Composable
 private fun AccountRows(actions: MoreActions, offline: Boolean) {
     MenuSection(stringResource(R.string.more_section_account)) {
+        SignInRows(actions, offline)
         // Two-step verification needs the server to read or change it;
         // offline it waits, greyed, like the Help centre.
         actions.onTwoStep?.let { open ->
@@ -646,6 +669,71 @@ private fun AccountRows(actions: MoreActions, offline: Boolean) {
             onClick = actions.onDeleteAccount,
             modifier = Modifier.testTag(TAG_PROFILE_DELETE),
         )
+    }
+}
+
+/**
+ * The sign-in rows: the password, and adding a phone or an email.
+ *
+ * **Add phone carries why it matters**: teachers find students and
+ * guardians by phone number, so an account without one sees no seat a
+ * teacher recorded until it adds one. Every row needs the server, so
+ * offline they wait, greyed.
+ *
+ * @param actions Where each row leads
+ * @param offline Whether the rows wait for a connection
+ */
+@Composable
+private fun SignInRows(actions: MoreActions, offline: Boolean) {
+    val needs = stringResource(R.string.more_needs_connection)
+    actions.onPassword?.let { open ->
+        MenuRow(
+            title =
+                stringResource(
+                    if (actions.hasPassword) R.string.more_change_password else R.string.more_set_password,
+                ),
+            subtitle =
+                if (offline) {
+                    needs
+                } else {
+                    stringResource(
+                        if (actions.hasPassword) R.string.more_change_password_sub else R.string.more_set_password_sub,
+                    )
+                },
+            icon = MenuIcons.Lock,
+            trailing =
+                if (actions.hasPassword) {
+                    MenuTrailing.Chevron
+                } else {
+                    MenuTrailing.Badge(stringResource(R.string.more_password_needed))
+                },
+            onClick = open,
+            enabled = !offline,
+            modifier = Modifier.testTag(TAG_PROFILE_PASSWORD),
+        )
+        MenuDivider()
+    }
+    actions.onAddPhone?.let { open ->
+        MenuRow(
+            title = stringResource(R.string.more_add_phone),
+            subtitle = if (offline) needs else stringResource(R.string.more_add_phone_sub),
+            icon = MenuIcons.Phone,
+            onClick = open,
+            enabled = !offline,
+            modifier = Modifier.testTag(TAG_PROFILE_ADD_PHONE),
+        )
+        MenuDivider()
+    }
+    actions.onAddEmail?.let { open ->
+        MenuRow(
+            title = stringResource(R.string.more_add_email),
+            subtitle = if (offline) needs else stringResource(R.string.more_add_email_sub),
+            icon = MenuIcons.Envelope,
+            onClick = open,
+            enabled = !offline,
+            modifier = Modifier.testTag(TAG_PROFILE_ADD_EMAIL),
+        )
+        MenuDivider()
     }
 }
 

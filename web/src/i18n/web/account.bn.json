@@ -4,5 +4,7 @@
   "web_account_inbox_sub": "বেতনের রিমাইন্ডার, পেমেন্টের খবর ও নোটিশ",
   "web_account_delete_offline": "সংযোগ নেই। আপনার অ্যাকাউন্ট মুছে ফেলা হয়নি।",
   "web_account_deleting": "মুছে ফেলা হচ্ছে…",
-  "web_account_done_body": "আপনার লগইন, নাম ও ঠিকানা মুছে গেছে। এই ব্রাউজার থেকে লগ আউট করতে বন্ধ করুন।"
+  "web_account_done_body": "আপনার লগইন, নাম ও ঠিকানা মুছে গেছে। এই ব্রাউজার থেকে লগ আউট করতে বন্ধ করুন।",
+  "web_account_delete_type_email": "নিশ্চিত করতে আপনার ইমেইল ঠিকানা লিখুন।",
+  "web_account_delete_email_field": "আপনার ইমেইল ঠিকানা"
 }

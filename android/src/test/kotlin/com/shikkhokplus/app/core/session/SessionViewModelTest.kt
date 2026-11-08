@@ -320,4 +320,66 @@ class SessionViewModelTest {
 
             assertIs<SessionUiState.Failed>(model.state.value)
         }
+
+    @Test
+    fun `an account without a password is flagged for the prompt`() = runTest(dispatcher) {
+        val model =
+            SessionViewModel(FakeProfile(mutableListOf(AuthResult.Ok(MeDto(hasPassword = false)))))
+
+        model.resolve()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(true, model.passwordMissing.value)
+    }
+
+    @Test
+    fun `an account with a password, or an unanswered read, is not flagged`() = runTest(dispatcher) {
+        val model =
+            SessionViewModel(
+                FakeProfile(mutableListOf(AuthResult.Ok(MeDto(hasPassword = true)), AuthResult.TransportFailure)),
+            )
+        assertEquals(false, model.passwordMissing.value, "nothing nags before an answer arrives")
+
+        model.resolve()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(false, model.passwordMissing.value)
+
+        model.resolve()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(false, model.passwordMissing.value)
+    }
+
+    @Test
+    fun `setting a password clears the prompt at once, and a re-read keeps it clear`() = runTest(dispatcher) {
+        val model =
+            SessionViewModel(
+                FakeProfile(
+                    mutableListOf(AuthResult.Ok(MeDto(hasPassword = false)), AuthResult.Ok(MeDto(hasPassword = true))),
+                ),
+            )
+        model.resolve()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        model.passwordSet()
+        assertEquals(false, model.passwordMissing.value)
+
+        model.refreshLenses()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(false, model.passwordMissing.value)
+    }
+
+    @Test
+    fun `retry reads the account again, prompt flag included`() = runTest(dispatcher) {
+        val repository =
+            FakeProfile(mutableListOf(AuthResult.TransportFailure, AuthResult.Ok(MeDto(hasPassword = false))))
+        val model = SessionViewModel(repository)
+        model.resolve()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        model.retry()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(2, repository.reads)
+        assertEquals(true, model.passwordMissing.value)
+    }
 }

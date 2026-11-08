@@ -43,76 +43,94 @@ import com.shikkhokplus.app.core.designsystem.PrimaryButton
 import com.shikkhokplus.app.core.designsystem.PromptLink
 import com.shikkhokplus.app.core.designsystem.SecondaryButton
 import com.shikkhokplus.app.core.designsystem.TextAction
-import com.shikkhokplus.app.core.ui.PhoneNumberField
+import com.shikkhokplus.app.core.model.Identifier
+import com.shikkhokplus.app.core.model.IdentifierKind
+import com.shikkhokplus.app.core.ui.IdentifierField
+import com.shikkhokplus.app.core.ui.IdentifierKindToggle
+import com.shikkhokplus.app.core.ui.PasswordField
 import com.shikkhokplus.app.core.ui.ResendCountdown
-import com.shikkhokplus.app.core.ui.phoneIsValid
+import com.shikkhokplus.app.core.ui.identifierIsWellFormed
+import com.shikkhokplus.app.feature.auth.AuthStep
 import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.MessageKeys
 
 /**
- * Sign-in: `O2` (the number) and `O3` (the code), as two steps.
+ * Sign-in: the password form, the code flow (`O2` the identifier and
+ * `O3` the code), choosing a password, and the authenticator step.
  *
  * **This composable renders a [AuthUiState] and nothing else.** There is
  * no conditional here that depends on a domain value — no comparison, no
- * threshold, no inference about whether a number was recognised. Every
- * such decision was made by `AuthStateMapper` or the server [TC-9, D-31].
- * Which refusal message is shown is the server's `message_key`, and the
- * tries-left count is its `details`, shown as it arrived.
+ * threshold, no inference about whether an account exists. Every such
+ * decision was made by `AuthStateMapper` or the server [TC-9, D-31].
+ * Which refusal message is shown is the server's `message_key`, whether
+ * the way to the code flow is offered beside it is the mapper's
+ * `offerCodeFlow`, and the tries-left count is the server's `details`.
  *
- * **The two steps are two layouts.** `O2` carries the brand band and a
- * bar pinned to the foot; `O3` has no band at all, only a back arrow and
- * the heading "Enter the code". The earlier screen put the code boxes
- * under the band, which matched neither board.
+ * **The identifier survives a rotation; no secret does** [L-20]. The
+ * phone or email is kept in saved state; the password and the code are
+ * kept in `remember` only, because saved instance state is a Bundle the
+ * platform may write to disk, which this app never does with either.
  *
- * **The number is never repeated back.** The code step says a code was
- * sent if the number has an account, without naming the number.
+ * **Nothing is repeated back.** The code step says a code was sent if
+ * the phone or email has an account, without naming it.
  *
  * Test tags are stable identifiers for the Compose UI test and the
  * device run; they are not user-visible text.
+ *
+ * @param state What to render
+ * @param actions What each control does
+ * @param modifier The layout modifier
+ * @param codeDestination Whether the outstanding code went by SMS or by
+ *   email, for the code step's copy
  */
 @Composable
 fun AuthScreen(
     state: AuthUiState,
-    onRequestCode: (String) -> Unit,
-    onSubmitCode: (String) -> Unit,
-    onRetry: () -> Unit,
-    onGoToSignup: () -> Unit = {},
+    actions: AuthActions,
     modifier: Modifier = Modifier,
-    onResendCode: () -> Unit = {},
-    onChangeNumber: () -> Unit = {},
-    onSubmitSecondStep: (String) -> Unit = {},
-    onToggleRecoveryCode: () -> Unit = {},
+    codeDestination: IdentifierKind = IdentifierKind.PHONE,
 ) {
-    // **The number survives a rotation; the code does not** [L-20]. A
-    // number retyped after turning the phone is an annoyance; a one-time
-    // code kept in saved instance state is a code the platform may write
-    // to disk, which this app never does with an OTP [D-33].
-    var phone by rememberSaveable { mutableStateOf("") }
+    var kind by rememberSaveable { mutableStateOf(IdentifierKind.PHONE) }
+    var identifier by rememberSaveable { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
 
-    // Set when "Send code" is pressed on a malformed number, which is
+    // Set when a form is submitted with a malformed identifier, which is
     // then refused here and named under the field rather than sent.
-    var phoneRejected by remember { mutableStateOf(false) }
+    var identifierRejected by remember { mutableStateOf(false) }
 
     // Which step is on screen. `Sending` belongs to whichever step sent
-    // it: a resend from the code step must not flash the number step.
+    // it: a resend from the code step must not flash the identifier step.
     var onCodeStep by remember { mutableStateOf(false) }
-    onCodeStep =
-        when (state) {
-            AuthUiState.AwaitingCode,
-            AuthUiState.CheckingCode,
-            is AuthUiState.CodeRejected,
-            -> true
-            AuthUiState.Sending -> onCodeStep
-            else -> false
-        }
+    onCodeStep = isCodeStep(state, wasCodeStep = onCodeStep)
+    val onCodeRequest = isCodeRequestStep(state, onCodeStep)
 
     // Bumped each time a code is freshly sent, which restarts the
     // resend countdown.
     var codeSentCount by remember { mutableIntStateOf(0) }
     LaunchedEffect(state) {
         if (state == AuthUiState.AwaitingCode) codeSentCount++
+        // A session exists or a code flow began: the typed password has
+        // done its work, and is not kept on screen a moment longer.
+        if (state == AuthUiState.SignedIn || state == AuthUiState.CodeFlowStart) password = ""
     }
+
+    val typed = { Identifier(kind, identifier) }
+    val identifierForm =
+        IdentifierForm(
+            kind = kind,
+            value = identifier,
+            rejected = identifierRejected,
+            onKindChange = {
+                kind = it
+                identifier = ""
+                identifierRejected = false
+            },
+            onValueChange = {
+                identifier = it
+                identifierRejected = false
+            },
+        )
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -127,17 +145,25 @@ fun AuthScreen(
                     modifier = Modifier.testTag(TAG_SIGNED_IN),
                 )
 
-            // The authenticator step [0028], for an account that has
-            // two-step verification on. Back goes to the number: the
-            // SMS code is spent, so there is no code step to return to.
+            // The authenticator step [0028], after a password sign-in for
+            // an account that has two-step verification on. Back goes to
+            // the sign-in form: the challenge is spent.
             state is AuthUiState.SecondStep ->
                 SecondStep(
                     state = state,
-                    onSubmit = onSubmitSecondStep,
-                    onToggleRecovery = onToggleRecoveryCode,
+                    onSubmit = actions.onSubmitSecondStep,
+                    onToggleRecovery = actions.onToggleRecoveryCode,
+                    onBack = actions.onBackToSignIn,
+                )
+
+            state is AuthUiState.ChoosePassword ->
+                ChoosePasswordStep(
+                    state = state,
+                    onSubmit = actions.onChoosePassword,
+                    onToggleRecovery = actions.onToggleSetupRecovery,
                     onBack = {
                         code = ""
-                        onChangeNumber()
+                        actions.onChangeNumber()
                     },
                 )
 
@@ -146,92 +172,192 @@ fun AuthScreen(
                     code = code,
                     state = state,
                     codeSentCount = codeSentCount,
+                    destination = codeDestination,
                     onCodeChange = { code = it },
-                    onSubmit = { onSubmitCode(code) },
+                    onSubmit = { actions.onSubmitCode(code) },
                     onResend = {
                         code = ""
-                        onResendCode()
+                        actions.onResendCode()
                     },
                     onChangeNumber = {
                         code = ""
-                        onChangeNumber()
+                        actions.onChangeNumber()
                     },
-                    onGoToSignup = onGoToSignup,
+                    onGoToSignup = actions.onGoToSignup,
+                )
+
+            onCodeRequest ->
+                CodeRequestStep(
+                    form = identifierForm,
+                    state = state,
+                    onSubmit = {
+                        // A fresh code starts with empty boxes.
+                        code = ""
+                        if (identifierIsWellFormed(typed())) {
+                            actions.onRequestCode(typed())
+                        } else {
+                            identifierRejected = true
+                        }
+                    },
+                    onRetry = actions.onRetry,
+                    onBack = actions.onBackToSignIn,
                 )
 
             else ->
-                NumberStep(
-                    phone = phone,
+                SignInStep(
+                    form = identifierForm,
+                    password = password,
+                    onPasswordChange = { password = it },
                     state = state,
-                    phoneRejected = phoneRejected,
-                    onPhoneChange = {
-                        phone = it
-                        phoneRejected = false
-                    },
                     onSubmit = {
-                        // A fresh code starts with empty boxes: the last
-                        // one may have been spent on a sign-in that went
-                        // on to the second step and was started again.
-                        code = ""
-                        if (phoneIsValid(phone)) {
-                            onRequestCode(phone)
+                        if (identifierIsWellFormed(typed())) {
+                            actions.onSignIn(typed(), password)
                         } else {
-                            phoneRejected = true
+                            identifierRejected = true
                         }
                     },
-                    onRetry = onRetry,
-                    onGoToSignup = onGoToSignup,
+                    actions = actions,
                 )
         }
 
-        // **Over the step, centred on the window.** The board shows a
-        // spinner on the button; the loader is the app-wide overlay
-        // instead, by the person's own rule, and the step stays visible
-        // beneath its scrim.
-        when (state) {
-            AuthUiState.Sending ->
-                LogoLoader(
-                    modifier = Modifier.testTag(TAG_SENDING),
-                    size = 72.dp,
-                    label = stringResource(R.string.auth_sending),
-                )
-            AuthUiState.CheckingCode ->
-                LogoLoader(
-                    modifier = Modifier.testTag(TAG_CHECKING_CODE),
-                    size = 72.dp,
-                    label = stringResource(R.string.auth_checking_code),
-                )
-            else -> Unit
-        }
+        // **Over the step, centred on the window.** The loader is the
+        // app-wide overlay, by the person's own rule, and the step stays
+        // visible beneath its scrim.
+        WaitingOverlay(state)
     }
 }
 
 /**
- * `O2`: the brand band, the number, and a bar pinned to the foot.
+ * Whether the code step is on screen.
+ *
+ * @param state What to render
+ * @param wasCodeStep Whether it was on screen before this state: a
+ *   resend from the code step sends, and must not flash another step
+ * @return True for the code step
+ */
+private fun isCodeStep(state: AuthUiState, wasCodeStep: Boolean): Boolean =
+    when (state) {
+        AuthUiState.AwaitingCode,
+        AuthUiState.CheckingCode,
+        is AuthUiState.CodeRejected,
+        -> true
+        AuthUiState.Sending -> wasCodeStep
+        else -> false
+    }
+
+/**
+ * Whether the code flow's first step is on screen.
+ *
+ * @param state What to render
+ * @param onCodeStep Whether the code step is
+ * @return True for the identifier step of the code flow
+ */
+private fun isCodeRequestStep(state: AuthUiState, onCodeStep: Boolean): Boolean =
+    when (state) {
+        AuthUiState.CodeFlowStart -> true
+        AuthUiState.Sending -> !onCodeStep
+        is AuthUiState.Failed -> state.step == AuthStep.CODE_REQUEST
+        else -> false
+    }
+
+/**
+ * The app-wide loader over the step while something is with the server.
+ *
+ * @param state What to render
+ */
+@Composable
+private fun WaitingOverlay(state: AuthUiState) {
+    val (tag, label) =
+        when (state) {
+            AuthUiState.SigningIn -> TAG_SIGNING_IN to R.string.auth_signing_in
+            AuthUiState.Sending -> TAG_SENDING to R.string.auth_sending
+            AuthUiState.CheckingCode -> TAG_CHECKING_CODE to R.string.auth_checking_code
+            else -> return
+        }
+    LogoLoader(modifier = Modifier.testTag(tag), size = 72.dp, label = stringResource(label))
+}
+
+/**
+ * The identifier half of a form: its kind, what is typed, and whether a
+ * submit refused its shape.
+ *
+ * @property kind Phone or email
+ * @property value What is typed
+ * @property rejected Whether a submit found it malformed
+ * @property onKindChange Called when the toggle changes
+ * @property onValueChange Called on each edit
+ */
+private data class IdentifierForm(
+    val kind: IdentifierKind,
+    val value: String,
+    val rejected: Boolean,
+    val onKindChange: (IdentifierKind) -> Unit,
+    val onValueChange: (String) -> Unit,
+)
+
+/**
+ * The toggle and the field, with the shape refusal under the field.
+ *
+ * @param form The identifier half of the form
+ * @param state What to render, for a refusal the server named
+ * @param help The help line while the field is empty
+ * @param enabled Whether it can be changed
+ */
+@Composable
+private fun IdentifierInput(
+    form: IdentifierForm,
+    state: AuthUiState,
+    help: String?,
+    enabled: Boolean,
+) {
+    // A refused NUMBER or EMAIL belongs under the field, whoever refused it.
+    val refusedKey = (state as? AuthUiState.Failed)?.messageKey
+    val error =
+        when {
+            form.kind == IdentifierKind.PHONE && (form.rejected || refusedKey in PHONE_MESSAGE_KEYS) ->
+                stringResource(R.string.phone_invalid)
+            form.kind == IdentifierKind.EMAIL && (form.rejected || refusedKey in EMAIL_MESSAGE_KEYS) ->
+                stringResource(R.string.signup_email_invalid)
+            else -> null
+        }
+    IdentifierKindToggle(kind = form.kind, onKindChange = form.onKindChange, enabled = enabled)
+    IdentifierField(
+        kind = form.kind,
+        value = form.value,
+        onValueChange = form.onValueChange,
+        help = help.takeIf { form.value.isEmpty() },
+        error = error,
+        large = true,
+        fieldModifier = Modifier.testTag(TAG_IDENTIFIER_FIELD),
+    )
+}
+
+/**
+ * The password sign-in: the brand band, Phone | Email, the identifier,
+ * the password, and a bar pinned to the foot.
  *
  * **One scrolling column at least the window's height.** The bar sits
  * at the foot of a tall phone, as the board draws it, and on a short
- * one the whole step scrolls rather than squeezing the field out of
+ * one the whole step scrolls rather than squeezing the fields out of
  * sight -- the regression this screen already caught once, at 320x414.
  *
- * @param phone The number typed so far
+ * @param form The identifier half of the form
+ * @param password The password typed so far
+ * @param onPasswordChange Called on each edit of it
  * @param state What to render
- * @param phoneRejected Whether "Send code" refused a malformed number
- * @param onPhoneChange Called on each edit
- * @param onSubmit Called from "Send code"
- * @param onRetry Called from a retryable failure's retry
- * @param onGoToSignup Called from "Create account"
+ * @param onSubmit Called from "Sign in"
+ * @param actions The screen's callbacks, for the links and the retry
  */
 @Composable
-private fun NumberStep(
-    phone: String,
+private fun SignInStep(
+    form: IdentifierForm,
+    password: String,
+    onPasswordChange: (String) -> Unit,
     state: AuthUiState,
-    phoneRejected: Boolean,
-    onPhoneChange: (String) -> Unit,
     onSubmit: () -> Unit,
-    onRetry: () -> Unit,
-    onGoToSignup: () -> Unit,
+    actions: AuthActions,
 ) {
+    val busy = state == AuthUiState.SigningIn
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val roomForTallHero = maxHeight >= TALL_HERO_MIN_HEIGHT
         val minHeight: Dp = maxHeight
@@ -242,25 +368,43 @@ private fun NumberStep(
                 verticalArrangement = Arrangement.SpaceBetween,
             ) {
                 Column {
-                    // Tall on the empty first screen; compact once a
-                    // number is in, so the field clears the keyboard.
+                    // Tall on the empty first screen; compact once anything
+                    // is typed, so the fields clear the keyboard.
                     BrandHero(
-                        compact = phone.isNotEmpty() || state !is AuthUiState.Idle || !roomForTallHero,
+                        compact = form.value.isNotEmpty() || state !is AuthUiState.Idle || !roomForTallHero,
                         tagline = stringResource(R.string.auth_tagline),
                     )
-                    NumberBody(
-                        phone = phone,
-                        state = state,
-                        phoneRejected = phoneRejected,
-                        onPhoneChange = onPhoneChange,
-                        onRetry = onRetry,
-                    )
+                    Column(
+                        modifier =
+                            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.auth_signin_headline),
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        )
+                        IdentifierInput(form = form, state = state, help = null, enabled = !busy)
+                        PasswordField(
+                            value = password,
+                            onValueChange = onPasswordChange,
+                            label = stringResource(R.string.password_label),
+                            enabled = !busy,
+                            onImeAction = onSubmit,
+                            fieldModifier = Modifier.testTag(TAG_PASSWORD_FIELD),
+                        )
+                        TextAction(
+                            text = stringResource(R.string.auth_forgot_password),
+                            onClick = actions.onStartCodeFlow,
+                            enabled = !busy,
+                            modifier = Modifier.testTag(TAG_FORGOT_PASSWORD),
+                        )
+                        SignInFailure(state = state, actions = actions)
+                    }
                 }
-                NumberBar(
-                    sending = state == AuthUiState.Sending,
-                    enabled = phone.isNotBlank() && state != AuthUiState.Sending,
+                SignInBar(
+                    enabled = form.value.isNotBlank() && password.isNotEmpty() && !busy,
                     onSubmit = onSubmit,
-                    onGoToSignup = onGoToSignup,
+                    actions = actions,
                 )
             }
         }
@@ -268,8 +412,183 @@ private fun NumberStep(
 }
 
 /**
+ * A refused or failed sign-in: the server's sentence, the way to the
+ * code flow when the mapper offers it, and a retry when the server
+ * allows one.
+ *
+ * @param state What to render
+ * @param actions The screen's callbacks
+ */
+@Composable
+private fun SignInFailure(state: AuthUiState, actions: AuthActions) {
+    if (state !is AuthUiState.Failed || state.messageKey in IDENTIFIER_MESSAGE_KEYS) return
+    Banner(
+        title = stringResource(MessageKeys.resolve(state.messageKey)),
+        body = stringResource(R.string.auth_password_wrong_hint).takeIf { state.offerCodeFlow },
+        tone = BannerTone.ERROR,
+        action =
+            if (state.offerCodeFlow) {
+                {
+                    TextAction(
+                        text = stringResource(R.string.auth_get_code),
+                        onClick = actions.onStartCodeFlow,
+                        modifier = Modifier.testTag(TAG_HINT_GET_CODE),
+                    )
+                }
+            } else {
+                null
+            },
+        modifier = Modifier.testTag(TAG_ERROR),
+    )
+    if (state.retryable) {
+        SecondaryButton(
+            text = stringResource(R.string.auth_retry),
+            onClick = actions.onRetry,
+            modifier = Modifier.fillMaxWidth().testTag(TAG_RETRY),
+        )
+    }
+}
+
+/**
+ * The bar pinned to the sign-in step's foot.
+ *
+ * @param enabled Whether "Sign in" can be pressed
+ * @param onSubmit Called from "Sign in"
+ * @param actions The screen's callbacks, for the two links
+ */
+@Composable
+private fun SignInBar(
+    enabled: Boolean,
+    onSubmit: () -> Unit,
+    actions: AuthActions,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        PrimaryButton(
+            text = stringResource(R.string.auth_sign_in),
+            onClick = onSubmit,
+            // Disabled until there is something to send, rather than
+            // letting the server refuse an empty form.
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth().testTag(TAG_SIGN_IN),
+        )
+        // **The way in for an account from before passwords.** It has no
+        // password yet, so the form above can only refuse it; this says
+        // so before the person tries, as well as after.
+        PromptLink(
+            prompt = stringResource(R.string.auth_first_password_prompt),
+            link = stringResource(R.string.auth_get_code),
+            onClick = actions.onStartCodeFlow,
+            linkModifier = Modifier.testTag(TAG_FIRST_PASSWORD),
+        )
+        PromptLink(
+            prompt = stringResource(R.string.auth_new_here),
+            link = stringResource(R.string.auth_go_to_signup),
+            onClick = actions.onGoToSignup,
+            linkModifier = Modifier.testTag(TAG_GO_TO_SIGNUP),
+        )
+    }
+}
+
+/**
+ * The code flow's first step: which phone or email the code goes to.
+ *
+ * @param form The identifier half of the form
+ * @param state What to render
+ * @param onSubmit Called from "Send code"
+ * @param onRetry Called from a retryable failure's retry
+ * @param onBack Called from the back arrow: back to the sign-in form
+ */
+@Composable
+private fun CodeRequestStep(
+    form: IdentifierForm,
+    state: AuthUiState,
+    onSubmit: () -> Unit,
+    onRetry: () -> Unit,
+    onBack: () -> Unit,
+) {
+    val sending = state == AuthUiState.Sending
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        BackRow(onBack = onBack, tag = TAG_CODE_REQUEST_BACK)
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.auth_code_flow_title),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.testTag(TAG_CODE_REQUEST),
+            )
+            Text(
+                text = stringResource(R.string.auth_code_flow_body),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            IdentifierInput(
+                form = form,
+                state = state,
+                help =
+                    stringResource(
+                        if (form.kind == IdentifierKind.PHONE) R.string.auth_subhead else R.string.auth_subhead_email,
+                    ),
+                enabled = !sending,
+            )
+            val failed = state as? AuthUiState.Failed
+            if (failed != null && failed.messageKey !in IDENTIFIER_MESSAGE_KEYS) {
+                Banner(
+                    title = stringResource(MessageKeys.resolve(failed.messageKey)),
+                    tone = BannerTone.ERROR,
+                    modifier = Modifier.testTag(TAG_ERROR),
+                )
+                if (failed.retryable) {
+                    SecondaryButton(
+                        text = stringResource(R.string.auth_retry),
+                        onClick = onRetry,
+                        modifier = Modifier.fillMaxWidth().testTag(TAG_RETRY),
+                    )
+                }
+            }
+            PrimaryButton(
+                text = stringResource(R.string.auth_request_code),
+                onClick = onSubmit,
+                enabled = form.value.isNotBlank() && !sending,
+                modifier = Modifier.fillMaxWidth().testTag(TAG_REQUEST_CODE),
+            )
+            if (sending) {
+                Text(
+                    text = stringResource(R.string.auth_sending_note),
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Normal),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * A row holding only the back arrow, as `O3` draws it.
+ *
+ * @param onBack Called from the arrow
+ * @param tag The arrow's test tag
+ */
+@Composable
+internal fun BackRow(onBack: () -> Unit, tag: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onBack, modifier = Modifier.testTag(tag)) {
+            BackArrow(contentDescription = stringResource(R.string.action_back))
+        }
+    }
+}
+
+/**
  * The shortest screen that can hold the tall branding band and still
- * show the number field and its action without scrolling.
+ * show the fields and their action without scrolling.
  *
  * Below this the compact band is used instead. 560dp is comfortably
  * under any current phone in portrait and above the 414dp the tests
@@ -278,112 +597,16 @@ private fun NumberStep(
  */
 private val TALL_HERO_MIN_HEIGHT = 560.dp
 
-/**
- * The number step's body: heading, field, and any failure.
- *
- * @param phone The number typed so far
- * @param state What to render
- * @param phoneRejected Whether "Send code" refused a malformed number
- * @param onPhoneChange Called on each edit
- * @param onRetry Called from a retryable failure's retry
- */
-@Composable
-private fun NumberBody(
-    phone: String,
-    state: AuthUiState,
-    phoneRejected: Boolean,
-    onPhoneChange: (String) -> Unit,
-    onRetry: () -> Unit,
-) {
-    // A refused NUMBER belongs under the number, whoever refused it;
-    // every other failure is a banner beneath the field.
-    val numberRefused = state is AuthUiState.Failed && state.messageKey in PHONE_MESSAGE_KEYS
-    val fieldError =
-        if (phoneRejected || numberRefused) stringResource(R.string.phone_invalid) else null
-
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(
-            text = stringResource(R.string.auth_headline),
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-        )
-        PhoneNumberField(
-            value = phone,
-            onValueChange = onPhoneChange,
-            label = stringResource(R.string.auth_phone_label),
-            help = if (phone.isEmpty()) stringResource(R.string.auth_subhead) else null,
-            error = fieldError,
-            large = true,
-            fieldModifier = Modifier.testTag(TAG_PHONE_FIELD),
-        )
-        if (state is AuthUiState.Failed && !numberRefused) {
-            Banner(
-                title = stringResource(MessageKeys.resolve(state.messageKey)),
-                tone = BannerTone.ERROR,
-                modifier = Modifier.testTag(TAG_ERROR),
-            )
-            if (state.retryable) {
-                SecondaryButton(
-                    text = stringResource(R.string.auth_retry),
-                    onClick = onRetry,
-                    modifier = Modifier.fillMaxWidth().testTag(TAG_RETRY),
-                )
-            }
-        }
-    }
-}
-
-/**
- * The bar pinned to the number step's foot.
- *
- * @param sending Whether a code is on its way
- * @param enabled Whether "Send code" can be pressed
- * @param onSubmit Called from "Send code"
- * @param onGoToSignup Called from "Create account"
- */
-@Composable
-private fun NumberBar(
-    sending: Boolean,
-    enabled: Boolean,
-    onSubmit: () -> Unit,
-    onGoToSignup: () -> Unit,
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        PrimaryButton(
-            text = stringResource(R.string.auth_request_code),
-            onClick = onSubmit,
-            // Disabled until there is something to send, rather than
-            // letting the server refuse an empty number.
-            enabled = enabled,
-            modifier = Modifier.fillMaxWidth().testTag(TAG_REQUEST_CODE),
-        )
-        if (sending) {
-            Text(
-                text = stringResource(R.string.auth_sending_note),
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Normal),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        } else {
-            PromptLink(
-                prompt = stringResource(R.string.auth_new_here),
-                link = stringResource(R.string.auth_go_to_signup),
-                onClick = onGoToSignup,
-                linkModifier = Modifier.testTag(TAG_GO_TO_SIGNUP),
-            )
-        }
-    }
-}
-
 /** Message keys naming a malformed number, from either route. */
 internal val PHONE_MESSAGE_KEYS: Set<String> =
     setOf("phone.invalid", "signup.phone.invalid")
+
+/** Message keys naming a malformed email, from the server or the form. */
+internal val EMAIL_MESSAGE_KEYS: Set<String> =
+    setOf("email.invalid", "signup.email.invalid")
+
+/** Refusals shown under the identifier field rather than as a banner. */
+internal val IDENTIFIER_MESSAGE_KEYS: Set<String> = PHONE_MESSAGE_KEYS + EMAIL_MESSAGE_KEYS
 
 /**
  * `O3`: the code step, with a back arrow and no brand band.
@@ -397,6 +620,7 @@ internal val PHONE_MESSAGE_KEYS: Set<String> =
  * @param code The digits typed so far
  * @param state What to render
  * @param codeSentCount Restarts the resend countdown when it changes
+ * @param destination Whether the code went by SMS or by email
  * @param onCodeChange Called on each edit
  * @param onSubmit Called on the sixth digit, or from a retry
  * @param onResend Called to ask for a new code
@@ -408,21 +632,16 @@ private fun CodeStep(
     code: String,
     state: AuthUiState,
     codeSentCount: Int,
+    destination: IdentifierKind,
     onCodeChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onResend: () -> Unit,
     onChangeNumber: () -> Unit,
     onGoToSignup: () -> Unit,
 ) {
+    val byEmail = destination == IdentifierKind.EMAIL
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onChangeNumber, modifier = Modifier.testTag(TAG_CODE_BACK)) {
-                BackArrow(contentDescription = stringResource(R.string.action_back))
-            }
-        }
+        BackRow(onBack = onChangeNumber, tag = TAG_CODE_BACK)
 
         Column(
             modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 12.dp),
@@ -439,7 +658,7 @@ private fun CodeStep(
             // [BR2.7]. "Change" sits at its end, as the board draws it.
             Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
                 Text(
-                    text = stringResource(R.string.auth_code_sent),
+                    text = stringResource(if (byEmail) R.string.auth_code_sent_email else R.string.auth_code_sent),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 if (state != AuthUiState.CheckingCode) {
@@ -469,11 +688,7 @@ private fun CodeStep(
 
             when {
                 rejected == null -> {
-                    Hint(
-                        stringResource(
-                            if (code.isEmpty()) R.string.auth_code_autofill_hint else R.string.auth_code_auto_checks,
-                        ),
-                    )
+                    Hint(stringResource(codeHint(typing = code.isNotEmpty(), byEmail = byEmail)))
                     ResendCountdown(
                         restartKey = codeSentCount,
                         onResend = onResend,
@@ -543,6 +758,20 @@ private fun CodeStep(
 }
 
 /**
+ * The guidance under empty or half-typed code boxes.
+ *
+ * @param typing Whether a digit is in
+ * @param byEmail Whether the code went by email, where no SMS autofill helps
+ * @return Its string resource
+ */
+private fun codeHint(typing: Boolean, byEmail: Boolean): Int =
+    when {
+        typing -> R.string.auth_code_auto_checks
+        byEmail -> R.string.auth_code_email_hint
+        else -> R.string.auth_code_autofill_hint
+    }
+
+/**
  * A grey line of guidance under the code boxes.
  *
  * @param text What it says
@@ -562,7 +791,35 @@ private const val WRONG_KEY = "auth.otp.wrong"
 /** The refusal of a code presented too late. */
 private const val EXPIRED_KEY = "auth.otp.expired"
 
-const val TAG_PHONE_FIELD = "auth_phone_field"
+/** The phone or email field, on the sign-in form and the code flow's first step. */
+const val TAG_IDENTIFIER_FIELD = "auth_identifier_field"
+
+/** Kept as the identifier field's old name, for the device run's scripts. */
+const val TAG_PHONE_FIELD = TAG_IDENTIFIER_FIELD
+
+/** The password on the sign-in form. */
+const val TAG_PASSWORD_FIELD = "auth_password_field"
+
+/** "Sign in", on the sign-in form. */
+const val TAG_SIGN_IN = "auth_sign_in"
+
+/** The loader over the sign-in form. */
+const val TAG_SIGNING_IN = "auth_signing_in"
+
+/** "Forgot password?", which opens the code flow. */
+const val TAG_FORGOT_PASSWORD = "auth_forgot_password"
+
+/** "First time with a password? Get a code", which opens the code flow. */
+const val TAG_FIRST_PASSWORD = "auth_first_password"
+
+/** "Get a code" beside a refused password. */
+const val TAG_HINT_GET_CODE = "auth_hint_get_code"
+
+/** The code flow's first step's heading. */
+const val TAG_CODE_REQUEST = "auth_code_request"
+
+/** The code flow's first step's back arrow, to the sign-in form. */
+const val TAG_CODE_REQUEST_BACK = "auth_code_request_back"
 const val TAG_REQUEST_CODE = "auth_request_code"
 const val TAG_RETRY = "auth_retry"
 const val TAG_ERROR = "auth_error"

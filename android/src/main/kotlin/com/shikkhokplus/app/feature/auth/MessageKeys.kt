@@ -47,6 +47,29 @@ object MessageKeys {
         "auth.otp.temporarily_unavailable" to
             R.string.auth_otp_temporarily_unavailable,
         "auth.token.not_valid" to R.string.auth_token_not_valid,
+        // Passwords: the server's refusals at sign-in, at setup and on
+        // the signed-in change. `auth.password.wrong` is one answer for an
+        // unknown account, a pre-password account and a wrong password.
+        "auth.password.wrong" to R.string.auth_password_wrong,
+        "auth.password.current_wrong" to R.string.auth_password_current_wrong,
+        "auth.password.too_short" to R.string.auth_password_too_short,
+        "auth.password.too_long" to R.string.auth_password_too_long,
+        "auth.password.too_common" to R.string.auth_password_too_common,
+        "auth.password.setup_expired" to R.string.auth_password_setup_expired,
+        "auth.password.too_many_attempts" to R.string.auth_password_too_many_attempts,
+        // Client-side only: the two typed copies differ. The server never
+        // sees the second copy, so it never sends this key.
+        "auth.password.mismatch" to R.string.auth_password_mismatch,
+        // Client-side only: changing a password without typing the current one.
+        "auth.password.current_required" to R.string.auth_password_current_required,
+        // Client-side only: an email field that is not an address.
+        "signup.email.invalid" to R.string.signup_email_invalid,
+        // A malformed email, refused by the server on any route that takes
+        // one, as `phone.invalid` is for a number.
+        "email.invalid" to R.string.email_invalid,
+        // Adding a phone or an email to an account.
+        "account.contact.already_set" to R.string.account_contact_already_set,
+        "account.contact.taken" to R.string.account_contact_taken,
         // U4: batches, enrollment seats and the guardian's children.
         "batch.not_found" to R.string.batch_not_found,
         "batch.subject_in_use" to R.string.batch_subject_in_use,

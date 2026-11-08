@@ -10,12 +10,15 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.phone import PhoneField
+from app.auth.passwords import MAX_LENGTH, MIN_LENGTH
+from app.schemas.identifier import IdentifierFields
 
 __all__ = [
     "IssueRequest",
     "IssueResponse",
     "MfaSignInRequest",
+    "PasswordSetupRequest",
+    "PasswordSignInRequest",
     "RefreshRequest",
     "TokenResponse",
     "VerifyRequest",
@@ -23,18 +26,21 @@ __all__ = [
 ]
 
 
-class IssueRequest(BaseModel):
-    """Ask for a code to be sent to a number.
+class IssueRequest(IdentifierFields):
+    """Ask for a code to be sent to a number or an address.
 
     The number is **typed by the user** and never read from the SIM
     [AC1.1.6]: there is no device-side source for this field.
 
-    :ivar phone: The destination number in international form
+    Since passwords [0032] a code no longer signs anyone in: it completes
+    a signup, recovers a forgotten password, or gives an account its
+    first one, by way of ``POST /v1/auth/password/setup``.
+
+    :ivar phone: The destination number, or None
+    :ivar email: The destination address, or None; exactly one is given
     """
 
     model_config = ConfigDict(extra="forbid")
-
-    phone: PhoneField
 
 
 class IssueResponse(BaseModel):
@@ -52,16 +58,16 @@ class IssueResponse(BaseModel):
     status: str = "requested"
 
 
-class VerifyRequest(BaseModel):
+class VerifyRequest(IdentifierFields):
     """Present a code for verification.
 
-    :ivar phone: The number the code was issued for
+    :ivar phone: The number the code was issued for, or None
+    :ivar email: Or the address it was emailed to
     :ivar code: The six-digit code
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    phone: PhoneField
     code: str = Field(min_length=4, max_length=10)
 
 
@@ -96,20 +102,26 @@ class TokenResponse(BaseModel):
 
 
 class VerifyResponse(BaseModel):
-    """What a verified SMS code yields: tokens, or the authenticator step.
+    """What a verified code or a password yields.
 
-    **For an account without two-step verification this is exactly the
-    token pair it always was**, so clients built before the authenticator
-    step keep working for everyone who has not turned it on. For an
-    account with it on, the token fields are absent and ``mfa_challenge``
-    carries the person to ``POST /v1/auth/mfa``.
+    **From ``POST /v1/auth/verify``** [0032]: never tokens. A
+    ``password_setup_token`` carries the person to
+    ``POST /v1/auth/password/setup``, and ``mfa_required`` says the
+    authenticator code must come with the password there.
 
-    :ivar access_token: The bearer token, when no second step is needed
+    **From ``POST /v1/auth/password``**: the token pair, or, for an
+    account with two-step verification on, ``mfa_challenge`` for the
+    existing ``POST /v1/auth/mfa``.
+
+    :ivar access_token: The bearer token, when signed in
     :ivar refresh_token: The rotation token, likewise
     :ivar expires_in: Access-token lifetime in seconds, likewise
     :ivar mfa_required: True when an authenticator code must follow
-    :ivar mfa_challenge: Carries the sign-in to that step; grants nothing
+    :ivar mfa_challenge: Carries a password sign-in to that step
     :ivar mfa_expires_in: Seconds until the challenge lapses
+    :ivar password_setup_token: From a verified code: the right to choose
+        a password, and nothing else
+    :ivar password_setup_expires_in: Seconds until it lapses
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -120,6 +132,48 @@ class VerifyResponse(BaseModel):
     mfa_required: bool = False
     mfa_challenge: str | None = None
     mfa_expires_in: int | None = None
+    password_setup_token: str | None = None
+    password_setup_expires_in: int | None = None
+
+
+#: The published bounds. The server enforces them with its own messages
+#: (:func:`app.auth.passwords.check_policy`), so the schema states them
+#: for clients and does not refuse a length itself: a 422 here would
+#: replace the localized "too short" with a generic validation error.
+_PASSWORD_DESCRIPTION = (
+    f"{MIN_LENGTH} to {MAX_LENGTH} characters. Very common passwords are refused."
+)
+
+
+class PasswordSignInRequest(IdentifierFields):
+    """Sign in with a phone number or an email address, and a password.
+
+    :ivar phone: The account's number, or None
+    :ivar email: Or its address
+    :ivar password: The password
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    password: str = Field(min_length=1, max_length=1024)
+
+
+class PasswordSetupRequest(BaseModel):
+    """Choose a password with the token a verified code yielded.
+
+    :ivar token: ``password_setup_token`` from ``POST /v1/auth/verify``
+    :ivar password: The new password
+    :ivar code: Six digits from the authenticator app, when
+        ``mfa_required`` was true
+    :ivar recovery_code: Or a recovery code
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: str = Field(min_length=1, max_length=2048)
+    password: str = Field(max_length=1024, description=_PASSWORD_DESCRIPTION)
+    code: str | None = Field(default=None, min_length=6, max_length=8)
+    recovery_code: str | None = Field(default=None, min_length=10, max_length=16)
 
 
 class MfaSignInRequest(BaseModel):

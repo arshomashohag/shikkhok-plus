@@ -112,7 +112,11 @@ export function More() {
             {session.me.self_name ?? t('more_name_missing')}
           </div>
           <div className="meta">
-            {t('more_role_line', lensLabel, session.me.phone ? formatPhone(session.me.phone) : '')}
+            {t(
+              'more_role_line',
+              lensLabel,
+              session.me.phone ? formatPhone(session.me.phone) : (session.me.email ?? ''),
+            )}
           </div>
         </div>
         {online ? (

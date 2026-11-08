@@ -20,8 +20,11 @@ from typing import Final
 
 __all__ = [
     "APP_HASH_LENGTH",
+    "EMAIL_SUBJECT",
+    "EMAIL_TEMPLATE",
     "GSM7_SEGMENT",
     "OTP_TEMPLATE",
+    "render_email_code",
     "render_otp_message",
 ]
 
@@ -91,3 +94,28 @@ def render_otp_message(code: str, app_hash: str) -> str:
             "every OTP with no error and no signal [BR5.5]"
         )
     return body
+
+
+#: The emailed code [0032]: Bangla first, then English, because the
+#: address does not say which language its owner reads and an email --
+#: unlike an SMS -- costs nothing more for carrying both.
+EMAIL_SUBJECT: Final = "ShikkhokPlus কোড / code: {code}"
+
+EMAIL_TEMPLATE: Final = (
+    "আপনার ShikkhokPlus কোড: {code}\n"
+    "কোডটি ৫ মিনিটের মধ্যে শেষ হয়ে যাবে। কাউকে জানাবেন না।\n"
+    "আপনি কোড না চেয়ে থাকলে এই ইমেইলটি উপেক্ষা করুন।\n"
+    "\n"
+    "Your ShikkhokPlus code: {code}\n"
+    "It expires in 5 minutes. Do not share it.\n"
+    "If you did not ask for a code, you can ignore this email.\n"
+)
+
+
+def render_email_code(code: str) -> tuple[str, str]:
+    """Render the subject and body of an emailed code.
+
+    :param code: The six-digit code
+    :return: The subject and the plain-text body
+    """
+    return EMAIL_SUBJECT.format(code=code), EMAIL_TEMPLATE.format(code=code)

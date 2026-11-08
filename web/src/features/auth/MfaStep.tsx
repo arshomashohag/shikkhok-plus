@@ -2,12 +2,13 @@
  * Signing in, second step: a code from the authenticator app, or a
  * recovery code instead, for an account with two-step verification on.
  *
- * The SMS code has already been spent; what it bought is a five-minute
+ * The password has already been checked; what it bought is a five-minute
  * challenge that grants nothing by itself. **No token exists until this
  * step succeeds**, so nothing is stored before then, and a 401 here means
  * only that the challenge lapsed: the person starts again from the
- * number. The call is anonymous (`finishSignIn`), so that 401 never
- * reaches token renewal or sign-out.
+ * sign-in form. The call is anonymous (`finishSignIn`), so that 401 never
+ * reaches token renewal or sign-out. (The code flow's own authenticator
+ * field is on its password step, `ChoosePassword.tsx`.)
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { finishSignIn, type Schemas } from '../../api/endpoints'
@@ -28,7 +29,7 @@ export function MfaStep({
 }: {
   challenge: Challenge
   onDone: (tokens: Schemas['TokenResponse']) => void
-  /** Back to the number; `expired` says why, for the notice there. */
+  /** Back to the sign-in form; `expired` says why, for the notice there. */
   onRestart: (expired: boolean) => void
 }) {
   const { t, message } = useT()
@@ -89,7 +90,7 @@ export function MfaStep({
   function onCode(value: string) {
     const digits = sixDigits(value)
     setCode(digits)
-    // It checks by itself after the sixth digit, as the SMS step does.
+    // It checks by itself after the sixth digit, as the code steps do.
     if (digits.length === 6 && !busy) void submit({ code: digits })
   }
 

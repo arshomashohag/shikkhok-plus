@@ -116,6 +116,15 @@ def test_the_route_is_not_registered_in_production(
     monkeypatch.setenv("SHIKKHOKPLUS_OTP_HMAC_KEY", "k")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_ADAPTER", "bulksmsbd")
     monkeypatch.setenv("SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER", "X-Client-Address")
+    monkeypatch.setenv("SHIKKHOKPLUS_MFA_KEYS", "k1:" + "B" * 43 + "=")
+    monkeypatch.setenv("SHIKKHOKPLUS_MFA_ACTIVE_KID", "k1")
+    monkeypatch.setenv("SHIKKHOKPLUS_EMAIL_ADAPTER", "ses")
+    monkeypatch.setenv(
+        "SHIKKHOKPLUS_SES_SMTP_HOST", "email-smtp.us-east-1.amazonaws.com"
+    )
+    monkeypatch.setenv("SHIKKHOKPLUS_SES_SMTP_USERNAME", "AKIAEXAMPLE")
+    monkeypatch.setenv("SHIKKHOKPLUS_SES_SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("SHIKKHOKPLUS_EMAIL_FROM", "ShikkhokPlus <no-reply@example.com>")
 
     # The startup check refuses this configuration, which is mechanism
     # three -- so to test mechanism TWO in isolation the environment is
@@ -172,6 +181,15 @@ def test_a_production_process_refuses_to_start_with_the_outbox_on(
     monkeypatch.setenv("SHIKKHOKPLUS_OTP_HMAC_KEY", "k")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_ADAPTER", "bulksmsbd")
     monkeypatch.setenv("SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER", "X-Client-Address")
+    monkeypatch.setenv("SHIKKHOKPLUS_MFA_KEYS", "k1:" + "B" * 43 + "=")
+    monkeypatch.setenv("SHIKKHOKPLUS_MFA_ACTIVE_KID", "k1")
+    monkeypatch.setenv("SHIKKHOKPLUS_EMAIL_ADAPTER", "ses")
+    monkeypatch.setenv(
+        "SHIKKHOKPLUS_SES_SMTP_HOST", "email-smtp.us-east-1.amazonaws.com"
+    )
+    monkeypatch.setenv("SHIKKHOKPLUS_SES_SMTP_USERNAME", "AKIAEXAMPLE")
+    monkeypatch.setenv("SHIKKHOKPLUS_SES_SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("SHIKKHOKPLUS_EMAIL_FROM", "ShikkhokPlus <no-reply@example.com>")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_BASE_URL", "https://x")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_API_KEY", "k")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_SENDER_ID", "s")
@@ -199,6 +217,15 @@ def test_an_otherwise_valid_production_process_starts(
     monkeypatch.setenv("SHIKKHOKPLUS_OTP_HMAC_KEY", "k")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_ADAPTER", "bulksmsbd")
     monkeypatch.setenv("SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER", "X-Client-Address")
+    monkeypatch.setenv("SHIKKHOKPLUS_MFA_KEYS", "k1:" + "B" * 43 + "=")
+    monkeypatch.setenv("SHIKKHOKPLUS_MFA_ACTIVE_KID", "k1")
+    monkeypatch.setenv("SHIKKHOKPLUS_EMAIL_ADAPTER", "ses")
+    monkeypatch.setenv(
+        "SHIKKHOKPLUS_SES_SMTP_HOST", "email-smtp.us-east-1.amazonaws.com"
+    )
+    monkeypatch.setenv("SHIKKHOKPLUS_SES_SMTP_USERNAME", "AKIAEXAMPLE")
+    monkeypatch.setenv("SHIKKHOKPLUS_SES_SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("SHIKKHOKPLUS_EMAIL_FROM", "ShikkhokPlus <no-reply@example.com>")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_BASE_URL", "https://x")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_API_KEY", "k")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_SENDER_ID", "s")

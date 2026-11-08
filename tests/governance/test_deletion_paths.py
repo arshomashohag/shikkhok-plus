@@ -153,7 +153,7 @@ def test_the_public_route_count_is_unchanged_by_this_unit() -> None:
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 12
+    assert len(PUBLIC_ROUTES) == 14
     assert ("GET", "/account-deletion") in PUBLIC_ROUTES
     assert ("POST", "/account-deletion") in PUBLIC_ROUTES
 
@@ -331,7 +331,7 @@ def test_a_form_post_with_a_blank_code_sends_a_code_and_deletes_nothing(
     assert "text/html" in response.headers["content-type"]
     assert CODE_SENT_NOTICE in response.text
     # The confirm step: the same form, the number already filled in.
-    assert f'name="phone" type="tel" required value="{phone}"' in response.text
+    assert f'name="phone" type="text" required value="{phone}"' in response.text
     owner_session.expire_all()
     assert _undestroyed_rows(owner_session) == before
     # A DELETION code was issued, so the next step has something to spend.

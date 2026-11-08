@@ -21,6 +21,7 @@ import sqlalchemy as sa
 from sqlalchemy import Engine, event
 from sqlalchemy.orm import Session
 
+from app.accounts.identifier import Identifier
 from app.auth.hashing import OTP_HMAC_KEY_ENV
 from app.auth.otp import (
     ATTEMPT_CEILING,
@@ -68,7 +69,9 @@ def issue(
     :param now: The moment of issue, or None for the clock
     :return: The code and whether an account existed
     """
-    return _issue(session, phone, correlation_id, purpose=OTP_PURPOSE, now=now)
+    return _issue(
+        session, Identifier.phone(phone), correlation_id, purpose=OTP_PURPOSE, now=now
+    )
 
 
 def verify(
@@ -88,7 +91,14 @@ def verify(
     :return: The authenticated account's id
     :raises ValidationError: The code is wrong, expired, used or dead
     """
-    return _verify(session, phone, code, correlation_id, purpose=OTP_PURPOSE, now=now)
+    return _verify(
+        session,
+        Identifier.phone(phone),
+        code,
+        correlation_id,
+        purpose=OTP_PURPOSE,
+        now=now,
+    )
 
 
 @pytest.fixture(autouse=True)

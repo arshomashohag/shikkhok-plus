@@ -33,7 +33,7 @@ import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.profile.DeletionState
-import com.shikkhokplus.app.feature.profile.numberMatches
+import com.shikkhokplus.app.feature.profile.identityMatches
 
 /** The field the person types their number into. */
 const val TAG_DELETE_NUMBER: String = "delete_number"
@@ -93,12 +93,14 @@ fun DeleteAccountScreen(
     }
 
     var typed by remember { mutableStateOf("") }
-    val phone =
+    val (phone, email) =
         when (state) {
-            is DeletionState.Confirming -> state.phone
-            is DeletionState.Failed -> state.phone
-            else -> null
+            is DeletionState.Confirming -> state.phone to state.email
+            is DeletionState.Failed -> state.phone to state.email
+            else -> null to null
         }
+    // An account with no number confirms with its email instead [TC-19].
+    val byEmail = phone == null && email != null
     val deleting = state == DeletionState.Deleting
 
     ScreenScaffold(
@@ -119,14 +121,17 @@ fun DeleteAccountScreen(
                     color = MaterialTheme.colorScheme.error,
                 )
                 footprint?.let { TeacherWarning(it) }
-                Text(stringResource(R.string.delete_type_number))
+                Text(stringResource(if (byEmail) R.string.delete_type_email else R.string.delete_type_number))
                 OutlinedTextField(
                     value = typed,
                     onValueChange = { typed = it },
-                    label = { Text(stringResource(R.string.delete_number_field)) },
+                    label = {
+                        Text(stringResource(if (byEmail) R.string.delete_email_field else R.string.delete_number_field))
+                    },
                     singleLine = true,
                     enabled = !deleting,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    keyboardOptions =
+                        KeyboardOptions(keyboardType = if (byEmail) KeyboardType.Email else KeyboardType.Phone),
                     modifier = Modifier.fillMaxWidth().testTag(TAG_DELETE_NUMBER),
                 )
             }
@@ -171,7 +176,7 @@ fun DeleteAccountScreen(
                     // Disabled until the number matches, which is the
                     // point of asking for it (O5's "Delete" is drawn
                     // faded for exactly this state).
-                    enabled = numberMatches(typed, phone),
+                    enabled = identityMatches(typed, phone, email),
                     colors =
                         ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.error,

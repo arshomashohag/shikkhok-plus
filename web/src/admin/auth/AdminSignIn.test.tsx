@@ -75,7 +75,7 @@ function serve(
 
 /** Phone and SMS code, as a person types them. */
 async function throughSms(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(await screen.findByLabelText(en('auth_phone_label')), '01711234567')
+  await user.type(await screen.findByLabelText(en('web_admin_identifier_label')), '01711234567')
   await user.click(screen.getByRole('button', { name: en('auth_request_code') }))
   await user.type(await screen.findByLabelText(en('auth_code_label')), '123456')
 }
@@ -250,7 +250,7 @@ describe('every later log-in: the authenticator code', () => {
     expect(en('web_admin_locked')).toBe('Too many wrong codes. Try again in 15 minutes.')
     expect(screen.queryByLabelText(en('web_admin_verify_code_label'))).toBeNull()
     await user.click(screen.getByRole('button', { name: en('web_admin_start_again') }))
-    expect(await screen.findByLabelText(en('auth_phone_label'))).toBeInTheDocument()
+    expect(await screen.findByLabelText(en('web_admin_identifier_label'))).toBeInTheDocument()
   })
 
   it('a challenge the server no longer accepts starts again from the phone', async () => {
@@ -260,7 +260,7 @@ describe('every later log-in: the authenticator code', () => {
     await throughSms(user)
     await user.type(await screen.findByLabelText(en('web_admin_verify_code_label')), '000000')
     expect(await screen.findByText(en('web_admin_challenge_expired'))).toBeInTheDocument()
-    expect(screen.getByLabelText(en('auth_phone_label'))).toBeInTheDocument()
+    expect(screen.getByLabelText(en('web_admin_identifier_label'))).toBeInTheDocument()
   })
 
   it('a challenge that lapses on screen starts again by itself', async () => {
@@ -269,7 +269,7 @@ describe('every later log-in: the authenticator code', () => {
     renderAdmin('/')
     await throughSms(user)
     expect(await screen.findByText(en('web_admin_challenge_expired'))).toBeInTheDocument()
-    expect(screen.getByLabelText(en('auth_phone_label'))).toBeInTheDocument()
+    expect(screen.getByLabelText(en('web_admin_identifier_label'))).toBeInTheDocument()
     expect(calls.some((c) => c.url === '/v1/admin/auth/mfa')).toBe(false)
   })
 })
@@ -316,7 +316,7 @@ describe('the SMS step', () => {
           : undefined,
     )
     renderAdmin('/')
-    await user.type(await screen.findByLabelText(en('auth_phone_label')), '01711234567')
+    await user.type(await screen.findByLabelText(en('web_admin_identifier_label')), '01711234567')
     await user.click(screen.getByRole('button', { name: en('auth_request_code') }))
     expect(await screen.findByText(en('web_admin_unavailable'))).toBeInTheDocument()
   })
@@ -325,9 +325,38 @@ describe('the SMS step', () => {
     const user = userEvent.setup()
     serve('verify', () => json(200, {}))
     renderAdmin('/')
-    await user.type(await screen.findByLabelText(en('auth_phone_label')), '12345')
+    await user.type(await screen.findByLabelText(en('web_admin_identifier_label')), '12345')
     await act(() => user.click(screen.getByRole('button', { name: en('auth_request_code') })))
     expect(screen.getByText(en('phone_invalid'))).toBeInTheDocument()
+    expect(calls).toHaveLength(0)
+  })
+
+  it('sends the code to an email address when one is typed', async () => {
+    const user = userEvent.setup()
+    serve('verify', () => json(200, {}))
+    renderAdmin('/')
+    await user.type(
+      await screen.findByLabelText(en('web_admin_identifier_label')),
+      ' Admin@Example.com ',
+    )
+    await user.click(screen.getByRole('button', { name: en('auth_request_code') }))
+    await user.type(await screen.findByLabelText(en('auth_code_label')), '123456')
+    expect(calls.find((c) => c.url === '/v1/admin/auth/otp')!.body).toEqual({
+      email: 'admin@example.com',
+    })
+    expect(calls.find((c) => c.url === '/v1/admin/auth/verify')!.body).toEqual({
+      email: 'admin@example.com',
+      code: '123456',
+    })
+  })
+
+  it('checks an email address’s format before sending anything', async () => {
+    const user = userEvent.setup()
+    serve('verify', () => json(200, {}))
+    renderAdmin('/')
+    await user.type(await screen.findByLabelText(en('web_admin_identifier_label')), 'admin@')
+    await act(() => user.click(screen.getByRole('button', { name: en('auth_request_code') })))
+    expect(screen.getByText(en('web_admin_email_invalid'))).toBeInTheDocument()
     expect(calls).toHaveLength(0)
   })
 })

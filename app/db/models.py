@@ -423,7 +423,7 @@ def _uuid_column() -> Mapped[uuid.UUID]:
 
 
 class Account(Base):
-    """An identity keyed on a permanent phone number.
+    """An identity keyed on a phone number, an email address, or both.
 
     Created dormant when a teacher records a number, activated on first
     successful sign-in -- which is what lets a student or guardian claim a
@@ -436,7 +436,15 @@ class Account(Base):
     entirely reasonable to whoever added it.
 
     :ivar id: Surrogate key
-    :ivar phone: The permanent, unique key; never logged [RC-1, RC-2]
+    :ivar phone: Unique and permanent once set; never logged [RC-1,
+        RC-2]. Null for an email-only account [0032], which reaches the
+        seats teachers recorded only once it adds and verifies one
+    :ivar email: Unique, lowercased; never logged. Null for a phone-only
+        account
+    :ivar password_hash: scrypt (:mod:`app.auth.passwords`); null until
+        the person sets one through a verified code
+    :ivar password_changed_at: When it was last set; spends any password
+        setup token issued before it
     :ivar created_at: When the record was created, dormant or otherwise
     :ivar activated_at: Set on first successful verify; null while dormant
     :ivar deleted_at: Unused. D6 hard-deletes the row [BR1.1], so
@@ -448,7 +456,12 @@ class Account(Base):
     __tablename__ = "account"
 
     id: Mapped[uuid.UUID] = _uuid_column()
-    phone: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True, unique=True)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True, unique=True)
+    password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    password_changed_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
@@ -512,6 +525,7 @@ class OtpRequest(Base):
 
     :ivar id: Surrogate key
     :ivar phone: The number the code was issued for; never logged
+    :ivar email: Or the address it was emailed to -- exactly one [0032]
     :ivar otp_hash: A keyed digest, **never** the transmitted value
     :ivar purpose: Required, with exactly one V1 value
     :ivar issued_at: When the code was issued
@@ -524,7 +538,8 @@ class OtpRequest(Base):
     __tablename__ = "otp_request"
 
     id: Mapped[uuid.UUID] = _uuid_column()
-    phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     otp_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     purpose: Mapped[str] = mapped_column(String(32), nullable=False)
     issued_at: Mapped[dt.datetime] = mapped_column(
@@ -537,7 +552,10 @@ class OtpRequest(Base):
         DateTime(timezone=True), nullable=True
     )
 
-    __table_args__ = (Index("ix_otp_request_phone_issued_at", "phone", "issued_at"),)
+    __table_args__ = (
+        Index("ix_otp_request_phone_issued_at", "phone", "issued_at"),
+        Index("ix_otp_request_email_issued_at", "email", "issued_at"),
+    )
 
 
 class VerifyAttempt(Base):

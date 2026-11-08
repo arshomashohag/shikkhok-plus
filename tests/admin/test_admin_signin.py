@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.admin.signin import MAX_FAILED_ATTEMPTS
 from app.auth import totp
 from app.authz.admin import PLATFORM_ADMIN_PHONES_ENV
+from app.gateway.email import EmailMessage, NullEmailGateway
 from app.gateway.null import NullGateway
 from tests.admin.conftest import EDGE, admin_headers
 from tests.conftest import bearer
@@ -623,3 +624,108 @@ def test_the_sign_in_routes_need_no_lens_but_record_who_signed_in(
     assert {"ADMIN_MFA_ENROLLED", "ADMIN_SIGNED_IN"} <= events
     assert dt.datetime.now(tz=dt.UTC) > dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
     assert uuid.UUID(str(people.stranger))
+
+
+# ------------------------------------------------- administrators by email
+
+
+def test_an_administrator_named_by_email_signs_in_by_email(
+    api_client: TestClient,
+    owner_session: Session,
+    people: People,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An address in the allowlist works like a number, by email [0032].
+
+    The variable kept its name; an entry with an ``@`` is an address, and
+    the code goes to it by email -- never by SMS to the account's number.
+
+    :param api_client: The HTTP client
+    :param owner_session: An arranging session
+    :param people: The arranged accounts
+    :param monkeypatch: The patcher
+    :return: None
+    """
+    address = "Admin.Person@Example.com"
+    owner_session.execute(
+        sa.text("UPDATE account SET email = :e WHERE id = :a"),
+        {"e": address.lower(), "a": people.stranger},
+    )
+    owner_session.commit()
+    monkeypatch.setenv(PLATFORM_ADMIN_PHONES_ENV, f"01700000000, {address}")
+
+    emails: list[tuple[str, str]] = []
+    texts: list[tuple[str, str]] = []
+    original = NullEmailGateway.send
+
+    def capture(
+        self: NullEmailGateway, to: str, message: EmailMessage, cid: str
+    ) -> object:
+        emails.append((to, message.text))
+        return original(self, to, message, cid)
+
+    def capture_sms(self: NullGateway, number: str, body: str, cid: str) -> object:
+        texts.append((number, body))
+        return None
+
+    monkeypatch.setattr(NullEmailGateway, "send", capture)
+    monkeypatch.setattr(NullGateway, "send", capture_sms)
+
+    asked = api_client.post("/v1/admin/auth/otp", json={"email": address}, headers=EDGE)
+    assert asked.status_code == 200
+    assert [to for to, _ in emails] == [address.lower()]
+    assert texts == []
+
+    code = next(p for p in emails[-1][1].split() if p.isdigit() and len(p) == 6)
+    verified = api_client.post(
+        "/v1/admin/auth/verify", json={"email": address, "code": code}, headers=EDGE
+    )
+    assert verified.status_code == 200, verified.text
+    challenge = verified.json()
+    assert challenge["stage"] == "enroll"
+    # The label shows the address's last four characters, not the address.
+    assert "admin.person" not in challenge["enrollment"]["otpauth_uri"].lower()
+
+    secret = challenge["enrollment"]["secret"]
+    done = api_client.post(
+        "/v1/admin/auth/mfa",
+        json={"challenge": challenge["challenge"], "code": _now_code(secret)},
+        headers=EDGE,
+    )
+    assert done.status_code == 200, done.text
+    overview = api_client.get(
+        "/v1/admin/overview",
+        headers={**EDGE, "Authorization": f"Bearer {done.json()['access_token']}"},
+    )
+    assert overview.status_code == 200
+
+
+def test_an_address_not_on_the_list_is_never_emailed(
+    api_client: TestClient,
+    owner_session: Session,
+    people: People,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The same answer, and no email, for an account not on the list.
+
+    :param api_client: The HTTP client
+    :param owner_session: An arranging session
+    :param people: The arranged accounts
+    :param monkeypatch: The patcher
+    :return: None
+    """
+    owner_session.execute(
+        sa.text("UPDATE account SET email = 'someone@example.com' WHERE id = :a"),
+        {"a": people.stranger},
+    )
+    owner_session.commit()
+    monkeypatch.setenv(PLATFORM_ADMIN_PHONES_ENV, "admin@example.com")
+    emails: list[str] = []
+    monkeypatch.setattr(
+        NullEmailGateway, "send", lambda self, to, message, cid: emails.append(to)
+    )
+    asked = api_client.post(
+        "/v1/admin/auth/otp", json={"email": "someone@example.com"}, headers=EDGE
+    )
+    assert asked.status_code == 200
+    assert emails == []

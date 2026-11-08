@@ -12,6 +12,7 @@ import pytest
 
 from app.config import (
     ENVIRONMENT_ENV,
+    LOCAL_DEV_MFA_KEY,
     ConfigurationError,
     check_startup_configuration,
 )
@@ -22,6 +23,14 @@ COMPLETE = {
     "SHIKKHOKPLUS_OTP_HMAC_KEY": "a-real-key",
     "SHIKKHOKPLUS_SMS_ADAPTER": "bulksmsbd",
     "SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER": "X-Client-Address",
+    # 32 bytes, base64; not the local-development key.
+    "SHIKKHOKPLUS_MFA_KEYS": "k1:" + "B" * 43 + "=",
+    "SHIKKHOKPLUS_MFA_ACTIVE_KID": "k1",
+    "SHIKKHOKPLUS_EMAIL_ADAPTER": "ses",
+    "SHIKKHOKPLUS_SES_SMTP_HOST": "email-smtp.us-east-1.amazonaws.com",
+    "SHIKKHOKPLUS_SES_SMTP_USERNAME": "AKIAEXAMPLE",
+    "SHIKKHOKPLUS_SES_SMTP_PASSWORD": "smtp-password",
+    "SHIKKHOKPLUS_EMAIL_FROM": "ShikkhokPlus <no-reply@example.com>",
 }
 
 
@@ -135,3 +144,48 @@ def test_every_problem_is_reported_at_once(
         check_startup_configuration()
     assert "GLOBAL_DAILY_SMS" in str(raised.value)
     assert "APP_HASH" in str(raised.value)
+
+
+def test_a_missing_mfa_keyring_refuses_to_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Every account can turn on two-step verification, so this is not
+    # an administrator-only setting: without it, enrollment fails with a
+    # 500 for whoever tries first.
+    _configure(monkeypatch, SHIKKHOKPLUS_MFA_KEYS=None)
+    with pytest.raises(ConfigurationError, match="MFA_KEYS"):
+        check_startup_configuration()
+
+
+def test_an_mfa_active_kid_naming_no_key_refuses_to_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _configure(monkeypatch, SHIKKHOKPLUS_MFA_ACTIVE_KID="k2")
+    with pytest.raises(ConfigurationError, match="MFA_ACTIVE_KID"):
+        check_startup_configuration()
+
+
+def test_the_local_development_mfa_key_refuses_to_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _configure(monkeypatch, SHIKKHOKPLUS_MFA_KEYS=f"k1:{LOCAL_DEV_MFA_KEY}")
+    with pytest.raises(ConfigurationError, match="local-development key"):
+        check_startup_configuration()
+
+
+def test_production_without_the_email_sender_refuses_to_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The null adapter mails nobody and reports success, so an email-only
+    # account could neither finish signing up nor recover its password.
+    _configure(monkeypatch, SHIKKHOKPLUS_EMAIL_ADAPTER=None)
+    with pytest.raises(ConfigurationError, match="EMAIL_ADAPTER"):
+        check_startup_configuration()
+
+
+def test_production_with_half_the_smtp_settings_refuses_to_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _configure(monkeypatch, SHIKKHOKPLUS_SES_SMTP_PASSWORD=None)
+    with pytest.raises(ConfigurationError, match="EMAIL_ADAPTER"):
+        check_startup_configuration()

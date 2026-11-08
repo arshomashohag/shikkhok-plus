@@ -1,10 +1,12 @@
 /**
- * Admin log-in: a mobile number, the SMS code, then the authenticator.
+ * Admin log-in: a mobile number or an email address, the code, then the
+ * authenticator.
  *
- *  1. **Phone.** The server answers every number the same way and texts
- *     a code only to an administrator's, so this screen's confirmation
- *     reads the same for any number [D-33].
- *  2. **SMS code.** Spending it returns a five-minute challenge and says
+ *  1. **Number or address.** The server answers everyone the same way and
+ *     sends a code -- by SMS to a number, by email to an address -- only
+ *     to an administrator, so this screen's confirmation reads the same
+ *     for anyone [D-33]. One field: an `@` says it is an address.
+ *  2. **Code.** Spending it returns a five-minute challenge and says
  *     which step comes next.
  *  3. **Set up** (first log-in): a QR code and the key, then a code from
  *     the app; the server answers with the session and ten recovery
@@ -17,9 +19,9 @@
  * final token is kept (`../session.ts`).
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import type { Schemas } from '../../api/endpoints'
+import type { Identifier, Schemas } from '../../api/endpoints'
 import { ApiError } from '../../api/errors'
-import { formatPhone, normalisePhone } from '../../core/format'
+import { readIdentifier, shownIdentifier } from '../../features/auth/identifier'
 import { useT } from '../../i18n/i18n'
 import { AdminAuthFrame } from '../AdminChrome'
 import { lastEndReason, saveAdminSession } from '../session'
@@ -43,7 +45,7 @@ interface Challenge {
 
 type Step =
   | { step: 'phone' }
-  | { step: 'sms'; phone: string }
+  | { step: 'sms'; identifier: Identifier }
   | { step: 'enroll'; challenge: Challenge; secret: string; uri: string }
   | { step: 'verify'; challenge: Challenge }
   | { step: 'codes'; session: Schemas['AdminSessionResponse']; codes: string[] }
@@ -123,9 +125,9 @@ export function AdminSignIn() {
       body = (
         <PhoneStep
           notice={notice ? t(NOTICE_KEY[notice]) : null}
-          onSent={(phone) => {
+          onSent={(identifier) => {
             setNotice(null)
-            setStep({ step: 'sms', phone })
+            setStep({ step: 'sms', identifier })
           }}
           failure={commonFailure}
         />
@@ -134,7 +136,7 @@ export function AdminSignIn() {
     case 'sms':
       body = (
         <SmsStep
-          phone={step.phone}
+          identifier={step.identifier}
           onVerified={(r) => setStep(challengeFrom(r))}
           onChangeNumber={() => restart(null)}
           failure={commonFailure}
@@ -169,26 +171,27 @@ function PhoneStep({
   failure,
 }: {
   notice: string | null
-  onSent: (phone: string) => void
+  onSent: (identifier: Identifier) => void
   failure: (e: unknown) => string
 }) {
   const { t } = useT()
-  const [phone, setPhone] = useState('')
+  const [typed, setTyped] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    const normalised = normalisePhone(phone)
-    if (!normalised) {
-      setError(t('phone_invalid'))
+    const isEmail = typed.includes('@')
+    const identifier = readIdentifier(isEmail ? 'email' : 'phone', typed)
+    if (!identifier) {
+      setError(t(isEmail ? 'web_admin_email_invalid' : 'phone_invalid'))
       return
     }
     setBusy(true)
     setError(null)
     try {
-      await sendAdminCode(normalised)
-      onSent(normalised)
+      await sendAdminCode(identifier)
+      onSent(identifier)
     } catch (err) {
       setError(failure(err))
       setBusy(false)
@@ -205,16 +208,15 @@ function PhoneStep({
         </div>
       ) : null}
       <div className="field">
-        <label htmlFor="admin-phone">{t('auth_phone_label')}</label>
+        <label htmlFor="admin-phone">{t('web_admin_identifier_label')}</label>
         <input
           id="admin-phone"
-          name="phone"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel-national"
-          placeholder={t('auth_phone_hint')}
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          name="username"
+          type="text"
+          autoComplete="username"
+          placeholder={t('web_admin_identifier_hint')}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? 'admin-phone-error' : undefined}
           autoFocus
@@ -237,12 +239,12 @@ function PhoneStep({
 // -------------------------------------------------------------------- sms
 
 function SmsStep({
-  phone,
+  identifier,
   onVerified,
   onChangeNumber,
   failure,
 }: {
-  phone: string
+  identifier: Identifier
   onVerified: (r: Schemas['AdminChallengeResponse']) => void
   onChangeNumber: () => void
   failure: (e: unknown) => string
@@ -268,7 +270,7 @@ function SmsStep({
     setBusy(true)
     setError(null)
     try {
-      onVerified(await verifyAdminCode(phone, value))
+      onVerified(await verifyAdminCode(identifier, value))
     } catch (e) {
       setError(failure(e))
       setCode('')
@@ -280,7 +282,7 @@ function SmsStep({
     setBusy(true)
     setError(null)
     try {
-      await sendAdminCode(phone)
+      await sendAdminCode(identifier)
       setCode('')
       setResendIn(RESEND_AFTER_S)
     } catch (e) {
@@ -300,7 +302,7 @@ function SmsStep({
     <div>
       <h1>{t('auth_code_label')}</h1>
       <p className="meta">
-        {t('web_admin_signin_code_sent')} <strong>{formatPhone(phone)}</strong>
+        {t('web_admin_signin_code_sent')} <strong>{shownIdentifier(identifier)}</strong>
       </p>
       <div className="field">
         <label htmlFor="admin-sms" className="visually-hidden">

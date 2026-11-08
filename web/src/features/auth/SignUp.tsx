@@ -1,23 +1,73 @@
 /**
- * Create an account. On success the server sends a code to the number,
- * and the person continues on the sign-in screen's code step.
+ * Create an account, with a mobile number or an email address, and a
+ * password. The server sends a code to the number or address; the code
+ * buys a setup token, and the password chosen on the form is set with it
+ * (`/v1/auth/password/setup`), which signs the person in.
  *
- * Validation here is **format only** — a name present, a mobile number's
- * shape, a 4-digit postcode. Whether the number may sign up is the
- * server's decision, shown through its `message_key`.
+ * **The password is held in memory only**, in a ref, between the form and
+ * the setup call: never in storage, never in the URL or route state, and
+ * dropped as soon as it has been sent (or the person goes back). If the
+ * server refuses it then — too common, say — the person chooses another
+ * on the code flow's password step with the same token.
+ *
+ * Validation here is **format only** — a name present, a number's or an
+ * address's shape, a 4-digit postcode, a password's length and that the
+ * two copies match. Whether the account may sign up is the server's
+ * decision, shown through its `message_key`.
  */
-import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { signUp } from '../../api/endpoints'
-import { ApiError } from '../../api/errors'
-import { normalisePhone } from '../../core/format'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type InputHTMLAttributes,
+} from 'react'
+import { Link } from 'react-router'
+import { issueCode, setUpPassword, signUp, verifyCode, type Identifier } from '../../api/endpoints'
 import { toLatinDigits } from '../../core/money'
+import { useSession } from '../../session/session'
 import { AuthFrame } from './AuthFrame'
+import { ChoosePassword, setupFrom, setupLapsed, type PasswordSetup } from './ChoosePassword'
+import {
+  invalidKey,
+  newPasswordProblem,
+  readIdentifier,
+  shownIdentifier,
+  type IdentifierKind,
+} from './identifier'
+import {
+  CodeEntry,
+  describedBy,
+  Field,
+  identifierInputProps,
+  KindToggle,
+  PasswordInput,
+  useFailureText,
+} from './parts'
 import { GraduationIcon, LayersIcon, TeacherIcon, UsersIcon } from '../../ui/icons'
 import { useT } from '../../i18n/i18n'
 
 type Role = 'teacher' | 'coaching' | 'student' | 'guardian'
-type FieldName = 'centre' | 'name' | 'phone' | 'house' | 'road' | 'city' | 'postcode'
+type FieldName = 'centre' | 'name' | 'identifier' | 'house' | 'road' | 'city' | 'postcode'
+
+type Step =
+  | { step: 'form' }
+  | {
+      step: 'code'
+      identifier: Identifier
+      sentTo: string
+      notice: string | null
+      /** Bumped each time the step is shown again, so its field starts fresh. */
+      round: number
+    }
+  | {
+      step: 'choose'
+      identifier: Identifier
+      sentTo: string
+      setup: PasswordSetup
+      error: string | null
+    }
 
 const ROLE_ICONS = {
   teacher: TeacherIcon,
@@ -27,42 +77,62 @@ const ROLE_ICONS = {
 } as const
 
 export function SignUp() {
-  const { t, message } = useT()
-  const navigate = useNavigate()
+  const { t } = useT()
+  const failure = useFailureText()
+  const { signIn } = useSession()
+  const [step, setStep] = useState<Step>({ step: 'form' })
   const [role, setRole] = useState<Role>('teacher')
+  const [kind, setKind] = useState<IdentifierKind>('phone')
   const [values, setValues] = useState<Record<FieldName, string>>({
     centre: '',
     name: '',
-    phone: '',
+    identifier: '',
     house: '',
     road: '',
     city: '',
     postcode: '',
   })
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [passwordError, setPasswordError] = useState<string | null>(null)
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  /** The chosen password, from submitting the form until it is sent. Memory only. */
+  const held = useRef<string | null>(null)
 
   useEffect(() => {
     document.title = `${t('signup_title')} · ShikkhokPlus`
   }, [t])
 
+  // Leaving the screen drops it too.
+  useEffect(
+    () => () => {
+      held.current = null
+    },
+    [],
+  )
+
   const set = (name: FieldName) => (e: { target: { value: string } }) =>
     setValues((v) => ({ ...v, [name]: e.target.value }))
 
-  function validate(): { phone: string; postcode: string } | null {
+  function validate(): { identifier: Identifier; postcode: string } | null {
     const next: Partial<Record<FieldName, string>> = {}
     if (role === 'coaching' && !values.centre.trim()) next.centre = t('signup_centre_name_required')
     if (!values.name.trim()) next.name = t('signup_name_required')
-    const phone = normalisePhone(values.phone)
-    if (!phone) next.phone = t('phone_invalid')
+    const identifier = readIdentifier(kind, values.identifier)
+    if (!identifier) next.identifier = t(invalidKey(kind))
     for (const f of ['house', 'road', 'city'] as const) {
       if (!values[f].trim()) next[f] = t('address_required')
     }
     const postcode = toLatinDigits(values.postcode.trim())
     if (!/^[0-9]{4}$/.test(postcode)) next.postcode = t('address_postcode_invalid')
+    const problem = newPasswordProblem(password, confirm)
+    setPasswordError(problem ? t(problem) : null)
     setErrors(next)
-    return Object.keys(next).length === 0 && phone ? { phone, postcode } : null
+    return Object.keys(next).length === 0 && !problem && identifier
+      ? { identifier, postcode }
+      : null
   }
 
   async function onSubmit(e: FormEvent) {
@@ -72,26 +142,136 @@ export function SignUp() {
     if (!ok) return
     setBusy(true)
     try {
-      await signUp({
+      const created = await signUp({
         role,
         self_name: values.name.trim(),
-        phone: ok.phone,
+        ...ok.identifier,
         address_house: values.house.trim(),
         address_road: values.road.trim(),
         address_city: values.city.trim(),
         address_postcode: ok.postcode,
         ...(role === 'coaching' ? { centre_name: values.centre.trim() } : {}),
       })
-      navigate('/signin', { replace: true, state: { phone: ok.phone } })
+      // From here the password lives only in the ref, until it is sent.
+      held.current = password
+      setPassword('')
+      setConfirm('')
+      setStep({
+        step: 'code',
+        identifier: ok.identifier,
+        sentTo: created.code_sent_to || shownIdentifier(ok.identifier),
+        notice: null,
+        round: 0,
+      })
     } catch (err) {
-      setFormError(
-        err instanceof ApiError ? message(err.messageKey, err.details) : t('error_unexpected'),
-      )
+      setFormError(failure(err))
+    } finally {
       setBusy(false)
     }
   }
 
-  const field = (name: FieldName, label: string, props: Record<string, string> = {}) => (
+  /** Spend the code, then set the held password with the token it bought. */
+  async function verify(identifier: Identifier, sentTo: string, code: string) {
+    const setup = setupFrom(await verifyCode(identifier, code), identifier)
+    const chosen = held.current
+    if (setup.mfaRequired || chosen === null) {
+      held.current = null
+      setStep({ step: 'choose', identifier, sentTo, setup, error: null })
+      return
+    }
+    try {
+      const tokens = await setUpPassword({ token: setup.token, password: chosen })
+      held.current = null
+      signIn(tokens)
+    } catch (err) {
+      held.current = null
+      if (setupLapsed(err)) {
+        setStep({
+          step: 'code',
+          identifier,
+          sentTo,
+          notice: t('web_auth_setup_expired_resend'),
+          round: Date.now(),
+        })
+        return
+      }
+      // Refused on policy (too common, say): choose another with the same token.
+      setStep({ step: 'choose', identifier, sentTo, setup, error: failure(err) })
+    }
+  }
+
+  const backToForm = useCallback(() => {
+    held.current = null
+    setStep({ step: 'form' })
+    setFormError(null)
+  }, [])
+
+  // The setup token lapsed on the password step: a new code buys a new one.
+  const restart = useCallback(
+    (expired: boolean) =>
+      setStep((current) =>
+        current.step === 'choose'
+          ? {
+              step: 'code',
+              identifier: current.identifier,
+              sentTo: current.sentTo,
+              notice: expired ? t('web_auth_setup_expired_resend') : null,
+              round: Date.now(),
+            }
+          : current,
+      ),
+    [t],
+  )
+
+  if (step.step === 'choose')
+    return (
+      <AuthFrame>
+        <ChoosePassword
+          key={step.setup.token}
+          setup={step.setup}
+          initialError={step.error}
+          onDone={signIn}
+          onRestart={restart}
+        />
+      </AuthFrame>
+    )
+
+  if (step.step === 'code') {
+    const { identifier, sentTo, notice, round } = step
+    return (
+      <AuthFrame>
+        <div>
+          <h1>{t('auth_code_label')}</h1>
+          <p className="meta">
+            {t('phone' in identifier ? 'web_auth_signup_sent_phone' : 'web_auth_signup_sent_email')}{' '}
+            <strong>{'phone' in identifier ? shownIdentifier(identifier) : sentTo}</strong>
+          </p>
+          {notice ? (
+            <div className="banner info" role="status" style={{ marginTop: 16 }}>
+              {notice}
+            </div>
+          ) : null}
+          <CodeEntry
+            key={round}
+            verify={(code) => verify(identifier, sentTo, code)}
+            resend={async () => {
+              await issueCode(identifier)
+            }}
+          >
+            <button type="button" className="btn btn-text" onClick={backToForm}>
+              {t('web_auth_signup_back')}
+            </button>
+          </CodeEntry>
+        </div>
+      </AuthFrame>
+    )
+  }
+
+  const field = (
+    name: FieldName,
+    label: string,
+    props: InputHTMLAttributes<HTMLInputElement> = {},
+  ) => (
     <div className="field">
       <label htmlFor={`su-${name}`}>{label}</label>
       <input
@@ -114,7 +294,7 @@ export function SignUp() {
     <AuthFrame wide>
       <form onSubmit={onSubmit} noValidate>
         <h1>{t('signup_title')}</h1>
-        <p className="meta">{t('signup_subhead')}</p>
+        <p className="meta">{t('web_auth_signup_subhead')}</p>
 
         <fieldset className="field">
           <legend>{t('signup_role_label')}</legend>
@@ -146,13 +326,26 @@ export function SignUp() {
             <span className="help">{t('signup_name_help')}</span>
           </div>
           <div>
-            {field('phone', t('signup_phone_label'), {
-              type: 'tel',
-              inputMode: 'tel',
-              autoComplete: 'tel-national',
-              placeholder: t('auth_phone_hint'),
-            })}
-            <span className="help">{t('signup_phone_help')}</span>
+            <KindToggle
+              kind={kind}
+              onKind={(k) => {
+                setKind(k)
+                setValues((v) => ({ ...v, identifier: '' }))
+                setErrors((e) => ({ ...e, identifier: undefined }))
+              }}
+            />
+            {field(
+              'identifier',
+              t(kind === 'phone' ? 'signup_phone_label' : 'web_auth_email_label'),
+              {
+                name: 'username',
+                ...identifierInputProps(kind, 'username'),
+                ...(kind === 'phone' ? { placeholder: t('auth_phone_hint') } : {}),
+              },
+            )}
+            <span className="help">
+              {t(kind === 'phone' ? 'web_auth_signup_phone_help' : 'web_auth_signup_email_help')}
+            </span>
           </div>
           {field('house', t('address_house_label'), { autoComplete: 'address-line1' })}
           {field('road', t('address_road_label'), { autoComplete: 'address-line2' })}
@@ -160,8 +353,34 @@ export function SignUp() {
           {field('postcode', t('address_postcode_label'), {
             inputMode: 'numeric',
             autoComplete: 'postal-code',
-            maxLength: '4',
+            maxLength: 4,
           })}
+        </div>
+
+        <div className="form-2">
+          <Field
+            id="su-password"
+            label={t('web_auth_password_label')}
+            help={t('web_auth_password_rule')}
+            error={passwordError}
+          >
+            <PasswordInput
+              id="su-password"
+              value={password}
+              onChange={setPassword}
+              autoComplete="new-password"
+              invalid={Boolean(passwordError)}
+              describedBy={describedBy('su-password', true, Boolean(passwordError))}
+            />
+          </Field>
+          <Field id="su-confirm" label={t('web_auth_confirm_password')}>
+            <PasswordInput
+              id="su-confirm"
+              value={confirm}
+              onChange={setConfirm}
+              autoComplete="new-password"
+            />
+          </Field>
         </div>
 
         {formError ? (

@@ -6,6 +6,10 @@ import com.shikkhokplus.app.core.ui.TAG_ADDRESS_CITY
 import com.shikkhokplus.app.core.ui.TAG_ADDRESS_ROAD
 import com.shikkhokplus.app.core.ui.TAG_ADDRESS_HOUSE
 import com.shikkhokplus.app.core.model.PostalAddress
+import com.shikkhokplus.app.core.model.Identifier
+import com.shikkhokplus.app.core.ui.TAG_KIND_EMAIL
+import com.shikkhokplus.app.feature.auth.ui.TAG_SIGNUP_CONFIRM
+import com.shikkhokplus.app.feature.auth.ui.TAG_SIGNUP_PASSWORD
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -53,7 +57,7 @@ class SignupScreenTest {
 
     private fun render(
         state: SignupUiState,
-        onSubmit: (String, String, PostalAddress, SignupRole, String?) -> Unit = { _, _, _, _, _ -> },
+        onSubmit: (SignupForm) -> Unit = {},
         onGoToLogin: () -> Unit = {},
         onRetry: () -> Unit = {},
     ) {
@@ -236,6 +240,7 @@ class SignupScreenTest {
 
         compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsNotEnabled()
 
+        typePasswords()
         compose.onNodeWithText("Teacher").performScrollTo().performClick()
         compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsEnabled()
     }
@@ -243,11 +248,12 @@ class SignupScreenTest {
     @Test
     fun `the chosen role and the address are what is submitted`() {
         var submitted: Pair<SignupRole, PostalAddress>? = null
-        render(SignupUiState.Empty, onSubmit = { _, _, address, role, _ -> submitted = role to address })
+        render(SignupUiState.Empty, onSubmit = { submitted = it.role to it.address })
         compose.onNodeWithText("Guardian").performClick()
         compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rokshana")
         compose.onNodeWithTag(TAG_SIGNUP_PHONE).performTextInput("01819-552041")
         typeAddress()
+        typePasswords()
         compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().performClick()
 
         assertEquals(SignupRole.GUARDIAN to PostalAddress("House 12", "Road 5", "Dhaka", "১২০৫"), submitted)
@@ -263,6 +269,7 @@ class SignupScreenTest {
         compose.onNodeWithTag(TAG_ADDRESS_HOUSE).performScrollTo().performTextInput("House 12")
         compose.onNodeWithTag(TAG_ADDRESS_ROAD).performScrollTo().performTextInput("Road 5")
         compose.onNodeWithTag(TAG_ADDRESS_CITY).performScrollTo().performTextInput("Dhaka")
+        typePasswords()
 
         compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsNotEnabled()
 
@@ -272,6 +279,12 @@ class SignupScreenTest {
 
         compose.onNodeWithTag(TAG_ADDRESS_POSTCODE).performTextInput("5")
         compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsEnabled()
+    }
+
+    /** Type the password and its second copy. */
+    private fun typePasswords(confirm: String = "correct horse") {
+        compose.onNodeWithTag(TAG_SIGNUP_PASSWORD).performScrollTo().performTextInput("correct horse")
+        compose.onNodeWithTag(TAG_SIGNUP_CONFIRM).performScrollTo().performTextInput(confirm)
     }
 
     /** Fill in the four address parts, the postcode in Bangla digits. */
@@ -285,17 +298,67 @@ class SignupScreenTest {
     @Test
     fun `coaching asks for the centre's name and waits for it`() {
         var submitted: Pair<SignupRole, String?>? = null
-        render(SignupUiState.Empty, onSubmit = { _, _, _, role, centre -> submitted = role to centre })
+        render(SignupUiState.Empty, onSubmit = { submitted = it.role to it.centreName })
         compose.onNodeWithText("Coaching").performScrollTo().performClick()
         compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rahima")
         compose.onNodeWithTag(TAG_SIGNUP_PHONE).performTextInput("01711-234567")
         typeAddress()
+        typePasswords()
 
         compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsNotEnabled()
         compose.onNodeWithTag(TAG_SIGNUP_CENTRE_NAME).performScrollTo().performTextInput("Udayan Coaching")
         compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsEnabled().performClick()
 
         assertEquals(SignupRole.COACHING to "Udayan Coaching", submitted)
+    }
+
+    @Test
+    fun `send code waits for the password and its second copy`() {
+        render(SignupUiState.Empty)
+        compose.onNodeWithText("Student").performClick()
+        compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_SIGNUP_PHONE).performTextInput("01711-234567")
+        typeAddress()
+
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag(TAG_SIGNUP_PASSWORD).performScrollTo().performTextInput("correct horse")
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag(TAG_SIGNUP_CONFIRM).performScrollTo().performTextInput("correct horse")
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsEnabled()
+    }
+
+    @Test
+    fun `an email sign-up submits an email and both passwords as typed`() {
+        var submitted: SignupForm? = null
+        render(SignupUiState.Empty, onSubmit = { submitted = it })
+        compose.onNodeWithText("Teacher").performClick()
+        compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rokshana")
+        compose.onNodeWithTag(TAG_KIND_EMAIL).performScrollTo().performClick()
+        compose.onNodeWithTag(TAG_SIGNUP_PHONE).performScrollTo().performTextInput("rokshana@example.com")
+        typeAddress()
+        typePasswords(confirm = "correct horsE")
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().performClick()
+
+        // The screen sends what was typed; the mismatch is the mapper's to
+        // find, so the screen holds no rule about it.
+        val form = requireNotNull(submitted)
+        assertEquals(Identifier.email("rokshana@example.com"), form.identifier)
+        assertEquals("correct horse", form.password)
+        assertEquals("correct horsE", form.confirm)
+    }
+
+    @Test
+    fun `a password refusal is named under the password`() {
+        render(SignupUiState.Invalid(listOf(PasswordRules.MISMATCH_KEY)))
+
+        compose.onNodeWithText("The two passwords are not the same.").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `an already-added number keeps the toggle on phone`() {
+        render(SignupUiState.AlreadyAdded(prefilledName = "Rahim", lockedRole = SignupRole.STUDENT))
+
+        compose.onNodeWithTag(TAG_KIND_EMAIL).assertIsNotEnabled()
     }
 
     @Test
@@ -306,4 +369,11 @@ class SignupScreenTest {
         compose.onNodeWithTag(TAG_SIGNUP_CENTRE_NAME).assertDoesNotExist()
     }
 
+    @Test
+    fun `an email the server refuses is named under the email field`() {
+        render(SignupUiState.Failed("email.invalid", retryable = false))
+        compose.onNodeWithTag(TAG_KIND_EMAIL).performScrollTo().performClick()
+
+        compose.onNodeWithText("Enter an email address, like name@example.com.").performScrollTo().assertIsDisplayed()
+    }
 }

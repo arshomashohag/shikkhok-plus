@@ -66,6 +66,28 @@ services:
       # on a device with no SMS credentials. A production process
       # with this set REFUSES TO START.
       SHIKKHOKPLUS_STAGING_OUTBOX: ${SHIKKHOKPLUS_STAGING_OUTBOX:-1}
+      # The keyring that encrypts authenticator secrets. Without it,
+      # turning on two-step verification raises MfaKeyError. The default
+      # is a fixed development key (32 bytes, base64) so a fresh clone
+      # can enroll; a production process holding it REFUSES TO START.
+      SHIKKHOKPLUS_MFA_KEYS: ${SHIKKHOKPLUS_MFA_KEYS:-k1:bG9jYWwtZGV2LW9ubHktbWZhLWtleS0zMi1ieXRlcyE=}
+      SHIKKHOKPLUS_MFA_ACTIVE_KID: ${SHIKKHOKPLUS_MFA_ACTIVE_KID:-k1}
+      # The admin surface: phone numbers and email addresses, comma-
+      # separated. Empty means nobody is an administrator.
+      SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES: ${SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES:-}
+      SHIKKHOKPLUS_ADMIN_EDGE_SECRET: ${SHIKKHOKPLUS_ADMIN_EDGE_SECRET:-}
+      SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS: ${SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS:-127.0.0.0/8,::1/128}
+      # Emailed codes. The null adapter by default, like SMS: a local run
+      # NEVER mails anyone. Read a code from the outbox instead:
+      #   GET /staging/last-otp?email=you@example.com
+      SHIKKHOKPLUS_EMAIL_ADAPTER: ${SHIKKHOKPLUS_EMAIL_ADAPTER:-null}
+      SHIKKHOKPLUS_SES_SMTP_HOST: ${SHIKKHOKPLUS_SES_SMTP_HOST:-}
+      SHIKKHOKPLUS_SES_SMTP_PORT: ${SHIKKHOKPLUS_SES_SMTP_PORT:-587}
+      SHIKKHOKPLUS_SES_SMTP_USERNAME: ${SHIKKHOKPLUS_SES_SMTP_USERNAME:-}
+      SHIKKHOKPLUS_SES_SMTP_PASSWORD: ${SHIKKHOKPLUS_SES_SMTP_PASSWORD:-}
+      SHIKKHOKPLUS_EMAIL_FROM: ${SHIKKHOKPLUS_EMAIL_FROM:-}
+      SHIKKHOKPLUS_SES_CONFIGURATION_SET: ${SHIKKHOKPLUS_SES_CONFIGURATION_SET:-}
+      SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL: ${SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL:-1000}
     ports:
       - "${API_PORT:-8000}:8000"
     restart: unless-stopped
