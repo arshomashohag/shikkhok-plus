@@ -3,6 +3,19 @@
 # meaningful: a version bump is a diff in this file.
 
 [versions]
+# **Security floors for transitive dependencies of the test and build
+# tooling** -- none of them is in the app. The release gate scans the
+# whole Gradle lockfile, and these were HIGH/CRITICAL there (2026-11-08):
+# netty and commons-io through AGP's unified test platform (emulator
+# control), guava and protobuf through it and Robolectric, bouncycastle
+# through Robolectric. Each is the newest release on the line already in
+# use; android/build.gradle.kts raises a lower request to it and never
+# lowers or changes the line of anything.
+securityNetty = "4.1.140.Final"
+securityBouncycastle = "1.86"
+securityGuava = "33.8.0"
+securityProtobufJava = "3.25.9"
+securityCommonsIo = "2.22.0"
 agp = "8.7.3"
 kotlin = "2.0.21"
 kotlinxSerialization = "1.7.3"
