@@ -431,7 +431,9 @@ jobs:
           OSV_SCANNER_SHA256: "ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108"
         run: |
           bin="$RUNNER_TEMP/osv-scanner"
-          curl -fsSL -o "$bin" \
+          # Retried: GitHub's release host answers 504 in bursts (2026-11-08,
+          # three times in two runs). The checksum below still decides.
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o "$bin" \
             "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
           echo "${OSV_SCANNER_SHA256}  $bin" | sha256sum -c -
           chmod +x "$bin"
