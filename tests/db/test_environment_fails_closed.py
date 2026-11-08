@@ -24,6 +24,8 @@ COMPLETE = {
     "SHIKKHOKPLUS_OTP_HMAC_KEY": "a-real-key",
     "SHIKKHOKPLUS_SMS_ADAPTER": "bulksmsbd",
     "SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER": "X-Client-Address",
+    "SHIKKHOKPLUS_MFA_KEYS": "k1:" + "B" * 43 + "=",
+    "SHIKKHOKPLUS_MFA_ACTIVE_KID": "k1",
 }
 
 

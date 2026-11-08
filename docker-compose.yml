@@ -66,6 +66,16 @@ services:
       # on a device with no SMS credentials. A production process
       # with this set REFUSES TO START.
       SHIKKHOKPLUS_STAGING_OUTBOX: ${SHIKKHOKPLUS_STAGING_OUTBOX:-1}
+      # The keyring that encrypts authenticator secrets. Without it,
+      # turning on two-step verification raises MfaKeyError. The default
+      # is a fixed development key (32 bytes, base64) so a fresh clone
+      # can enroll; a production process holding it REFUSES TO START.
+      SHIKKHOKPLUS_MFA_KEYS: ${SHIKKHOKPLUS_MFA_KEYS:-k1:bG9jYWwtZGV2LW9ubHktbWZhLWtleS0zMi1ieXRlcyE=}
+      SHIKKHOKPLUS_MFA_ACTIVE_KID: ${SHIKKHOKPLUS_MFA_ACTIVE_KID:-k1}
+      # The admin surface. Empty phones means nobody is an administrator.
+      SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES: ${SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES:-}
+      SHIKKHOKPLUS_ADMIN_EDGE_SECRET: ${SHIKKHOKPLUS_ADMIN_EDGE_SECRET:-}
+      SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS: ${SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS:-127.0.0.0/8,::1/128}
     ports:
       - "${API_PORT:-8000}:8000"
     restart: unless-stopped

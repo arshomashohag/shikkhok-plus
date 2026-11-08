@@ -75,6 +75,10 @@ APP_HASH_LENGTH: Final = 11
 #: value would have reached production with autofill silently broken.
 PLACEHOLDER_APP_HASH: Final = "AAAAAAAAAAA"
 
+#: The MFA key docker-compose.yml supplies by default, base64 of
+#: ``local-dev-only-mfa-key-32-bytes!``. Public, so production refuses it.
+LOCAL_DEV_MFA_KEY: Final = "bG9jYWwtZGV2LW9ubHktbWZhLWtleS0zMi1ieXRlcyE="
+
 
 class ConfigurationError(RuntimeError):
     """A value needed in production is missing or implausible.
@@ -171,8 +175,7 @@ def check_startup_configuration(environment: str | None = None) -> None:
 
     # An administrator configured without the locks that make the admin
     # surface safe. Each of these fails CLOSED on its own -- no edge
-    # secret or no networks means nobody gets in, no MFA key means no
-    # administrator can finish signing in -- so the process would run,
+    # secret or no networks means nobody gets in -- so the process would run,
     # and the admin surface would be silently unusable. Reported here
     # instead, at the deploy, where it can be fixed.
     if os.environ.get(PLATFORM_ADMIN_PHONES_ENV, "").strip():
@@ -183,12 +186,25 @@ def check_startup_configuration(environment: str | None = None) -> None:
                     "administrators, so no administrator can reach the admin "
                     "surface. Set it, or clear the administrator list."
                 )
-        if not keyring_configured():
-            problems.append(
-                f"{MFA_KEYS_ENV} / {MFA_ACTIVE_KID_ENV} are unset or "
-                f"malformed while {PLATFORM_ADMIN_PHONES_ENV} names "
-                "administrators, so no administrator can finish signing in."
-            )
+
+    # **Every account can turn on two-step verification**, not only
+    # administrators, so a production process without a keyring serves
+    # normally until someone tries -- and then their enrollment fails
+    # with a 500. Reported here instead. The development key is refused
+    # too: it is committed in docker-compose.yml, so a secret sealed
+    # with it is sealed with a key anyone can read.
+    if not keyring_configured():
+        problems.append(
+            f"{MFA_KEYS_ENV} / {MFA_ACTIVE_KID_ENV} are unset or "
+            "malformed, so no account can turn on two-step verification "
+            "and no administrator can finish signing in."
+        )
+    elif LOCAL_DEV_MFA_KEY in os.environ.get(MFA_KEYS_ENV, ""):
+        problems.append(
+            f"{MFA_KEYS_ENV} holds the local-development key committed "
+            "in docker-compose.yml. Generate a real one."
+        )
+
     if os.environ.get(ADAPTER_ENV) != REAL_ADAPTER_SENTINEL:
         # The null adapter defaulting is CORRECT everywhere else -- it
         # fails toward not sending. In production it means no teacher

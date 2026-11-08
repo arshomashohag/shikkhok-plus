@@ -12,6 +12,7 @@ import pytest
 
 from app.config import (
     ENVIRONMENT_ENV,
+    LOCAL_DEV_MFA_KEY,
     ConfigurationError,
     check_startup_configuration,
 )
@@ -22,6 +23,9 @@ COMPLETE = {
     "SHIKKHOKPLUS_OTP_HMAC_KEY": "a-real-key",
     "SHIKKHOKPLUS_SMS_ADAPTER": "bulksmsbd",
     "SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER": "X-Client-Address",
+    # 32 bytes, base64; not the local-development key.
+    "SHIKKHOKPLUS_MFA_KEYS": "k1:" + "B" * 43 + "=",
+    "SHIKKHOKPLUS_MFA_ACTIVE_KID": "k1",
 }
 
 
@@ -135,3 +139,30 @@ def test_every_problem_is_reported_at_once(
         check_startup_configuration()
     assert "GLOBAL_DAILY_SMS" in str(raised.value)
     assert "APP_HASH" in str(raised.value)
+
+
+def test_a_missing_mfa_keyring_refuses_to_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Every account can turn on two-step verification, so this is not
+    # an administrator-only setting: without it, enrollment fails with a
+    # 500 for whoever tries first.
+    _configure(monkeypatch, SHIKKHOKPLUS_MFA_KEYS=None)
+    with pytest.raises(ConfigurationError, match="MFA_KEYS"):
+        check_startup_configuration()
+
+
+def test_an_mfa_active_kid_naming_no_key_refuses_to_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _configure(monkeypatch, SHIKKHOKPLUS_MFA_ACTIVE_KID="k2")
+    with pytest.raises(ConfigurationError, match="MFA_ACTIVE_KID"):
+        check_startup_configuration()
+
+
+def test_the_local_development_mfa_key_refuses_to_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _configure(monkeypatch, SHIKKHOKPLUS_MFA_KEYS=f"k1:{LOCAL_DEV_MFA_KEY}")
+    with pytest.raises(ConfigurationError, match="local-development key"):
+        check_startup_configuration()

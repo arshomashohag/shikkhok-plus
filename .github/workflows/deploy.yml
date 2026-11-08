@@ -262,16 +262,25 @@ jobs:
           MFA_KEYS: ${{ secrets.SHIKKHOKPLUS_MFA_KEYS }}
           ADMIN_ALLOWED_CIDRS: ${{ secrets.SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS }}
         run: |
-          # **Administrators named without the locks that make the admin
-          # surface usable.** A production process refuses to start with
-          # admin phones set and no MFA keyring or no admin networks
-          # (app/config.py), which would surface 40 minutes from now as a
-          # failed refresh and a rollback. Refused here instead, before
-          # anything changes. Staging runs either way and is told why its
-          # admin surface will be closed.
+          # **The MFA keyring, for every account.** Any account can turn
+          # on two-step verification, so a production process without a
+          # keyring refuses to start (app/config.py) -- which would
+          # surface 40 minutes from now as a failed refresh and a
+          # rollback. Refused here instead. Staging runs, and is told
+          # that enrollment will fail.
+          if [ -z "$MFA_KEYS" ]; then
+            if [ "$ENVIRONMENT" = "production" ]; then
+              echo "::error::Secret SHIKKHOKPLUS_MFA_KEYS is not set; production would refuse to start."
+              exit 1
+            fi
+            echo "::warning::Secret SHIKKHOKPLUS_MFA_KEYS is not set; turning on two-step verification will fail."
+          fi
+
+          # **Administrators named without the network lock that makes
+          # the admin surface usable.** Same reasoning as above: production
+          # refuses to start; staging is told its admin surface is closed.
           if [ -n "$PLATFORM_ADMIN_PHONES" ]; then
             admin_gaps=()
-            [ -n "$MFA_KEYS" ]            || admin_gaps+=("secret SHIKKHOKPLUS_MFA_KEYS")
             [ -n "${ADMIN_ALLOWED_CIDRS// /}" ] || admin_gaps+=("secret SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS")
             if [ ${#admin_gaps[@]} -ne 0 ]; then
               if [ "$ENVIRONMENT" = "production" ]; then
