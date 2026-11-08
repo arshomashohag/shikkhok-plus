@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.Identifier
 import com.shikkhokplus.app.BuildConfig
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -44,7 +45,7 @@ class ClientPlatformTest {
         val client = ApiClient.build("https://staging.example", engine, tokens, appVersion = "1.4.0")
         val auth = HttpAuthRepository(client, tokens)
 
-        auth.verify("01711234567", "123456")
+        auth.verify(Identifier.phone("01711234567"), "123456")
         auth.refresh()
 
         assertEquals(listOf("/v1/auth/verify", "/v1/auth/refresh"), engine.requestHistory.map { it.url.encodedPath })

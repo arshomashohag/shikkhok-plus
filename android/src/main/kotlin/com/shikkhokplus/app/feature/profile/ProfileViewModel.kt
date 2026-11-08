@@ -80,6 +80,9 @@ class ProfileViewModel(
     /** The number from the last read, for the deletion confirmation. */
     private val phone: String? get() = _summary.value?.phone
 
+    /** The email from the last read, for an account with no number. */
+    private val email: String? get() = _summary.value?.email
+
     private var lastAction: (() -> Unit)? = null
 
     /** Read the profile. */
@@ -203,7 +206,7 @@ class ProfileViewModel(
      * leaves the plain one, and the deletion itself is unaffected.
      */
     fun startDeletion() {
-        _deletion.value = DeletionState.Confirming(phone)
+        _deletion.value = DeletionState.Confirming(phone, email)
         _footprint.value = null
         viewModelScope.launch {
             _footprint.value =
@@ -229,13 +232,13 @@ class ProfileViewModel(
      */
     fun deleteAccount(typed: String) {
         val current = _deletion.value
-        val known =
+        val (known, knownEmail) =
             when (current) {
-                is DeletionState.Confirming -> current.phone
-                is DeletionState.Failed -> current.phone
+                is DeletionState.Confirming -> current.phone to current.email
+                is DeletionState.Failed -> current.phone to current.email
                 else -> return
             }
-        if (!numberMatches(typed, known)) return
+        if (!identityMatches(typed, known, knownEmail)) return
         _deletion.value = DeletionState.Deleting
         viewModelScope.launch {
             _deletion.value =
@@ -244,12 +247,14 @@ class ProfileViewModel(
                     is AuthResult.Refused ->
                         DeletionState.Failed(
                             phone = known,
+                            email = knownEmail,
                             messageKey = result.envelope.error.messageKey,
                             retryable = result.envelope.error.retryable,
                         )
                     AuthResult.TransportFailure ->
                         DeletionState.Failed(
                             phone = known,
+                            email = knownEmail,
                             messageKey = ProfileStateMapper.OFFLINE_KEY,
                             retryable = true,
                         )
@@ -264,6 +269,13 @@ class ProfileViewModel(
      */
     private fun remember(dto: MeDto) {
         _summary.value =
-            ProfileSummary(selfName = dto.selfName, address = dto.shownAddress, phone = dto.phone, postal = dto.postal)
+            ProfileSummary(
+                selfName = dto.selfName,
+                address = dto.shownAddress,
+                phone = dto.phone,
+                postal = dto.postal,
+                email = dto.email,
+                hasPassword = dto.hasPassword,
+            )
     }
 }

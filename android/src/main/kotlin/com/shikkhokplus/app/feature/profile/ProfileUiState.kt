@@ -91,12 +91,17 @@ sealed interface ProfileUiState {
  *
  * @property selfName The stored name, or null
  * @property address The stored address on one line, or null
- * @property phone The sign-in number, or null
+ * @property phone The account's number, or null
  * @property postal The stored address in its four parts, for the form
+ * @property email The account's email address, or null
+ * @property hasPassword Whether the account has a password, as the
+ *   server said; true when nothing is known, so nothing nags
  */
 data class ProfileSummary(
     val selfName: String?,
     val address: String?,
     val phone: String?,
     val postal: PostalAddress = PostalAddress(),
+    val email: String? = null,
+    val hasPassword: Boolean = true,
 )

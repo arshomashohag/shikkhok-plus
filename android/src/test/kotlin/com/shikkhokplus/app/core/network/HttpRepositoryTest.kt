@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.Identifier
 import com.shikkhokplus.app.feature.auth.AuthResult
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -62,7 +63,7 @@ class HttpRepositoryTest {
         val engine = engineReturning(HttpStatusCode.OK, """{"status":"requested"}""")
         val repository = HttpAuthRepository(client(engine), TokenStore.InMemory())
 
-        val result = repository.issue("+8801711111111")
+        val result = repository.issue(Identifier.phone("+8801711111111"))
 
         assertIs<AuthResult.Ok<IssueResponse>>(result)
         assertEquals("requested", result.value.status)
@@ -83,7 +84,7 @@ class HttpRepositoryTest {
                 )
             val repository = HttpAuthRepository(client(engine), TokenStore.InMemory())
 
-            val result = repository.issue("+8801711111111")
+            val result = repository.issue(Identifier.phone("+8801711111111"))
 
             val refused = assertIs<AuthResult.Refused>(result)
             assertEquals("auth.otp.temporarily_unavailable", refused.envelope.error.messageKey)
@@ -95,7 +96,7 @@ class HttpRepositoryTest {
         val engine = MockEngine { throw java.io.IOException("no route to host") }
         val repository = HttpAuthRepository(client(engine), TokenStore.InMemory())
 
-        assertIs<AuthResult.TransportFailure>(repository.issue("+8801711111111"))
+        assertIs<AuthResult.TransportFailure>(repository.issue(Identifier.phone("+8801711111111")))
     }
 
     @Test
@@ -106,26 +107,128 @@ class HttpRepositoryTest {
             val engine = engineReturning(HttpStatusCode.BadGateway, "<html>502</html>")
             val repository = HttpAuthRepository(client(engine), TokenStore.InMemory())
 
-            val result = repository.issue("+8801711111111")
+            val result = repository.issue(Identifier.phone("+8801711111111"))
 
             val refused = assertIs<AuthResult.Refused>(result)
             assertEquals("error.unexpected", refused.envelope.error.messageKey)
         }
 
     @Test
-    fun `a successful verify records the token pair`() = runTest {
+    fun `a verified code records nothing, because it no longer signs anyone in`() = runTest {
+        // The code flow ends at the password setup, which is where the
+        // pair is issued and stored; a verify that saved tokens would be a
+        // session nobody chose a password for.
         val engine =
             engineReturning(
                 HttpStatusCode.OK,
-                """{"access_token":"at","refresh_token":"rt","expires_in":900}""",
+                """{"mfa_required":false,"password_setup_token":"setup","password_setup_expires_in":600}""",
             )
         val tokens = TokenStore.InMemory()
         val repository = HttpAuthRepository(client(engine, tokens), tokens)
 
-        repository.verify("+8801711111111", "123456")
+        val ok =
+            assertIs<AuthResult.Ok<VerifyResponse>>(repository.verify(Identifier.phone("+8801711111111"), "123456"))
+
+        assertEquals("setup", ok.value.passwordSetupToken)
+        assertNull(tokens.accessToken())
+        assertNull(tokens.refreshToken())
+    }
+
+    @Test
+    fun `a code is verified for an email as well as a phone`() = runTest {
+        var body: String? = null
+        val engine =
+            MockEngine { request ->
+                body = (request.body as io.ktor.http.content.TextContent).text
+                respond(
+                    """{"mfa_required":false,"password_setup_token":"setup"}""",
+                    HttpStatusCode.OK,
+                    headersOf("Content-Type", "application/json"),
+                )
+            }
+        val repository = HttpAuthRepository(client(engine), TokenStore.InMemory())
+
+        repository.verify(Identifier.email("  rafi@example.com "), "123456")
+
+        // Exactly one identifier is sent, trimmed; the phone is left out
+        // rather than sent as null.
+        assertEquals("""{"email":"rafi@example.com","code":"123456"}""", body)
+    }
+
+    @Test
+    fun `a password sign-in records the pair it is given`() = runTest {
+        val engine =
+            engineReturning(
+                HttpStatusCode.OK,
+                """{"access_token":"at","refresh_token":"rt","expires_in":900,"mfa_required":false}""",
+            )
+        val tokens = TokenStore.InMemory()
+        val repository = HttpAuthRepository(client(engine, tokens), tokens)
+
+        repository.signIn(Identifier.phone("+8801711111111"), "correct horse")
 
         assertEquals("at", tokens.accessToken())
         assertEquals("rt", tokens.refreshToken())
+    }
+
+    @Test
+    fun `a password sign-in that needs the second step records nothing`() = runTest {
+        val engine =
+            engineReturning(
+                HttpStatusCode.OK,
+                """{"mfa_required":true,"mfa_challenge":"chal","mfa_expires_in":300}""",
+            )
+        val tokens = TokenStore.InMemory()
+        val repository = HttpAuthRepository(client(engine, tokens), tokens)
+
+        repository.signIn(Identifier.email("rafi@example.com"), "correct horse")
+
+        assertNull(tokens.accessToken(), "a half-finished sign-in must not look signed in")
+    }
+
+    @Test
+    fun `a wrong password records nothing and reads the server's key`() = runTest {
+        val engine =
+            engineReturning(
+                HttpStatusCode.BadRequest,
+                """{"error":{"code":"PASSWORD_NOT_VALID","retryable":false,"message_key":"auth.password.wrong"}}""",
+            )
+        val tokens = TokenStore.InMemory()
+        val repository = HttpAuthRepository(client(engine, tokens), tokens)
+
+        val refused = assertIs<AuthResult.Refused>(repository.signIn(Identifier.phone("01711111111"), "nope nope"))
+
+        assertEquals("auth.password.wrong", refused.envelope.error.messageKey)
+        assertNull(tokens.accessToken())
+    }
+
+    @Test
+    fun `choosing a password records the pair`() = runTest {
+        val engine =
+            engineReturning(HttpStatusCode.OK, """{"access_token":"at","refresh_token":"rt","expires_in":900}""")
+        val tokens = TokenStore.InMemory()
+        val repository = HttpAuthRepository(client(engine, tokens), tokens)
+
+        assertIs<AuthResult.Ok<TokenResponse>>(repository.setupPassword("setup", "correct horse", null, null))
+
+        assertEquals("at", tokens.accessToken())
+        assertEquals("rt", tokens.refreshToken())
+    }
+
+    @Test
+    fun `a lapsed setup token records nothing`() = runTest {
+        val engine =
+            engineReturning(
+                HttpStatusCode.Unauthorized,
+                """{"error":{"code":"SETUP_EXPIRED","retryable":false,"message_key":"auth.password.setup_expired"}}""",
+            )
+        val tokens = TokenStore.InMemory()
+        val repository = HttpAuthRepository(client(engine, tokens), tokens)
+
+        val refused = assertIs<AuthResult.Refused>(repository.setupPassword("old", "correct horse", null, null))
+
+        assertEquals("auth.password.setup_expired", refused.envelope.error.messageKey)
+        assertNull(tokens.accessToken())
     }
 
     @Test
@@ -139,7 +242,7 @@ class HttpRepositoryTest {
         val tokens = TokenStore.InMemory()
         val repository = HttpAuthRepository(client(engine, tokens), tokens)
 
-        repository.verify("+8801711111111", "000000")
+        repository.verify(Identifier.phone("+8801711111111"), "000000")
 
         assertNull(tokens.accessToken())
     }

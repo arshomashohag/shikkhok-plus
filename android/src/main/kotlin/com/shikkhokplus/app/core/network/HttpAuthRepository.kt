@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.Identifier
 import com.shikkhokplus.app.feature.auth.AuthRepository
 import com.shikkhokplus.app.feature.auth.AuthResult
 import com.shikkhokplus.app.feature.auth.SessionResume
@@ -11,12 +12,6 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
-
-@Serializable
-private data class IssueBody(val phone: String)
-
-@Serializable
-private data class VerifyBody(val phone: String, val code: String)
 
 @Serializable
 private data class RefreshBody(
@@ -40,27 +35,75 @@ class HttpAuthRepository(
     private val tokens: TokenStore,
 ) : AuthRepository {
 
-    override suspend fun issue(phone: String): AuthResult<IssueResponse> =
-        call { client.post("/v1/auth/otp") { setBody(IssueBody(phone)) } }
+    override suspend fun issue(identifier: Identifier): AuthResult<IssueResponse> =
+        call { client.post("/v1/auth/otp") { setBody(IssueRequest(identifier.phone, identifier.email)) } }
 
     /**
-     * Present the SMS code.
+     * Present a one-time code.
+     *
+     * **Saves nothing.** A verified code no longer signs anyone in: the
+     * server answers with a password-setup token, and the session begins
+     * only when [setupPassword] exchanges it, with a chosen password, for
+     * a pair.
+     */
+    override suspend fun verify(
+        identifier: Identifier,
+        code: String,
+    ): AuthResult<VerifyResponse> =
+        call {
+            client.post("/v1/auth/verify") {
+                setBody(VerifyRequest(phone = identifier.phone, email = identifier.email, code = code))
+            }
+        }
+
+    /**
+     * Sign in with an identifier and a password.
      *
      * **A pair is saved only when the server sent one.** An account with
      * two-step verification gets a challenge instead, and there is no
      * session until [verifySecondStep] succeeds; saving nothing here is
      * what keeps a half-finished sign-in from looking signed in.
      */
-    override suspend fun verify(
-        phone: String,
-        code: String,
+    override suspend fun signIn(
+        identifier: Identifier,
+        password: String,
     ): AuthResult<VerifyResponse> {
         val result: AuthResult<VerifyResponse> =
-            call { client.post("/v1/auth/verify") { setBody(VerifyBody(phone, code)) } }
+            call {
+                client.post("/v1/auth/password") {
+                    setBody(PasswordSignInRequest(identifier.phone, identifier.email, password))
+                }
+            }
         val pair = (result as? AuthResult.Ok)?.value?.takeUnless { it.mfaRequired }
         val access = pair?.accessToken
         val refresh = pair?.refreshToken
         if (access != null && refresh != null) tokens.save(access, refresh)
+        return result
+    }
+
+    /**
+     * Finish the code flow by choosing a password, and save the pair.
+     *
+     * **Never renewed, and its 401 ends no session**, for the same
+     * reason as [verifySecondStep]: nobody is signed in yet, and a lapsed
+     * setup token (`401 auth.password.setup_expired`) comes back to the
+     * screen as an ordinary envelope.
+     */
+    override suspend fun setupPassword(
+        token: String,
+        password: String,
+        code: String?,
+        recoveryCode: String?,
+    ): AuthResult<TokenResponse> {
+        val result: AuthResult<TokenResponse> =
+            call {
+                client.post("/v1/auth/password/setup") {
+                    setBody(PasswordSetupRequest(token, password, code, recoveryCode))
+                }
+            }
+        if (result is AuthResult.Ok) {
+            tokens.save(result.value.accessToken, result.value.refreshToken)
+        }
         return result
     }
 

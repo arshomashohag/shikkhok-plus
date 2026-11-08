@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.auth
 
+import com.shikkhokplus.app.core.model.Identifier
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.IssueResponse
@@ -21,7 +22,8 @@ import kotlin.test.assertIs
 
 /**
  * The sign-in's second step [0028], through the ViewModel and the mapper:
- * reaching it, each kind of code, every refusal, and the explicit retry.
+ * reaching it from a password sign-in, each kind of code, every refusal,
+ * and the explicit retry.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AuthSecondStepTest {
@@ -45,14 +47,26 @@ class AuthSecondStepTest {
 
     /** A server whose answers each test sets, recording each second step. */
     private class FakeRepository(
-        var verifyResult: AuthResult<VerifyResponse>,
+        var signInResult: AuthResult<VerifyResponse>,
         var secondResult: AuthResult<TokenResponse> = AuthResult.Ok(TokenResponse("a.b.c", "r1", 900)),
     ) : AuthRepository {
         val sent = mutableListOf<Triple<String, String?, String?>>()
 
-        override suspend fun issue(phone: String): AuthResult<IssueResponse> = AuthResult.Ok(IssueResponse("requested"))
+        override suspend fun issue(identifier: Identifier): AuthResult<IssueResponse> =
+            AuthResult.Ok(IssueResponse("requested"))
 
-        override suspend fun verify(phone: String, code: String): AuthResult<VerifyResponse> = verifyResult
+        override suspend fun verify(identifier: Identifier, code: String): AuthResult<VerifyResponse> =
+            AuthResult.TransportFailure
+
+        override suspend fun signIn(identifier: Identifier, password: String): AuthResult<VerifyResponse> =
+            signInResult
+
+        override suspend fun setupPassword(
+            token: String,
+            password: String,
+            code: String?,
+            recoveryCode: String?,
+        ): AuthResult<TokenResponse> = AuthResult.TransportFailure
 
         override suspend fun verifySecondStep(
             challenge: String,
@@ -67,21 +81,20 @@ class AuthSecondStepTest {
     /** A ViewModel already at the second step. */
     private fun TestScope.atSecondStep(repository: FakeRepository): AuthViewModel {
         val model = AuthViewModel(repository)
-        model.adoptPendingCode("+8801711111111")
-        model.submitCode("123456")
+        model.signIn(Identifier.phone("+8801711111111"), "correct horse")
         advanceUntilIdle()
         return model
     }
 
     @Test
-    fun `a right SMS code for an account with two-step verification asks for the app code`() = runTest(dispatcher) {
+    fun `a right password for an account with two-step verification asks for the app code`() = runTest(dispatcher) {
         val model = atSecondStep(FakeRepository(AuthResult.Ok(challenged)))
 
         assertEquals(AuthUiState.SecondStep(), model.state.value)
     }
 
     @Test
-    fun `an account without it is signed in by the SMS code, untouched`() = runTest(dispatcher) {
+    fun `an account without it is signed in by the password alone`() = runTest(dispatcher) {
         val model = atSecondStep(FakeRepository(AuthResult.Ok(VerifyResponse("a.b.c", "r1", 900))))
 
         assertEquals(AuthUiState.SignedIn, model.state.value)
@@ -158,9 +171,9 @@ class AuthSecondStepTest {
     }
 
     @Test
-    fun `a lapsed challenge goes back to the number with the message`() = runTest(dispatcher) {
-        // Retryable or not on the wire, the way on is a new SMS code: the
-        // challenge is spent, so the number step owns the next move.
+    fun `a lapsed challenge goes back to the sign-in form with the message`() = runTest(dispatcher) {
+        // Retryable or not on the wire, the way on is a new sign-in: the
+        // challenge is spent, so the sign-in form owns the next move.
         val repository =
             FakeRepository(AuthResult.Ok(challenged), secondResult = refused("mfa.challenge_expired", retryable = true))
         val model = atSecondStep(repository)
@@ -200,11 +213,11 @@ class AuthSecondStepTest {
         }
 
     @Test
-    fun `back from the step returns to the number and forgets the challenge`() = runTest(dispatcher) {
+    fun `back from the step returns to the sign-in form and forgets the challenge`() = runTest(dispatcher) {
         val repository = FakeRepository(AuthResult.Ok(challenged))
         val model = atSecondStep(repository)
 
-        model.changeNumber()
+        model.backToSignIn()
         model.submitSecondStep("654321")
         model.toggleRecoveryCode()
         advanceUntilIdle()

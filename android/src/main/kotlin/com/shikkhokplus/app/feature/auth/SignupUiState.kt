@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.auth
 
+import com.shikkhokplus.app.core.model.IdentifierKind
 import com.shikkhokplus.app.core.model.SignupRole
 
 /**
@@ -50,12 +51,16 @@ sealed interface SignupUiState {
     /**
      * The account exists and a code is on its way.
      *
-     * Carries the destination so the screen can name the number the
-     * code went to [BR4.3, AC1.11.4].
+     * Carries the destination so the screen can name the number or
+     * address the code went to [BR4.3, AC1.11.4].
      *
-     * @property codeSentTo The number the code was sent to
+     * @property codeSentTo The number or address the code was sent to
+     * @property kind Whether that is a phone or an email
      */
-    data class CodeSent(val codeSentTo: String) : SignupUiState
+    data class CodeSent(
+        val codeSentTo: String,
+        val kind: IdentifierKind = IdentifierKind.PHONE,
+    ) : SignupUiState
 
     /**
      * Something failed, and the screen can say what to do about it.

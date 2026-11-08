@@ -1,5 +1,8 @@
 package com.shikkhokplus.app.feature.profile
 
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_ADD_EMAIL
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_ADD_PHONE
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_PASSWORD
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -322,5 +325,31 @@ class ProfileScreenTest {
         render(actions = MoreActions())
 
         compose.onNodeWithTag(TAG_PROFILE_TWO_STEP).assertDoesNotExist()
+    }
+
+    @Test
+    fun `an account without a password is offered to set one, marked as needed`() {
+        render(actions = MoreActions(onPassword = {}, hasPassword = false))
+
+        compose.onNodeWithTag(TAG_PROFILE_PASSWORD).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Set a password").assertExists()
+    }
+
+    @Test
+    fun `an account with a password is offered to change it`() {
+        render(actions = MoreActions(onPassword = {}, hasPassword = true))
+
+        compose.onNodeWithText("Change password").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `the add rows appear only when the route supplies them, and lead where they say`() {
+        var opened = 0
+        render(actions = MoreActions(onAddPhone = { opened++ }))
+
+        compose.onNodeWithTag(TAG_PROFILE_ADD_PHONE).performScrollTo().performClick()
+        compose.onNodeWithText("Teachers find students and guardians by phone").assertExists()
+        compose.onNodeWithTag(TAG_PROFILE_ADD_EMAIL).assertDoesNotExist()
+        assertEquals(1, opened)
     }
 }

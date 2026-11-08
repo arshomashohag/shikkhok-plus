@@ -28,14 +28,20 @@ data class AlreadyAddedDto(
 )
 
 /**
- * Create an account for a number nobody has registered.
+ * Create an account for a phone number or an email address nobody has
+ * registered.
  *
- * **The number is typed by the person and never read from the SIM**
- * [TC-4, D-35]. There is no device-side source for this field anywhere
- * in this app, which is enforced by the release-build DEX scan rather
- * than by this comment.
+ * **Exactly one of [phone] and [email]**; the other is left out of the
+ * body. **The number is typed by the person and never read from the
+ * SIM** [TC-4, D-35]. There is no device-side source for this field
+ * anywhere in this app, which is enforced by the release-build DEX scan
+ * rather than by this comment.
  *
- * @property phone The number this identity is keyed on
+ * **No password here.** It is chosen on the same form but sent only
+ * after the code is verified, to `POST /v1/auth/password/setup`.
+ *
+ * @property phone The number this identity is keyed on, or null
+ * @property email The address this identity is keyed on, or null
  * @property role The claimed role; nothing verifies it [BR4.2]
  * @property selfName The name the person chose for themselves
  * @property addressHouse House or flat. The four address parts are
@@ -48,7 +54,8 @@ data class AlreadyAddedDto(
  */
 @Serializable
 data class SignupRequestDto(
-    val phone: String,
+    val phone: String? = null,
+    val email: String? = null,
     val role: String,
     @SerialName("self_name") val selfName: String,
     @SerialName("address_house") val addressHouse: String,
@@ -66,8 +73,8 @@ data class SignupRequestDto(
  * controls [BR2.2].
  *
  * @property accountId The new account
- * @property codeSentTo The number the code went to, so the screen can
- *   name its destination [AC1.11.4]
+ * @property codeSentTo The number or address the code went to, so the
+ *   screen can name its destination [AC1.11.4]
  */
 @Serializable
 data class SignupResponseDto(

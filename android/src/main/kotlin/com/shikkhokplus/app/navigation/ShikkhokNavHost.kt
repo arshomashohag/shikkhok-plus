@@ -46,6 +46,8 @@ import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.AuthViewModel
 import com.shikkhokplus.app.feature.auth.SignupUiState
 import com.shikkhokplus.app.feature.auth.SignupViewModel
+import com.shikkhokplus.app.core.model.Identifier
+import com.shikkhokplus.app.feature.auth.ui.AuthActions
 import com.shikkhokplus.app.feature.auth.ui.AuthScreen
 import com.shikkhokplus.app.feature.auth.ui.SignupScreen
 import com.shikkhokplus.app.feature.batches.BatchesViewModel
@@ -205,16 +207,26 @@ private fun ShikkhokGraph(
                 }
             }
 
+            val codeDestination by authModel.codeDestination.collectAsState()
             AuthScreen(
                 state = state,
-                onRequestCode = authModel::requestCode,
-                onSubmitCode = authModel::submitCode,
-                onRetry = authModel::retry,
-                onGoToSignup = { navController.navigate(Destination.Signup.route) },
-                onResendCode = authModel::resendCode,
-                onChangeNumber = authModel::changeNumber,
-                onSubmitSecondStep = authModel::submitSecondStep,
-                onToggleRecoveryCode = authModel::toggleRecoveryCode,
+                codeDestination = codeDestination,
+                actions =
+                    AuthActions(
+                        onSignIn = authModel::signIn,
+                        onStartCodeFlow = authModel::startCodeFlow,
+                        onBackToSignIn = authModel::backToSignIn,
+                        onRequestCode = authModel::requestCode,
+                        onSubmitCode = authModel::submitCode,
+                        onResendCode = authModel::resendCode,
+                        onChangeNumber = authModel::changeNumber,
+                        onChoosePassword = authModel::choosePassword,
+                        onToggleSetupRecovery = authModel::toggleSetupRecoveryCode,
+                        onSubmitSecondStep = authModel::submitSecondStep,
+                        onToggleRecoveryCode = authModel::toggleRecoveryCode,
+                        onRetry = authModel::retry,
+                        onGoToSignup = { navController.navigate(Destination.Signup.route) },
+                    ),
             )
         }
 
@@ -243,22 +255,18 @@ private fun ShikkhokGraph(
                     // which number it went to. Without this it would
                     // show the number field and invite a second code,
                     // invalidating the one the person is holding.
-                    authModel.adoptPendingCode(sent.codeSentTo)
+                    //
+                    // The password chosen on the form goes with it, handed
+                    // over once: the code step sends it as soon as the
+                    // code is verified, and neither ViewModel keeps it.
+                    authModel.adoptPendingCode(Identifier(sent.kind, sent.codeSentTo), model.takePassword())
                     navController.popBackStack()
                 }
             }
 
             SignupScreen(
                 state = state,
-                onSubmit = { phone, name, address, role, centreName ->
-                    model.submit(
-                        phone = phone,
-                        selfName = name,
-                        address = address,
-                        role = role,
-                        centreName = centreName,
-                    )
-                },
+                onSubmit = model::submit,
                 // **Back to sign-in, not forward to it.** Signup issues
                 // an OTP and does not authenticate, so the person
                 // finishes on the screen they started from — which is
@@ -267,6 +275,7 @@ private fun ShikkhokGraph(
                 onRetry = model::retry,
                 onLookup = model::lookup,
                 onNumberEdited = model::numberEdited,
+                onKindChange = model::kindChanged,
             )
         }
 
@@ -712,6 +721,9 @@ private fun ShikkhokGraph(
                             // makes no request of its own for the mark.
                             twoStepRecommended =
                                 session.mfaStatus?.state?.collectAsState()?.value?.showRecommended == true,
+                        ).withAccountRows(
+                            accountRowsFor(summary) { route -> navController.navigate(route) }
+                                .takeIf { session.tokens != null },
                         ),
                         ),
                     navigate = { route -> navController.navigate(route) },
@@ -735,6 +747,7 @@ private fun ShikkhokGraph(
         }
 
         profileRoutes(client, navController, session.lens, session.settings)
+        accountRoutes(client, navController, session)
         helpRoutes(client, navController)
         mfaRoutes(client, navController, session.mfaStatus)
 

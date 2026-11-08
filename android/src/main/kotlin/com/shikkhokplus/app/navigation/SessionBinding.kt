@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.navigation
 
+import com.shikkhokplus.app.core.network.TokenStore
 import com.shikkhokplus.app.core.settings.SettingsHolder
 import com.shikkhokplus.app.core.session.Lens
 import com.shikkhokplus.app.feature.mfa.MfaStatusHolder
@@ -31,6 +32,10 @@ import com.shikkhokplus.app.feature.mfa.MfaStatusHolder
  *   or null where none are kept (a test)
  * @property mfaStatus The two-step verification status this session last
  *   read, shared by More's mark and the two-step screen, or null (a test)
+ * @property tokens Where a password change stores the new pair, or null
+ *   (a test); without it the password screens are not routed
+ * @property onPasswordSet Called once the account has a password, so the
+ *   prompt to set one goes at once
  */
 data class SessionBinding(
     val lens: Lens?,
@@ -40,4 +45,6 @@ data class SessionBinding(
     val unsentWrites: () -> Int = { 0 },
     val settings: SettingsHolder? = null,
     val mfaStatus: MfaStatusHolder? = null,
+    val tokens: TokenStore? = null,
+    val onPasswordSet: () -> Unit = {},
 )

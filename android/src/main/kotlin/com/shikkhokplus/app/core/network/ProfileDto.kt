@@ -34,8 +34,15 @@ data class LensEntryDto(
  * @property addressRoad Road or area, or null
  * @property addressCity City or district, or null
  * @property addressPostcode Four digits, or null
- * @property phone The number this account signs in with, shown
- *   read-only and typed back to confirm deletion
+ * @property phone The number on this account, shown read-only and typed
+ *   back to confirm deletion; null for an account signed up by email
+ *   that has not added one
+ * @property email The email address on this account, or null when it
+ *   has none
+ * @property hasPassword Whether the account has a password yet. False
+ *   for an account from before passwords, which is prompted to set one.
+ *   **Defaults to true when absent**, so a server from before passwords
+ *   never makes every account look unprotected
  * @property workspaces The workspaces this account manages, solo first;
  *   the server's own answer to which a teacher may act on
  */
@@ -49,6 +56,8 @@ data class MeDto(
     @SerialName("address_city") val addressCity: String? = null,
     @SerialName("address_postcode") val addressPostcode: String? = null,
     val phone: String? = null,
+    val email: String? = null,
+    @SerialName("has_password") val hasPassword: Boolean = true,
     val workspaces: List<WorkspaceDto> = emptyList(),
 ) {
     /** The address in its four parts, empty where none is stored. */

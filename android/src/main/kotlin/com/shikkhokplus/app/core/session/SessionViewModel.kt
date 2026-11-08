@@ -39,6 +39,16 @@ class SessionViewModel(
     /** What the app routes on. */
     val state: StateFlow<SessionUiState> = _state.asStateFlow()
 
+    private val _passwordMissing = MutableStateFlow(false)
+
+    /**
+     * Whether the signed-in account has no password yet, as the server
+     * last said (`has_password == false`). Drives the persistent prompt
+     * to set one. False until a read says otherwise, so nothing nags on
+     * an answer that has not arrived.
+     */
+    val passwordMissing: StateFlow<Boolean> = _passwordMissing.asStateFlow()
+
     /**
      * Read which lenses this account holds.
      *
@@ -48,11 +58,14 @@ class SessionViewModel(
      */
     fun resolve() {
         _state.value = SessionUiState.Resolving
+        // A new session starts knowing nothing about the last one's password.
+        _passwordMissing.value = false
         viewModelScope.launch {
             _state.value =
                 when (val result = repository.profile()) {
                     is AuthResult.Ok -> {
                         workspaces?.reconcile(result.value.workspaces)
+                        _passwordMissing.value = !result.value.hasPassword
                         SessionStateMapper.afterLoad(result.value)
                     }
                     is AuthResult.Refused ->
@@ -118,6 +131,7 @@ class SessionViewModel(
             val result = repository.profile()
             if (result !is AuthResult.Ok) return@launch
             workspaces?.reconcile(result.value.workspaces)
+            _passwordMissing.value = !result.value.hasPassword
             val resolved = SessionStateMapper.afterLoad(result.value)
             val current = _state.value
 
@@ -151,5 +165,14 @@ class SessionViewModel(
     /** Try the lens list again after a failure. */
     fun retry() {
         resolve()
+    }
+
+    /**
+     * The account now has a password: the server confirmed it by
+     * answering the set-password request with a new pair. The prompt
+     * goes without waiting for the next read of the account.
+     */
+    fun passwordSet() {
+        _passwordMissing.value = false
     }
 }

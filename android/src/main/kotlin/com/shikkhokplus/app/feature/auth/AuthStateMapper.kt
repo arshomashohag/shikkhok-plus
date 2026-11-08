@@ -36,7 +36,7 @@ object AuthStateMapper {
      */
     fun afterIssue(response: IssueResponse): AuthUiState =
         if (response.status.isEmpty()) {
-            AuthUiState.Failed(UNEXPECTED_KEY, retryable = true)
+            AuthUiState.Failed(UNEXPECTED_KEY, retryable = true, step = AuthStep.CODE_REQUEST)
         } else {
             AuthUiState.AwaitingCode
         }
@@ -96,6 +96,42 @@ object AuthStateMapper {
     }
 
     /**
+     * Map a password sign-in.
+     *
+     * A success is read exactly as [afterVerify] reads one: the pair, or
+     * the authenticator step. A refusal stays on the sign-in form, and
+     * the two refusals a code can get past -- a wrong password, which
+     * the server answers identically for an unknown account and for one
+     * that has no password yet, and too many attempts -- carry the hint
+     * that leads to the code flow. The server says which; the screen only
+     * shows what this sets.
+     *
+     * @param result The repository's answer
+     * @return Signed in, the second step, or a failure on the sign-in form
+     */
+    fun afterSignIn(result: AuthResult<VerifyResponse>): AuthUiState =
+        when (result) {
+            is AuthResult.Ok -> afterVerify(result.value)
+            is AuthResult.Refused ->
+                AuthUiState.Failed(
+                    messageKey = result.envelope.error.messageKey,
+                    retryable = result.envelope.error.retryable,
+                    step = AuthStep.SIGN_IN,
+                    offerCodeFlow = result.envelope.error.messageKey in CODE_FLOW_HINT_KEYS,
+                )
+            AuthResult.TransportFailure -> afterTransportFailure()
+        }
+
+    /** The sign-in refusal of a wrong (or not yet chosen) password. */
+    const val PASSWORD_WRONG_KEY: String = "auth.password.wrong"
+
+    /** Too many failed sign-ins for this identifier. */
+    const val TOO_MANY_ATTEMPTS_KEY: String = "auth.password.too_many_attempts"
+
+    /** The sign-in refusals that show the way to the code flow. */
+    private val CODE_FLOW_HINT_KEYS: Set<String> = setOf(PASSWORD_WRONG_KEY, TOO_MANY_ATTEMPTS_KEY)
+
+    /**
      * Map what the second step came to.
      *
      * **A lapsed challenge goes back to the number.** The challenge is
@@ -141,12 +177,17 @@ object AuthStateMapper {
      * appropriate rather than deciding [TC-9].
      *
      * @param envelope The server's error body
+     * @param step Which form the failure is shown on
      * @return The failed state
      */
-    fun afterError(envelope: ErrorEnvelope): AuthUiState =
+    fun afterError(
+        envelope: ErrorEnvelope,
+        step: AuthStep = AuthStep.SIGN_IN,
+    ): AuthUiState =
         AuthUiState.Failed(
             messageKey = envelope.error.messageKey,
             retryable = envelope.error.retryable,
+            step = step,
         )
 
     /**
@@ -157,10 +198,11 @@ object AuthStateMapper {
      * so the screen offers an explicit retry rather than queueing
      * silently.
      *
+     * @param step Which form the failure is shown on
      * @return The failed state
      */
-    fun afterTransportFailure(): AuthUiState =
-        AuthUiState.Failed(OFFLINE_KEY, retryable = true)
+    fun afterTransportFailure(step: AuthStep = AuthStep.SIGN_IN): AuthUiState =
+        AuthUiState.Failed(OFFLINE_KEY, retryable = true, step = step)
 
     /**
      * Keep a failed code check on the code screen.
