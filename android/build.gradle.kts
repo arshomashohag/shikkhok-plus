@@ -239,6 +239,69 @@ dependencyLocking {
     lockAllConfigurations()
 }
 
+// **Security floors** (gradle/libs.versions.toml, `security*`): raise the
+// transitive test- and build-tooling dependencies the release gate found
+// vulnerable. Applied to every configuration, including AGP's internal
+// unified-test-platform ones, because that is where most of them live.
+// Only ever an upgrade, only on the line already requested (netty 4.1,
+// protobuf-java 3.x, guava's -jre/-android flavour kept), so nothing the
+// app ships can be moved by it.
+val securityFloors: Map<String, String> = mapOf(
+    "netty" to libs.versions.securityNetty.get(),
+    "bouncycastle" to libs.versions.securityBouncycastle.get(),
+    "guava" to libs.versions.securityGuava.get(),
+    "protobuf" to libs.versions.securityProtobufJava.get(),
+    "commonsIo" to libs.versions.securityCommonsIo.get(),
+)
+
+configurations.configureEach {
+    resolutionStrategy.eachDependency {
+        val group = requested.group
+        val name = requested.name
+        val current = requested.version ?: return@eachDependency
+        val floor: String? = when {
+            group == "io.netty" && current.startsWith("4.1.") -> securityFloors.getValue("netty")
+            group == "org.bouncycastle" && name.endsWith("-jdk18on") ->
+                securityFloors.getValue("bouncycastle")
+            group == "com.google.guava" && name == "guava" -> {
+                val flavour = current.substringAfterLast('-', "jre")
+                "${securityFloors.getValue("guava")}-$flavour"
+            }
+            group == "com.google.protobuf" && name == "protobuf-java" && current.startsWith("3.") ->
+                securityFloors.getValue("protobuf")
+            group == "commons-io" && name == "commons-io" -> securityFloors.getValue("commonsIo")
+            else -> null
+        }
+        if (floor != null && isOlder(current, floor)) {
+            useVersion(floor)
+            because("security floor: the release gate's CVE scan (gradle/libs.versions.toml)")
+        }
+    }
+}
+
+/**
+ * Compare two dotted versions numerically, ignoring any qualifier.
+ *
+ * @param current The requested version
+ * @param floor The minimum version
+ * @return Whether [current] is below [floor]
+ */
+fun isOlder(
+    current: String,
+    floor: String
+): Boolean {
+    fun parts(version: String): List<Int> =
+        version.substringBefore('-').split('.').mapNotNull { it.takeWhile(Char::isDigit).toIntOrNull() }
+    val a = parts(current)
+    val b = parts(floor)
+    for (i in 0 until maxOf(a.size, b.size)) {
+        val x = a.getOrElse(i) { 0 }
+        val y = b.getOrElse(i) { 0 }
+        if (x != y) return x < y
+    }
+    return false
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)

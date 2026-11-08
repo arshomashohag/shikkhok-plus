@@ -170,7 +170,9 @@ jobs:
         run: |
           set -euo pipefail
           bin="$RUNNER_TEMP/osv-scanner"
-          curl -fsSL -o "$bin" \
+          # Retried: GitHub's release host answers 504 in bursts (2026-11-08,
+          # three times in two runs). The checksum below still decides.
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o "$bin" \
             "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
           echo "${OSV_SCANNER_SHA256}  $bin" | sha256sum -c -
           chmod +x "$bin"
@@ -365,7 +367,9 @@ jobs:
           [ -f "$aab" ] || { echo "::error::No AAB at $aab"; exit 1; }
 
           jar="$RUNNER_TEMP/bundletool.jar"
-          curl -fsSL -o "$jar" \
+          # Retried: GitHub's release host answers 504 in bursts (2026-11-08,
+          # three times in two runs). The checksum below still decides.
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o "$jar" \
             "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar"
           echo "${BUNDLETOOL_SHA256}  $jar" | sha256sum -c - || {
             echo "::error::bundletool checksum mismatch."
@@ -449,7 +453,9 @@ jobs:
         run: |
           set -euo pipefail
           archive="$RUNNER_TEMP/syft.tar.gz"
-          curl -fsSL -o "$archive" \
+          # Retried: GitHub's release host answers 504 in bursts (2026-11-08,
+          # three times in two runs). The checksum below still decides.
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o "$archive" \
             "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz"
           echo "${SYFT_SHA256}  $archive" | sha256sum -c -
           mkdir -p "$RUNNER_TEMP/bin"

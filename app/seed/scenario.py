@@ -682,6 +682,11 @@ class _Simulation:
         # and the seeded history's own test, which expects one, failed on
         # those runs.
         kids[6].payer, kids[6].app_user = "partial", "guardian"
+        # And one family always pays two months at once, for the same
+        # reason: the credit a later month spends exists only when the
+        # draw gives some family that habit, which it often did not, and
+        # the test expecting a ``credit_apply`` failed on those runs.
+        kids[9].payer = "advance"
         kids[40].student_phone = kids[40].student_phone or self._phone(1, 40)
         for kid in kids:
             if kid.app_user == "student" and kid.student_phone is None:
