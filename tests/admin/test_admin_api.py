@@ -19,7 +19,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.accounts.clients import record_client
-from app.authz.admin import PLATFORM_ADMIN_PHONES_ENV, platform_admin_phones
+from app.authz.admin import PLATFORM_ADMIN_PHONES_ENV, platform_admins
 from app.errors import ValidationError
 from app.help.identity import requester_ref
 from tests.admin.conftest import EDGE, admin_headers
@@ -212,7 +212,7 @@ def test_a_malformed_allowlist_admits_nobody_and_says_why(
         f"{phone_of(owner_session, people.stranger)},not-a-number",
     )
     with pytest.raises(ValidationError):
-        platform_admin_phones()
+        platform_admins()
     response = api_client.get(
         "/v1/admin/overview", headers=admin_headers(owner_session, people.stranger)
     )

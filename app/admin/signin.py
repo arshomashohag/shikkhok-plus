@@ -115,23 +115,23 @@ def _refused() -> AuthorizationError:
     )
 
 
-def _phone(session: Session, account_id: uuid.UUID) -> str | None:
-    """Read an account's number.
+def _is_admin(session: Session, account_id: uuid.UUID) -> bool:
+    """Report whether an account's number or address is allowlisted.
 
     :param session: The session to read through
     :param account_id: The account
-    :return: Its phone, or None when the account is gone
+    :return: False too when the account is gone
     """
-    phone = session.execute(
-        sa.text("SELECT phone FROM account WHERE id = :a"), {"a": account_id}
-    ).scalar()
-    return None if phone is None else str(phone)
+    row = session.execute(
+        sa.text("SELECT phone, email FROM account WHERE id = :a"), {"a": account_id}
+    ).one_or_none()
+    return row is not None and is_platform_admin(row.phone, row.email)
 
 
 def begin_mfa(
     session: Session,
     account_id: uuid.UUID,
-    phone: str,
+    label: str,
     now: dt.datetime | None = None,
 ) -> Challenge:
     """Start the authenticator step after a verified SMS code.
@@ -139,13 +139,14 @@ def begin_mfa(
     Does not commit; the route does, with the OTP spend it follows.
 
     :param session: The session to write through
-    :param account_id: The account the SMS code authenticated
-    :param phone: Its number
+    :param account_id: The account the code authenticated
+    :param label: The number or address the code went to; the
+        authenticator app shows its last four characters
     :param now: The moment, or None for the clock
     :return: The challenge, carrying a fresh secret when enrolling
     :raises AuthorizationError: 403 when the number is not an administrator
     """
-    if not is_platform_admin(phone):
+    if not _is_admin(session, account_id):
         raise _refused()
     moment = now or dt.datetime.now(tz=dt.UTC)
     factor = load_factor(session, account_id)
@@ -154,7 +155,7 @@ def begin_mfa(
     uri: str | None = None
     if stage == "enroll":
         secret, uri = start_enrollment(
-            session, account_id, f"admin-{phone[-4:]}", ISSUER, moment
+            session, account_id, f"admin-{label[-4:]}", ISSUER, moment
         )
     token = issue_scoped_token(
         account_id,
@@ -194,8 +195,7 @@ def complete_mfa(
     claims = verify_scoped_token(challenge, MFA_CHALLENGE_AUDIENCE, now=moment)
     account_id = uuid.UUID(str(claims["sub"]))
     stage = str(claims.get("stage", ""))
-    phone = _phone(session, account_id)
-    if phone is None or not is_platform_admin(phone):
+    if not _is_admin(session, account_id):
         raise _refused()
     if (code is None) == (recovery_code is None) or (
         stage == "enroll" and recovery_code is not None

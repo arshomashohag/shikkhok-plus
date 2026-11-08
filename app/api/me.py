@@ -72,6 +72,10 @@ class MeResponse(BaseModel):
         login, read by the owner on a lens-exempt route; the profile
         shows it read-only, and in-app deletion asks the person to type
         it back as confirmation, which needs the app to know it
+    :ivar email: The address this account signs in with, or None [0032].
+        The owner's own, like ``phone``
+    :ivar has_password: Whether a password is set; an account without
+        one is asked to set one [0032]
     :ivar workspaces: Every workspace the teacher lens may act on, solo
         first [0022]. A client sends the chosen one's ``owner_id`` as
         ``X-Workspace-Id``; with one entry, or none, there is nothing to
@@ -87,6 +91,8 @@ class MeResponse(BaseModel):
     address_city: str | None = None
     address_postcode: str | None = None
     phone: str | None = None
+    email: str | None = None
+    has_password: bool = False
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -165,6 +171,8 @@ def _me(session: Session, account_id: uuid.UUID, profile: Profile | None) -> MeR
         address_city=profile.address_city if profile else None,
         address_postcode=profile.address_postcode if profile else None,
         phone=account.phone if account else None,
+        email=account.email if account else None,
+        has_password=bool(account and account.password_hash),
         workspaces=[
             WorkspaceResponse.model_validate(
                 {"owner_id": row.owner_id, "kind": row.kind, "name": row.name}

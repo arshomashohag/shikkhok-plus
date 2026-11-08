@@ -37,6 +37,7 @@ from typing import Final
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from app.accounts.identifier import Identifier
 from app.audit.log import AuthEvent, write_audit
 from app.auth import pending
 from app.auth.hashing import generate_code, hash_otp, verify_otp
@@ -45,11 +46,14 @@ from app.errors import ValidationError
 __all__ = [
     "ATTEMPT_CEILING",
     "CODE_LIFETIME",
+    "CONTACT_PURPOSE",
     "DELETION_PURPOSE",
     "OTP_PURPOSE",
     "CodeRefused",
     "IssuedCode",
     "SignupCompleter",
+    "account_for",
+    "consume_code",
     "issue",
     "verify",
 ]
@@ -114,6 +118,12 @@ OTP_PURPOSE: Final = "otp"
 #: compromise is needed here.
 DELETION_PURPOSE: Final = "deletion"
 
+#: Proving a phone number or an email address an account is ADDING
+#: [0032]. Its own purpose for the reason deletion has one: a code sent
+#: to sign in must not be able to attach a destination to an account,
+#: and a code sent to attach one must not sign anyone in.
+CONTACT_PURPOSE: Final = "contact"
+
 
 @dataclass(frozen=True, slots=True)
 class IssuedCode:
@@ -139,7 +149,7 @@ class IssuedCode:
 
 def issue(
     session: Session,
-    phone: str,
+    identifier: Identifier,
     correlation_id: str,
     *,
     purpose: str,
@@ -153,7 +163,7 @@ def issue(
     ``correlation_id``'s place by a caller reordering arguments.
 
     :param session: The session to write through
-    :param phone: The number to issue for
+    :param identifier: The number or address to issue for
     :param correlation_id: Ties the audit row to this request
     :param purpose: What this code may be spent on
     :param now: The moment of issue, or None for the clock
@@ -162,18 +172,15 @@ def issue(
     moment = now or dt.datetime.now(tz=dt.UTC)
     code = generate_code()
 
-    account_id = session.execute(
-        sa.text("SELECT id FROM account WHERE phone = :phone"),
-        {"phone": phone},
-    ).scalar_one_or_none()
+    account_id = account_for(session, identifier)
 
     # BOTH BRANCHES HASH, AND BOTH BRANCHES WRITE. The hash is the
     # smaller asymmetry; the write is the one that dominates.
-    digest = hash_otp(code, phone)
+    digest = hash_otp(code, identifier.value)
     row_id = uuid.uuid4()
     parameters = {
         "id": row_id,
-        "phone": phone,
+        **identifier.as_params(),
         "otp_hash": digest,
         "purpose": purpose,
         "issued_at": moment,
@@ -194,8 +201,8 @@ def issue(
     session.execute(
         sa.text(
             "INSERT INTO otp_request "
-            "(id, phone, otp_hash, purpose, issued_at, expires_at) "
-            "VALUES (:id, :phone, :otp_hash, :purpose, :issued_at, "
+            "(id, phone, email, otp_hash, purpose, issued_at, expires_at) "
+            "VALUES (:id, :phone, :email, :otp_hash, :purpose, :issued_at, "
             ":expires_at)"
         ),
         parameters,
@@ -206,7 +213,7 @@ def issue(
     # completes it. Run for EVERY number, so both branches execute the
     # same statement whatever it finds [BR2.7].
     pending_signup = purpose == OTP_PURPOSE and pending.bind_code(
-        session, phone=phone, otp_request_id=row_id, now=moment
+        session, identifier=identifier, otp_request_id=row_id, now=moment
     )
 
     # account_id is nullable here BY DESIGN: a placeholder would
@@ -228,17 +235,16 @@ def issue(
     )
 
 
-def verify(
+def consume_code(
     session: Session,
-    phone: str,
+    identifier: Identifier,
     code: str,
     correlation_id: str,
     *,
     purpose: str,
     now: dt.datetime | None = None,
-    complete_signup: SignupCompleter | None = None,
 ) -> uuid.UUID:
-    """Verify a code of one purpose and return the account it authenticates.
+    """Check and spend the latest code of one purpose for one destination.
 
     The expiry, the single-use rule and the attempt ceiling share one
     transaction boundary, which is why they are one function rather than
@@ -246,52 +252,44 @@ def verify(
     check that read it**, so a concurrent second verify cannot slip
     between them [BR2.3].
 
-    **Verify-first signup completes here** [C-07]. A right code for a
-    number with no account creates the account from the signup draft
-    bound to that code, through ``complete_signup``, in the SAME
-    transaction that consumes the code: a failure creating it leaves
-    neither an account nor a spent code. A number that does have an
-    account signs in as before, and any draft for it is discarded.
+    **Does not commit a success**: the caller does whatever the code
+    proves inside the same transaction, so a failure there leaves the
+    code unspent. Every refusal commits its attempt row before raising.
 
     :param session: The session to work through
-    :param phone: The number being verified
+    :param identifier: The number or address the code was sent to
     :param code: The presented code
     :param correlation_id: Ties the audit row to this request
     :param purpose: What the presented code must have been issued for
     :param now: The moment of verification, or None for the clock
-    :param complete_signup: Creates the account from a bound draft; None
-        where a code may only authenticate an existing account
-    :return: The authenticated account's id
+    :return: The spent code's row id
     :raises CodeRefused: The code is wrong, expired, used, dead, or was
         issued for a different purpose
     """
     moment = now or dt.datetime.now(tz=dt.UTC)
+    column = identifier.column
 
     # FOR UPDATE is what makes the check-then-write atomic. Without it,
     # two concurrent verifies both read an unconsumed row.
     #
-    # **`purpose` is in the WHERE, beside `phone`, and that placement is
-    # the design rather than a style choice** [DESIGN-1]. This query
-    # returns the LATEST row, so checking the purpose after fetching
-    # means a sign-in code issued after a deletion code SHADOWS it: the
-    # user's valid deletion code is refused, with `_refused()`, which
-    # discloses nothing -- so they retry, spend ceiling budget, and
+    # **`purpose` is in the WHERE, beside the destination, and that
+    # placement is the design rather than a style choice** [DESIGN-1].
+    # This query returns the LATEST row, so checking the purpose after
+    # fetching means a sign-in code issued after a deletion code SHADOWS
+    # it: the user's valid deletion code is refused, with `_refused()`,
+    # which discloses nothing -- so they retry, spend ceiling budget, and
     # conclude the feature is broken.
     #
-    # The order is plausible in real use, not contrived: a person
-    # requests a deletion code, is unsure, signs in to look at their
-    # data first, then returns to the deletion page.
-    #
-    # Filtering here gives each purpose its own most-recent code, which
-    # is what the single-use rule below is then applied to.
+    # The column name is a literal from Identifier.column, never text
+    # from a request.
     row = session.execute(
         sa.text(
-            "SELECT id, otp_hash, expires_at, consumed_at FROM otp_request "
-            "WHERE phone = :phone AND purpose = :purpose "
+            "SELECT id, otp_hash, expires_at, consumed_at FROM otp_request "  # noqa: S608
+            f"WHERE {column} = :value AND purpose = :purpose "
             "ORDER BY issued_at DESC LIMIT 1 "
             "FOR UPDATE"
         ),
-        {"phone": phone, "purpose": purpose},
+        {"value": identifier.value, "purpose": purpose},
     ).one_or_none()
 
     if row is None:
@@ -308,7 +306,7 @@ def verify(
 
     if expired or consumed or exhausted:
         _record_attempt(session, row.id, moment, succeeded=False)
-        _audit_failure(session, phone, correlation_id, moment)
+        _audit_failure(session, identifier, correlation_id, moment)
         session.commit()
         # Expiry is named because its remedy is specific: the code was
         # right and too slow. A used or dead code is "ask for a new one".
@@ -316,7 +314,7 @@ def verify(
             raise CodeRefused(message_key="auth.otp.expired")
         raise CodeRefused(message_key="auth.otp.not_valid")
 
-    matched = verify_otp(code, phone, row.otp_hash)
+    matched = verify_otp(code, identifier.value, row.otp_hash)
     _record_attempt(session, row.id, moment, succeeded=matched)
 
     if not matched:
@@ -329,7 +327,7 @@ def verify(
                 sa.text("UPDATE otp_request SET consumed_at = :now WHERE id = :id"),
                 {"now": moment, "id": row.id},
             )
-        _audit_failure(session, phone, correlation_id, moment)
+        _audit_failure(session, identifier, correlation_id, moment)
         session.commit()
         if remaining <= 0:
             raise CodeRefused(message_key="auth.otp.no_tries_left", code_died=True)
@@ -342,25 +340,59 @@ def verify(
         sa.text("UPDATE otp_request SET consumed_at = :now WHERE id = :id"),
         {"now": moment, "id": row.id},
     )
+    request_id: uuid.UUID = row.id
+    return request_id
 
-    # Annotated at the query site: a raw-SQL scalar is typed Any, and
-    # letting that Any reach the return would silently weaken the
-    # signature every caller relies on.
-    account_id: uuid.UUID | None = session.execute(
-        sa.text("SELECT id FROM account WHERE phone = :phone"),
-        {"phone": phone},
-    ).scalar_one_or_none()
+
+def verify(
+    session: Session,
+    identifier: Identifier,
+    code: str,
+    correlation_id: str,
+    *,
+    purpose: str,
+    now: dt.datetime | None = None,
+    complete_signup: SignupCompleter | None = None,
+) -> uuid.UUID:
+    """Verify a code of one purpose and return the account it authenticates.
+
+    **Verify-first signup completes here** [C-07]. A right code for a
+    destination with no account creates the account from the signup
+    draft bound to that code, through ``complete_signup``, in the SAME
+    transaction that consumes the code: a failure creating it leaves
+    neither an account nor a spent code. A destination that does have an
+    account is authenticated as before, and any draft for it is
+    discarded.
+
+    :param session: The session to work through
+    :param identifier: The number or address being verified
+    :param code: The presented code
+    :param correlation_id: Ties the audit row to this request
+    :param purpose: What the presented code must have been issued for
+    :param now: The moment of verification, or None for the clock
+    :param complete_signup: Creates the account from a bound draft; None
+        where a code may only authenticate an existing account
+    :return: The authenticated account's id
+    :raises CodeRefused: The code is wrong, expired, used, dead, or was
+        issued for a different purpose
+    """
+    moment = now or dt.datetime.now(tz=dt.UTC)
+    request_id = consume_code(
+        session, identifier, code, correlation_id, purpose=purpose, now=moment
+    )
+
+    account_id = account_for(session, identifier)
 
     if account_id is None and complete_signup is not None:
         # The draft bound to THIS code, and only that one: a draft
-        # someone else submitted for the number later is bound to a
-        # later code, which shadows this one [C-07].
-        account_id = complete_signup(session, row.id, moment)
+        # someone else submitted later is bound to a later code, which
+        # shadows this one [C-07].
+        account_id = complete_signup(session, request_id, moment)
     elif account_id is not None and purpose == OTP_PURPOSE:
-        # Signed in to an account that exists: a draft submitted for
-        # this number is moot, and holds an address, so it goes now
+        # Authenticated as an account that exists: a draft submitted for
+        # this destination is moot, and holds an address, so it goes now
         # rather than at the purge.
-        pending.discard(session, phone=phone)
+        pending.discard(session, identifier=identifier)
 
     if account_id is None:
         session.commit()
@@ -384,6 +416,23 @@ def verify(
         occurred_at=moment,
     )
     session.commit()
+    return account_id
+
+
+def account_for(session: Session, identifier: Identifier) -> uuid.UUID | None:
+    """Return the account a phone number or an email address belongs to.
+
+    :param session: The session to read through
+    :param identifier: The number or address
+    :return: The account's id, or None
+    """
+    # Annotated at the query site: a raw-SQL scalar is typed Any, and
+    # letting that Any reach the return would silently weaken the
+    # signature every caller relies on.
+    account_id: uuid.UUID | None = session.execute(
+        sa.text(f"SELECT id FROM account WHERE {identifier.column} = :value"),  # noqa: S608
+        {"value": identifier.value},
+    ).scalar_one_or_none()
     return account_id
 
 
@@ -420,20 +469,20 @@ def _record_attempt(
 
 
 def _audit_failure(
-    session: Session, phone: str, correlation_id: str, moment: dt.datetime
+    session: Session,
+    identifier: Identifier,
+    correlation_id: str,
+    moment: dt.datetime,
 ) -> None:
-    """Write a ``VERIFY_FAILED`` row, carrying no number and no code.
+    """Write a ``VERIFY_FAILED`` row, carrying no destination and no code.
 
     :param session: The session to write through
-    :param phone: The number, used only to resolve the account id
+    :param identifier: The destination, used only to resolve the account
     :param correlation_id: Ties the row to this request
     :param moment: When the failure happened
     :return: None
     """
-    account_id = session.execute(
-        sa.text("SELECT id FROM account WHERE phone = :phone"),
-        {"phone": phone},
-    ).scalar_one_or_none()
+    account_id = account_for(session, identifier)
     write_audit(
         session,
         account_id=account_id,

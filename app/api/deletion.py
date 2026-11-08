@@ -38,7 +38,6 @@ send itself, so an unknown number spends none of it [PA-SEC-2].
 from __future__ import annotations
 
 import html
-import os
 import uuid
 from dataclasses import dataclass
 from typing import Annotated, Final
@@ -51,22 +50,22 @@ from fastapi.responses import HTMLResponse
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
 
+from app.accounts.identifier import Channel, Identifier
 from app.api.auth import (
-    APP_HASH_ENV,
     correlation_of,
+    get_email_gateway,
     get_gateway,
     ip_prefix_of,
 )
 from app.api.deps import authenticated_account, get_session, token_subject
 from app.auth import otp
 from app.auth.ceilings import CeilingChecker, SendBudget
-from app.auth.delivery import send_within_budget
+from app.auth.delivery import deliver_code
 from app.auth.mfa import APP_DOOR, check_code, load_factor
 from app.auth.totp import DIGITS
 from app.errors import ConflictError, ValidationError
-from app.gateway.outbox import record_outbox
+from app.gateway.email import EmailGateway
 from app.gateway.sms import SmsGateway
-from app.gateway.template import render_otp_message
 from app.governance.deletion import delete_account
 from app.governance.footprint import teacher_footprint
 from app.money.wire import to_wire
@@ -90,9 +89,11 @@ router = APIRouter(tags=["deletion"])
 
 #: Resolves the number from the authenticated account, because
 #: :func:`~app.governance.deletion.delete_account` is keyed on the phone
-#: -- the two phone-scoped tables it must clear have no account column
-#: to match on.
-_PHONE_OF_ACCOUNT = sa.text("SELECT phone FROM account WHERE id = :account_id")
+#: number or the address -- the destination-scoped tables it must clear
+#: have no account column to match on.
+_DESTINATION_OF_ACCOUNT = sa.text(
+    "SELECT phone, email FROM account WHERE id = :account_id"
+)
 
 #: The page a person reaches from the Play listing. Play requires the
 #: route to **name the app and the developer** so a person can tell they
@@ -122,11 +123,12 @@ _PAGE_TEMPLATE: Final = """<!DOCTYPE html>
 <p>App: <strong>ShikkhokPlus</strong> (com.shikkhokplus.app)</p>
 <p>Developer: <strong>Nirmata</strong></p>
 {notice}<p>
-  Request a code on your registered phone number, then enter it to
-  delete your account. You do not need the app installed.
+  Request a code on your registered phone number or email address, then
+  enter it to delete your account. You do not need the app installed.
 </p>
 <p>
-  Your account, your phone number and anything you wrote about
+  Your account, your phone number, your email address and anything you
+  wrote about
   yourself are deleted permanently. Records your teacher wrote --
   attendance, marks and fee entries -- stay with your teacher's own
   records, with your account link removed. See the privacy policy for
@@ -143,8 +145,9 @@ _PAGE_TEMPLATE: Final = """<!DOCTYPE html>
 """
 
 _FORM_TEMPLATE: Final = """<form method="post" action="/account-deletion">
-  <label for="phone">Phone number</label>
-  <input id="phone" name="phone" type="tel" required value="{phone}">
+  <label for="phone">Phone number or email address</label>
+  <input id="phone" name="phone" type="text" required value="{phone}"
+    autocomplete="username">
   <label for="code">Code</label>
   <input id="code" name="code" type="text" inputmode="numeric">
   <label for="authenticator_code">Authenticator code
@@ -159,8 +162,8 @@ _FORM_TEMPLATE: Final = """<form method="post" action="/account-deletion">
 #: and one without** [BR2.7], which is why it says "if": the page cannot
 #: know, and must not be made to.
 CODE_SENT_NOTICE: Final = (
-    "If this number has a ShikkhokPlus account, we have sent a code to "
-    "it by SMS. Enter the code below and submit to delete the account. "
+    "If this number or address has a ShikkhokPlus account, we have sent "
+    "a code to it. Enter the code below and submit to delete the account. "
     "To get a new code, leave the code box empty and submit again."
 )
 
@@ -204,8 +207,8 @@ _REFUSAL_COPY: Final = {
 #: For a submission that fails schema validation, or a refusal with no
 #: entry above.
 INVALID_NOTICE: Final = (
-    "Check the phone number and the code, then submit again. Use the "
-    "number your account is registered with, like 01711234567."
+    "Check the phone number or email address and the code, then submit "
+    "again. Use the one your account is registered with, like 01711234567."
 )
 
 #: A form submission is two short fields; anything far larger is not
@@ -286,8 +289,12 @@ def _form_fields(raw: bytes) -> dict[str, str | None]:
         value = values[0].strip() if values else ""
         return value or None
 
+    # One box for a number or an address [0032]: an "@" says which.
+    typed = first("phone")
+    is_email = typed is not None and "@" in typed
     return {
-        "phone": first("phone"),
+        "phone": None if is_email else typed,
+        "email": typed if is_email else None,
         "code": first("code"),
         "authenticator_code": first("authenticator_code"),
     }
@@ -314,7 +321,12 @@ async def read_submission(request: Request) -> DeletionSubmission:
         except ValueError:
             return DeletionSubmission(
                 body=None,
-                form={"phone": None, "code": None, "authenticator_code": None},
+                form={
+                    "phone": None,
+                    "email": None,
+                    "code": None,
+                    "authenticator_code": None,
+                },
             )
     try:
         return DeletionSubmission(
@@ -387,6 +399,7 @@ def external_deletion(
     background: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
     gateway: Annotated[SmsGateway, Depends(get_gateway)],
+    email_gateway: Annotated[EmailGateway, Depends(get_email_gateway)],
 ) -> DeletionOutcome | HTMLResponse:
     """Send a deletion code, or delete once one is presented.
 
@@ -414,6 +427,7 @@ def external_deletion(
     :param background: Runs the SMS send after the response is written
     :param session: The request-scoped session
     :param gateway: The configured SMS gateway
+    :param email_gateway: The configured email gateway
     :return: ``requested`` after a code is sent, ``deleted`` after one
         is spent -- or the page saying so, for a form submission
     :raises CeilingBreach: A deletion ceiling refused a JSON send
@@ -422,7 +436,7 @@ def external_deletion(
     """
     if submission.body is not None:
         return _external_deletion(
-            submission.body, request, background, session, gateway
+            submission.body, request, background, session, gateway, email_gateway
         )
 
     fields = submission.form or {}
@@ -433,24 +447,28 @@ def external_deletion(
         # from inside the model; a code of the wrong length is
         # pydantic's. Both mean "nothing we can act on", and neither has
         # reached the database.
-        return _page(422, notice=INVALID_NOTICE, phone=fields.get("phone") or "")
+        typed = fields.get("phone") or fields.get("email") or ""
+        return _page(422, notice=INVALID_NOTICE, phone=typed)
 
+    typed = body.identifier.value
     try:
-        outcome = _external_deletion(body, request, background, session, gateway)
+        outcome = _external_deletion(
+            body, request, background, session, gateway, email_gateway
+        )
     except (ValidationError, ConflictError) as refusal:
         copy = _REFUSAL_COPY.get(refusal.message_key, INVALID_NOTICE)
         status = 409 if isinstance(refusal, ConflictError) else 400
         return _page(
             status,
             notice=copy.format_map(refusal.details or {}),
-            phone=body.phone,
+            phone=typed,
         )
 
     if outcome.status == "deleted":
         return _page(200, notice=DELETED_NOTICE, show_form=False)
     # THE SAME PAGE for a known and an unknown number [BR2.7]: the only
     # value in it is the number the caller typed, canonicalised.
-    return _page(200, notice=CODE_SENT_NOTICE, phone=body.phone)
+    return _page(200, notice=CODE_SENT_NOTICE, phone=typed)
 
 
 def _page(
@@ -476,6 +494,7 @@ def _external_deletion(
     background: BackgroundTasks,
     session: Session,
     gateway: SmsGateway,
+    email_gateway: EmailGateway,
 ) -> DeletionOutcome:
     """Run one step of the external route, whichever encoding asked.
 
@@ -489,6 +508,7 @@ def _external_deletion(
     :param background: Runs the SMS send after the response is written
     :param session: The request-scoped session
     :param gateway: The configured SMS gateway
+    :param email_gateway: The configured email gateway
     :return: ``requested`` after a code is sent, ``deleted`` after one
         is spent
     :raises CeilingBreach: A deletion ceiling refused this send
@@ -496,6 +516,7 @@ def _external_deletion(
         issued for a different purpose
     """
     correlation_id = correlation_of(request)
+    identifier = body.identifier
 
     if body.code is None:
         # BEFORE the gateway call, through deletion's OWN cascade
@@ -503,55 +524,39 @@ def _external_deletion(
         # unauthenticated caller lock a victim out of their account
         # from this very route.
         CeilingChecker(session).check_and_consume_deletion(
-            number=body.phone, ip_prefix=ip_prefix_of(request)
+            number=identifier.rate_key, ip_prefix=ip_prefix_of(request)
         )
         issued = otp.issue(
             session,
-            body.phone,
+            identifier,
             correlation_id,
             purpose=otp.DELETION_PURPOSE,
         )
-        message = render_otp_message(issued.code, os.environ.get(APP_HASH_ENV, ""))
 
-        # Only a number with an account is texted, and only after the
-        # response, for the reasons the sign-in route gives: a code sent
-        # to a number with no account can confirm nothing, and sending
-        # inline would make the known branch slower by a gateway round
-        # trip, which is a timing oracle [BR2.7]. Deletion's daily send
-        # budget is spent inside the deferred task, by real sends only
-        # [PA-SEC-2, NFR14.102].
-        if issued.account_exists:
-            background.add_task(
-                send_within_budget,
-                session.get_bind(),
-                gateway,
-                body.phone,
-                message,
-                correlation_id,
-                budget=SendBudget.DELETION,
-                # A code whose send the budget skipped is killed, so it
-                # cannot be guessed while nobody received it [C-20].
-                otp_request_id=issued.request_id,
-            )
-
-        # Records the message a staging host did NOT text, exactly as
-        # the sign-in route does, and GUARDED ON `account_exists` for
-        # the same reason: the unknown-number path renders a message
-        # for a code that can confirm nothing, and recording that would
-        # put an entry in the outbox for a number with no account. That
-        # is an existence oracle in a new place -- the thing `issue`'s
-        # equivalent work on both branches exists to close, reintroduced
+        # Only a destination with an account is sent to, and only after
+        # the response, for the reasons the sign-in route gives: a code
+        # sent where there is no account can confirm nothing, and
+        # sending inline would make the known branch slower by a gateway
+        # round trip, which is a timing oracle [BR2.7]. A text spends
+        # deletion's daily budget, an email the email budget, inside the
+        # deferred task, by real sends only [PA-SEC-2, NFR14.102]. A code
+        # whose send a budget skipped is killed [C-20].
+        #
+        # The staging outbox entry rides the same guard: recording one
+        # for a destination with no account would be an existence oracle
         # one endpoint over, on the route where the caller is
         # unauthenticated.
-        #
-        # A no-op unless the environment permits it and an operator
-        # opted in, so production runs it to no effect.
         if issued.account_exists:
-            record_outbox(
+            deliver_code(
+                background,
                 session,
-                phone=body.phone,
-                message=message,
-                correlation_id=correlation_id,
+                identifier,
+                issued.code,
+                correlation_id,
+                sms_budget=SendBudget.DELETION,
+                sms_gateway=gateway,
+                email_gateway=email_gateway,
+                otp_request_id=issued.request_id,
             )
 
         # The SAME response either way [BR2.7]. `issue` already does
@@ -561,7 +566,7 @@ def _external_deletion(
 
     account_id = otp.verify(
         session,
-        body.phone,
+        identifier,
         body.code,
         correlation_id,
         purpose=otp.DELETION_PURPOSE,
@@ -588,7 +593,7 @@ def _external_deletion(
             APP_DOOR,
             correlation_id,
         )
-    delete_account(session, body.phone)
+    delete_account(session, identifier)
     return DeletionOutcome(status="deleted")
 
 
@@ -635,15 +640,20 @@ def delete_own_account(
     :param session: The request-scoped session
     :return: The acknowledgement
     """
-    phone: str | None = session.execute(
-        _PHONE_OF_ACCOUNT, {"account_id": account_id}
-    ).scalar_one_or_none()
+    row = session.execute(
+        _DESTINATION_OF_ACCOUNT, {"account_id": account_id}
+    ).one_or_none()
 
     # An authenticated token naming an account that no longer exists is
     # the double-click case [BR1.4], not an error: the token outlives
     # the row by its own lifetime. Reporting success is honest -- the
     # account is gone, which is what was asked for.
-    if phone is not None:
-        delete_account(session, phone)
+    if row is not None:
+        delete_account(
+            session,
+            Identifier(Channel.PHONE, row.phone)
+            if row.phone
+            else Identifier(Channel.EMAIL, row.email),
+        )
 
     return DeletionResponse()

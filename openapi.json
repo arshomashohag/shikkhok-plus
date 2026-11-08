@@ -232,17 +232,33 @@
       },
       "AdminOtpRequest": {
         "additionalProperties": false,
-        "description": "Ask for an admin sign-in code by SMS.\n\n:ivar phone: The administrator's number, in any spelling",
+        "description": "Ask for an admin sign-in code, by SMS or by email [0032].\n\n:ivar phone: The administrator's number, in any spelling, or None\n:ivar email: Or the administrator's address; exactly one of the two",
         "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "description": "An email address, at most 254 characters. It is stored and returned trimmed and lowercased.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
           "phone": {
-            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
-            "title": "Phone",
-            "type": "string"
+            "anyOf": [
+              {
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           }
         },
-        "required": [
-          "phone"
-        ],
         "title": "AdminOtpRequest",
         "type": "object"
       },
@@ -680,7 +696,7 @@
       },
       "AdminVerifyRequest": {
         "additionalProperties": false,
-        "description": "Spend the SMS code.\n\n:ivar phone: The number the code was sent to\n:ivar code: The code from the SMS",
+        "description": "Spend the code.\n\n:ivar phone: The number the code was sent to, or None\n:ivar email: Or the address [0032]\n:ivar code: The code from the SMS or the email",
         "properties": {
           "code": {
             "maxLength": 10,
@@ -688,15 +704,33 @@
             "title": "Code",
             "type": "string"
           },
+          "email": {
+            "anyOf": [
+              {
+                "description": "An email address, at most 254 characters. It is stored and returned trimmed and lowercased.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
           "phone": {
-            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
-            "title": "Phone",
-            "type": "string"
+            "anyOf": [
+              {
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           }
         },
         "required": [
-          "code",
-          "phone"
+          "code"
         ],
         "title": "AdminVerifyRequest",
         "type": "object"
@@ -2084,6 +2118,79 @@
           "owing_students"
         ],
         "title": "CollectionsResponse",
+        "type": "object"
+      },
+      "ContactRequest": {
+        "additionalProperties": false,
+        "description": "Ask for a code to add a phone number or an email address.\n\n:ivar phone: The number to add, or None\n:ivar email: Or the address to add",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "description": "An email address, at most 254 characters. It is stored and returned trimmed and lowercased.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          }
+        },
+        "title": "ContactRequest",
+        "type": "object"
+      },
+      "ContactVerifyRequest": {
+        "additionalProperties": false,
+        "description": "Add the phone number or email address a code was sent to.\n\n:ivar phone: The number, or None\n:ivar email: Or the address\n:ivar code: The code sent to it",
+        "properties": {
+          "code": {
+            "maxLength": 10,
+            "minLength": 4,
+            "title": "Code",
+            "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "description": "An email address, at most 254 characters. It is stored and returned trimmed and lowercased.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "ContactVerifyRequest",
         "type": "object"
       },
       "CorrectionEntryResponse": {
@@ -4738,17 +4845,33 @@
       },
       "IssueRequest": {
         "additionalProperties": false,
-        "description": "Ask for a code to be sent to a number.\n\nThe number is **typed by the user** and never read from the SIM\n[AC1.1.6]: there is no device-side source for this field.\n\n:ivar phone: The destination number in international form",
+        "description": "Ask for a code to be sent to a number or an address.\n\nThe number is **typed by the user** and never read from the SIM\n[AC1.1.6]: there is no device-side source for this field.\n\nSince passwords [0032] a code no longer signs anyone in: it completes\na signup, recovers a forgotten password, or gives an account its\nfirst one, by way of ``POST /v1/auth/password/setup``.\n\n:ivar phone: The destination number, or None\n:ivar email: The destination address, or None; exactly one is given",
         "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "description": "An email address, at most 254 characters. It is stored and returned trimmed and lowercased.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
           "phone": {
-            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
-            "title": "Phone",
-            "type": "string"
+            "anyOf": [
+              {
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           }
         },
-        "required": [
-          "phone"
-        ],
         "title": "IssueRequest",
         "type": "object"
       },
@@ -4876,7 +4999,7 @@
         "type": "object"
       },
       "MeResponse": {
-        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first\n:ivar self_name: The name this person chose for themselves, or\n    None before they have set one\n:ivar address: Their address, or None. **Owner-private** [BR3.4]:\n    it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens\n    response, which the schema-wide privacy gate asserts. It is\n    returned HERE because this is the owner reading their own row.\n    The free-text form, kept for an address typed before 2026-11-05\n:ivar address_house: House or flat, or None. Owner-private, as above\n:ivar address_road: Road or area, or None\n:ivar address_city: City or district, or None\n:ivar address_postcode: Four digits, or None\n:ivar phone: The number this account signs in with. The owner's own\n    login, read by the owner on a lens-exempt route; the profile\n    shows it read-only, and in-app deletion asks the person to type\n    it back as confirmation, which needs the app to know it\n:ivar workspaces: Every workspace the teacher lens may act on, solo\n    first [0022]. A client sends the chosen one's ``owner_id`` as\n    ``X-Workspace-Id``; with one entry, or none, there is nothing to\n    choose",
+        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first\n:ivar self_name: The name this person chose for themselves, or\n    None before they have set one\n:ivar address: Their address, or None. **Owner-private** [BR3.4]:\n    it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens\n    response, which the schema-wide privacy gate asserts. It is\n    returned HERE because this is the owner reading their own row.\n    The free-text form, kept for an address typed before 2026-11-05\n:ivar address_house: House or flat, or None. Owner-private, as above\n:ivar address_road: Road or area, or None\n:ivar address_city: City or district, or None\n:ivar address_postcode: Four digits, or None\n:ivar phone: The number this account signs in with. The owner's own\n    login, read by the owner on a lens-exempt route; the profile\n    shows it read-only, and in-app deletion asks the person to type\n    it back as confirmation, which needs the app to know it\n:ivar email: The address this account signs in with, or None [0032].\n    The owner's own, like ``phone``\n:ivar has_password: Whether a password is set; an account without\n    one is asked to set one [0032]\n:ivar workspaces: Every workspace the teacher lens may act on, solo\n    first [0022]. A client sends the chosen one's ``owner_id`` as\n    ``X-Workspace-Id``; with one entry, or none, there is nothing to\n    choose",
         "properties": {
           "address": {
             "anyOf": [
@@ -4932,6 +5055,22 @@
               }
             ],
             "title": "Address Road"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "has_password": {
+            "default": false,
+            "title": "Has Password",
+            "type": "boolean"
           },
           "lenses": {
             "items": {
@@ -6204,6 +6343,125 @@
           "owed_together"
         ],
         "title": "OwedTogetherResponse",
+        "type": "object"
+      },
+      "PasswordChangeRequest": {
+        "additionalProperties": false,
+        "description": "Set a first password, or change the current one.\n\n:ivar current_password: Required when the account has a password\n:ivar new_password: The new one",
+        "properties": {
+          "current_password": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Password"
+          },
+          "new_password": {
+            "maxLength": 1024,
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "new_password"
+        ],
+        "title": "PasswordChangeRequest",
+        "type": "object"
+      },
+      "PasswordSetupRequest": {
+        "additionalProperties": false,
+        "description": "Choose a password with the token a verified code yielded.\n\n:ivar token: ``password_setup_token`` from ``POST /v1/auth/verify``\n:ivar password: The new password\n:ivar code: Six digits from the authenticator app, when\n    ``mfa_required`` was true\n:ivar recovery_code: Or a recovery code",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "maxLength": 8,
+                "minLength": 6,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "password": {
+            "description": "8 to 128 characters. Very common passwords are refused.",
+            "maxLength": 1024,
+            "title": "Password",
+            "type": "string"
+          },
+          "recovery_code": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "minLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Code"
+          },
+          "token": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password",
+          "token"
+        ],
+        "title": "PasswordSetupRequest",
+        "type": "object"
+      },
+      "PasswordSignInRequest": {
+        "additionalProperties": false,
+        "description": "Sign in with a phone number or an email address, and a password.\n\n:ivar phone: The account's number, or None\n:ivar email: Or its address\n:ivar password: The password",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "description": "An email address, at most 254 characters. It is stored and returned trimmed and lowercased.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "password": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "PasswordSignInRequest",
         "type": "object"
       },
       "PayableResponse": {
@@ -8793,7 +9051,7 @@
       },
       "SignupRequest": {
         "additionalProperties": false,
-        "description": "Create an account for a number nobody has registered.\n\nThe number is **typed by the person** and never read from the SIM\n[TC-4, D-35]: there is no device-side source for this field, here\nor anywhere in this product.\n\n:ivar phone: The number this identity is keyed on\n:ivar role: The claimed role; nothing verifies it [BR4.2]\n:ivar self_name: The name the person chose for themselves. Lands on\n    ``Profile.self_name`` and never on an ``Enrollment.display_name``\n    [BR3.1]\n:ivar address_house: House or flat. **Required**, on every path,\n    including a number a teacher already added (decided 2026-11-05)\n:ivar address_road: Road or area, required\n:ivar address_city: City or district, required\n:ivar address_postcode: Four digits, required\n:ivar centre_name: The centre's name. Required for ``coaching`` and\n    refused for every other role",
+        "description": "Create an account for a number or an address nobody has registered.\n\nThe number is **typed by the person** and never read from the SIM\n[TC-4, D-35]: there is no device-side source for this field, here\nor anywhere in this product.\n\n:ivar phone: The number this identity is keyed on, or None\n:ivar email: Or the address [0032]; exactly one of the two. No\n    password here: it is chosen after the code is verified, with the\n    token that verification yields, so the person who proved the\n    destination is the one who sets it\n:ivar role: The claimed role; nothing verifies it [BR4.2]\n:ivar self_name: The name the person chose for themselves. Lands on\n    ``Profile.self_name`` and never on an ``Enrollment.display_name``\n    [BR3.1]\n:ivar address_house: House or flat. **Required**, on every path,\n    including a number a teacher already added (decided 2026-11-05)\n:ivar address_road: Road or area, required\n:ivar address_city: City or district, required\n:ivar address_postcode: Four digits, required\n:ivar centre_name: The centre's name. Required for ``coaching`` and\n    refused for every other role",
         "properties": {
           "address_city": {
             "description": "City or district.",
@@ -8834,10 +9092,29 @@
             ],
             "title": "Centre Name"
           },
+          "email": {
+            "anyOf": [
+              {
+                "description": "An email address, at most 254 characters. It is stored and returned trimmed and lowercased.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
           "phone": {
-            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
-            "title": "Phone",
-            "type": "string"
+            "anyOf": [
+              {
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           },
           "role": {
             "enum": [
@@ -8861,7 +9138,6 @@
           "address_house",
           "address_postcode",
           "address_road",
-          "phone",
           "role",
           "self_name"
         ],
@@ -8870,7 +9146,7 @@
       },
       "SignupResponse": {
         "additionalProperties": false,
-        "description": "The account exists and a code is on its way [BR4.3].\n\n**No token and no lens.** The account is created before the code is\nsent, and the person is authenticated by the existing OTP flow,\nunchanged [BR2.2]. Returning a token here would make signup a\nsecond authentication path with none of the seven controls the\nfirst one carries.\n\n:ivar account_id: The new account\n:ivar code_sent_to: The number the code was sent to, echoed so the\n    screen can name its destination [BR4.3, AC1.11.4]",
+        "description": "The account exists and a code is on its way [BR4.3].\n\n**No token and no lens.** The account is created before the code is\nsent, and the person is authenticated by the existing OTP flow,\nunchanged [BR2.2]. Returning a token here would make signup a\nsecond authentication path with none of the seven controls the\nfirst one carries.\n\n:ivar account_id: The new account\n:ivar code_sent_to: The number or address the code was sent to, echoed so the\n    screen can name its destination [BR4.3, AC1.11.4]",
         "properties": {
           "account_id": {
             "format": "uuid",
@@ -10555,7 +10831,7 @@
       },
       "VerifyRequest": {
         "additionalProperties": false,
-        "description": "Present a code for verification.\n\n:ivar phone: The number the code was issued for\n:ivar code: The six-digit code",
+        "description": "Present a code for verification.\n\n:ivar phone: The number the code was issued for, or None\n:ivar email: Or the address it was emailed to\n:ivar code: The six-digit code",
         "properties": {
           "code": {
             "maxLength": 10,
@@ -10563,22 +10839,40 @@
             "title": "Code",
             "type": "string"
           },
+          "email": {
+            "anyOf": [
+              {
+                "description": "An email address, at most 254 characters. It is stored and returned trimmed and lowercased.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
           "phone": {
-            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
-            "title": "Phone",
-            "type": "string"
+            "anyOf": [
+              {
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           }
         },
         "required": [
-          "code",
-          "phone"
+          "code"
         ],
         "title": "VerifyRequest",
         "type": "object"
       },
       "VerifyResponse": {
         "additionalProperties": false,
-        "description": "What a verified SMS code yields: tokens, or the authenticator step.\n\n**For an account without two-step verification this is exactly the\ntoken pair it always was**, so clients built before the authenticator\nstep keep working for everyone who has not turned it on. For an\naccount with it on, the token fields are absent and ``mfa_challenge``\ncarries the person to ``POST /v1/auth/mfa``.\n\n:ivar access_token: The bearer token, when no second step is needed\n:ivar refresh_token: The rotation token, likewise\n:ivar expires_in: Access-token lifetime in seconds, likewise\n:ivar mfa_required: True when an authenticator code must follow\n:ivar mfa_challenge: Carries the sign-in to that step; grants nothing\n:ivar mfa_expires_in: Seconds until the challenge lapses",
+        "description": "What a verified code or a password yields.\n\n**From ``POST /v1/auth/verify``** [0032]: never tokens. A\n``password_setup_token`` carries the person to\n``POST /v1/auth/password/setup``, and ``mfa_required`` says the\nauthenticator code must come with the password there.\n\n**From ``POST /v1/auth/password``**: the token pair, or, for an\naccount with two-step verification on, ``mfa_challenge`` for the\nexisting ``POST /v1/auth/mfa``.\n\n:ivar access_token: The bearer token, when signed in\n:ivar refresh_token: The rotation token, likewise\n:ivar expires_in: Access-token lifetime in seconds, likewise\n:ivar mfa_required: True when an authenticator code must follow\n:ivar mfa_challenge: Carries a password sign-in to that step\n:ivar mfa_expires_in: Seconds until the challenge lapses\n:ivar password_setup_token: From a verified code: the right to choose\n    a password, and nothing else\n:ivar password_setup_expires_in: Seconds until it lapses",
         "properties": {
           "access_token": {
             "anyOf": [
@@ -10628,6 +10922,28 @@
             "default": false,
             "title": "Mfa Required",
             "type": "boolean"
+          },
+          "password_setup_expires_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password Setup Expires In"
+          },
+          "password_setup_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password Setup Token"
           },
           "refresh_token": {
             "anyOf": [
@@ -10801,14 +11117,14 @@
         ]
       },
       "post": {
-        "description": "Send a deletion code, or delete once one is presented.\n\n**One route with two steps rather than two routes**, and that is a\ndeliberate consequence of the allowlist rather than a convenience.\n``PUBLIC_ROUTES`` declares exactly two external deletion entries\nand asserts its count, and D6's stated job is to land handlers\nagainst entries already under review -- not to add a public route\nin the commit that implements one. A separate\n``/account-deletion/code`` would have been a further public entry,\nwhich is a diff against a stated number [BR3.2].\n\nThe step is chosen by whether ``code`` is present, which is also how\nthe page's single form behaves: submit a number to be sent a code,\nsubmit it again with the code to confirm.\n\n**A form submission is answered with a page** [PA-SEC-1]: the\nconfirm step with the number prefilled, the deleted page, or the\nform again with what went wrong. A JSON submission is answered as\nit always was, with the outcome or the error envelope. From the\nform, an empty or whitespace-only code box means no code.\n\n:param submission: The body, as JSON or as the page's form\n:param request: The incoming request\n:param background: Runs the SMS send after the response is written\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: ``requested`` after a code is sent, ``deleted`` after one\n    is spent -- or the page saying so, for a form submission\n:raises CeilingBreach: A deletion ceiling refused a JSON send\n:raises ValidationError: A JSON submission's code is wrong, expired,\n    used or was issued for a different purpose",
+        "description": "Send a deletion code, or delete once one is presented.\n\n**One route with two steps rather than two routes**, and that is a\ndeliberate consequence of the allowlist rather than a convenience.\n``PUBLIC_ROUTES`` declares exactly two external deletion entries\nand asserts its count, and D6's stated job is to land handlers\nagainst entries already under review -- not to add a public route\nin the commit that implements one. A separate\n``/account-deletion/code`` would have been a further public entry,\nwhich is a diff against a stated number [BR3.2].\n\nThe step is chosen by whether ``code`` is present, which is also how\nthe page's single form behaves: submit a number to be sent a code,\nsubmit it again with the code to confirm.\n\n**A form submission is answered with a page** [PA-SEC-1]: the\nconfirm step with the number prefilled, the deleted page, or the\nform again with what went wrong. A JSON submission is answered as\nit always was, with the outcome or the error envelope. From the\nform, an empty or whitespace-only code box means no code.\n\n:param submission: The body, as JSON or as the page's form\n:param request: The incoming request\n:param background: Runs the SMS send after the response is written\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:param email_gateway: The configured email gateway\n:return: ``requested`` after a code is sent, ``deleted`` after one\n    is spent -- or the page saying so, for a form submission\n:raises CeilingBreach: A deletion ceiling refused a JSON send\n:raises ValidationError: A JSON submission's code is wrong, expired,\n    used or was issued for a different purpose",
         "operationId": "external_deletion_account_deletion_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "additionalProperties": false,
-                "description": "Ask for a deletion code, or confirm with one.\n\n**``code`` is optional and that is what selects the step.** The\nexternal route is one route with two steps rather than two routes,\nbecause ``PUBLIC_ROUTES`` declares exactly two external deletion\nentries and asserts its own count -- a separate code endpoint would\nbe a ninth public route [BR3.2].\n\n:ivar phone: The number whose account is to be deleted\n:ivar code: The deletion code, or None to be sent one\n:ivar authenticator_code: For an account with two-step verification\n    on, six digits from the authenticator app or a recovery code.\n    Optional for everyone and asked of everyone alike, so the form\n    does not reveal which accounts have it [0028]",
+                "description": "Ask for a deletion code, or confirm with one.\n\n**``code`` is optional and that is what selects the step.** The\nexternal route is one route with two steps rather than two routes,\nbecause ``PUBLIC_ROUTES`` declares exactly two external deletion\nentries and asserts its own count -- a separate code endpoint would\nbe a ninth public route [BR3.2].\n\n:ivar phone: The number whose account is to be deleted, or None\n:ivar email: Or the address [0032]; exactly one of the two\n:ivar code: The deletion code, or None to be sent one\n:ivar authenticator_code: For an account with two-step verification\n    on, six digits from the authenticator app or a recovery code.\n    Optional for everyone and asked of everyone alike, so the form\n    does not reveal which accounts have it [0028]",
                 "properties": {
                   "authenticator_code": {
                     "anyOf": [
@@ -10836,15 +11152,31 @@
                     ],
                     "title": "Code"
                   },
+                  "email": {
+                    "anyOf": [
+                      {
+                        "description": "An email address, at most 254 characters. It is stored and returned trimmed and lowercased.",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Email"
+                  },
                   "phone": {
-                    "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
-                    "title": "Phone",
-                    "type": "string"
+                    "anyOf": [
+                      {
+                        "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Phone"
                   }
                 },
-                "required": [
-                  "phone"
-                ],
                 "title": "DeletionRequest",
                 "type": "object"
               }
@@ -10852,7 +11184,7 @@
             "application/x-www-form-urlencoded": {
               "schema": {
                 "additionalProperties": false,
-                "description": "Ask for a deletion code, or confirm with one.\n\n**``code`` is optional and that is what selects the step.** The\nexternal route is one route with two steps rather than two routes,\nbecause ``PUBLIC_ROUTES`` declares exactly two external deletion\nentries and asserts its own count -- a separate code endpoint would\nbe a ninth public route [BR3.2].\n\n:ivar phone: The number whose account is to be deleted\n:ivar code: The deletion code, or None to be sent one\n:ivar authenticator_code: For an account with two-step verification\n    on, six digits from the authenticator app or a recovery code.\n    Optional for everyone and asked of everyone alike, so the form\n    does not reveal which accounts have it [0028]",
+                "description": "Ask for a deletion code, or confirm with one.\n\n**``code`` is optional and that is what selects the step.** The\nexternal route is one route with two steps rather than two routes,\nbecause ``PUBLIC_ROUTES`` declares exactly two external deletion\nentries and asserts its own count -- a separate code endpoint would\nbe a ninth public route [BR3.2].\n\n:ivar phone: The number whose account is to be deleted, or None\n:ivar email: Or the address [0032]; exactly one of the two\n:ivar code: The deletion code, or None to be sent one\n:ivar authenticator_code: For an account with two-step verification\n    on, six digits from the authenticator app or a recovery code.\n    Optional for everyone and asked of everyone alike, so the form\n    does not reveal which accounts have it [0028]",
                 "properties": {
                   "authenticator_code": {
                     "anyOf": [
@@ -10880,15 +11212,31 @@
                     ],
                     "title": "Code"
                   },
+                  "email": {
+                    "anyOf": [
+                      {
+                        "description": "An email address, at most 254 characters. It is stored and returned trimmed and lowercased.",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Email"
+                  },
                   "phone": {
-                    "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
-                    "title": "Phone",
-                    "type": "string"
+                    "anyOf": [
+                      {
+                        "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Phone"
                   }
                 },
-                "required": [
-                  "phone"
-                ],
                 "title": "DeletionRequest",
                 "type": "object"
               }
@@ -10993,7 +11341,7 @@
     },
     "/v1/accounts": {
       "post": {
-        "description": "Hold the signup form, then send the code that completes it [C-07].\n\n**Verify first, create second.** This used to create the account,\nprofile, owner and centre here and answer an existing number with a\n409: an existence oracle for any phone number, and a way to squat a\nstranger's number with a name, address and role the real owner then\ninherited. Now the form is held as a draft\n(:mod:`app.auth.pending`) and the account is created only when the\ncode sent to the number is verified at ``POST /v1/auth/verify`` --\nwhich is the call both clients already make next, so neither changes.\n\n**The same answer for every number.** A number with an account gets\nthe same 201 and the same body shape, and the code sent to it signs\nthe person in to the account they already have; a new number's code\ncreates the account. The ``account_id`` reported is the draft's,\nfresh on every request, and becomes the account's id if the draft is\ncompleted. Both branches write a draft and a code, so the work is\nthe same too [BR2.7].\n\nThe ceiling is consumed **before** anything is written, for the\nreason the OTP path checks before its gateway call. The SMS goes\nafter the response, from **signup's own** send budget [C-05], for\nan existing number too: signup can never spend what sign-in needs.\n\nPublic by design, and in ``PUBLIC_ROUTES``: there is no session to\nauthenticate with before an account exists.\n\n:param body: The signup request\n:param request: The incoming request\n:param background: Runs the SMS send after the response is written\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: The draft's id and the number its code went to\n:raises CeilingBreach: A signup ceiling refused this request",
+        "description": "Hold the signup form, then send the code that completes it [C-07].\n\n**Verify first, create second.** This used to create the account,\nprofile, owner and centre here and answer an existing number with a\n409: an existence oracle for any phone number, and a way to squat a\nstranger's number with a name, address and role the real owner then\ninherited. Now the form is held as a draft\n(:mod:`app.auth.pending`) and the account is created only when the\ncode sent to the number is verified at ``POST /v1/auth/verify`` --\nwhich is the call both clients already make next, so neither changes.\n\n**The same answer for every number.** A number with an account gets\nthe same 201 and the same body shape, and the code sent to it signs\nthe person in to the account they already have; a new number's code\ncreates the account. The ``account_id`` reported is the draft's,\nfresh on every request, and becomes the account's id if the draft is\ncompleted. Both branches write a draft and a code, so the work is\nthe same too [BR2.7].\n\nThe ceiling is consumed **before** anything is written, for the\nreason the OTP path checks before its gateway call. The SMS goes\nafter the response, from **signup's own** send budget [C-05], for\nan existing number too: signup can never spend what sign-in needs.\n\nPublic by design, and in ``PUBLIC_ROUTES``: there is no session to\nauthenticate with before an account exists.\n\n:param body: The signup request\n:param request: The incoming request\n:param background: Runs the SMS send after the response is written\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:param email_gateway: The configured email gateway\n:return: The draft's id and where its code went\n:raises CeilingBreach: A signup ceiling refused this request",
         "operationId": "sign_up_v1_accounts_post",
         "requestBody": {
           "content": {
@@ -11182,7 +11530,7 @@
     },
     "/v1/admin/auth/otp": {
       "post": {
-        "description": "Send an admin sign-in code, answering every number the same way.\n\nThe sign-in ceilings apply before anything else, for every number, as\nthey do for app sign-in; the code is texted after the response, so a\nsend cannot be timed either.\n\n:param body: The number\n:param request: The incoming request\n:param background: Runs the send after the response\n:param session: The request-scoped session\n:param gateway: The SMS gateway\n:return: The contentless acknowledgement",
+        "description": "Send an admin sign-in code, answering every destination the same way.\n\nThe sign-in ceilings apply before anything else, for every number or\naddress, as they do for app sign-in; the code is sent after the\nresponse, so a send cannot be timed either. An administrator named\nby email address [0032] is sent the code by email.\n\n:param body: The number or the address\n:param request: The incoming request\n:param background: Runs the send after the response\n:param session: The request-scoped session\n:param gateway: The SMS gateway\n:param email_gateway: The email gateway\n:return: The contentless acknowledgement",
         "operationId": "send_code_v1_admin_auth_otp_post",
         "requestBody": {
           "content": {
@@ -12221,7 +12569,7 @@
     },
     "/v1/auth/otp": {
       "post": {
-        "description": "Issue a code, returning the same response for any number.\n\n:param body: The request body\n:param request: The incoming request\n:param background: Runs the SMS send after the response is written\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: The contentless acknowledgement",
+        "description": "Issue a code, returning the same response for any number or address.\n\nSince passwords [0032] the code this sends completes a signup,\nrecovers a forgotten password or gives an account its first one; it\nnever signs anyone in on its own (see ``POST /v1/auth/verify``).\n\n:param body: The request body\n:param request: The incoming request\n:param background: Runs the send after the response is written\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:param email_gateway: The configured email gateway\n:return: The contentless acknowledgement",
         "operationId": "issue_code_v1_auth_otp_post",
         "requestBody": {
           "content": {
@@ -12276,6 +12624,130 @@
           }
         },
         "summary": "Issue Code",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/password": {
+      "post": {
+        "description": "Sign in with a phone number or an email address and a password.\n\n**One refusal for every failure** [BR2.7]: an unknown destination, an\naccount with no password yet and a wrong password all answer\n``auth.password.wrong``, after the same work. The person who has no\npassword yet is pointed at the code flow by the client's static\nhint, not by a response that would say their account exists.\n\nBounded per identifier and per network, with the network-wide\nfailure ceilings shared with codes.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The token pair, or the authenticator challenge\n:raises CeilingBreach: A failure ceiling is full\n:raises PasswordRefused: The sign-in was refused",
+        "operationId": "sign_in_with_password_v1_auth_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordSignInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Sign In With Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/password/setup": {
+      "post": {
+        "description": "Choose a password with a verified code's token, and sign in.\n\nPublic, like ``/verify``: the person has no session yet. What bounds\nit is the token, which only a verified code yields, and which is\nspent by the password it sets. Every other session of the account\nends: a password chosen through a code is a recovery.\n\n:param body: The token, the password, and the authenticator code\n    when the account has one\n:param request: The incoming request\n:param session: The request-scoped session\n:return: A token pair\n:raises AuthorizationError: 401 when the token is bad, expired or spent\n:raises ValidationError: The password or the authenticator code",
+        "operationId": "set_up_password_v1_auth_password_setup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordSetupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Set Up Password",
         "tags": [
           "auth"
         ]
@@ -12363,7 +12835,7 @@
     },
     "/v1/auth/verify": {
       "post": {
-        "description": "Verify a code and issue a token pair, or ask for the second step.\n\nAn account with two-step verification on gets a challenge instead of\ntokens, and the SMS code is spent either way: a second request with\nthe same code cannot skip the authenticator step.\n\n**Bounded wider than one code** [C-20]. A verify arriving while the\ncaller's /64, its /48 or the whole product has failed too often this\nhour is refused before its code is checked, and every failure counts\nagainst all three. A code guessed to death counts against its\nnumber's daily cool-off, which stops further codes being issued for\nit. All of it applies to a known and an unknown number alike.\n\n**Completes a verify-first signup** [C-07]: a right code for a number\nwhose signup draft it was sent for creates the account, then signs\nit in, so both clients' existing \"sign up, then type the code\" flow\nis unchanged.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The token pair, or the authenticator challenge\n:raises CeilingBreach: A failed-verify ceiling is full\n:raises CodeRefused: The code was refused",
+        "description": "Verify a code and grant the right to choose a password.\n\n**Never a session** [0032]. A verified code yields a\n``password_setup_token``; ``POST /v1/auth/password/setup`` turns it\ninto a session once a password is chosen -- with the authenticator\ncode too when ``mfa_required`` -- so a code can recover an account\nand cannot sign in to one.\n\n**Bounded wider than one code** [C-20]. A verify arriving while the\ncaller's /64, its /48 or the whole product has failed too often this\nhour is refused before its code is checked, and every failure counts\nagainst all three. A code guessed to death counts against its\nnumber's daily cool-off, which stops further codes being issued for\nit. All of it applies to a known and an unknown number alike.\n\n**Completes a verify-first signup** [C-07]: a right code for a number\nwhose signup draft it was sent for creates the account, then signs\nit in, so both clients' existing \"sign up, then type the code\" flow\nis unchanged.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The password-setup grant\n:raises CeilingBreach: A failed-verify ceiling is full\n:raises CodeRefused: The code was refused",
         "operationId": "verify_code_v1_auth_verify_post",
         "requestBody": {
           "content": {
@@ -20258,6 +20730,130 @@
         ]
       }
     },
+    "/v1/me/contact": {
+      "post": {
+        "description": "Send a code to a phone number or an address the account lacks.\n\nSent whether or not another account holds it (see\n:mod:`app.accounts.contact`), within sign-in's per-destination and\nper-network ceilings and the daily send budgets.\n\n:param body: The number or address\n:param request: The incoming request\n:param background: Runs the send after the response is written\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:param email_gateway: The configured email gateway\n:return: The contentless acknowledgement\n:raises ConflictError: The account already has one of this kind\n:raises CeilingBreach: A ceiling refused the send",
+        "operationId": "request_contact_code_v1_me_contact_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Request Contact Code",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/v1/me/contact/verify": {
+      "post": {
+        "description": "Add the phone number or address the code proves.\n\nAdding a phone number links the seats and centre invitations recorded\nagainst it, so the response's lenses may have changed.\n\n:param body: The number or address, and the code\n:param request: The incoming request\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The account, as ``GET /v1/me`` describes it\n:raises CodeRefused: The code was refused\n:raises ConflictError: Already set, or held by another account",
+        "operationId": "verify_contact_v1_me_contact_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Verify Contact",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/v1/me/deletion-summary": {
       "get": {
         "description": "Tell the caller what stays if they delete their account.\n\nLens-exempt on ``DELETE /v1/me``'s reasoning: it reads only what the\nauthenticated account itself owns.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: Batches, students and money still owed; zeros when none",
@@ -22226,6 +22822,68 @@
         "summary": "Read Overview",
         "tags": [
           "analytics"
+        ]
+      }
+    },
+    "/v1/me/password": {
+      "post": {
+        "description": "Set or change this account's password, and sign in afresh.\n\nEvery session ends, this one included, and a new pair is returned\nfor the device that made the change.\n\n:param body: The current password, when there is one, and the new\n:param request: The incoming request\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: A new token pair\n:raises ValidationError: The current password is missing or wrong\n:raises ValidationError: The new password breaks the policy",
+        "operationId": "set_password_v1_me_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Set Password",
+        "tags": [
+          "me"
         ]
       }
     },

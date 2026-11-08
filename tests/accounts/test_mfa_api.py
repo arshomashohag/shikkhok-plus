@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app.auth import totp
 from app.auth.mfa import MAX_FAILED_ATTEMPTS
 from app.auth.mfa_crypto import MFA_ACTIVE_KID_ENV, MFA_KEYS_ENV
+from app.auth.passwords import hash_password
 from app.authz.admin import PLATFORM_ADMIN_PHONES_ENV
 from app.gateway.null import NullGateway
 from tests.batches.conftest import make_teacher
@@ -60,6 +61,11 @@ def texts(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
     return sent
 
 
+#: Every arranged account's password, hashed once for the module.
+_PW = "an arranged passphrase"
+_HASH = hash_password(_PW)
+
+
 def _account(session: Session) -> tuple[uuid.UUID, str]:
     """Arrange a signed-up account.
 
@@ -71,10 +77,10 @@ def _account(session: Session) -> tuple[uuid.UUID, str]:
     account_id = uuid.uuid4()
     session.execute(
         sa.text(
-            "INSERT INTO account (id, phone, created_at, activated_at) "
-            "VALUES (:id, :p, :now, :now)"
+            "INSERT INTO account (id, phone, password_hash, password_changed_at, "
+            "created_at, activated_at) VALUES (:id, :p, :h, :now, :now, :now)"
         ),
-        {"id": account_id, "p": phone, "now": now},
+        {"id": account_id, "p": phone, "h": _HASH, "now": now},
     )
     session.commit()
     return account_id, phone
@@ -119,19 +125,21 @@ def _turn_on(client: TestClient, headers: dict[str, str]) -> tuple[str, list[str
     return secret, confirmed.json()["recovery_codes"]
 
 
-def _sms_verify(client: TestClient, phone: str, texts: list[tuple[str, str]]) -> dict:
-    """Sign in by SMS and return the verify response.
+def _first_step(client: TestClient, phone: str, texts: list[tuple[str, str]]) -> dict:
+    """Sign in with the password and return the first step's response.
+
+    Since passwords [0032] the first step of a sign-in is the password; a
+    code only recovers one. The authenticator step that follows is what
+    this suite is about, and it is unchanged.
 
     :param client: The HTTP client
     :param phone: The number
-    :param texts: The captured sends
-    :return: The verify body
+    :param texts: The captured sends, unused since sign-in sends nothing
+    :return: The first step's body
     """
-    assert client.post("/v1/auth/otp", json={"phone": phone}).status_code == 200
-    code = next(part for part in texts[-1][1].split() if part.isdigit())
-    verified = client.post("/v1/auth/verify", json={"phone": phone, "code": code})
-    assert verified.status_code == 200, verified.text
-    return verified.json()
+    first = client.post("/v1/auth/password", json={"phone": phone, "password": _PW})
+    assert first.status_code == 200, first.text
+    return first.json()
 
 
 def test_it_is_off_by_default_and_recommended_only_to_teachers(
@@ -223,7 +231,7 @@ def test_sign_in_without_it_is_unchanged(
     :return: None
     """
     _, phone = _account(owner_session)
-    body = _sms_verify(api_client, phone, texts)
+    body = _first_step(api_client, phone, texts)
     assert body["mfa_required"] is False
     assert body["access_token"] and body["refresh_token"]
     assert body["expires_in"] == 900
@@ -242,7 +250,7 @@ def test_sign_in_with_it_needs_the_second_step(
     account, phone = _account(owner_session)
     secret, _ = _turn_on(api_client, _auth(owner_session, account))
 
-    body = _sms_verify(api_client, phone, texts)
+    body = _first_step(api_client, phone, texts)
 
     assert body["mfa_required"] is True
     assert body["access_token"] is None and body["refresh_token"] is None
@@ -289,14 +297,14 @@ def test_a_recovery_code_signs_in_once(
     account, phone = _account(owner_session)
     _, codes = _turn_on(api_client, _auth(owner_session, account))
 
-    first = _sms_verify(api_client, phone, texts)
+    first = _first_step(api_client, phone, texts)
     used = api_client.post(
         "/v1/auth/mfa",
         json={"challenge": first["mfa_challenge"], "recovery_code": codes[0]},
     )
     assert used.status_code == 200
 
-    second = _sms_verify(api_client, phone, texts)
+    second = _first_step(api_client, phone, texts)
     again = api_client.post(
         "/v1/auth/mfa",
         json={"challenge": second["mfa_challenge"], "recovery_code": codes[0]},
@@ -347,7 +355,7 @@ def test_a_challenge_minted_before_turning_it_off_is_dead(
     account, phone = _account(owner_session)
     headers = _auth(owner_session, account)
     secret, _ = _turn_on(api_client, headers)
-    pending = _sms_verify(api_client, phone, texts)
+    pending = _first_step(api_client, phone, texts)
     api_client.post(
         "/v1/me/mfa/disable", json={"code": _now_code(secret)}, headers=headers
     )
@@ -370,8 +378,8 @@ def test_wrong_codes_lock_sign_in_across_challenges(
     """
     account, phone = _account(owner_session)
     secret, _ = _turn_on(api_client, _auth(owner_session, account))
-    first = _sms_verify(api_client, phone, texts)["mfa_challenge"]
-    second = _sms_verify(api_client, phone, texts)["mfa_challenge"]
+    first = _first_step(api_client, phone, texts)["mfa_challenge"]
+    second = _first_step(api_client, phone, texts)["mfa_challenge"]
     for attempt in range(MAX_FAILED_ATTEMPTS):
         challenge = first if attempt < 2 else second
         wrong = api_client.post(
@@ -399,14 +407,14 @@ def test_the_same_code_cannot_sign_in_twice(
     account, phone = _account(owner_session)
     secret, _ = _turn_on(api_client, _auth(owner_session, account))
     code = _now_code(secret)
-    first = _sms_verify(api_client, phone, texts)["mfa_challenge"]
+    first = _first_step(api_client, phone, texts)["mfa_challenge"]
     assert (
         api_client.post(
             "/v1/auth/mfa", json={"challenge": first, "code": code}
         ).status_code
         == 200
     )
-    second = _sms_verify(api_client, phone, texts)["mfa_challenge"]
+    second = _first_step(api_client, phone, texts)["mfa_challenge"]
     assert (
         api_client.post(
             "/v1/auth/mfa", json={"challenge": second, "code": code}
@@ -447,7 +455,7 @@ def test_turning_it_off_needs_the_factor_not_just_the_session(
         {"a": account},
     ).one()
     assert tuple(left) == (0, 0)
-    assert _sms_verify(api_client, phone, texts)["mfa_required"] is False
+    assert _first_step(api_client, phone, texts)["mfa_required"] is False
     assert secret
 
 
@@ -498,7 +506,7 @@ def test_new_recovery_codes_retire_the_old_ones(
     new = renewed.json()["recovery_codes"]
     assert not set(new) & set(old)
 
-    challenge = _sms_verify(api_client, phone, texts)["mfa_challenge"]
+    challenge = _first_step(api_client, phone, texts)["mfa_challenge"]
     stale = api_client.post(
         "/v1/auth/mfa", json={"challenge": challenge, "recovery_code": old[0]}
     )
@@ -653,7 +661,7 @@ def test_the_audit_log_records_each_step(
     account, phone = _account(owner_session)
     headers = _auth(owner_session, account)
     secret, _ = _turn_on(api_client, headers)
-    challenge = _sms_verify(api_client, phone, texts)["mfa_challenge"]
+    challenge = _first_step(api_client, phone, texts)["mfa_challenge"]
     api_client.post("/v1/auth/mfa", json={"challenge": challenge, "code": "000000"})
     api_client.post(
         "/v1/auth/mfa", json={"challenge": challenge, "code": _now_code(secret)}

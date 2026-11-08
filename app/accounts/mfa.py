@@ -83,7 +83,7 @@ class MfaStatus:
 
 
 _STANDING: Final = sa.text(
-    "SELECT a.phone, "
+    "SELECT a.phone, a.email, "
     "EXISTS (SELECT 1 FROM owner o WHERE o.account_id = a.id "
     "        AND o.kind = 'teacher') "
     "OR EXISTS (SELECT 1 FROM owner_member m WHERE m.account_id = a.id "
@@ -92,15 +92,37 @@ _STANDING: Final = sa.text(
 )
 
 
-def _standing(session: Session, account_id: uuid.UUID) -> tuple[str, bool]:
-    """Read the number and whether the account teaches.
+@dataclass(frozen=True, slots=True)
+class _Standing:
+    """What the MFA settings need to know about an account.
+
+    :ivar admin: Its number or address is on the administrator allowlist
+    :ivar teaches: It holds a teaching role
+    :ivar label: What the authenticator app shows beside the code
+    """
+
+    admin: bool
+    teaches: bool
+    label: str
+
+
+def _standing(session: Session, account_id: uuid.UUID) -> _Standing:
+    """Read whether the account is an administrator, teaches, and its label.
 
     :param session: The session to read through
     :param account_id: The account
-    :return: Its phone and whether it holds a teaching role
+    :return: Its standing
     """
     row = session.execute(_STANDING, {"a": account_id}).one()
-    return str(row.phone), bool(row.teaches)
+    # The last four digits of the number, or the address's first four
+    # characters: enough for a person with two accounts to tell them
+    # apart in the app, not enough to identify anyone from a screenshot.
+    label = row.phone[-4:] if row.phone else (row.email or "")[:4]
+    return _Standing(
+        admin=is_platform_admin(row.phone, row.email),
+        teaches=bool(row.teaches),
+        label=label,
+    )
 
 
 def _not_enabled() -> ConflictError:
@@ -148,7 +170,7 @@ def status(session: Session, account_id: uuid.UUID) -> MfaStatus:
     :param account_id: The account
     :return: The status
     """
-    phone, teaches = _standing(session, account_id)
+    standing = _standing(session, account_id)
     confirmed_at = session.execute(
         sa.text("SELECT confirmed_at FROM mfa_factor WHERE account_id = :a"),
         {"a": account_id},
@@ -158,8 +180,8 @@ def status(session: Session, account_id: uuid.UUID) -> MfaStatus:
         enabled=enabled,
         enabled_at=confirmed_at,
         recovery_codes_left=recovery_codes_left(session, account_id) if enabled else 0,
-        recommended=teaches,
-        required=is_platform_admin(phone),
+        recommended=standing.teaches,
+        required=standing.admin,
     )
 
 
@@ -174,13 +196,13 @@ def setup(session: Session, account_id: uuid.UUID) -> tuple[str, str]:
     :return: The base32 secret and its ``otpauth://`` URI
     :raises ConflictError: It is already on
     """
-    phone, _ = _standing(session, account_id)
+    label = _standing(session, account_id).label
     factor = load_factor(session, account_id)
     if factor is not None and factor.confirmed_at is not None:
         raise ConflictError(
             code="MFA_ALREADY_ENABLED", message_key="mfa.already_enabled"
         )
-    return start_enrollment(session, account_id, f"account-{phone[-4:]}", ISSUER)
+    return start_enrollment(session, account_id, f"account-{label}", ISSUER)
 
 
 def confirm(
@@ -226,8 +248,7 @@ def disable(
     :raises ConflictError: It is not on, or the number is an administrator's
     """
     _one_of(code, recovery_code)
-    phone, _ = _standing(session, account_id)
-    if is_platform_admin(phone):
+    if _standing(session, account_id).admin:
         raise ConflictError(
             code="MFA_REQUIRED_FOR_ADMIN", message_key="mfa.required_for_admin"
         )

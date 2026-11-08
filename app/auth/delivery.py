@@ -36,16 +36,25 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import os
 import uuid
 
 import sqlalchemy as sa
+from fastapi import BackgroundTasks
 from sqlalchemy import Connection, Engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
+from app.accounts.identifier import Identifier
 from app.auth.ceilings import CeilingBreach, CeilingChecker, SendBudget
+from app.gateway.email import EmailGateway, EmailMessage
+from app.gateway.outbox import record_outbox
 from app.gateway.sms import SendResult, SmsGateway
+from app.gateway.template import render_email_code, render_otp_message
 
-__all__ = ["send_within_budget"]
+__all__ = ["deliver_code", "send_email_within_budget", "send_within_budget"]
+
+#: The SMS Retriever app hash, from configuration.
+_APP_HASH_ENV = "SHIKKHOKPLUS_SMS_APP_HASH"
 
 _log = logging.getLogger(__name__)
 
@@ -78,13 +87,133 @@ def send_within_budget(
         send is skipped; None for a caller that has not adopted it yet
     :return: The gateway's result, or None when the budget refused
     """
+    if not _spend(bind, budget, correlation_id, now, otp_request_id):
+        return None
+    return gateway.send(number, message, correlation_id)
+
+
+def send_email_within_budget(
+    bind: Engine | Connection,
+    gateway: EmailGateway,
+    address: str,
+    message: EmailMessage,
+    correlation_id: str,
+    *,
+    now: dt.datetime | None = None,
+    otp_request_id: uuid.UUID | None = None,
+) -> SendResult | None:
+    """Spend one unit of the daily email budget, then send -- or skip.
+
+    One budget for every emailed code [0032]; see
+    :data:`~app.auth.ceilings.EMAIL_GLOBAL_DAILY` for why it is not an
+    SMS budget.
+
+    :param bind: The engine to open this send's own session on
+    :param gateway: The configured email gateway
+    :param address: The destination address
+    :param message: The rendered email
+    :param correlation_id: Ties the log line to the request
+    :param now: The moment to count against, or None for the clock
+    :param otp_request_id: The code this email carries, killed if skipped
+    :return: The gateway's result, or None when the budget refused
+    """
+    if not _spend(bind, SendBudget.EMAIL, correlation_id, now, otp_request_id):
+        return None
+    return gateway.send(address, message, correlation_id)
+
+
+def deliver_code(
+    background: BackgroundTasks,
+    session: Session,
+    identifier: Identifier,
+    code: str,
+    correlation_id: str,
+    *,
+    sms_budget: SendBudget,
+    sms_gateway: SmsGateway,
+    email_gateway: EmailGateway,
+    otp_request_id: uuid.UUID,
+) -> None:
+    """Send one code by SMS or by email, after the response.
+
+    The one place a route hands a code to a channel [0032], so no route
+    branches on the channel itself. **Deferred, never inline**, for the
+    reason the sign-in route records: a send made before the response
+    would make a known destination measurably slower than an unknown
+    one [BR2.7]. Also records the staging outbox entry, which is a no-op
+    anywhere it is not permitted.
+
+    The caller decides WHETHER to send -- an unknown destination is never
+    sent to -- and this decides only HOW.
+
+    :param background: Runs the send after the response is written
+    :param session: The request's session, for the outbox entry
+    :param identifier: Where the code goes
+    :param code: The code
+    :param correlation_id: Ties the log lines to the request
+    :param sms_budget: Which SMS budget a text spends; an email always
+        spends the email budget
+    :param sms_gateway: The configured SMS gateway
+    :param email_gateway: The configured email gateway
+    :param otp_request_id: The code's row, killed if the send is skipped
+    :return: None
+    """
+    bind = session.get_bind()
+    if identifier.is_phone:
+        text = render_otp_message(code, os.environ.get(_APP_HASH_ENV, ""))
+        background.add_task(
+            send_within_budget,
+            bind,
+            sms_gateway,
+            identifier.value,
+            text,
+            correlation_id,
+            budget=sms_budget,
+            otp_request_id=otp_request_id,
+        )
+        record_outbox(
+            session, phone=identifier.value, message=text, correlation_id=correlation_id
+        )
+        return
+
+    subject, body = render_email_code(code)
+    background.add_task(
+        send_email_within_budget,
+        bind,
+        email_gateway,
+        identifier.value,
+        EmailMessage(subject=subject, text=body),
+        correlation_id,
+        otp_request_id=otp_request_id,
+    )
+    record_outbox(
+        session, email=identifier.value, message=body, correlation_id=correlation_id
+    )
+
+
+def _spend(
+    bind: Engine | Connection,
+    budget: SendBudget,
+    correlation_id: str,
+    now: dt.datetime | None,
+    otp_request_id: uuid.UUID | None,
+) -> bool:
+    """Spend one unit of a budget, killing the code when it is exhausted.
+
+    :param bind: The engine to open this send's own session on
+    :param budget: Which daily budget this send spends
+    :param correlation_id: Ties the log line to the request
+    :param now: The moment to count against, or None for the clock
+    :param otp_request_id: The code to kill on a skip, or None
+    :return: True when the send may go ahead
+    """
     factory = sessionmaker(bind=bind, expire_on_commit=False)
     with factory() as session:
         try:
             CeilingChecker(session).consume_send(budget, now)
         except CeilingBreach as breach:
             _log.critical(
-                "sms send skipped: daily send budget exhausted",
+                "code send skipped: daily send budget exhausted",
                 extra={
                     "scope": breach.scope.value,
                     "correlation_id": correlation_id,
@@ -100,5 +229,5 @@ def send_within_budget(
                     {"now": now or dt.datetime.now(tz=dt.UTC), "id": otp_request_id},
                 )
                 session.commit()
-            return None
-    return gateway.send(number, message, correlation_id)
+            return False
+    return True

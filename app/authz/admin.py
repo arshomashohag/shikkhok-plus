@@ -1,4 +1,4 @@
-"""Who is a platform administrator: an allowlist of phone numbers.
+"""Who is a platform administrator: an allowlist of numbers and addresses.
 
 **Configuration, not a column.** ``Account`` deliberately has no role
 column [BR1.1], and an administrator flag would be the same stale-role
@@ -9,6 +9,12 @@ person makes, recorded where the other secrets are.
 **Empty means nobody.** An unset or blank variable grants the lens to no
 account, so a deployment that forgets it has no administration surface
 rather than an open one.
+
+**Phone numbers and email addresses, in one list** [0032]. The variable
+kept its name, ``..._PHONES``, so no deployment's secret has to move: an
+entry with an ``@`` is an email address, any other is a phone number.
+An account is an administrator when either of its own -- verified --
+identifiers is listed.
 """
 
 from __future__ import annotations
@@ -18,6 +24,7 @@ import ipaddress
 import os
 from typing import Final
 
+from app.accounts.identifier import canonical_email
 from app.accounts.phone import canonical_phone
 from app.errors import ValidationError
 
@@ -29,46 +36,52 @@ __all__ = [
     "admin_edge_ok",
     "admin_network_ok",
     "is_platform_admin",
-    "platform_admin_phones",
+    "platform_admins",
 ]
 
-#: Comma-separated phone numbers, in any spelling ``canonical_phone``
-#: accepts.
+#: Comma-separated phone numbers and email addresses [0032]: numbers in
+#: any spelling ``canonical_phone`` accepts, addresses in any case.
 PLATFORM_ADMIN_PHONES_ENV: Final = "SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES"
 
 
-def platform_admin_phones() -> frozenset[str]:
+def platform_admins() -> frozenset[str]:
     """Read the allowlist, canonicalised.
 
     Read per call rather than at import, so a test or a restarted process
-    sees the current value and nothing caches a revoked number.
+    sees the current value and nothing caches a revoked entry.
 
-    :return: The canonical numbers, possibly empty
-    :raises ValidationError: An entry is not a Bangladeshi mobile number;
-        a typo must fail loudly rather than silently lock the admin out
+    :return: The canonical numbers and addresses, possibly empty
+    :raises ValidationError: An entry is neither a Bangladeshi mobile
+        number nor an email address; a typo must fail loudly rather than
+        silently lock the admin out
     """
     raw = os.environ.get(PLATFORM_ADMIN_PHONES_ENV, "")
-    phones: set[str] = set()
+    admins: set[str] = set()
     for entry in raw.split(","):
-        if entry.strip():
-            phones.add(canonical_phone(entry))
-    return frozenset(phones)
+        if not entry.strip():
+            continue
+        admins.add(canonical_email(entry) if "@" in entry else canonical_phone(entry))
+    return frozenset(admins)
 
 
-def is_platform_admin(phone: str) -> bool:
-    """Report whether a stored phone number is on the allowlist.
+def is_platform_admin(phone: str | None, email: str | None = None) -> bool:
+    """Report whether an account's number or address is on the allowlist.
 
     A malformed allowlist answers False for everyone rather than raising
     into a request: the misconfiguration is reported by
-    :func:`platform_admin_phones` wherever it is called directly.
+    :func:`platform_admins` wherever it is called directly.
 
-    :param phone: The account's stored, canonical number
-    :return: True only for an allowlisted number
+    :param phone: The account's stored, canonical number, or None
+    :param email: The account's stored, canonical address, or None
+    :return: True only when one of them is allowlisted
     """
     try:
-        return phone in platform_admin_phones()
+        admins = platform_admins()
     except ValidationError:
         return False
+    return (phone is not None and phone in admins) or (
+        email is not None and email in admins
+    )
 
 
 #: The header the admin CloudFront distribution adds to every request it

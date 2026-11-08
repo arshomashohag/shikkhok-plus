@@ -114,6 +114,16 @@ STAFF_PRIVATE_FIELDS: Final[frozenset[str]] = frozenset(
 #: The manager-only staff console, the one place staff fields are served.
 STAFF_ROUTE_PREFIX: Final = "/v1/centre/staff"
 
+#: A field that shares a staff-private NAME but is the reader's own data
+#: [0032], as ``(component, field)``. ``MeResponse.email`` is the email
+#: address the account signs in with, served only to that account by the
+#: lens-exempt ``/v1/me`` routes -- the same standing as its ``phone``.
+#: Named pair by pair, never by field name alone, so a staff member's
+#: ``email`` reaching any other schema still fails the gate.
+OWN_ACCOUNT_FIELDS: Final[frozenset[tuple[str, str]]] = frozenset(
+    {("MeResponse", "email")}
+)
+
 
 @dataclass(frozen=True, slots=True)
 class FieldViolation:
@@ -283,6 +293,8 @@ def staff_field_leaks(app: FastAPI) -> list[tuple[str, str, str]]:
         if component is None:
             continue
         for schema_name, field in _walk(component, definitions, {name}, _staff_field):
+            if (str(schema_name), field) in OWN_ACCOUNT_FIELDS:
+                continue
             leaks.append((route.path, str(schema_name), field))
     return leaks
 

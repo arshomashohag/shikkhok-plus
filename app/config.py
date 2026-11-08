@@ -48,6 +48,7 @@ from app.authz.admin import (
     ADMIN_EDGE_SECRET_ENV,
     PLATFORM_ADMIN_PHONES_ENV,
 )
+from app.gateway.email import EMAIL_ADAPTER_ENV, email_gateway_configured
 from app.gateway.null import ADAPTER_ENV, REAL_ADAPTER_SENTINEL
 
 __all__ = [
@@ -213,6 +214,17 @@ def check_startup_configuration(environment: str | None = None) -> None:
             f"{ADAPTER_ENV} does not select the real adapter, so this "
             "production process would send no SMS at all while "
             "reporting every send as successful."
+        )
+
+    # The email twin of the SMS adapter check [0032]. The null adapter
+    # mails nobody and reports success, so an email-only account could
+    # neither finish signing up nor recover its password -- silently.
+    if not email_gateway_configured():
+        problems.append(
+            f"{EMAIL_ADAPTER_ENV} does not select the SES adapter, or its "
+            "SMTP settings are incomplete, so this production process "
+            "would email no code at all while reporting every send as "
+            "successful."
         )
 
     if problems:

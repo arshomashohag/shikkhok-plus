@@ -32,6 +32,7 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from app.accounts.identifier import Channel, Identifier
 from app.audit.log import AuthEvent, write_audit
 from app.auth.pending import discard, take_bound_draft
 from app.authz.rls import set_account_context
@@ -50,6 +51,7 @@ __all__ = [
     "complete_signup",
     "create_account",
     "create_account_rows",
+    "link_phone_seats",
 ]
 
 
@@ -246,7 +248,8 @@ class PostalAddress:
 def create_account(
     session: Session,
     *,
-    phone: str,
+    phone: str | None = None,
+    email: str | None = None,
     role: SignupRole,
     self_name: str,
     address: PostalAddress | None = None,
@@ -261,18 +264,20 @@ def create_account(
     transaction that consumes the verified code [C-07].
 
     :param session: The session to write through
-    :param phone: The number this identity is keyed on
+    :param phone: The number this identity is keyed on, or None
+    :param email: The address it is keyed on, or None [0032]
     :param role: The claimed role; nothing verifies it [BR4.2]
     :param self_name: The name the person chose for themselves
     :param address: The address, in its four parts, or None
     :param centre_name: The centre's name, for ``COACHING`` only
     :param now: The moment of creation, or None for the clock
     :return: The new account and whether it owns batches
-    :raises DuplicateNumber: The number already has an account
+    :raises DuplicateNumber: The number or address already has an account
     """
     created = create_account_rows(
         session,
         phone=phone,
+        email=email,
         role=role,
         self_name=self_name,
         address=address,
@@ -312,6 +317,7 @@ def complete_signup(
     created = create_account_rows(
         session,
         phone=draft.phone,
+        email=draft.email,
         role=SignupRole(draft.role),
         self_name=draft.self_name,
         address=PostalAddress(
@@ -324,7 +330,14 @@ def complete_signup(
         now=now,
         account_id=draft.id,
     )
-    discard(session, phone=draft.phone)
+    discard(
+        session,
+        identifier=(
+            Identifier(Channel.PHONE, draft.phone)
+            if draft.phone
+            else Identifier(Channel.EMAIL, draft.email or "")
+        ),
+    )
     write_audit(
         session,
         created.account_id,
@@ -338,7 +351,8 @@ def complete_signup(
 def create_account_rows(
     session: Session,
     *,
-    phone: str,
+    phone: str | None = None,
+    email: str | None = None,
     role: SignupRole,
     self_name: str,
     address: PostalAddress | None = None,
@@ -374,7 +388,9 @@ def create_account_rows(
     that is the policy working rather than an exemption from it.
 
     :param session: The session to write through
-    :param phone: The number this identity is keyed on
+    :param phone: The number this identity is keyed on, or None for an
+        email-only account [0032]
+    :param email: The address it is keyed on, or None
     :param role: The claimed role; nothing verifies it [BR4.2]
     :param self_name: The name the person chose for themselves
     :param address: The address, in its four parts. The signup request
@@ -385,22 +401,32 @@ def create_account_rows(
     :param account_id: The id to create the account with, or None for a
         fresh one
     :return: The new account and whether it owns batches
-    :raises DuplicateNumber: The number already has an account
+    :raises DuplicateNumber: The number or address already has an account
+    :raises ValueError: Neither a number nor an address was given
     """
     moment = now or dt.datetime.now(tz=dt.UTC)
+    if phone is None and email is None:
+        raise ValueError("an account needs a phone number or an email address")
 
     # Asked before inserting, so the refusal is a clean ConflictError
     # rather than a driver IntegrityError the caller has to classify.
     # The unique constraint remains the real guarantee: two concurrent
     # signups on one number both pass this check and the second fails
     # at COMMIT, which is why the handler maps that too.
+    clash = sa.or_(
+        sa.false(),
+        *([Account.phone == phone] if phone is not None else []),
+        *([Account.email == email] if email is not None else []),
+    )
     existing = session.execute(
-        sa.select(Account.id).where(Account.phone == phone)
+        sa.select(Account.id).where(clash).limit(1)
     ).scalar_one_or_none()
     if existing is not None:
         raise DuplicateNumber()
 
-    account = Account(id=account_id or uuid.uuid4(), phone=phone, created_at=moment)
+    account = Account(
+        id=account_id or uuid.uuid4(), phone=phone, email=email, created_at=moment
+    )
     session.add(account)
     session.flush()
 
@@ -455,12 +481,30 @@ def create_account_rows(
         )
         is_teacher = True
 
-    _link_existing_seats(session, account_id=account.id, phone=phone)
-    # A centre may have invited this number before it had an account.
-    # Linked, never accepted: the person still answers the invitation.
-    link_memberships(session, account_id=account.id, phone=phone)
+    if phone is not None:
+        link_phone_seats(session, account_id=account.id, phone=phone)
 
     return AccountCreated(account_id=account.id, is_teacher=is_teacher)
+
+
+def link_phone_seats(session: Session, *, account_id: uuid.UUID, phone: str) -> None:
+    """Attach everything teachers and centres recorded against a number.
+
+    Run when an account is created on a number, and when an email-only
+    account adds and verifies one [0032] -- the only two moments a
+    number becomes an account's. Teachers find students, guardians and
+    staff by number, so this is what makes their records reach the
+    person. Adds to the caller's transaction and does not commit.
+
+    :param session: The session to write through
+    :param account_id: The account that now holds the number
+    :param phone: The number, verified
+    :return: None
+    """
+    _link_existing_seats(session, account_id=account_id, phone=phone)
+    # A centre may have invited this number before it had an account.
+    # Linked, never accepted: the person still answers the invitation.
+    link_memberships(session, account_id=account_id, phone=phone)
 
 
 def _link_existing_seats(

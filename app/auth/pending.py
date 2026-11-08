@@ -41,6 +41,8 @@ from typing import Final
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from app.accounts.identifier import Identifier
+
 __all__ = [
     "DRAFT_LIFETIME",
     "SignupDraft",
@@ -61,7 +63,8 @@ class SignupDraft:
     """One person's signup form, as they submitted it.
 
     :ivar id: The id the account will carry if this draft is completed
-    :ivar phone: The number the draft is for
+    :ivar phone: The number the draft is for, or None
+    :ivar email: The address the draft is for, or None [0032]
     :ivar role: The claimed role, as the wire spells it
     :ivar self_name: The name the person chose for themselves
     :ivar address_house: House or flat
@@ -72,7 +75,8 @@ class SignupDraft:
     """
 
     id: uuid.UUID
-    phone: str
+    phone: str | None
+    email: str | None
     role: str
     self_name: str
     address_house: str
@@ -85,17 +89,16 @@ class SignupDraft:
 #: One draft per number, replaced whole by a later signup. The id is
 #: regenerated on every replacement, so the id a signup response reports
 #: is new on every request whether or not the number has an account.
-_UPSERT = sa.text(
-    """
+_UPSERT_SQL = """
     INSERT INTO pending_signup
-        (id, phone, role, self_name, address_house, address_road,
+        (id, phone, email, role, self_name, address_house, address_road,
          address_city, address_postcode, centre_name, otp_request_id,
          created_at, expires_at)
     VALUES
-        (:id, :phone, :role, :self_name, :address_house, :address_road,
+        (:id, :phone, :email, :role, :self_name, :address_house, :address_road,
          :address_city, :address_postcode, :centre_name, NULL,
          :created_at, :expires_at)
-    ON CONFLICT (phone) DO UPDATE SET
+    ON CONFLICT ({column}) DO UPDATE SET
         id = EXCLUDED.id,
         role = EXCLUDED.role,
         self_name = EXCLUDED.self_name,
@@ -108,13 +111,18 @@ _UPSERT = sa.text(
         created_at = EXCLUDED.created_at,
         expires_at = EXCLUDED.expires_at
     """
-)
+
+#: One statement per identifier column, each naming its own unique
+#: constraint as the conflict target.
+_UPSERT: Final = {
+    column: sa.text(_UPSERT_SQL.format(column=column)) for column in ("phone", "email")
+}
 
 
 def save_draft(
     session: Session,
     *,
-    phone: str,
+    identifier: Identifier,
     role: str,
     self_name: str,
     address_house: str,
@@ -127,7 +135,7 @@ def save_draft(
     """Hold a signup form until its number is proved. Does not commit.
 
     :param session: The session to write through
-    :param phone: The number the draft is for
+    :param identifier: The number or address the draft is for
     :param role: The claimed role, as the wire spells it
     :param self_name: The name the person chose
     :param address_house: House or flat
@@ -140,10 +148,10 @@ def save_draft(
     """
     draft_id = uuid.uuid4()
     session.execute(
-        _UPSERT,
+        _UPSERT[identifier.column],
         {
             "id": draft_id,
-            "phone": phone,
+            **identifier.as_params(),
             "role": role,
             "self_name": self_name,
             "address_house": address_house,
@@ -159,7 +167,11 @@ def save_draft(
 
 
 def bind_code(
-    session: Session, *, phone: str, otp_request_id: uuid.UUID, now: dt.datetime
+    session: Session,
+    *,
+    identifier: Identifier,
+    otp_request_id: uuid.UUID,
+    now: dt.datetime,
 ) -> bool:
     """Bind this number's live draft, if any, to a newly issued code.
 
@@ -170,17 +182,17 @@ def bind_code(
     shadows the older one at verify, so the draft must follow it.
 
     :param session: The session to write through
-    :param phone: The number the code was issued for
+    :param identifier: The number or address the code was issued for
     :param otp_request_id: The code's row
     :param now: The moment of issue
-    :return: True when a live draft exists for this number
+    :return: True when a live draft exists for this destination
     """
     bound = session.execute(
         sa.text(
-            "UPDATE pending_signup SET otp_request_id = :otp_request_id "
-            "WHERE phone = :phone AND expires_at > :now RETURNING id"
+            "UPDATE pending_signup SET otp_request_id = :otp_request_id "  # noqa: S608
+            f"WHERE {identifier.column} = :value AND expires_at > :now RETURNING id"
         ),
-        {"otp_request_id": otp_request_id, "phone": phone, "now": now},
+        {"otp_request_id": otp_request_id, "value": identifier.value, "now": now},
     ).first()
     return bound is not None
 
@@ -197,7 +209,7 @@ def take_bound_draft(
     """
     row = session.execute(
         sa.text(
-            "SELECT id, phone, role, self_name, address_house, address_road, "
+            "SELECT id, phone, email, role, self_name, address_house, address_road, "
             "address_city, address_postcode, centre_name FROM pending_signup "
             "WHERE otp_request_id = :otp_request_id AND expires_at > :now "
             "FOR UPDATE"
@@ -209,6 +221,7 @@ def take_bound_draft(
     return SignupDraft(
         id=row.id,
         phone=row.phone,
+        email=row.email,
         role=row.role,
         self_name=row.self_name,
         address_house=row.address_house,
@@ -219,14 +232,14 @@ def take_bound_draft(
     )
 
 
-def discard(session: Session, *, phone: str) -> None:
-    """Remove this number's draft, if any. Does not commit.
+def discard(session: Session, *, identifier: Identifier) -> None:
+    """Remove this destination's draft, if any. Does not commit.
 
     :param session: The session to write through
-    :param phone: The number whose draft is spent or moot
+    :param identifier: The number or address whose draft is spent or moot
     :return: None
     """
     session.execute(
-        sa.text("DELETE FROM pending_signup WHERE phone = :phone"),
-        {"phone": phone},
+        sa.text(f"DELETE FROM pending_signup WHERE {identifier.column} = :value"),  # noqa: S608
+        {"value": identifier.value},
     )

@@ -70,6 +70,8 @@ __all__ = [
     "MFA_CHALLENGE_AUDIENCE",
     "MFA_CHALLENGE_LIFETIME",
     "MIN_KEY_BYTES",
+    "PASSWORD_SETUP_AUDIENCE",
+    "PASSWORD_SETUP_LIFETIME",
     "REFRESH_GRACE_WINDOW",
     "REFRESH_TOKEN_LIFETIME",
     "TokenPair",
@@ -146,6 +148,16 @@ MFA_CHALLENGE_LIFETIME: Final = dt.timedelta(minutes=5)
 #: to the authenticator step, once they have turned the factor on. Not
 #: the admin challenge's audience, so neither can finish the other's sign-in.
 APP_MFA_CHALLENGE_AUDIENCE: Final = "shikkhokplus-mfa"
+
+#: The audience of a password-setup token [0032]: what a verified code
+#: yields instead of a session. It grants one thing -- choosing a
+#: password -- and is spent by doing so, because it carries the
+#: account's ``password_changed_at`` as it was when it was minted.
+PASSWORD_SETUP_AUDIENCE: Final = "shikkhokplus-password-setup"  # noqa: S105
+
+#: Long enough to think of a password; short enough that a token left on
+#: a screen is not a standing way in.
+PASSWORD_SETUP_LIFETIME: Final = dt.timedelta(minutes=10)
 
 
 @dataclass(frozen=True, slots=True)

@@ -34,11 +34,12 @@ __all__ = [
     "unlensed_routes",
 ]
 
-#: Routes reachable with no authentication at all. **Exactly twelve**,
-#: and the count IS asserted: a thirteenth entry is a diff against a
+#: Routes reachable with no authentication at all. **Exactly fourteen**,
+#: and the count IS asserted: a fifteenth entry is a diff against a
 #: stated number rather than a line appended to a growing list. The three
-#: admin sign-in routes moved it from eight, and the app sign-in's second
-#: step to twelve [0028].
+#: admin sign-in routes moved it from eight, the app sign-in's second
+#: step to twelve [0028], and password sign-in and password setup to
+#: fourteen [0032].
 #:
 #: The number read "five" over a six-entry set until 2026-10-22 — the two
 #: deletion routes were added without it, so the stated count and the
@@ -100,6 +101,14 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # challenge, which only a verified SMS code yields, and by the
         # shared factor's lock after five wrong codes.
         ("POST", "/v1/auth/mfa"),
+        # Passwords [0032], public on `/verify`'s reasoning: the person
+        # has no token yet. Sign-in is bounded per phone number or
+        # address and per network, answers every failure identically,
+        # and leads only to the existing authenticator step for an
+        # account that has one. Setup is bounded by its token, which only
+        # a verified code yields and which the password it sets spends.
+        ("POST", "/v1/auth/password"),
+        ("POST", "/v1/auth/password/setup"),
         # Staging only, and absent entirely in production -- the router
         # is not registered unless the environment permits it. It is
         # public because it must work before anyone can authenticate,
@@ -239,6 +248,17 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         ("POST", "/v1/me/mfa/confirm"),
         ("POST", "/v1/me/mfa/disable"),
         ("POST", "/v1/me/mfa/recovery-codes"),
+        # The account's own password and its own phone number or email
+        # address [0032], exempt on the MFA settings' reasoning: each
+        # acts on the authenticated account alone, and a person holding
+        # no lens -- an email-only student whose teacher's seats have not
+        # reached them yet -- is exactly who must be able to add the
+        # phone number that would bring them. Changing a password asks
+        # for the current one; adding a destination asks for a code
+        # sent to it.
+        ("POST", "/v1/me/password"),
+        ("POST", "/v1/me/contact"),
+        ("POST", "/v1/me/contact/verify"),
     }
 )
 

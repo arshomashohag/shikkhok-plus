@@ -32,8 +32,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.address import CityField, HouseField, PostcodeField, RoadField
+from app.schemas.identifier import IdentifierFields
 from app.schemas.money import MoneyField
-from app.schemas.phone import PhoneField
 
 __all__ = [
     "AlreadyAddedResponse",
@@ -57,14 +57,18 @@ RoleName = Literal["teacher", "student", "guardian"]
 SignupRoleName = Literal["teacher", "student", "guardian", "coaching"]
 
 
-class SignupRequest(BaseModel):
-    """Create an account for a number nobody has registered.
+class SignupRequest(IdentifierFields):
+    """Create an account for a number or an address nobody has registered.
 
     The number is **typed by the person** and never read from the SIM
     [TC-4, D-35]: there is no device-side source for this field, here
     or anywhere in this product.
 
-    :ivar phone: The number this identity is keyed on
+    :ivar phone: The number this identity is keyed on, or None
+    :ivar email: Or the address [0032]; exactly one of the two. No
+        password here: it is chosen after the code is verified, with the
+        token that verification yields, so the person who proved the
+        destination is the one who sets it
     :ivar role: The claimed role; nothing verifies it [BR4.2]
     :ivar self_name: The name the person chose for themselves. Lands on
         ``Profile.self_name`` and never on an ``Enrollment.display_name``
@@ -80,7 +84,6 @@ class SignupRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    phone: PhoneField
     role: SignupRoleName
     self_name: str = Field(min_length=1, max_length=120)
     address_house: HouseField
@@ -113,7 +116,7 @@ class SignupResponse(BaseModel):
     first one carries.
 
     :ivar account_id: The new account
-    :ivar code_sent_to: The number the code was sent to, echoed so the
+    :ivar code_sent_to: The number or address the code was sent to, echoed so the
         screen can name its destination [BR4.3, AC1.11.4]
     """
 

@@ -754,12 +754,10 @@ class _Simulation:
 
         :return: None
         """
-        local = (
-            "0"
-            + self.session.execute(
-                sa.select(Account.phone).where(Account.id == self.teacher.account_id)
-            ).scalar_one()[4:]
-        )
+        teacher_phone = self.session.execute(
+            sa.select(Account.phone).where(Account.id == self.teacher.account_id)
+        ).scalar_one()
+        local = "0" + (teacher_phone or "")[4:]
         for key, draft in (
             (
                 "bkash",

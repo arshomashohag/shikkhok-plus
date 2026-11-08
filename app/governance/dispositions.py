@@ -122,12 +122,14 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         # inherits no link to the old one. The hazard was real; the
         # remedy it proposed was not the only one.
         basis=(
-            "The phone number and the account row are removed outright, "
-            "which is what releases the number. Enrollments survive "
+            "The phone number, the email address, the password hash and "
+            "the account row are removed outright, which is what releases "
+            "the number and the address. The password itself is never "
+            "stored, only a one-way scrypt hash of it. Enrollments survive "
             "with their account links cleared by the database "
             "constraint rather than by the deletion code, so a new "
-            "account registering the same number later inherits "
-            "nothing from the deleted one."
+            "account registering the same number or address later "
+            "inherits nothing from the deleted one."
         ),
     ),
     "profile": TableGovernance(
@@ -142,8 +144,9 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         disposition=Disposition.HARD_DELETE,
         retention=RetentionClass.DAYS_7,
         basis=(
-            "High volume, carries a phone number, and has an obviously "
-            "short lifetime. A code is useless after five minutes."
+            "High volume, carries a phone number or an email address, and "
+            "has an obviously short lifetime. A code is useless after five "
+            "minutes."
         ),
     ),
     "verify_attempt": TableGovernance(
@@ -159,11 +162,11 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         disposition=Disposition.HARD_DELETE,
         retention=RetentionClass.HOURS_48,
         basis=(
-            "A signup form waiting for its phone number to be verified. "
-            "It is removed when the account is created from it, when the "
-            "number signs in to an account it already has, or when the "
-            "number's owner deletes their account, and otherwise expires "
-            "unused within two days."
+            "A signup form waiting for its phone number or email address "
+            "to be verified. It is removed when the account is created "
+            "from it, when that number or address proves an account it "
+            "already has, or when its owner deletes their account, and "
+            "otherwise expires unused within two days."
         ),
     ),
     "refresh_token": TableGovernance(
@@ -582,8 +585,9 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         basis=(
             "A staging-only record of messages the null gateway did not "
             "send, so a person can read a code and sign in on a device "
-            "before real SMS credentials exist. It holds a phone number "
-            "and an OTP together, which is why it is read only within a "
+            "before real SMS or email credentials exist. It holds a phone "
+            "number or an email address and an OTP together, which is why "
+            "it is read only within a "
             "five-minute window and purged with the auth tables. "
             "**It must never hold a row in production**: the writer is a "
             "no-op outside a permitted environment, the route is not "

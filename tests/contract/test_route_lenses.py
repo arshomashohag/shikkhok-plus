@@ -61,20 +61,21 @@ def _dual_lens() -> TeacherLens | GuardianLens:
     raise NotImplementedError
 
 
-def test_public_routes_has_exactly_twelve_entries() -> None:
-    """``PUBLIC_ROUTES`` is a fixed set of exactly twelve.
+def test_public_routes_has_exactly_fourteen_entries() -> None:
+    """``PUBLIC_ROUTES`` is a fixed set of exactly fourteen.
 
-    The length assertion is the control: a THIRTEENTH entry is a diff
+    The length assertion is the control: a FIFTEENTH entry is a diff
     against a stated number rather than a line appended to a growing
     list. It has already done that job twice -- the staging outbox
     route broke this test on the commit that added it, and D1's two
     signup routes broke it again, and the three admin sign-in routes a
-    third time, and the app sign-in's second step a fourth [0028], which
-    is exactly what an unauthenticated route deserves.
+    third time, and the app sign-in's second step a fourth [0028], and
+    password sign-in and setup a fifth [0032], which is exactly what an
+    unauthenticated route deserves.
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 12
+    assert len(PUBLIC_ROUTES) == 14
 
 
 def test_public_routes_contains_the_contracted_entries() -> None:
@@ -110,7 +111,7 @@ def test_public_routes_contains_the_contracted_entries() -> None:
     # present, and only the count catches a SEVENTH being appended. Adding a
     # public route should mean editing this number, which is a reviewable,
     # deliberate act rather than one more line in a growing list.
-    assert len(PUBLIC_ROUTES) == 12, (
+    assert len(PUBLIC_ROUTES) == 14, (
         f"PUBLIC_ROUTES holds {len(PUBLIC_ROUTES)} entries, not 12: "
         f"{sorted(PUBLIC_ROUTES)}. A public route is reachable with no "
         f"authentication at all. If the addition is intended, change the "
@@ -153,7 +154,10 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
     - the help centre's four routes act only on the caller's own
       tickets, scoped by account id in SQL, and a lens would lock out
       the account holding none, which is the one most likely to need
-      help.
+      help;
+    - the password and contact routes act only on the caller's own
+      account, and an email-only account whose seats have not reached it
+      yet holds no lens until it adds the phone number that links them.
 
     :return: None
     """
@@ -198,6 +202,12 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             ("POST", "/v1/me/mfa/confirm"),
             ("POST", "/v1/me/mfa/disable"),
             ("POST", "/v1/me/mfa/recovery-codes"),
+            # The caller's own password, phone number and email address
+            # [0032]: an email-only student holding no lens yet is exactly
+            # who must be able to add the number that brings their seats.
+            ("POST", "/v1/me/password"),
+            ("POST", "/v1/me/contact"),
+            ("POST", "/v1/me/contact/verify"),
         }
     )
 

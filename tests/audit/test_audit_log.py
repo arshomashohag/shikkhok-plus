@@ -132,6 +132,12 @@ def test_the_event_vocabulary_is_closed() -> None:
         "MFA_LOCKED",
         "MFA_RECOVERY_CODE_USED",
         "MFA_RECOVERY_CODES_RENEWED",
+        "PASSWORD_SET",
+        "PASSWORD_CHANGED",
+        "PASSWORD_SIGN_IN_SUCCEEDED",
+        "PASSWORD_SIGN_IN_FAILED",
+        "PASSWORD_CEILING_BREACHED",
+        "CONTACT_ADDED",
     }
 
 

@@ -119,7 +119,7 @@ def test_public_routes_still_holds_exactly_twelve() -> None:
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 12
+    assert len(PUBLIC_ROUTES) == 14
     assert ("GET", "/v1/me/dues") not in PUBLIC_ROUTES
     assert ("GET", "/v1/me/overview") not in PUBLIC_ROUTES
 

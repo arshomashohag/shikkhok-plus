@@ -53,11 +53,12 @@ VERSIONS: Final[pathlib.Path] = (
 #: authenticator-app MFA -- again, and ``0029`` -- a seat keeps its history,
 #: and the supersession index -- once more, and ``0030`` -- integrity
 #: constraints and indexes -- again, and ``0031`` -- verify-first signup and
-#: the end of a session -- once more.
-EXPECTED_REVISIONS: Final[int] = 31
+#: the end of a session -- once more, and ``0032`` -- email as an identifier,
+#: and passwords -- again.
+EXPECTED_REVISIONS: Final[int] = 32
 
-#: The head ``0031`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0031"
+#: The head ``0032`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0032"
 
 
 def _revision_files() -> list[pathlib.Path]:

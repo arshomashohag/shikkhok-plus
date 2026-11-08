@@ -185,6 +185,25 @@ SIGNUP_GLOBAL_DAILY: Final = int(
     os.environ.get("SHIKKHOKPLUS_GLOBAL_DAILY_SIGNUP_SMS", "100")
 )
 
+#: Emailed codes across the whole product in a day [0032]. Its own
+#: budget, not a share of an SMS one: an email costs a hundredth of an
+#: SMS, so spending SMS budgets on it would starve sign-in for nothing,
+#: while an unbounded email path would let anyone use the signup form to
+#: mail strangers -- which is what gets a sending domain's reputation
+#: burned and its SES account paused.
+EMAIL_GLOBAL_DAILY: Final = int(
+    os.environ.get("SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL", "1000")
+)
+
+#: Failed password sign-ins for one phone number or email address in an
+#: hour, beyond which that identifier's password sign-in is refused until
+#: the window turns [0032]. Counted for an unknown identifier exactly as
+#: for a known one, so the refusal says nothing about who exists.
+#: Generous enough that a person mistyping is never stopped; a guesser
+#: gets ten tries an hour per identifier, and the code flow stays open
+#: to the real owner throughout.
+PASSWORD_FAILURES_PER_IDENTIFIER_HOURLY: Final = 10
+
 #: Sign-in requests from one /48 inside an hour, beyond which the next is
 #: refused [C-05]. Higher than the /64 limit: the /48 bounds one caller
 #: spread across many /64s, and many real subscribers of one carrier can
@@ -298,6 +317,9 @@ class ScopeKind(enum.Enum):
     VERIFY_FAIL_GLOBAL_HOURLY = "vf_global_hour"
     DEAD_CODE_NUMBER_DAILY = "dead_number_day"
     CENTRE_ACCOUNT_DAILY = "centre_acct_day"
+    # Email and passwords [0032], inside `String(16)` like the rest.
+    EMAIL_GLOBAL_DAILY = "em_global_day"
+    PASSWORD_FAIL_ID_HOURLY = "pw_fail_id_hour"  # noqa: S105 -- a name, not a password
 
 
 #: The scopes whose breach reaches a human. Declared beside the enum
@@ -311,6 +333,7 @@ _ALERTING_SCOPES: Final = frozenset(
         ScopeKind.DEL_GLOBAL_DAILY,
         ScopeKind.SIGNUP_GLOBAL_DAILY,
         ScopeKind.VERIFY_FAIL_GLOBAL_HOURLY,
+        ScopeKind.EMAIL_GLOBAL_DAILY,
     }
 )
 
@@ -337,6 +360,8 @@ class SendBudget(enum.Enum):
     SIGN_IN = ScopeKind.GLOBAL_DAILY
     DELETION = ScopeKind.DEL_GLOBAL_DAILY
     SIGNUP = ScopeKind.SIGNUP_GLOBAL_DAILY
+    #: Every emailed code, whatever it is for [0032].
+    EMAIL = ScopeKind.EMAIL_GLOBAL_DAILY
 
 
 #: Each send budget's daily limit. A mapping, so a fourth budget is a
@@ -345,6 +370,7 @@ _BUDGET_LIMITS: Final[dict[SendBudget, int]] = {
     SendBudget.SIGN_IN: GLOBAL_DAILY,
     SendBudget.DELETION: DEL_GLOBAL_DAILY,
     SendBudget.SIGNUP: SIGNUP_GLOBAL_DAILY,
+    SendBudget.EMAIL: EMAIL_GLOBAL_DAILY,
 }
 
 
@@ -424,6 +450,11 @@ class CeilingBreach(ConflictError):
             super().__init__(
                 code="TEMPORARILY_UNAVAILABLE",
                 message_key="auth.verify.temporarily_unavailable",
+            )
+        elif scope is ScopeKind.PASSWORD_FAIL_ID_HOURLY:
+            super().__init__(
+                code="TEMPORARILY_UNAVAILABLE",
+                message_key="auth.password.too_many_attempts",
             )
         elif scope is ScopeKind.CENTRE_ACCOUNT_DAILY:
             super().__init__(
@@ -607,6 +638,54 @@ class CeilingChecker:
         moment = now or dt.datetime.now(tz=dt.UTC)
         self._increment(self._dead_code_scope(), number, moment)
 
+    def check_password_allowed(
+        self,
+        rate_key: str,
+        ip_prefix: str,
+        coarse_prefix: str,
+        now: dt.datetime | None = None,
+    ) -> None:
+        """Refuse a password sign-in while a failure ceiling is full [0032].
+
+        The network-wide failed-verify ceilings are shared with codes:
+        guessing a password and guessing a code are the same activity,
+        and one attacker should not get two allowances by alternating.
+        The per-identifier ceiling is the password path's own.
+
+        Read, never incremented, like :meth:`check_verify_allowed`.
+
+        :param rate_key: The identifier's counter key
+        :param ip_prefix: The caller's /64 (IPv4: /24)
+        :param coarse_prefix: The caller's /48 (IPv4: /24)
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: A failure ceiling is full
+        """
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        scope = self._password_scope()
+        if self._peek(scope, rate_key, moment) >= scope.limit:
+            raise CeilingBreach(scope.kind)
+        self.check_verify_allowed(ip_prefix, coarse_prefix, moment)
+
+    def record_password_failure(
+        self,
+        rate_key: str,
+        ip_prefix: str,
+        coarse_prefix: str,
+        now: dt.datetime | None = None,
+    ) -> None:
+        """Count one failed password against the identifier and the caller.
+
+        :param rate_key: The identifier's counter key
+        :param ip_prefix: The caller's /64 (IPv4: /24)
+        :param coarse_prefix: The caller's /48 (IPv4: /24)
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        """
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        self._increment(self._password_scope(), rate_key, moment)
+        self.record_verify_failure(ip_prefix, coarse_prefix, moment)
+
     def check_and_consume_centre(
         self, account_id: uuid.UUID, now: dt.datetime | None = None
     ) -> None:
@@ -743,6 +822,18 @@ class CeilingChecker:
         """
         return _Scope(
             ScopeKind.DEAD_CODE_NUMBER_DAILY, DEAD_CODES_PER_NUMBER_DAILY, _DAY
+        )
+
+    @staticmethod
+    def _password_scope() -> _Scope:
+        """Return the per-identifier failed-password scope [0032].
+
+        :return: The scope
+        """
+        return _Scope(
+            ScopeKind.PASSWORD_FAIL_ID_HOURLY,
+            PASSWORD_FAILURES_PER_IDENTIFIER_HOURLY,
+            _HOUR,
         )
 
     @staticmethod
