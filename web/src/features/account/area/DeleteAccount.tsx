@@ -6,7 +6,8 @@
  * batches they lose access to, the students who keep their records, and
  * the money still recorded as owed); then the person types their own
  * number, and only a number that matches the one on the account enables
- * Delete. On success the session ends and "Your account is deleted" says
+ * Delete. An email-only account, which has no number, types its email
+ * address instead. On success the session ends and "Your account is deleted" says
  * what happened.
  *
  * **Stricter than Android in one place, deliberately:** Android falls
@@ -22,7 +23,7 @@ import { useT } from '../../../i18n/i18n'
 import { useSession } from '../../../session/session'
 import { ErrorCard, Loading, TopBar } from '../../../ui/components'
 import { deleteMyAccount, readDeletionSummary } from './api'
-import { footprintOf, numberMatches, type TeacherFootprint } from './mappers'
+import { emailMatches, footprintOf, numberMatches, type TeacherFootprint } from './mappers'
 import { resetUnreadCount } from './unread'
 import { resetNewReplies } from '../../help/newReplies'
 import './account.css'
@@ -39,6 +40,7 @@ export function DeleteAccount() {
   if (deleted) return <DeletedBody />
 
   const phone = session.state === 'ready' ? session.me.phone : null
+  const email = session.state === 'ready' ? session.me.email : null
   let body: React.ReactNode
   if (resource.state === 'loading') body = <Loading rows={3} />
   else if (resource.state === 'failed')
@@ -47,7 +49,12 @@ export function DeleteAccount() {
     body = <ErrorCard title={t('delete_title')} error={resource.error} onRetry={reload} />
   else
     body = (
-      <ConfirmBody footprint={resource.data} phone={phone} onDeleted={() => setDeleted(true)} />
+      <ConfirmBody
+        footprint={resource.data}
+        phone={phone}
+        email={email}
+        onDeleted={() => setDeleted(true)}
+      />
     )
 
   return (
@@ -61,10 +68,13 @@ export function DeleteAccount() {
 function ConfirmBody({
   footprint,
   phone,
+  email,
   onDeleted,
 }: {
   footprint: TeacherFootprint | null
   phone: string | null | undefined
+  /** Typed instead of the number by an email-only account. */
+  email?: string | null
   onDeleted: () => void
 }) {
   const { t, message } = useT()
@@ -73,10 +83,14 @@ function ConfirmBody({
   const [typed, setTyped] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const matches = numberMatches(typed, phone)
+  // An email-only account confirms with its address; every other, its number.
+  const byEmail = !phone && Boolean(email)
+  const confirms = (value: string) =>
+    byEmail ? emailMatches(value, email) : numberMatches(value, phone)
+  const matches = confirms(typed)
 
   async function onDelete() {
-    if (!numberMatches(typed, phone)) return
+    if (!confirms(typed)) return
     setBusy(true)
     setError(null)
     try {
@@ -105,13 +119,16 @@ function ConfirmBody({
           </>
         ) : null}
         <div className="field">
-          <label htmlFor="del-number">{t('delete_type_number')}</label>
+          <label htmlFor="del-number">
+            {t(byEmail ? 'web_account_delete_type_email' : 'delete_type_number')}
+          </label>
           <input
             id="del-number"
-            type="tel"
-            inputMode="tel"
+            type={byEmail ? 'email' : 'tel'}
+            inputMode={byEmail ? 'email' : 'tel'}
             autoComplete="off"
-            placeholder={t('delete_number_field')}
+            autoCapitalize={byEmail ? 'none' : undefined}
+            placeholder={t(byEmail ? 'web_account_delete_email_field' : 'delete_number_field')}
             value={typed}
             disabled={busy}
             onChange={(e) => setTyped(e.target.value)}

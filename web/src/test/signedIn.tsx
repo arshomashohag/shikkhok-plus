@@ -25,13 +25,16 @@ export interface Call {
 
 /**
  * Sign in and route every request to `handler`; `/v1/me` answers with
- * the given lens. Unhandled requests are a 404.
+ * the given lens, plus whatever `me` returns at the time of each read
+ * (so a test can change the account between reads). Unhandled requests
+ * are a 404.
  *
  * @return The calls made, in order
  */
 export function mockSignedIn(
   handler: Handler,
   lens: 'teacher' | 'student' | 'guardian' = 'teacher',
+  me: () => Record<string, unknown> = () => ({}),
 ): Call[] {
   const calls: Call[] = []
   saveTokens({ access_token: 'A', refresh_token: 'R', expires_in: 900 })
@@ -46,6 +49,7 @@ export function mockSignedIn(
           self_name: 'Karim Uddin',
           phone: null,
           lenses: [{ kind: lens, count: 1 }],
+          ...me(),
         })
       return (
         handler(method, url, body) ??

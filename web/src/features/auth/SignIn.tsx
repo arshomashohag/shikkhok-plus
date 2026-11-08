@@ -1,254 +1,208 @@
 /**
- * Sign in with a mobile number and a 6-digit SMS code.
+ * Sign in with a mobile number or an email address, and a password.
  *
- * The confirmation after "Send code" reads the same for every number,
- * registered or not: the server's response never reveals whether a
- * number has an account [D-33], and neither does this screen.
+ * A wrong password, an unknown account and an account that has no
+ * password yet get the same answer from the server
+ * (`auth.password.wrong`) [D-33], and the same words here, with a static
+ * pointer to the code flow (`PasswordCode.tsx`), which is also how an
+ * account made before passwords gets its first one.
  *
- * For an account with two-step verification on, the SMS code yields a
+ * For an account with two-step verification on, the password yields a
  * challenge instead of tokens, and an authenticator code follows
- * (`MfaStep.tsx`); the session starts only after that. Accounts without
- * it sign in exactly as before.
+ * (`MfaStep.tsx`); the session starts only after that.
  */
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, useLocation } from 'react-router'
-import { issueCode, verifyCode, type Schemas } from '../../api/endpoints'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
+import { signInWithPassword, type Schemas, type VerifyResponse } from '../../api/endpoints'
 import { ApiError, UNEXPECTED_KEY } from '../../api/errors'
-import { formatPhone, normalisePhone } from '../../core/format'
-import { toLatinDigits } from '../../core/money'
-import { AuthFrame } from './AuthFrame'
-import { MfaStep, type Challenge } from './MfaStep'
 import { useT } from '../../i18n/i18n'
 import { useSession } from '../../session/session'
-
-type Step =
-  { step: 'phone' } | { step: 'code'; phone: string } | { step: 'mfa'; challenge: Challenge }
+import { AuthFrame } from './AuthFrame'
+import { MfaStep, type Challenge } from './MfaStep'
+import { invalidKey, readIdentifier, type IdentifierKind } from './identifier'
+import type { CodeFlowEntry } from './PasswordCode'
+import {
+  describedBy,
+  Field,
+  identifierInputProps,
+  KindToggle,
+  PasswordInput,
+  useFailureText,
+} from './parts'
 
 /** The challenge's lifetime when an older server does not say. */
 const CHALLENGE_S = 300
 
-const RESEND_AFTER_S = 60
+/** Refusals after which the code flow is the way in. */
+const POINT_TO_CODE = new Set(['auth.password.wrong', 'auth.password.too_many_attempts'])
 
 export function SignIn() {
-  const { t, message } = useT()
+  const { t } = useT()
+  const failure = useFailureText()
   const { signIn } = useSession()
-  const location = useLocation()
-  const handedOver = (location.state as { phone?: string } | null)?.phone ?? null
-  const [step, setStep] = useState<Step>(
-    handedOver ? { step: 'code', phone: handedOver } : { step: 'phone' },
-  )
-  const [phone, setPhone] = useState('')
-  const [code, setCode] = useState('')
+  const [challenge, setChallenge] = useState<Challenge | null>(null)
+  const [kind, setKind] = useState<IdentifierKind>('phone')
+  const [typed, setTyped] = useState('')
+  const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
+  const [identifierError, setIdentifierError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [resendIn, setResendIn] = useState(handedOver ? RESEND_AFTER_S : 0)
-  /** Why the number step is showing again, when the second step lapsed. */
+  const [pointToCode, setPointToCode] = useState(false)
+  /** Why the form is showing again, when the second step lapsed. */
   const [notice, setNotice] = useState<string | null>(null)
-  const codeRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     document.title = `${t('auth_verify')} · ShikkhokPlus`
   }, [t])
 
-  useEffect(() => {
-    if (resendIn <= 0) return
-    const timer = window.setTimeout(() => setResendIn((s) => s - 1), 1000)
-    return () => window.clearTimeout(timer)
-  }, [resendIn])
-
-  useEffect(() => {
-    if (step.step === 'code') codeRef.current?.focus()
-  }, [step])
-
-  const failure = (e: unknown) =>
-    setError(e instanceof ApiError ? message(e.messageKey, e.details) : t('error_unexpected'))
-
-  async function requestCode(target: string) {
-    setBusy(true)
-    setError(null)
-    setNotice(null)
-    try {
-      await issueCode(target)
-      setStep({ step: 'code', phone: target })
-      setCode('')
-      setResendIn(RESEND_AFTER_S)
-    } catch (e) {
-      failure(e)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  function onPhone(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault()
-    const normalised = normalisePhone(phone)
-    if (!normalised) {
-      setError(t('phone_invalid'))
+    setIdentifierError(null)
+    setError(null)
+    setPointToCode(false)
+    setNotice(null)
+    const identifier = readIdentifier(kind, typed)
+    if (!identifier) {
+      setIdentifierError(t(invalidKey(kind)))
       return
     }
-    void requestCode(normalised)
-  }
-
-  async function submitCode(value: string, target: string) {
+    if (!password) {
+      setError(t('web_auth_password_required'))
+      return
+    }
     setBusy(true)
-    setError(null)
     try {
-      const answer = await verifyCode(target, value)
+      const answer = await signInWithPassword(identifier, password)
+      setPassword('')
       if (answer.mfa_required && answer.mfa_challenge) {
         // No token yet: nothing is stored until the second step succeeds.
         const lifetime = answer.mfa_expires_in ?? CHALLENGE_S
-        setStep({
-          step: 'mfa',
-          challenge: { token: answer.mfa_challenge, expiresAt: Date.now() + lifetime * 1000 },
-        })
-        setCode('')
+        setChallenge({ token: answer.mfa_challenge, expiresAt: Date.now() + lifetime * 1000 })
         setBusy(false)
         return
       }
       signIn(tokensFrom(answer))
-    } catch (e) {
-      failure(e)
-      setCode('')
+    } catch (err) {
+      setError(failure(err))
+      setPointToCode(err instanceof ApiError && POINT_TO_CODE.has(err.messageKey))
+      setPassword('')
       setBusy(false)
     }
   }
 
   const restart = useCallback(
     (expired: boolean) => {
-      setNotice(expired ? t('mfa_challenge_expired') : null)
+      setNotice(expired ? t('web_auth_mfa_expired') : null)
       setError(null)
-      setCode('')
-      setStep({ step: 'phone' })
+      setChallenge(null)
     },
     [t],
   )
 
-  function onCode(value: string) {
-    const digits = toLatinDigits(value).replace(/\D/g, '').slice(0, 6)
-    setCode(digits)
-    // It checks by itself after the sixth digit, as on Android.
-    if (digits.length === 6 && step.step === 'code' && !busy) void submitCode(digits, step.phone)
-  }
+  const codeEntry: CodeFlowEntry = { kind, typed }
+
+  if (challenge)
+    return (
+      <AuthFrame>
+        <MfaStep key={challenge.token} challenge={challenge} onDone={signIn} onRestart={restart} />
+      </AuthFrame>
+    )
 
   return (
     <AuthFrame>
-      {step.step === 'mfa' ? (
-        <MfaStep
-          key={step.challenge.token}
-          challenge={step.challenge}
-          onDone={signIn}
-          onRestart={restart}
+      <form onSubmit={onSubmit} noValidate>
+        <h1>{t('web_auth_signin_title')}</h1>
+        <p className="meta">{t('web_auth_signin_body')}</p>
+        {notice ? (
+          <div className="banner info" role="status" style={{ marginTop: 16 }}>
+            {notice}
+          </div>
+        ) : null}
+        <KindToggle
+          kind={kind}
+          disabled={busy}
+          onKind={(k) => {
+            setKind(k)
+            setTyped('')
+            setIdentifierError(null)
+          }}
         />
-      ) : step.step === 'phone' ? (
-        <form onSubmit={onPhone} noValidate>
-          <h1>{t('auth_headline')}</h1>
-          <p className="meta">{t('auth_subhead')}</p>
-          {notice ? (
-            <div className="banner info" role="status" style={{ marginTop: 16 }}>
-              {notice}
-            </div>
-          ) : null}
-          <div className="field">
-            <label htmlFor="phone">{t('auth_phone_label')}</label>
-            <input
-              id="phone"
-              name="phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel-national"
-              placeholder={t('auth_phone_hint')}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              aria-invalid={error ? true : undefined}
-              aria-describedby={error ? 'phone-error' : undefined}
-              autoFocus
-            />
-            {error ? (
-              <span id="phone-error" className="field-error" role="alert">
-                {error}
-              </span>
-            ) : null}
-          </div>
-          <div className="button-row">
-            <button type="submit" className="btn btn-primary btn-money" disabled={busy}>
-              {busy ? t('auth_sending') : t('auth_request_code')}
-            </button>
-          </div>
-          <p className="meta" style={{ marginTop: 24 }}>
-            {t('auth_new_here')} <Link to="/signup">{t('auth_create_account')}</Link>
-          </p>
-        </form>
-      ) : (
-        <div>
-          <h1>{t('auth_code_label')}</h1>
-          <p className="meta">
-            {t('auth_code_sent')} <strong>{formatPhone(step.phone)}</strong>
-          </p>
-          <div className="field">
-            <label htmlFor="code" className="visually-hidden">
-              {t('auth_code_label')}
-            </label>
-            <input
-              ref={codeRef}
-              id="code"
-              name="code"
-              className="otp-input"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              value={code}
-              disabled={busy}
-              onChange={(e) => onCode(e.target.value)}
-              aria-invalid={error ? true : undefined}
-              aria-describedby="code-help"
-            />
-            <span id="code-help" className="help">
-              {busy ? t('auth_checking_code') : t('auth_code_auto_checks')}
+        <Field
+          id="identifier"
+          label={t(kind === 'phone' ? 'auth_phone_label' : 'web_auth_email_label')}
+          error={identifierError}
+        >
+          <input
+            id="identifier"
+            name="username"
+            {...identifierInputProps(kind, 'username')}
+            placeholder={kind === 'phone' ? t('auth_phone_hint') : undefined}
+            value={typed}
+            disabled={busy}
+            onChange={(e) => setTyped(e.target.value)}
+            aria-invalid={identifierError ? true : undefined}
+            aria-describedby={describedBy('identifier', false, Boolean(identifierError))}
+            autoFocus
+          />
+        </Field>
+        <Field id="password" label={t('web_auth_password_label')}>
+          <PasswordInput
+            id="password"
+            value={password}
+            onChange={setPassword}
+            autoComplete="current-password"
+            invalid={Boolean(error)}
+            describedBy={error ? 'signin-error' : undefined}
+            disabled={busy}
+          />
+        </Field>
+        {error ? (
+          <div id="signin-error" className="banner error" role="alert" style={{ marginTop: 16 }}>
+            <span>
+              {error}
+              {pointToCode ? (
+                <>
+                  <br />
+                  {t('web_auth_password_wrong_hint')}{' '}
+                  <Link to="/signin/code" state={codeEntry}>
+                    {t('web_auth_get_code')}
+                  </Link>
+                </>
+              ) : null}
             </span>
-            {error ? (
-              <span className="field-error" role="alert">
-                {error}
-              </span>
-            ) : null}
           </div>
-          <div className="button-row">
-            <button
-              type="button"
-              className="btn btn-outline"
-              disabled={busy || resendIn > 0}
-              onClick={() => void requestCode(step.phone)}
-            >
-              {resendIn > 0
-                ? t('auth_resend_in', `0:${String(resendIn).padStart(2, '0')}`)
-                : t('auth_resend')}
-            </button>
-            <button
-              type="button"
-              className="btn btn-text"
-              onClick={() => {
-                setStep({ step: 'phone' })
-                setError(null)
-              }}
-            >
-              {t('auth_change_number')}
-            </button>
-          </div>
-          <p className="meta" style={{ marginTop: 24 }}>
-            {t('auth_no_code_hint')} <Link to="/signup">{t('auth_create_account')}</Link>
-          </p>
+        ) : null}
+        <div className="button-row">
+          <button type="submit" className="btn btn-primary btn-money" disabled={busy}>
+            {busy ? t('web_auth_signing_in') : t('auth_verify')}
+          </button>
         </div>
-      )}
+        <p className="meta" style={{ marginTop: 16 }}>
+          <Link to="/signin/code" state={codeEntry}>
+            {t('web_auth_forgot_password')}
+          </Link>
+        </p>
+        <p className="meta">
+          {t('web_auth_first_password')}{' '}
+          <Link to="/signin/code" state={codeEntry}>
+            {t('web_auth_get_code')}
+          </Link>
+        </p>
+        <p className="meta" style={{ marginTop: 24 }}>
+          {t('auth_new_here')} <Link to="/signup">{t('auth_create_account')}</Link>
+        </p>
+      </form>
     </AuthFrame>
   )
 }
 
 /**
- * The token pair from a `/verify` answer that needs no second step.
+ * The token pair from an answer that needs no second step.
  *
  * @throws ApiError `error.unexpected` when a token is missing, rather
  *   than storing a half session
  */
-function tokensFrom(answer: Schemas['VerifyResponse']): Schemas['TokenResponse'] {
+function tokensFrom(answer: VerifyResponse): Schemas['TokenResponse'] {
   const { access_token, refresh_token, expires_in } = answer
   if (!access_token || !refresh_token || typeof expires_in !== 'number')
     throw new ApiError(200, 'UNEXPECTED', UNEXPECTED_KEY, false)

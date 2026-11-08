@@ -13,23 +13,67 @@ import type { components } from './schema'
 export type Schemas = components['schemas']
 
 // ----------------------------------------------------------------- auth
+//
+// Sign-up and sign-in by phone OR email, and passwords [0032].
 
-export const issueCode = (phone: string) =>
-  request<Schemas['IssueResponse']>('POST', '/v1/auth/otp', { body: { phone }, anonymous: true })
+/** Exactly one of a phone number or an email address. */
+export type Identifier = { phone: string } | { email: string }
+
+/** `/verify` and `/password` answers: tokens, an MFA challenge, or a setup token. */
+export type VerifyResponse = Schemas['VerifyResponse']
+
+/** `/v1/me`: `phone` may be null (email-only account). */
+export type Me = Schemas['MeResponse']
+
+export type SignupRequest = Omit<Schemas['SignupRequest'], 'phone' | 'email'> & Identifier
+
+/** Send a one-time code to a phone (SMS) or an email address. */
+export const issueCode = (identifier: Identifier) =>
+  request<Schemas['IssueResponse']>('POST', '/v1/auth/otp', {
+    body: identifier,
+    anonymous: true,
+  })
 
 /**
- * Spend the SMS code. For an account without two-step verification the
- * answer is the token pair; with it, a challenge for {@link finishSignIn}.
+ * Spend the one-time code. **Never yields tokens**: the answer carries a
+ * `password_setup_token` for {@link setUpPassword}, and says whether the
+ * account will also need its authenticator code there.
  */
-export const verifyCode = (phone: string, code: string) =>
-  request<Schemas['VerifyResponse']>('POST', '/v1/auth/verify', {
-    body: { phone, code },
+export const verifyCode = (identifier: Identifier, code: string) =>
+  request<VerifyResponse>('POST', '/v1/auth/verify', {
+    body: { ...identifier, code },
+    anonymous: true,
+  })
+
+/**
+ * Finish the code flow by choosing a password; the answer is the token
+ * pair. Anonymous: a 401 here (`auth.password.setup_expired`) means the
+ * setup token lapsed, never that a session ended.
+ */
+export const setUpPassword = (body: {
+  token: string
+  password: string
+  code?: string | null
+  recovery_code?: string | null
+}) =>
+  request<Schemas['TokenResponse']>('POST', '/v1/auth/password/setup', {
+    body,
+    anonymous: true,
+  })
+
+/**
+ * Sign in with a password. The answer is the token pair, or an MFA
+ * challenge for {@link finishSignIn}.
+ */
+export const signInWithPassword = (identifier: Identifier, password: string) =>
+  request<VerifyResponse>('POST', '/v1/auth/password', {
+    body: { ...identifier, password },
     anonymous: true,
   })
 
 /**
  * The second step: the challenge and one authenticator or recovery code.
- * Anonymous, like `/verify`: there is no session yet, so a 401 here (the
+ * Anonymous, like `/password`: there is no session yet, so a 401 here (the
  * challenge lapsed) never reaches token renewal or sign-out.
  */
 export const finishSignIn = (
@@ -41,13 +85,30 @@ export const finishSignIn = (
     anonymous: true,
   })
 
-export const signUp = (body: Schemas['SignupRequest']) =>
+export const signUp = (body: SignupRequest) =>
   request<Schemas['SignupResponse']>('POST', '/v1/accounts', { body, anonymous: true })
 
 // ------------------------------------------------------------------- me
 
-export const readMe = (signal?: AbortSignal) =>
-  request<Schemas['MeResponse']>('GET', '/v1/me', { signal })
+export const readMe = (signal?: AbortSignal) => request<Me>('GET', '/v1/me', { signal })
+
+/**
+ * Set a first password (`current` null) or change it. Every session,
+ * this one included, ends: the answer is the new pair to store.
+ */
+export const setMyPassword = (current: string | null, next: string) =>
+  request<Schemas['TokenResponse']>('POST', '/v1/me/password', {
+    body:
+      current === null ? { new_password: next } : { current_password: current, new_password: next },
+  })
+
+/** Send a code to a phone or email the account does not have yet. */
+export const requestContactCode = (identifier: Identifier) =>
+  request<Schemas['IssueResponse']>('POST', '/v1/me/contact', { body: identifier })
+
+/** Spend that code; the answer is the account as it now stands. */
+export const verifyContact = (identifier: Identifier, code: string) =>
+  request<Me>('POST', '/v1/me/contact/verify', { body: { ...identifier, code } })
 
 export const listInvitations = (signal?: AbortSignal) =>
   request<Schemas['InvitationResponse'][]>('GET', '/v1/invitations', { signal })

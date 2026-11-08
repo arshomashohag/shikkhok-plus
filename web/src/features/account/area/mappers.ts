@@ -333,6 +333,15 @@ export function numberMatches(typed: string, phone: string | null | undefined): 
   return theirs.length >= LOCAL_NUMBER_DIGITS && mine.endsWith(theirs)
 }
 
+/**
+ * The confirmation for an email-only account, which has no number to
+ * type: the whole address, ignoring case and surrounding spaces.
+ */
+export function emailMatches(typed: string, email: string | null | undefined): boolean {
+  if (!email) return false
+  return typed.trim().toLowerCase() === email.trim().toLowerCase()
+}
+
 export interface TeacherFootprint {
   batchCount: number
   studentCount: number

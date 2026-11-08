@@ -7,7 +7,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { ApiError } from '../../../api/errors'
-import type { Schemas } from '../../../api/endpoints'
+import type { Me } from '../../../api/endpoints'
 import { formatPhone } from '../../../core/format'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
@@ -40,7 +40,7 @@ export function EditProfile() {
 
 type Field = keyof PostalAddress
 
-function ProfileForm({ me }: { me: Schemas['MeResponse'] }) {
+function ProfileForm({ me }: { me: Me }) {
   const { t, message } = useT()
   const navigate = useNavigate()
   const { refresh } = useReadySession()
@@ -130,8 +130,17 @@ function ProfileForm({ me }: { me: Schemas['MeResponse'] }) {
       <div className="field">
         <span className="label">{t('profile_phone_label')}</span>
         <span className="account-phone">{me.phone ? formatPhone(me.phone) : '—'}</span>
-        <span className="help">{t('profile_phone_note')}</span>
+        <span className="help">
+          {me.phone ? t('profile_phone_note') : t('web_contact_add_phone_why')}
+        </span>
       </div>
+
+      {me.email !== undefined ? (
+        <div className="field">
+          <span className="label">{t('web_auth_email_label')}</span>
+          <span className="account-phone">{me.email ?? '—'}</span>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="banner error" role="alert" style={{ marginTop: 16 }}>

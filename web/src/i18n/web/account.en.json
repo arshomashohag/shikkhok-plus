@@ -4,5 +4,7 @@
   "web_account_inbox_sub": "Fee reminders, payment updates and notices",
   "web_account_delete_offline": "No connection. Your account was not deleted.",
   "web_account_deleting": "Deleting…",
-  "web_account_done_body": "Your login, name and address are gone. Close this to sign out of this browser."
+  "web_account_done_body": "Your login, name and address are gone. Close this to sign out of this browser.",
+  "web_account_delete_type_email": "Type your email address to confirm.",
+  "web_account_delete_email_field": "Your email address"
 }

@@ -31,7 +31,8 @@ import { tabsFor, homeFor, type Tab } from './nav'
 import { pageWidth } from './pageWidth'
 import { useUnreadCount } from '../features/account/area'
 import { formatPhone, initial } from '../core/format'
-import { MfaPrompt } from '../features/account/security'
+import { MfaPrompt, PasswordPrompt } from '../features/account/security'
+import { needsPassword } from '../features/account/security/PasswordPrompt'
 
 const ICONS = {
   home: HomeIcon,
@@ -156,8 +157,9 @@ export function AppShell() {
   const unread = useUnreadCount() ?? 0
   const verifyCount = useVerifyCount(session.lens === 'teacher')
   const [collapsed, setCollapsed] = useState(readCollapsed)
-  const phone = session.me.phone ? formatPhone(session.me.phone) : ''
-  const name = session.me.self_name ?? phone
+  // An email-only account has no phone; it is shown by its address.
+  const contact = session.me.phone ? formatPhone(session.me.phone) : (session.me.email ?? '')
+  const name = session.me.self_name ?? contact
   const role = session.lens ? t(`lens_${session.lens}`) : t('web_role_none')
   const counts = { '/verify': verifyCount ?? 0 }
   const { pathname } = useLocation()
@@ -220,7 +222,7 @@ export function AppShell() {
               <Avatar letter={initial(name)} />
               <span className="who">
                 <span className="name">{name}</span>
-                <span className="meta">{[role, phone].filter(Boolean).join(' · ')}</span>
+                <span className="meta">{[role, contact].filter(Boolean).join(' · ')}</span>
               </span>
             </Link>
           ) : null}
@@ -233,7 +235,10 @@ export function AppShell() {
             <span>{t('web_offline_banner')}</span>
           </div>
         ) : null}
-        {home ? <MfaPrompt /> : null}
+        {/* Setting a password comes first, on every screen until it is done;
+            the two-step suggestion waits for it, on the home screen. */}
+        <PasswordPrompt />
+        {home && !needsPassword(session.me) ? <MfaPrompt /> : null}
         <Outlet />
       </main>
       <nav className="bottom-nav" aria-label="ShikkhokPlus">

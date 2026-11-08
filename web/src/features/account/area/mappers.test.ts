@@ -9,6 +9,7 @@ import {
   mapChildren,
   mapDetail,
   mapInbox,
+  emailMatches,
   numberMatches,
   profileUpdate,
   shownAddress,
@@ -260,6 +261,7 @@ describe('profile', () => {
     address_city: 'Dhaka',
     address_postcode: '1205',
     lenses: [],
+    has_password: true,
   }
 
   it('shows the four parts on one line, else the legacy address', () => {
@@ -319,6 +321,20 @@ describe('deletion', () => {
 
   it('nothing matches an account with no number', () => {
     expect(numberMatches('01911000003', null)).toBe(false)
+  })
+
+  it.each([
+    ['rina@example.com', true],
+    ['  Rina@Example.COM ', true],
+    ['rina@example.co', false],
+    ['example.com', false],
+    ['', false],
+  ])('email %p matches an email-only account: %p', (typed, expected) => {
+    expect(emailMatches(typed, 'rina@example.com')).toBe(expected)
+  })
+
+  it('no email matches an account with no email', () => {
+    expect(emailMatches('rina@example.com', null)).toBe(false)
   })
 
   it('a teacher footprint exists only for someone who owns batches', () => {

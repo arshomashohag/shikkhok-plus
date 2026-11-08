@@ -14,6 +14,7 @@ import { ChevronIcon } from '../../../ui/icons'
 import { familyPaths } from '../../family/reader'
 import { readGuardianHome } from './api'
 import { mapChildren } from './mappers'
+import { securityPaths } from '../security/paths'
 import './account.css'
 
 export function MyChildren() {
@@ -80,6 +81,14 @@ export function MyChildren() {
           <p className="meta" style={{ marginBottom: 0 }}>
             {phone ? t('my_children_missing_body', phone) : t('my_children_missing_body_plain')}
           </p>
+          {session.me.phone === null ? (
+            // An email-only guardian: teachers find guardians by number.
+            <div className="button-row">
+              <Link className="btn btn-tonal btn-small" to={securityPaths.addContact('phone')}>
+                {t('web_contact_add_phone')}
+              </Link>
+            </div>
+          ) : null}
         </div>
       </>
     )

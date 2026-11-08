@@ -51,6 +51,7 @@ export interface paths {
      *     :param background: Runs the SMS send after the response is written
      *     :param session: The request-scoped session
      *     :param gateway: The configured SMS gateway
+     *     :param email_gateway: The configured email gateway
      *     :return: ``requested`` after a code is sent, ``deleted`` after one
      *         is spent -- or the page saying so, for a form submission
      *     :raises CeilingBreach: A deletion ceiling refused a JSON send
@@ -130,7 +131,8 @@ export interface paths {
      *     :param background: Runs the SMS send after the response is written
      *     :param session: The request-scoped session
      *     :param gateway: The configured SMS gateway
-     *     :return: The draft's id and the number its code went to
+     *     :param email_gateway: The configured email gateway
+     *     :return: The draft's id and where its code went
      *     :raises CeilingBreach: A signup ceiling refused this request
      */
     post: operations['sign_up_v1_accounts_post']
@@ -214,17 +216,19 @@ export interface paths {
     put?: never
     /**
      * Send Code
-     * @description Send an admin sign-in code, answering every number the same way.
+     * @description Send an admin sign-in code, answering every destination the same way.
      *
-     *     The sign-in ceilings apply before anything else, for every number, as
-     *     they do for app sign-in; the code is texted after the response, so a
-     *     send cannot be timed either.
+     *     The sign-in ceilings apply before anything else, for every number or
+     *     address, as they do for app sign-in; the code is sent after the
+     *     response, so a send cannot be timed either. An administrator named
+     *     by email address [0032] is sent the code by email.
      *
-     *     :param body: The number
+     *     :param body: The number or the address
      *     :param request: The incoming request
      *     :param background: Runs the send after the response
      *     :param session: The request-scoped session
      *     :param gateway: The SMS gateway
+     *     :param email_gateway: The email gateway
      *     :return: The contentless acknowledgement
      */
     post: operations['send_code_v1_admin_auth_otp_post']
@@ -604,16 +608,90 @@ export interface paths {
     put?: never
     /**
      * Issue Code
-     * @description Issue a code, returning the same response for any number.
+     * @description Issue a code, returning the same response for any number or address.
+     *
+     *     Since passwords [0032] the code this sends completes a signup,
+     *     recovers a forgotten password or gives an account its first one; it
+     *     never signs anyone in on its own (see ``POST /v1/auth/verify``).
      *
      *     :param body: The request body
      *     :param request: The incoming request
-     *     :param background: Runs the SMS send after the response is written
+     *     :param background: Runs the send after the response is written
      *     :param session: The request-scoped session
      *     :param gateway: The configured SMS gateway
+     *     :param email_gateway: The configured email gateway
      *     :return: The contentless acknowledgement
      */
     post: operations['issue_code_v1_auth_otp_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/auth/password': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Sign In With Password
+     * @description Sign in with a phone number or an email address and a password.
+     *
+     *     **One refusal for every failure** [BR2.7]: an unknown destination, an
+     *     account with no password yet and a wrong password all answer
+     *     ``auth.password.wrong``, after the same work. The person who has no
+     *     password yet is pointed at the code flow by the client's static
+     *     hint, not by a response that would say their account exists.
+     *
+     *     Bounded per identifier and per network, with the network-wide
+     *     failure ceilings shared with codes.
+     *
+     *     :param body: The request body
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :return: The token pair, or the authenticator challenge
+     *     :raises CeilingBreach: A failure ceiling is full
+     *     :raises PasswordRefused: The sign-in was refused
+     */
+    post: operations['sign_in_with_password_v1_auth_password_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/auth/password/setup': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Set Up Password
+     * @description Choose a password with a verified code's token, and sign in.
+     *
+     *     Public, like ``/verify``: the person has no session yet. What bounds
+     *     it is the token, which only a verified code yields, and which is
+     *     spent by the password it sets. Every other session of the account
+     *     ends: a password chosen through a code is a recovery.
+     *
+     *     :param body: The token, the password, and the authenticator code
+     *         when the account has one
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :return: A token pair
+     *     :raises AuthorizationError: 401 when the token is bad, expired or spent
+     *     :raises ValidationError: The password or the authenticator code
+     */
+    post: operations['set_up_password_v1_auth_password_setup_post']
     delete?: never
     options?: never
     head?: never
@@ -661,11 +739,13 @@ export interface paths {
     put?: never
     /**
      * Verify Code
-     * @description Verify a code and issue a token pair, or ask for the second step.
+     * @description Verify a code and grant the right to choose a password.
      *
-     *     An account with two-step verification on gets a challenge instead of
-     *     tokens, and the SMS code is spent either way: a second request with
-     *     the same code cannot skip the authenticator step.
+     *     **Never a session** [0032]. A verified code yields a
+     *     ``password_setup_token``; ``POST /v1/auth/password/setup`` turns it
+     *     into a session once a password is chosen -- with the authenticator
+     *     code too when ``mfa_required`` -- so a code can recover an account
+     *     and cannot sign in to one.
      *
      *     **Bounded wider than one code** [C-20]. A verify arriving while the
      *     caller's /64, its /48 or the whole product has failed too often this
@@ -682,7 +762,7 @@ export interface paths {
      *     :param body: The request body
      *     :param request: The incoming request
      *     :param session: The request-scoped session
-     *     :return: The token pair, or the authenticator challenge
+     *     :return: The password-setup grant
      *     :raises CeilingBreach: A failed-verify ceiling is full
      *     :raises CodeRefused: The code was refused
      */
@@ -2747,6 +2827,72 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/me/contact': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Request Contact Code
+     * @description Send a code to a phone number or an address the account lacks.
+     *
+     *     Sent whether or not another account holds it (see
+     *     :mod:`app.accounts.contact`), within sign-in's per-destination and
+     *     per-network ceilings and the daily send budgets.
+     *
+     *     :param body: The number or address
+     *     :param request: The incoming request
+     *     :param background: Runs the send after the response is written
+     *     :param account_id: The authenticated account
+     *     :param session: The request-scoped session
+     *     :param gateway: The configured SMS gateway
+     *     :param email_gateway: The configured email gateway
+     *     :return: The contentless acknowledgement
+     *     :raises ConflictError: The account already has one of this kind
+     *     :raises CeilingBreach: A ceiling refused the send
+     */
+    post: operations['request_contact_code_v1_me_contact_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/contact/verify': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Verify Contact
+     * @description Add the phone number or address the code proves.
+     *
+     *     Adding a phone number links the seats and centre invitations recorded
+     *     against it, so the response's lenses may have changed.
+     *
+     *     :param body: The number or address, and the code
+     *     :param request: The incoming request
+     *     :param account_id: The authenticated account
+     *     :param session: The request-scoped session
+     *     :return: The account, as ``GET /v1/me`` describes it
+     *     :raises CodeRefused: The code was refused
+     *     :raises ConflictError: Already set, or held by another account
+     */
+    post: operations['verify_contact_v1_me_contact_verify_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/me/deletion-summary': {
     parameters: {
       query?: never
@@ -3475,6 +3621,37 @@ export interface paths {
     get: operations['read_overview_v1_me_overview_get']
     put?: never
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/password': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Set Password
+     * @description Set or change this account's password, and sign in afresh.
+     *
+     *     Every session ends, this one included, and a new pair is returned
+     *     for the device that made the change.
+     *
+     *     :param body: The current password, when there is one, and the new
+     *     :param request: The incoming request
+     *     :param account_id: The authenticated account
+     *     :param session: The request-scoped session
+     *     :return: A new token pair
+     *     :raises ValidationError: The current password is missing or wrong
+     *     :raises ValidationError: The new password breaks the policy
+     */
+    post: operations['set_password_v1_me_password_post']
     delete?: never
     options?: never
     head?: never
@@ -4349,16 +4526,16 @@ export interface components {
     }
     /**
      * AdminOtpRequest
-     * @description Ask for an admin sign-in code by SMS.
+     * @description Ask for an admin sign-in code, by SMS or by email [0032].
      *
-     *     :ivar phone: The administrator's number, in any spelling
+     *     :ivar phone: The administrator's number, in any spelling, or None
+     *     :ivar email: Or the administrator's address; exactly one of the two
      */
     AdminOtpRequest: {
-      /**
-       * Phone
-       * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
-       */
-      phone: string
+      /** Email */
+      email?: string | null
+      /** Phone */
+      phone?: string | null
     }
     /**
      * AdminOverviewResponse
@@ -4611,19 +4788,19 @@ export interface components {
     }
     /**
      * AdminVerifyRequest
-     * @description Spend the SMS code.
+     * @description Spend the code.
      *
-     *     :ivar phone: The number the code was sent to
-     *     :ivar code: The code from the SMS
+     *     :ivar phone: The number the code was sent to, or None
+     *     :ivar email: Or the address [0032]
+     *     :ivar code: The code from the SMS or the email
      */
     AdminVerifyRequest: {
       /** Code */
       code: string
-      /**
-       * Phone
-       * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
-       */
-      phone: string
+      /** Email */
+      email?: string | null
+      /** Phone */
+      phone?: string | null
     }
     /**
      * AdminWorkspace
@@ -5384,6 +5561,35 @@ export interface components {
       outstanding: components['schemas']['Money']
       /** Owing Students */
       owing_students: number
+    }
+    /**
+     * ContactRequest
+     * @description Ask for a code to add a phone number or an email address.
+     *
+     *     :ivar phone: The number to add, or None
+     *     :ivar email: Or the address to add
+     */
+    ContactRequest: {
+      /** Email */
+      email?: string | null
+      /** Phone */
+      phone?: string | null
+    }
+    /**
+     * ContactVerifyRequest
+     * @description Add the phone number or email address a code was sent to.
+     *
+     *     :ivar phone: The number, or None
+     *     :ivar email: Or the address
+     *     :ivar code: The code sent to it
+     */
+    ContactVerifyRequest: {
+      /** Code */
+      code: string
+      /** Email */
+      email?: string | null
+      /** Phone */
+      phone?: string | null
     }
     /**
      * CorrectionEntryResponse
@@ -6950,19 +7156,23 @@ export interface components {
     }
     /**
      * IssueRequest
-     * @description Ask for a code to be sent to a number.
+     * @description Ask for a code to be sent to a number or an address.
      *
      *     The number is **typed by the user** and never read from the SIM
      *     [AC1.1.6]: there is no device-side source for this field.
      *
-     *     :ivar phone: The destination number in international form
+     *     Since passwords [0032] a code no longer signs anyone in: it completes
+     *     a signup, recovers a forgotten password, or gives an account its
+     *     first one, by way of ``POST /v1/auth/password/setup``.
+     *
+     *     :ivar phone: The destination number, or None
+     *     :ivar email: The destination address, or None; exactly one is given
      */
     IssueRequest: {
-      /**
-       * Phone
-       * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
-       */
-      phone: string
+      /** Email */
+      email?: string | null
+      /** Phone */
+      phone?: string | null
     }
     /**
      * IssueResponse
@@ -7077,6 +7287,10 @@ export interface components {
      *         login, read by the owner on a lens-exempt route; the profile
      *         shows it read-only, and in-app deletion asks the person to type
      *         it back as confirmation, which needs the app to know it
+     *     :ivar email: The address this account signs in with, or None [0032].
+     *         The owner's own, like ``phone``
+     *     :ivar has_password: Whether a password is set; an account without
+     *         one is asked to set one [0032]
      *     :ivar workspaces: Every workspace the teacher lens may act on, solo
      *         first [0022]. A client sends the chosen one's ``owner_id`` as
      *         ``X-Workspace-Id``; with one entry, or none, there is nothing to
@@ -7093,6 +7307,13 @@ export interface components {
       address_postcode?: string | null
       /** Address Road */
       address_road?: string | null
+      /** Email */
+      email?: string | null
+      /**
+       * Has Password
+       * @default false
+       */
+      has_password: boolean
       /** Lenses */
       lenses?: components['schemas']['LensEntry'][]
       /** Phone */
@@ -7807,6 +8028,58 @@ export interface components {
        */
       extra_fee_options?: components['schemas']['ExtraFeeRefResponse'][]
       owed_together: components['schemas']['Money']
+    }
+    /**
+     * PasswordChangeRequest
+     * @description Set a first password, or change the current one.
+     *
+     *     :ivar current_password: Required when the account has a password
+     *     :ivar new_password: The new one
+     */
+    PasswordChangeRequest: {
+      /** Current Password */
+      current_password?: string | null
+      /** New Password */
+      new_password: string
+    }
+    /**
+     * PasswordSetupRequest
+     * @description Choose a password with the token a verified code yielded.
+     *
+     *     :ivar token: ``password_setup_token`` from ``POST /v1/auth/verify``
+     *     :ivar password: The new password
+     *     :ivar code: Six digits from the authenticator app, when
+     *         ``mfa_required`` was true
+     *     :ivar recovery_code: Or a recovery code
+     */
+    PasswordSetupRequest: {
+      /** Code */
+      code?: string | null
+      /**
+       * Password
+       * @description 8 to 128 characters. Very common passwords are refused.
+       */
+      password: string
+      /** Recovery Code */
+      recovery_code?: string | null
+      /** Token */
+      token: string
+    }
+    /**
+     * PasswordSignInRequest
+     * @description Sign in with a phone number or an email address, and a password.
+     *
+     *     :ivar phone: The account's number, or None
+     *     :ivar email: Or its address
+     *     :ivar password: The password
+     */
+    PasswordSignInRequest: {
+      /** Email */
+      email?: string | null
+      /** Password */
+      password: string
+      /** Phone */
+      phone?: string | null
     }
     /**
      * PayableResponse
@@ -9199,13 +9472,17 @@ export interface components {
     }
     /**
      * SignupRequest
-     * @description Create an account for a number nobody has registered.
+     * @description Create an account for a number or an address nobody has registered.
      *
      *     The number is **typed by the person** and never read from the SIM
      *     [TC-4, D-35]: there is no device-side source for this field, here
      *     or anywhere in this product.
      *
-     *     :ivar phone: The number this identity is keyed on
+     *     :ivar phone: The number this identity is keyed on, or None
+     *     :ivar email: Or the address [0032]; exactly one of the two. No
+     *         password here: it is chosen after the code is verified, with the
+     *         token that verification yields, so the person who proved the
+     *         destination is the one who sets it
      *     :ivar role: The claimed role; nothing verifies it [BR4.2]
      *     :ivar self_name: The name the person chose for themselves. Lands on
      *         ``Profile.self_name`` and never on an ``Enrollment.display_name``
@@ -9241,11 +9518,10 @@ export interface components {
       address_road: string
       /** Centre Name */
       centre_name?: string | null
-      /**
-       * Phone
-       * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
-       */
-      phone: string
+      /** Email */
+      email?: string | null
+      /** Phone */
+      phone?: string | null
       /**
        * Role
        * @enum {string}
@@ -9265,7 +9541,7 @@ export interface components {
      *     first one carries.
      *
      *     :ivar account_id: The new account
-     *     :ivar code_sent_to: The number the code was sent to, echoed so the
+     *     :ivar code_sent_to: The number or address the code was sent to, echoed so the
      *         screen can name its destination [BR4.3, AC1.11.4]
      */
     SignupResponse: {
@@ -10063,34 +10339,40 @@ export interface components {
      * VerifyRequest
      * @description Present a code for verification.
      *
-     *     :ivar phone: The number the code was issued for
+     *     :ivar phone: The number the code was issued for, or None
+     *     :ivar email: Or the address it was emailed to
      *     :ivar code: The six-digit code
      */
     VerifyRequest: {
       /** Code */
       code: string
-      /**
-       * Phone
-       * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
-       */
-      phone: string
+      /** Email */
+      email?: string | null
+      /** Phone */
+      phone?: string | null
     }
     /**
      * VerifyResponse
-     * @description What a verified SMS code yields: tokens, or the authenticator step.
+     * @description What a verified code or a password yields.
      *
-     *     **For an account without two-step verification this is exactly the
-     *     token pair it always was**, so clients built before the authenticator
-     *     step keep working for everyone who has not turned it on. For an
-     *     account with it on, the token fields are absent and ``mfa_challenge``
-     *     carries the person to ``POST /v1/auth/mfa``.
+     *     **From ``POST /v1/auth/verify``** [0032]: never tokens. A
+     *     ``password_setup_token`` carries the person to
+     *     ``POST /v1/auth/password/setup``, and ``mfa_required`` says the
+     *     authenticator code must come with the password there.
      *
-     *     :ivar access_token: The bearer token, when no second step is needed
+     *     **From ``POST /v1/auth/password``**: the token pair, or, for an
+     *     account with two-step verification on, ``mfa_challenge`` for the
+     *     existing ``POST /v1/auth/mfa``.
+     *
+     *     :ivar access_token: The bearer token, when signed in
      *     :ivar refresh_token: The rotation token, likewise
      *     :ivar expires_in: Access-token lifetime in seconds, likewise
      *     :ivar mfa_required: True when an authenticator code must follow
-     *     :ivar mfa_challenge: Carries the sign-in to that step; grants nothing
+     *     :ivar mfa_challenge: Carries a password sign-in to that step
      *     :ivar mfa_expires_in: Seconds until the challenge lapses
+     *     :ivar password_setup_token: From a verified code: the right to choose
+     *         a password, and nothing else
+     *     :ivar password_setup_expires_in: Seconds until it lapses
      */
     VerifyResponse: {
       /** Access Token */
@@ -10106,6 +10388,10 @@ export interface components {
        * @default false
        */
       mfa_required: boolean
+      /** Password Setup Expires In */
+      password_setup_expires_in?: number | null
+      /** Password Setup Token */
+      password_setup_token?: string | null
       /** Refresh Token */
       refresh_token?: string | null
     }
@@ -10232,22 +10518,20 @@ export interface operations {
           authenticator_code?: string | null
           /** Code */
           code?: string | null
-          /**
-           * Phone
-           * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
-           */
-          phone: string
+          /** Email */
+          email?: string | null
+          /** Phone */
+          phone?: string | null
         }
         'application/x-www-form-urlencoded': {
           /** Authenticator Code */
           authenticator_code?: string | null
           /** Code */
           code?: string | null
-          /**
-           * Phone
-           * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
-           */
-          phone: string
+          /** Email */
+          email?: string | null
+          /** Phone */
+          phone?: string | null
         }
       }
     }
@@ -11300,6 +11584,108 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['IssueResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  sign_in_with_password_v1_auth_password_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PasswordSignInRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['VerifyResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  set_up_password_v1_auth_password_setup_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PasswordSetupRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TokenResponse']
         }
       }
       /** @description The request could not be parsed */
@@ -17594,6 +17980,108 @@ export interface operations {
       }
     }
   }
+  request_contact_code_v1_me_contact_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ContactRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['IssueResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  verify_contact_v1_me_contact_verify_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ContactVerifyRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MeResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
   read_deletion_summary_v1_me_deletion_summary_get: {
     parameters: {
       query?: never
@@ -19152,6 +19640,57 @@ export interface operations {
       }
       /** @description This account holds no teacher lens. */
       403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  set_password_v1_me_password_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PasswordChangeRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TokenResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
         headers: {
           [name: string]: unknown
         }

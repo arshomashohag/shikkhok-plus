@@ -78,7 +78,7 @@ describe('the gate', () => {
     expect(peekAdminSession()).toBeNull()
     expect(sessionStorage.getItem(SESSION_KEY)).toBeNull()
 
-    await user.type(screen.getByLabelText(en('auth_phone_label')), '01711234567')
+    await user.type(screen.getByLabelText(en('web_admin_identifier_label')), '01711234567')
     await user.click(screen.getByRole('button', { name: en('auth_request_code') }))
     await user.type(await screen.findByLabelText(en('auth_code_label')), '123456')
     await user.type(await screen.findByLabelText(en('web_admin_verify_code_label')), '111222')

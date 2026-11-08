@@ -97,7 +97,7 @@
   "web_admin_auth_point_two_codes": "Every log-in needs an SMS code and a code from your authenticator app.",
   "web_admin_auth_point_hour": "A session lasts an hour, and ends when you close the tab.",
   "web_admin_signin_title": "Log in to ShikkhokPlus admin",
-  "web_admin_signin_sub": "We'll send a 6-digit code by SMS to an administrator's number.",
+  "web_admin_signin_sub": "We'll send a 6-digit code to an administrator's number by SMS, or to their email address.",
   "web_admin_signin_code_sent": "If this number is an administrator's, we sent it a 6-digit code by SMS.",
   "web_admin_signin_not_admin": "This number can't log in to ShikkhokPlus admin.",
   "web_admin_unavailable": "ShikkhokPlus admin isn't available from this connection. Open it at the admin address, from an allowed network.",
@@ -133,5 +133,8 @@
   "web_admin_codes_label": "Recovery codes",
   "web_admin_copy_all": "Copy all",
   "web_admin_codes_saved": "I've saved them",
-  "web_admin_signed_in_until": "Signed in until {1}"
+  "web_admin_signed_in_until": "Signed in until {1}",
+  "web_admin_identifier_label": "Phone number or email",
+  "web_admin_identifier_hint": "01XXXXXXXXX or you@example.com",
+  "web_admin_email_invalid": "Enter an email address like you@example.com."
 }

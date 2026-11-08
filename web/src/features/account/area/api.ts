@@ -3,7 +3,7 @@
  * Typed from the committed OpenAPI schema.
  */
 import { request } from '../../../api/client'
-import type { Schemas } from '../../../api/endpoints'
+import type { Me, Schemas } from '../../../api/endpoints'
 
 const enc = encodeURIComponent
 
@@ -22,11 +22,10 @@ export const markRead = (notificationId: string) =>
 
 export const markAllRead = () => request<unknown>('POST', '/v1/me/notifications/read')
 
-export const readProfile = (signal?: AbortSignal) =>
-  request<Schemas['MeResponse']>('GET', '/v1/me', { signal })
+export const readProfile = (signal?: AbortSignal) => request<Me>('GET', '/v1/me', { signal })
 
 export const saveProfile = (body: Schemas['ProfileUpdateRequest']) =>
-  request<Schemas['MeResponse']>('PATCH', '/v1/me', { body })
+  request<Me>('PATCH', '/v1/me', { body })
 
 export const readDeletionSummary = (signal?: AbortSignal) =>
   request<Schemas['DeletionSummaryResponse']>('GET', '/v1/me/deletion-summary', { signal })
