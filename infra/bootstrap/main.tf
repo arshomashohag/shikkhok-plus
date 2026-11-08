@@ -1270,12 +1270,22 @@ resource "aws_iam_role_policy" "plan" {
         }
       },
       {
+        # Every bucket this environment's stack manages: the config and
+        # web buckets (modules/app, modules/cdn), the public site
+        # (modules/site) and the admin UI (modules/admin). Bucket ARNs
+        # only, so no object in any of them is readable -- the refresh
+        # reads bucket configuration, not contents. A bucket missing here
+        # fails the plan at the first GetBucket* call, as the site and
+        # admin buckets did; tests/gates/test_plan_role_reads_every_bucket.py
+        # keeps this list in step with the modules.
         Sid    = "ReadOurBuckets"
         Effect = "Allow"
         Action = ["s3:Get*", "s3:List*"]
         Resource = [
           "arn:aws:s3:::shikkhokplus-${each.key}-*config-*",
           "arn:aws:s3:::shikkhokplus-${each.key}-web-*",
+          "arn:aws:s3:::shikkhokplus-${each.key}-site-*",
+          "arn:aws:s3:::shikkhokplus-${each.key}-admin-*",
         ]
       },
       {
