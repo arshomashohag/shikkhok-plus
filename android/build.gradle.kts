@@ -286,7 +286,10 @@ configurations.configureEach {
  * @param floor The minimum version
  * @return Whether [current] is below [floor]
  */
-fun isOlder(current: String, floor: String): Boolean {
+fun isOlder(
+    current: String,
+    floor: String
+): Boolean {
     fun parts(version: String): List<Int> =
         version.substringBefore('-').split('.').mapNotNull { it.takeWhile(Char::isDigit).toIntOrNull() }
     val a = parts(current)
