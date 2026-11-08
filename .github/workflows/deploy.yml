@@ -1626,20 +1626,37 @@ jobs:
             printf '%s %s' "$status" "$(head -c 200 "$body")"
             rm -f "$body"
           }
-          for attempt in $(seq 1 18); do
-            got=$(probe "$URL/")
-            if [ "$got" = "403 Not available from this network." ]; then break; fi
-            [ "$attempt" = 18 ] && {
-              echo "::error::$URL/ answered '$got' to an address off the allowlist, not the edge's 403."
-              exit 1
-            }
-            sleep 10
-          done
-          got=$(probe "$URL/v1/admin/overview")
-          [ "$got" = "403 Not available from this network." ] \
-            || { echo "::error::$URL/v1/admin/overview answered '$got' off the allowlist, not 403."; exit 1; }
+          # **Staging skips the admin host's network-lock probes**, at the
+          # owner's decision (2026-11-08): staging's admin host answered
+          # this runner -- an address off the allowlist -- with the page
+          # instead of the edge's 403, on every deploy since at least
+          # run 51, and the cause (the allowlist secret or the hostname's
+          # distribution) is outside this repository. Production keeps
+          # the full check. The warning says so on every staging run, so
+          # the skip is never read as a pass. The API-host probe below
+          # still runs everywhere.
+          if [ "$ENVIRONMENT" = "staging" ]; then
+            echo "::warning::Staging: the admin host's network lock was NOT verified (probe skipped by decision)."
+          else
+            for attempt in $(seq 1 18); do
+              got=$(probe "$URL/")
+              if [ "$got" = "403 Not available from this network." ]; then break; fi
+              [ "$attempt" = 18 ] && {
+                echo "::error::$URL/ answered '$got' to an address off the allowlist, not the edge's 403."
+                exit 1
+              }
+              sleep 10
+            done
+            got=$(probe "$URL/v1/admin/overview")
+            [ "$got" = "403 Not available from this network." ] \
+              || { echo "::error::$URL/v1/admin/overview answered '$got' off the allowlist, not 403."; exit 1; }
+          fi
 
           got=$(probe "$API/v1/admin/overview")
           [ "$got" = "404 Not found." ] \
             || { echo "::error::$API/v1/admin/overview answered '$got', not the edge's 404: the API host serves the admin API."; exit 1; }
-          echo "The admin host refuses this network, and the API host refuses admin routes."
+          if [ "$ENVIRONMENT" = "staging" ]; then
+            echo "The API host refuses admin routes. (Admin host lock not probed on staging.)"
+          else
+            echo "The admin host refuses this network, and the API host refuses admin routes."
+          fi
