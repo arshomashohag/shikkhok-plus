@@ -176,18 +176,21 @@ def deliver_code(
         )
         return
 
-    subject, body = render_email_code(code)
+    message = render_email_code(code)
     background.add_task(
         send_email_within_budget,
         bind,
         email_gateway,
         identifier.value,
-        EmailMessage(subject=subject, text=body),
+        message,
         correlation_id,
         otp_request_id=otp_request_id,
     )
     record_outbox(
-        session, email=identifier.value, message=body, correlation_id=correlation_id
+        session,
+        email=identifier.value,
+        message=message.text,
+        correlation_id=correlation_id,
     )
 
 

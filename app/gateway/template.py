@@ -18,6 +18,9 @@ from __future__ import annotations
 
 from typing import Final
 
+from app.gateway.email import EmailMessage
+from app.gateway.email_html import render_email_html
+
 __all__ = [
     "APP_HASH_LENGTH",
     "EMAIL_SUBJECT",
@@ -112,10 +115,18 @@ EMAIL_TEMPLATE: Final = (
 )
 
 
-def render_email_code(code: str) -> tuple[str, str]:
-    """Render the subject and body of an emailed code.
+def render_email_code(code: str) -> EmailMessage:
+    """Render an emailed code: subject, plain text and HTML.
+
+    The plain text above stays the fallback part and the outbox copy;
+    the HTML part (:mod:`app.gateway.email_html`) carries the same code
+    and wording, plus a short note about ShikkhokPlus below them.
 
     :param code: The six-digit code
-    :return: The subject and the plain-text body
+    :return: The rendered email
     """
-    return EMAIL_SUBJECT.format(code=code), EMAIL_TEMPLATE.format(code=code)
+    return EmailMessage(
+        subject=EMAIL_SUBJECT.format(code=code),
+        text=EMAIL_TEMPLATE.format(code=code),
+        html=render_email_html(code),
+    )
