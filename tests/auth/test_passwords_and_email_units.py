@@ -25,7 +25,12 @@ from app.gateway.email import (
     build_email_gateway,
     email_gateway_configured,
 )
-from app.gateway.email_html import PLAY_URL, render_email_html
+from app.gateway.email_html import (
+    PLAY_URL,
+    SITE_URL_ENV,
+    render_email_html,
+    site_url_from_env,
+)
 from app.gateway.ses_smtp import SesSmtpGateway
 from app.gateway.sms import Outcome
 from app.gateway.template import render_email_code
@@ -157,11 +162,56 @@ def test_the_html_part_escapes_the_code() -> None:
 
 
 def test_the_html_part_fetches_nothing() -> None:
-    # A remote image is a read receipt nobody agreed to; the only URL is
-    # the Play listing a person may choose to follow.
-    page = render_email_html("482913")
+    # A remote image is a read receipt nobody agreed to; the only URLs are
+    # links a person may choose to follow.
+    page = render_email_html("482913", "https://site.example.com")
     assert "<img" not in page and "src=" not in page and "url(" not in page
+    assert sorted(re.findall(r"https?://[^\s\"<]+", page)) == sorted(
+        [PLAY_URL, "https://site.example.com/bn/", "https://site.example.com/"]
+    )
+
+
+def test_without_a_site_url_the_website_line_is_left_out() -> None:
+    page = render_email_html("482913")
     assert re.findall(r"https?://[^\s\"<]+", page) == [PLAY_URL]
+    assert "Learn more" not in page
+
+
+def test_the_website_line_links_both_languages() -> None:
+    page = render_email_html("482913", "https://site.example.com")
+    assert 'href="https://site.example.com/bn/"' in page
+    assert 'href="https://site.example.com/"' in page
+    assert ">site.example.com</a>" in page
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("https://site.example.com", "https://site.example.com"),
+        ("https://site.example.com/", "https://site.example.com"),
+        ("http://localhost:8080", "http://localhost:8080"),
+        ("", None),
+        ("http://site.example.com", None),
+        ("https://site.example.com/path", None),
+        ("https://site.example.com/?q=1", None),
+        ("javascript:alert(1)", None),
+        ('https://a.example.com/"><script>', None),
+    ],
+)
+def test_the_site_url_must_be_a_bare_origin(
+    monkeypatch: pytest.MonkeyPatch, raw: str, expected: str | None
+) -> None:
+    monkeypatch.setenv(SITE_URL_ENV, raw)
+    assert site_url_from_env() == expected
+
+
+def test_a_bad_site_url_drops_the_link_not_the_email(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(SITE_URL_ENV, "ftp://site.example.com")
+    message = render_email_code("482913")
+    assert message.html is not None and "482913" in message.html
+    assert "site.example.com" not in message.html
 
 
 def test_the_code_comes_before_the_promotion() -> None:

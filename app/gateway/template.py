@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import Final
 
 from app.gateway.email import EmailMessage
-from app.gateway.email_html import render_email_html
+from app.gateway.email_html import render_email_html, site_url_from_env
 
 __all__ = [
     "APP_HASH_LENGTH",
@@ -120,7 +120,8 @@ def render_email_code(code: str) -> EmailMessage:
 
     The plain text above stays the fallback part and the outbox copy;
     the HTML part (:mod:`app.gateway.email_html`) carries the same code
-    and wording, plus a short note about ShikkhokPlus below them.
+    and wording, plus a short note about ShikkhokPlus below them, with a
+    link to the public site when its origin is configured.
 
     :param code: The six-digit code
     :return: The rendered email
@@ -128,5 +129,5 @@ def render_email_code(code: str) -> EmailMessage:
     return EmailMessage(
         subject=EMAIL_SUBJECT.format(code=code),
         text=EMAIL_TEMPLATE.format(code=code),
-        html=render_email_html(code),
+        html=render_email_html(code, site_url_from_env()),
     )
