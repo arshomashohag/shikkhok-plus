@@ -93,7 +93,11 @@ class SesSmtpGateway:
         )
         if self.configuration_set:
             mail["X-SES-CONFIGURATION-SET"] = self.configuration_set
+        # Text first, HTML last: a client shows the last alternative it
+        # can render, so the plain text is the fallback, not the default.
         mail.set_content(message.text, charset="utf-8")
+        if message.html is not None:
+            mail.add_alternative(message.html, subtype="html", charset="utf-8")
 
         envelope_from = email.utils.parseaddr(self.sender)[1]
         try:

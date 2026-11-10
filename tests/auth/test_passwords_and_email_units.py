@@ -8,6 +8,7 @@ spellings, an SMTP adapter that sends in clear.
 
 from __future__ import annotations
 
+import re
 import smtplib
 from typing import Any
 from unittest import mock
@@ -23,6 +24,12 @@ from app.gateway.email import (
     NullEmailGateway,
     build_email_gateway,
     email_gateway_configured,
+)
+from app.gateway.email_html import (
+    PLAY_URL,
+    SITE_URL_ENV,
+    render_email_html,
+    site_url_from_env,
 )
 from app.gateway.ses_smtp import SesSmtpGateway
 from app.gateway.sms import Outcome
@@ -134,10 +141,83 @@ def test_the_identifier_is_tagged_with_its_channel() -> None:
 
 
 def test_the_email_carries_the_code_in_both_languages() -> None:
-    subject, body = render_email_code("482913")
-    assert "482913" in subject
-    assert body.count("482913") == 2
-    assert "কোড" in body and "code" in body
+    message = render_email_code("482913")
+    assert "482913" in message.subject
+    assert message.text.count("482913") == 2
+    assert "কোড" in message.text and "code" in message.text
+
+
+def test_the_html_part_carries_the_code_and_both_languages() -> None:
+    page = render_email_code("482913").html
+    assert page is not None
+    assert page.count("482913") == 1
+    assert "যাচাই কোড" in page and "verification code" in page
+    assert "5 minutes" in page and "৫ মিনিটের" in page
+
+
+def test_the_html_part_escapes_the_code() -> None:
+    # Always six digits in practice; escaped at the one substitution site.
+    page = render_email_html("<b>&")
+    assert "<b>&" not in page and "&lt;b&gt;&amp;" in page
+
+
+def test_the_html_part_fetches_nothing() -> None:
+    # A remote image is a read receipt nobody agreed to; the only URLs are
+    # links a person may choose to follow.
+    page = render_email_html("482913", "https://site.example.com")
+    assert "<img" not in page and "src=" not in page and "url(" not in page
+    assert sorted(re.findall(r"https?://[^\s\"<]+", page)) == sorted(
+        [PLAY_URL, "https://site.example.com/bn/", "https://site.example.com/"]
+    )
+
+
+def test_without_a_site_url_the_website_line_is_left_out() -> None:
+    page = render_email_html("482913")
+    assert re.findall(r"https?://[^\s\"<]+", page) == [PLAY_URL]
+    assert "Learn more" not in page
+
+
+def test_the_website_line_links_both_languages() -> None:
+    page = render_email_html("482913", "https://site.example.com")
+    assert 'href="https://site.example.com/bn/"' in page
+    assert 'href="https://site.example.com/"' in page
+    assert ">site.example.com</a>" in page
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("https://site.example.com", "https://site.example.com"),
+        ("https://site.example.com/", "https://site.example.com"),
+        ("http://localhost:8080", "http://localhost:8080"),
+        ("", None),
+        ("http://site.example.com", None),
+        ("https://site.example.com/path", None),
+        ("https://site.example.com/?q=1", None),
+        ("javascript:alert(1)", None),
+        ('https://a.example.com/"><script>', None),
+    ],
+)
+def test_the_site_url_must_be_a_bare_origin(
+    monkeypatch: pytest.MonkeyPatch, raw: str, expected: str | None
+) -> None:
+    monkeypatch.setenv(SITE_URL_ENV, raw)
+    assert site_url_from_env() == expected
+
+
+def test_a_bad_site_url_drops_the_link_not_the_email(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(SITE_URL_ENV, "ftp://site.example.com")
+    message = render_email_code("482913")
+    assert message.html is not None and "482913" in message.html
+    assert "site.example.com" not in message.html
+
+
+def test_the_code_comes_before_the_promotion() -> None:
+    page = render_email_html("482913")
+    assert page.index("482913") < page.index("About ShikkhokPlus")
+    assert page.index("ignore this email") < page.index("About ShikkhokPlus")
 
 
 def test_the_null_adapter_is_the_default(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -186,6 +266,28 @@ def test_ses_sends_over_starttls_from_the_bare_address() -> None:
     assert kwargs["to_addrs"] == ["rahim@example.com"]
     mail = smtp.send_message.call_args.args[0]
     assert mail["X-SES-CONFIGURATION-SET"] == "shikkhokplus-test-email"
+
+
+def test_ses_sends_html_as_an_alternative_to_the_text() -> None:
+    smtp = mock.MagicMock()
+    with mock.patch.object(smtplib, "SMTP") as factory:
+        factory.return_value.__enter__.return_value = smtp
+        _gateway().send("a@b.com", render_email_code("482913"), "c")
+    mail = smtp.send_message.call_args.args[0]
+    assert mail.get_content_type() == "multipart/alternative"
+    parts = [part.get_content_type() for part in mail.iter_parts()]
+    # Text first: a client shows the last alternative it can render.
+    assert parts == ["text/plain", "text/html"]
+    assert "482913" in mail.get_body(preferencelist=("plain",)).get_content()
+    assert "482913" in mail.get_body(preferencelist=("html",)).get_content()
+
+
+def test_a_text_only_message_stays_single_part() -> None:
+    smtp = mock.MagicMock()
+    with mock.patch.object(smtplib, "SMTP") as factory:
+        factory.return_value.__enter__.return_value = smtp
+        _gateway().send("a@b.com", EmailMessage(subject="s", text="t"), "c")
+    assert smtp.send_message.call_args.args[0].get_content_type() == "text/plain"
 
 
 def test_a_server_without_starttls_fails_rather_than_sending_in_clear() -> None:

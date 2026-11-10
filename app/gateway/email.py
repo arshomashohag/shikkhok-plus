@@ -56,11 +56,14 @@ class EmailMessage:
     """One rendered email.
 
     :ivar subject: The subject line
-    :ivar text: The plain-text body
+    :ivar text: The plain-text body, always sent, and what a client that
+        does not render HTML shows
+    :ivar html: The HTML alternative, or None for a text-only email
     """
 
     subject: str
     text: str
+    html: str | None = None
 
 
 class EmailGateway(Protocol):

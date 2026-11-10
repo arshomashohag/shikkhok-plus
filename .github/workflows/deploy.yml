@@ -898,6 +898,16 @@ jobs:
           fi
           echo "::add-mask::$SES_SMTP_PASSWORD"
           DAILY_EMAIL="${DAILY_EMAIL:-1000}"
+
+          # **The public site's origin, for the link in the code email.**
+          # The same parameter the site job builds with. Unlike the reads
+          # above, a missing value warns rather than stops: without it the
+          # email leaves the website link out, and codes still go out.
+          if ! SITE_URL=$(ses_param site-url) \
+             || ! [[ "$SITE_URL" =~ ^https://[a-z0-9.-]+$ ]]; then
+            echo "::warning::Cannot read site-url from SSM; the code email will omit the website link."
+            SITE_URL=""
+          fi
           if ! [[ "$DAILY_EMAIL" =~ ^[0-9]+$ ]]; then
             echo "::error::Variable SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL must be a whole number."
             exit 1
@@ -963,6 +973,7 @@ jobs:
             echo "SHIKKHOKPLUS_EMAIL_FROM=${EMAIL_FROM}"
             echo "SHIKKHOKPLUS_SES_CONFIGURATION_SET=${SES_CONFIGURATION_SET}"
             echo "SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL=${DAILY_EMAIL}"
+            echo "SHIKKHOKPLUS_SITE_URL=${SITE_URL}"
           } > runtime.env
 
           aws ssm put-parameter \
