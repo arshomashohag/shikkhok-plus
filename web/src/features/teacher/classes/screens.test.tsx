@@ -466,7 +466,7 @@ describe('Share marksheet with the batch', () => {
     await waitFor(() =>
       expect(calls('PUT', '/v1/batches/b1/marksheet-visibility')).toEqual([{ visible: true }]),
     )
-    await waitFor(() => expect(sw).toBeEnabled())
+    await waitFor(() => expect(sw).not.toHaveAttribute('aria-busy'))
     expect(sw).not.toBeChecked()
   })
 
@@ -533,6 +533,44 @@ describe('Share marksheet with the batch', () => {
     expect(alert).toHaveTextContent('This batch has been closed')
     expect(within(alert).queryByRole('button')).not.toBeInTheDocument()
     expect(sw).toBeChecked()
+  })
+
+  it('keeps focus on the switch while the write is on its way, and ignores presses', async () => {
+    let answer: (r: Response) => void = () => {}
+    serve({
+      'GET /v1/batches': [{ ...BATCH, marksheet_visible: false }],
+      'PUT /v1/batches/b1/marksheet-visibility': () =>
+        new Promise<Response>((resolve) => {
+          answer = resolve
+        }),
+    })
+    at('/batches/b1/edit', '/batches/:batchId/edit', <EditBatchScreen />)
+    const sw = await toggle()
+    await userEvent.click(sw)
+    await waitFor(() => expect(sw).toHaveAttribute('aria-busy', 'true'))
+    expect(sw).toHaveAttribute('aria-disabled', 'true')
+    expect(sw).toHaveFocus()
+    // A second press while saving sends nothing and does not move the switch.
+    await userEvent.click(sw)
+    await userEvent.keyboard(' ')
+    expect(calls('PUT', '/v1/batches/b1/marksheet-visibility')).toHaveLength(1)
+    expect(sw).not.toBeChecked()
+
+    answer(json(200, { visible: true }))
+    await waitFor(() => expect(sw).toBeChecked())
+    expect(sw).not.toHaveAttribute('aria-disabled')
+    expect(sw).toHaveFocus()
+  })
+
+  it('follows the server when the batch is read again', async () => {
+    serve({ 'GET /v1/batches': [{ ...BATCH, marksheet_visible: false }] })
+    at('/batches/b1/edit', '/batches/:batchId/edit', <EditBatchScreen />)
+    const sw = await toggle()
+    expect(sw).not.toBeChecked()
+    // Turned on elsewhere (another device); coming back online re-reads.
+    serve({ 'GET /v1/batches': [{ ...BATCH, marksheet_visible: true }] })
+    window.dispatchEvent(new Event('online'))
+    await waitFor(() => expect(sw).toBeChecked())
   })
 
   it('is read-only on an inactive batch, as the server decides, and sends nothing', async () => {

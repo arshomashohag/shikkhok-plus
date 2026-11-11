@@ -199,8 +199,19 @@ function MarksheetToggle({ batch, fresh }: { batch: Batch; fresh: boolean }) {
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<{ error: ApiError; wanted: boolean } | null>(null)
   const readOnly = !batch.active || !fresh
+  // The batch is re-read (coming back online, back to a stale tab): a new
+  // server value replaces the shown one, unless a write is on its way —
+  // then that write's own answer is the newer statement and wins.
+  const [read, setRead] = useState(batch.marksheet_visible)
+  if (batch.marksheet_visible !== read) {
+    setRead(batch.marksheet_visible)
+    if (!busy) setVisible(batch.marksheet_visible)
+  }
 
   async function write(wanted: boolean) {
+    // Kept focusable while saving (aria-disabled, not disabled), so focus
+    // stays on the switch; a press meanwhile is ignored here instead.
+    if (busy || readOnly) return
     setBusy(true)
     setFailure(null)
     try {
@@ -223,7 +234,8 @@ function MarksheetToggle({ batch, fresh }: { batch: Batch; fresh: boolean }) {
           type="checkbox"
           role="switch"
           checked={visible}
-          disabled={readOnly || busy}
+          disabled={readOnly}
+          aria-disabled={busy || undefined}
           aria-busy={busy || undefined}
           aria-labelledby="eb-marksheet-label"
           aria-describedby="eb-marksheet-help"
