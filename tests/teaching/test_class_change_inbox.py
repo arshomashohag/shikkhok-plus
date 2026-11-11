@@ -12,18 +12,24 @@ past change writes nothing.
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
+import threading
 import uuid
 from collections.abc import Callable
 
 import pytest
 import sqlalchemy as sa
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session as DbSession
+from sqlalchemy.orm import sessionmaker
 
 from app.authz.lenses import TeacherLens
 from app.db.models import Notification, Session
 from app.errors import ConflictError
+from app.local_time import DHAKA
 from app.notifications.inbox import CLASS_CANCELLED, CLASS_RESCHEDULED
+from app.teaching import sessions as sessions_module
 from app.teaching.sessions import cancel_session, reschedule_session
 from tests.batches.conftest import TeacherFixture, enroll
 
@@ -559,3 +565,202 @@ def test_a_held_class_is_not_announced_as_cancelled(
     cancel_session(restricted_session, lens=_lens(teacher), session_id=held)
 
     assert _items(owner_session, held) == []
+
+
+# --------------------------------------- today: the start time decides
+
+#: Moments on the class's own day, in Bangladesh: before its 4 pm start
+#: and after it.
+BEFORE_CLASS = dt.datetime.combine(CLASS_DAY, dt.time(14, 0), tzinfo=DHAKA)
+AFTER_CLASS = dt.datetime.combine(CLASS_DAY, dt.time(18, 30), tzinfo=DHAKA)
+
+
+@pytest.mark.parametrize(
+    ("now", "told"),
+    [(BEFORE_CLASS, True), (AFTER_CLASS, False)],
+    ids=["later-today", "earlier-today"],
+)
+def test_cancelling_a_class_today_is_news_only_before_it_starts(
+    owner_session: DbSession,
+    restricted_session: DbSession,
+    teacher: TeacherFixture,
+    family: dict[str, uuid.UUID],
+    now: dt.datetime,
+    told: bool,
+) -> None:
+    """A class held this morning and cancelled tonight tells nobody.
+
+    The date alone said "today, so still to come"; the start time says
+    whether it already happened.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application's role
+    :param teacher: The batch's owner
+    :param family: The seats
+    :param now: The present, on the class's day
+    :param told: Whether the family should hear of it
+    :return: None
+    """
+    class_id = _class(owner_session, teacher)
+
+    cancel_session(
+        restricted_session, lens=_lens(teacher), session_id=class_id, now=now
+    )
+
+    received = {row.account_id for row in _items(owner_session, class_id)}
+    assert received == ({family["student"], family["guardian"]} if told else set())
+
+
+@pytest.mark.parametrize(
+    ("now", "to", "told"),
+    [
+        # Both slots already passed: a correction to the record.
+        (AFTER_CLASS, (CLASS_DAY, dt.time(17, 0)), False),
+        # The old slot passed, the new one is still to come.
+        (AFTER_CLASS, (CLASS_DAY, dt.time(20, 0)), True),
+        # The old slot is still to come and the new one is in the past:
+        # the class the family expects will not happen.
+        (BEFORE_CLASS, (CLASS_DAY, dt.time(9, 0)), True),
+    ],
+    ids=["past-to-past", "past-to-later-today", "future-to-past"],
+)
+def test_a_move_today_is_news_when_either_slot_is_still_to_come(
+    owner_session: DbSession,
+    restricted_session: DbSession,
+    teacher: TeacherFixture,
+    family: dict[str, uuid.UUID],
+    now: dt.datetime,
+    to: tuple[dt.date, dt.time],
+    told: bool,
+) -> None:
+    """The old slot or the new one starting now or later makes a move news.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application's role
+    :param teacher: The batch's owner
+    :param family: The seats
+    :param now: The present, on the class's day
+    :param to: The new date and start time
+    :param told: Whether the family should hear of it
+    :return: None
+    """
+    class_id = _class(owner_session, teacher)
+
+    reschedule_session(
+        restricted_session,
+        lens=_lens(teacher),
+        session_id=class_id,
+        date=to[0],
+        start_time=to[1],
+        now=now,
+    )
+
+    received = {row.account_id for row in _items(owner_session, class_id)}
+    assert received == ({family["student"], family["guardian"]} if told else set())
+
+
+# ------------------------------------- a cancel racing a reschedule
+
+
+def test_a_cancel_and_a_reschedule_racing_on_one_class_cannot_both_apply(
+    owner_session: DbSession,
+    restricted_engine: Engine,
+    teacher: TeacherFixture,
+    family: dict[str, uuid.UUID],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The cancel reads first; the reschedule must then see it cancelled.
+
+    Each write reads the row's status and then writes. Without the row
+    lock both pass the cancelled check, and the class ends up cancelled
+    at its NEW date with a ``class_cancelled`` and a ``class_rescheduled``
+    item side by side. The race is widened deterministically: once the
+    cancel has read the row the reschedule is released to read it too,
+    and each waits up to a short timeout for the other to have read
+    before writing. Under the lock the reschedule cannot read until the
+    cancel commits, so the wait times out and the reschedule then sees
+    the cancellation.
+
+    :param owner_session: An arranging session
+    :param restricted_engine: The application role's engine
+    :param teacher: The batch's owner
+    :param family: The seats
+    :param monkeypatch: The patcher
+    :return: None
+    """
+    class_id = _class(owner_session, teacher)
+    real = sessions_module.writable_session
+    cancel_has_read = threading.Event()
+    both_read = threading.Barrier(2)
+
+    def widened(
+        session: DbSession,
+        *,
+        lens: TeacherLens,
+        session_id: uuid.UUID,
+        lock: bool = False,
+    ) -> Session:
+        """Read as the service does, then hold the read open.
+
+        :param session: Passed through
+        :param lens: Passed through
+        :param session_id: Passed through
+        :param lock: Passed through
+        :return: The row
+        """
+        row = real(session, lens=lens, session_id=session_id, lock=lock)
+        cancel_has_read.set()
+        with contextlib.suppress(threading.BrokenBarrierError):
+            both_read.wait(timeout=2)
+        return row
+
+    monkeypatch.setattr(sessions_module, "writable_session", widened)
+    factory = sessionmaker(bind=restricted_engine, expire_on_commit=False)
+    outcomes: dict[str, str] = {}
+    guard = threading.Lock()
+
+    def run(name: str) -> None:
+        """Make one write in its own session, recording how it ended.
+
+        :param name: ``cancel`` or ``reschedule``
+        :return: None
+        """
+        db = factory()
+        try:
+            if name == "cancel":
+                cancel_session(db, lens=_lens(teacher), session_id=class_id)
+            else:
+                cancel_has_read.wait(timeout=30)
+                reschedule_session(
+                    db,
+                    lens=_lens(teacher),
+                    session_id=class_id,
+                    date=MOVED_DAY,
+                    start_time=FOUR_PM,
+                )
+            result = "applied"
+        except ConflictError as error:
+            result = error.code
+        except BaseException as error:  # noqa: BLE001  recorded, then asserted
+            result = repr(error)
+        finally:
+            db.close()
+        with guard:
+            outcomes[name] = result
+
+    threads = [
+        threading.Thread(target=run, args=(name,)) for name in ("cancel", "reschedule")
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=60)
+
+    assert outcomes == {"cancel": "applied", "reschedule": "SESSION_CANCELLED"}
+    owner_session.expire_all()
+    stored = owner_session.get_one(Session, class_id)
+    assert (stored.status, stored.date) == ("cancelled", CLASS_DAY)
+    rows = _items(owner_session, class_id)
+    assert {row.kind for row in rows} == {CLASS_CANCELLED}
+    assert {row.class_date for row in rows} == {CLASS_DAY}
+    assert {row.account_id for row in rows} == {family["student"], family["guardian"]}

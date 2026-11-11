@@ -102,6 +102,7 @@ def readable_session(
     *,
     lens: TeacherLens | ClassTeacherLens,
     session_id: uuid.UUID,
+    lock: bool = False,
 ) -> Session:
     """Return a session this teacher lens reaches, or refuse.
 
@@ -118,6 +119,8 @@ def readable_session(
     :param lens: The teacher lens carrying the owner id, or a centre
         teacher's lens carrying one class
     :param session_id: The session being read
+    :param lock: Take the session row's ``FOR UPDATE`` lock, for a write
+        that decides on the row's state (see :func:`writable_session`)
     :return: The session row
     :raises AuthorizationError: No batch this lens owns holds it
     """
@@ -127,9 +130,18 @@ def readable_session(
             Session.id == lens.session_id,
             Session.teacher_member_id == lens.member_id,
         ]
-    row = session.scalars(
+    statement = (
         sa.select(Session).join(Batch, Batch.id == Session.batch_id).where(*scope)
-    ).one_or_none()
+    )
+    if lock:
+        # The session row only, never the batch: two writes to different
+        # classes of one batch must not serialize on it. Re-read even if
+        # the row is already in the identity map, so the state checked is
+        # the state the lock holds, not a copy loaded before waiting.
+        statement = statement.with_for_update(of=Session).execution_options(
+            populate_existing=True
+        )
+    row = session.scalars(statement).one_or_none()
     if row is None:
         raise refuse()
     return row
@@ -140,6 +152,7 @@ def writable_session(
     *,
     lens: TeacherLens | ClassTeacherLens,
     session_id: uuid.UUID,
+    lock: bool = False,
 ) -> Session:
     """Return a session this lens may WRITE to, or refuse.
 
@@ -154,15 +167,26 @@ def writable_session(
     only after the lens has been proved to reach the session, so
     neither can disclose the existence of a session to a stranger.
 
+    **``lock`` serializes writes that decide on the row's own state.**
+    Cancel and reschedule each read ``status`` and then write; without
+    the row lock, a cancel and a reschedule racing on one class could
+    both pass the cancelled check and leave a cancelled class at a new
+    date with contradictory family messages. With it, the second waits
+    for the first to commit and checks the state the first left. Off by
+    default: the queued writes guard with their own version check and
+    need not queue behind an interactive edit.
+
     :param session: The session to read through
     :param lens: The teacher lens carrying the owner id
     :param session_id: The session being written
+    :param lock: Hold the row's ``FOR UPDATE`` lock until the caller's
+        transaction ends
     :return: The session row
     :raises AuthorizationError: No batch this lens owns holds it
     :raises ConflictError: The session is cancelled, or its batch is
         inactive
     """
-    row = readable_session(session, lens=lens, session_id=session_id)
+    row = readable_session(session, lens=lens, session_id=session_id, lock=lock)
     refusal = write_refusal(session, row)
     if refusal is not None:
         raise refusal
