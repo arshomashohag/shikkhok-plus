@@ -15,7 +15,9 @@ for that request -- exactly the rows recording a brute-force attempt.
 
 from __future__ import annotations
 
+import logging
 import uuid
+from typing import Final
 
 import pytest
 import sqlalchemy as sa
@@ -25,10 +27,22 @@ from pydantic import BaseModel
 from sqlalchemy.exc import DataError, IntegrityError, OperationalError
 
 from app.db.session import build_engine
-from app.request_scope import correlation_id_from
+from app.request_scope import CLIENT_INPUT_SQLSTATES, correlation_id_from
 
 #: A value past int4, bound into a statement that casts it to one.
 OVERFLOW = 3_000_000_000
+
+
+#: One statement per SQLSTATE, each failing on its bound value alone.
+_DATA_ERRORS: Final[dict[str, tuple[str, object]]] = {
+    # An explicit cast truncates silently; only an assignment raises.
+    "22001": ("INSERT INTO _probe_narrow (v) VALUES (:v)", "abc"),
+    "22003": ("SELECT CAST(:v AS integer)", OVERFLOW),
+    "22P02": ("SELECT CAST(:v AS integer)", "not-a-number"),
+    "22007": ("SELECT CAST(:v AS date)", "not-a-date"),
+    "22008": ("SELECT CAST(:v AS date)", "2026-13-45"),
+    "22012": ("SELECT 1 / CAST(:v AS integer)", 0),
+}
 
 
 class _Body(BaseModel):
@@ -102,6 +116,21 @@ def probing_client(api_client: TestClient) -> TestClient:
         with engine.connect() as connection:
             connection.execute(sa.text("SELECT CAST(:v AS integer)"), {"v": OVERFLOW})
 
+    def data_error(state: str) -> None:
+        """Fail with a chosen class-22 SQLSTATE, in PostgreSQL.
+
+        :param state: Which statement to fail, keyed by its SQLSTATE
+        :return: None
+        :raises DataError: Always
+        """
+        statement, value = _DATA_ERRORS[state]
+        with app.state.engine.connect() as connection:
+            connection.execute(
+                sa.text("CREATE TEMP TABLE _probe_narrow (v varchar(2))")
+            )
+            connection.execute(sa.text(statement), {"v": value})
+
+    app.add_api_route("/__probe/data/{state}", data_error, methods=["GET"])
     app.add_api_route("/__probe/operational", operational, methods=["GET"])
     app.add_api_route("/__probe/overflow", overflow, methods=["GET"])
     app.add_api_route("/__probe/integrity", integrity, methods=["GET"])
@@ -263,3 +292,49 @@ def test_the_application_engine_hides_bound_parameters(restricted_url: str) -> N
 
     assert str(OVERFLOW) not in str(raised.value)
     assert "hidden due to hide_parameters" in str(raised.value)
+
+
+@pytest.mark.parametrize("state", sorted(CLIENT_INPUT_SQLSTATES))
+def test_each_bad_input_sqlstate_is_a_400_logged_by_state_only(
+    probing_client: TestClient, state: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Only the input-shaped SQLSTATEs are the caller's fault [SEC-3].
+
+    :param probing_client: A client with failing routes
+    :param state: The SQLSTATE the probe raises
+    :param caplog: The log capture
+    :return: None
+    """
+    with caplog.at_level(logging.WARNING, logger="app.request_scope"):
+        response = probing_client.get(f"/__probe/data/{state}")
+
+    assert response.status_code == 400, response.text
+    assert response.json()["error"]["code"] == "REQUEST_INVALID"
+    logged = [r for r in caplog.records if r.name == "app.request_scope"]
+    assert [getattr(r, "sqlstate", None) for r in logged] == [state]
+    assert all(r.exc_info is None for r in logged)
+
+
+def test_a_data_error_that_is_not_bad_input_is_a_500(
+    probing_client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A division by zero is a defect in a statement, not in a request.
+
+    It must not tell the client to fix its input, and its traceback must
+    be logged so the defect is found.
+
+    :param probing_client: A client with failing routes
+    :param caplog: The log capture
+    :return: None
+    """
+    assert "22012" not in CLIENT_INPUT_SQLSTATES
+    with caplog.at_level(logging.WARNING, logger="app.request_scope"):
+        response = probing_client.get("/__probe/data/22012")
+
+    assert response.status_code == 500, response.text
+    error = response.json()["error"]
+    assert error["code"] == "INTERNAL"
+    assert error["message_key"] == "error.unexpected"
+    unhandled = [r for r in caplog.records if r.getMessage() == "unhandled failure"]
+    assert len(unhandled) == 1
+    assert unhandled[0].exc_info is not None
