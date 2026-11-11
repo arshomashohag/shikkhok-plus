@@ -1078,6 +1078,7 @@
         "description": "A whole roster, written in one atomic operation [BR3.5].\n\n**One of exactly two D4 bodies carrying ``client_mutation_id``**\n[§ B.7]. ``base_attendance_version`` travels in the BODY rather\nthan an ``If-Match`` header [§ B.8]: a queued write is serialized\ninto the device's queue and replayed hours later by a sync worker,\nand a body field survives that naturally where a header is a\nsecond thing the queue must remember and the first thing a retry\nwrapper drops.\n\n``composed_at`` is the DEVICE's clock, recorded for the pilot's\nqueue-latency question and **used in no decision** [NFR24.20]. A\ndevice clock in a conflict rule would let a wrong phone time\nsilently reorder two teachers' writes.\n\n:ivar base_attendance_version: The version this was composed\n    against\n:ivar client_mutation_id: The replay key, per account\n:ivar seats: One mark per seat, the whole roster at once\n:ivar composed_at: When the device composed it, or null",
         "properties": {
           "base_attendance_version": {
+            "maximum": 2147483647.0,
             "minimum": 0.0,
             "title": "Base Attendance Version",
             "type": "integer"
@@ -3057,7 +3058,7 @@
       },
       "ExamCreateRequest": {
         "additionalProperties": false,
-        "description": "Create or edit an assessment [BR4.1].\n\n:ivar batch_subject_id: One of the batch's own subjects\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, at least 1\n:ivar examiner_member_id: At a centre, the member who marks it; left\n    out, the batch's one weekly teacher is the default. Read on\n    creation only: an edit changes the examiner through its own route\n:ivar topics: What it covers: at most 20, each 1 to 120 characters",
+        "description": "Create or edit an assessment [BR4.1].\n\n:ivar batch_subject_id: One of the batch's own subjects\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, 1 to :data:`MAX_TOTAL_MARKS`\n:ivar examiner_member_id: At a centre, the member who marks it; left\n    out, the batch's one weekly teacher is the default. Read on\n    creation only: an edit changes the examiner through its own route\n:ivar topics: What it covers: at most 20, each 1 to 120 characters",
         "properties": {
           "batch_subject_id": {
             "format": "uuid",
@@ -3098,6 +3099,7 @@
             "type": "array"
           },
           "total_marks": {
+            "maximum": 1000.0,
             "minimum": 1.0,
             "title": "Total Marks",
             "type": "integer"
@@ -3336,7 +3338,7 @@
       },
       "ExamUpdateRequest": {
         "additionalProperties": false,
-        "description": "Edit an assessment: what it is called, when, and out of how much.\n\nNo subject: an edit names what changes, and the exam stays in the\nsubject it was set in.\n\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, at least 1, and not below any\n    mark already recorded\n:ivar topics: What it covers, replacing the old list; omitted or null\n    keeps the existing topics, so an app built before topics existed\n    cannot wipe them by editing the title [D-26]",
+        "description": "Edit an assessment: what it is called, when, and out of how much.\n\nNo subject: an edit names what changes, and the exam stays in the\nsubject it was set in.\n\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, 1 to :data:`MAX_TOTAL_MARKS`,\n    and not below any mark already recorded\n:ivar topics: What it covers, replacing the old list; omitted or null\n    keeps the existing topics, so an app built before topics existed\n    cannot wipe them by editing the title [D-26]",
         "properties": {
           "date": {
             "format": "date",
@@ -3367,6 +3369,7 @@
             "title": "Topics"
           },
           "total_marks": {
+            "maximum": 1000.0,
             "minimum": 1.0,
             "title": "Total Marks",
             "type": "integer"
@@ -10592,6 +10595,7 @@
         "description": "A session's topic [BR2.1].\n\n**The second and last D4 body carrying ``client_mutation_id``.**\n\nAn empty string is a topic logged as BLANK and is a different fact\nfrom never writing one [BR2.2].\n\n:ivar base_topic_version: The version this was composed against\n:ivar client_mutation_id: The replay key, per account\n:ivar topic: What was covered; '' means logged-and-blank; null\n    clears a plan and is allowed only when ``plan`` is true\n:ivar plan: True plans the topic before the class starts\n:ivar notes: Free notes on the class",
         "properties": {
           "base_topic_version": {
+            "maximum": 2147483647.0,
             "minimum": 0.0,
             "title": "Base Topic Version",
             "type": "integer"
@@ -11403,7 +11407,7 @@
     },
     "/v1/accounts/already-added": {
       "get": {
-        "description": "Report whether a teacher recorded this number, and nothing more.\n\n**This route discloses that a seat exists, deliberately**\n[BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's\nbyte-identical requirement applies to the OTP endpoint and not to\nthis one. What is bounded is the WIDTH -- never the teacher, never\nthe batch, never the name [C-06] -- and the rate, through signup's\nown ceilings.\n\nPublic, and in ``PUBLIC_ROUTES``: it is called while the signup\nform renders, before any account exists.\n\n:param phone: The number typed into the form, canonicalised on the\n    way in like every other number, so the ceiling and the lookup\n    both see one spelling\n:param request: The incoming request\n:param session: The request-scoped session\n:return: Existence and the role to lock; never a name\n:raises CeilingBreach: A signup ceiling refused this request",
+        "description": "Report whether a teacher recorded this number, and nothing more.\n\n**This route discloses that a seat exists, deliberately**\n[BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's\nbyte-identical requirement applies to the OTP endpoint and not to\nthis one. What is bounded is the WIDTH -- never the teacher, never\nthe batch, never the name [C-06] -- and the rate, through the\nlookup's own ceilings. **Never signup's** [SEC-4]: three anonymous\nlookups used to spend a number's whole daily signup allowance.\n\nPublic, and in ``PUBLIC_ROUTES``: it is called while the signup\nform renders, before any account exists.\n\n:param phone: The number typed into the form, canonicalised on the\n    way in like every other number, so the ceiling and the lookup\n    both see one spelling\n:param request: The incoming request\n:param session: The request-scoped session\n:return: Existence and the role to lock; never a name\n:raises CeilingBreach: A lookup ceiling refused this request",
         "operationId": "lookup_already_added_v1_accounts_already_added_get",
         "parameters": [
           {
@@ -12631,7 +12635,7 @@
     },
     "/v1/auth/password": {
       "post": {
-        "description": "Sign in with a phone number or an email address and a password.\n\n**One refusal for every failure** [BR2.7]: an unknown destination, an\naccount with no password yet and a wrong password all answer\n``auth.password.wrong``, after the same work. The person who has no\npassword yet is pointed at the code flow by the client's static\nhint, not by a response that would say their account exists.\n\nBounded per identifier and per network, with the network-wide\nfailure ceilings shared with codes.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The token pair, or the authenticator challenge\n:raises CeilingBreach: A failure ceiling is full\n:raises PasswordRefused: The sign-in was refused",
+        "description": "Sign in with a phone number or an email address and a password.\n\n**One refusal for every failure** [BR2.7]: an unknown destination, an\naccount with no password yet and a wrong password all answer\n``auth.password.wrong``, after the same work. The person who has no\npassword yet is pointed at the code flow by the client's static\nhint, not by a response that would say their account exists.\n\nBounded per identifier and per network, with the per-prefix failure\nceilings shared with codes. Failures across the whole product alert\nand never refuse [SEC-1].\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The token pair, or the authenticator challenge\n:raises CeilingBreach: A failure ceiling is full\n:raises PasswordRefused: The sign-in was refused",
         "operationId": "sign_in_with_password_v1_auth_password_post",
         "requestBody": {
           "content": {

@@ -157,8 +157,9 @@ export interface paths {
      *     [BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's
      *     byte-identical requirement applies to the OTP endpoint and not to
      *     this one. What is bounded is the WIDTH -- never the teacher, never
-     *     the batch, never the name [C-06] -- and the rate, through signup's
-     *     own ceilings.
+     *     the batch, never the name [C-06] -- and the rate, through the
+     *     lookup's own ceilings. **Never signup's** [SEC-4]: three anonymous
+     *     lookups used to spend a number's whole daily signup allowance.
      *
      *     Public, and in ``PUBLIC_ROUTES``: it is called while the signup
      *     form renders, before any account exists.
@@ -169,7 +170,7 @@ export interface paths {
      *     :param request: The incoming request
      *     :param session: The request-scoped session
      *     :return: Existence and the role to lock; never a name
-     *     :raises CeilingBreach: A signup ceiling refused this request
+     *     :raises CeilingBreach: A lookup ceiling refused this request
      */
     get: operations['lookup_already_added_v1_accounts_already_added_get']
     put?: never
@@ -648,8 +649,9 @@ export interface paths {
      *     password yet is pointed at the code flow by the client's static
      *     hint, not by a response that would say their account exists.
      *
-     *     Bounded per identifier and per network, with the network-wide
-     *     failure ceilings shared with codes.
+     *     Bounded per identifier and per network, with the per-prefix failure
+     *     ceilings shared with codes. Failures across the whole product alert
+     *     and never refuse [SEC-1].
      *
      *     :param body: The request body
      *     :param request: The incoming request
@@ -6115,7 +6117,7 @@ export interface components {
      *     :ivar batch_subject_id: One of the batch's own subjects
      *     :ivar title: The teacher's name for it
      *     :ivar date: When it was sat
-     *     :ivar total_marks: The denominator, at least 1
+     *     :ivar total_marks: The denominator, 1 to :data:`MAX_TOTAL_MARKS`
      *     :ivar examiner_member_id: At a centre, the member who marks it; left
      *         out, the batch's one weekly teacher is the default. Read on
      *         creation only: an edit changes the examiner through its own route
@@ -6281,8 +6283,8 @@ export interface components {
      *
      *     :ivar title: The teacher's name for it
      *     :ivar date: When it was sat
-     *     :ivar total_marks: The denominator, at least 1, and not below any
-     *         mark already recorded
+     *     :ivar total_marks: The denominator, 1 to :data:`MAX_TOTAL_MARKS`,
+     *         and not below any mark already recorded
      *     :ivar topics: What it covers, replacing the old list; omitted or null
      *         keeps the existing topics, so an app built before topics existed
      *         cannot wipe them by editing the title [D-26]

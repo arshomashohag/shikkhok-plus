@@ -14,7 +14,9 @@ exists. Signup must not weaken what the prior Unit built.
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
+from typing import Any
 
 import pytest
 import sqlalchemy as sa
@@ -24,13 +26,18 @@ from sqlalchemy.orm import Session
 from app.accounts.service import SignupRole, create_account
 from app.api.accounts import get_gateway
 from app.auth.ceilings import (
+    LOOKUP_PER_IP_HOURLY,
+    LOOKUP_PER_NUMBER_DAILY,
     SIGNUP_PER_NUMBER_DAILY,
     CeilingBreach,
     CeilingChecker,
     ScopeKind,
 )
-from app.db.models import Account, RateLimitCounter
+from app.auth.client_address import TRUSTED_CLIENT_IP_HEADER_ENV
+from app.db.models import Account, Enrollment, RateLimitCounter
 from tests.accounts.signup_support import sign_up
+from tests.batches.conftest import make_teacher
+from tests.students_support import student_for
 
 
 def _phone() -> str:
@@ -295,21 +302,13 @@ def test_signup_is_refused_through_the_endpoint(
         "address_postcode": "1205",
     }
 
-    first = client.post("/v1/accounts", json=body)
-    assert first.status_code == 201
+    # Asserted on signup itself. It used to be asserted through the
+    # already-added lookup, because the two shared one allowance -- the
+    # defect [SEC-4] removed.
+    for _ in range(SIGNUP_PER_NUMBER_DAILY):
+        assert client.post("/v1/accounts", json=body).status_code == 201
 
-    # The ceiling is asserted on the LOOKUP, which is unauthenticated,
-    # repeatable and bounded by the same cascade, so one signup and the
-    # lookups after it spend one shared per-number allowance.
-    for _ in range(SIGNUP_PER_NUMBER_DAILY - 1):
-        assert (
-            client.get(
-                "/v1/accounts/already-added", params={"phone": phone}
-            ).status_code
-            == 200
-        )
-
-    refused = client.get("/v1/accounts/already-added", params={"phone": phone})
+    refused = client.post("/v1/accounts", json=body)
 
     assert refused.status_code == 409
     body = refused.json()["error"]
@@ -414,3 +413,143 @@ def test_the_draft_exists_before_the_code_is_sent_and_the_account_does_not(
     assert seen == [(uuid.UUID(response.json()["account_id"]), None)], (
         "the code was sent before its draft existed, or after an account did"
     )
+
+
+# ------------------------------------------------- the already-added lookup
+
+
+def _lookup(client: TestClient, phone: str, ip: str = "testclient") -> Any:
+    """Look one number up from one address.
+
+    :param client: The test client
+    :param phone: The number
+    :param ip: The caller's address, read from the trusted header
+    :return: The response
+    """
+    return client.get(
+        "/v1/accounts/already-added",
+        params={"phone": phone},
+        headers={"X-Client-Address": ip},
+    )
+
+
+@pytest.fixture
+def addressed_client(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    """Return the client, with the caller's address taken from a header.
+
+    :param client: A client against the restricted engine
+    :param monkeypatch: The patcher
+    :return: The same client
+    """
+    monkeypatch.setenv(TRUSTED_CLIENT_IP_HEADER_ENV, "X-Client-Address")
+    return client
+
+
+def test_lookups_do_not_spend_the_signup_allowance(
+    addressed_client: TestClient, owner_session: Session
+) -> None:
+    """Looking a number up never stops it signing up [SEC-4].
+
+    Three anonymous lookups used to spend the number's whole daily
+    signup allowance, so a stranger could block a student a teacher had
+    just enrolled from accepting the seat.
+
+    :param addressed_client: A client whose caller address is a header
+    :param owner_session: A session able to read counters back
+    :return: None
+    """
+    phone = _phone()
+    for attempt in range(SIGNUP_PER_NUMBER_DAILY + 2):
+        assert _lookup(addressed_client, phone, f"81.{attempt}.0.1").status_code == 200
+
+    signed_up = addressed_client.post(
+        "/v1/accounts",
+        json={
+            "phone": phone,
+            "role": "student",
+            "self_name": "Rahim",
+            "address_house": "House 12",
+            "address_road": "Road 5",
+            "address_city": "Dhaka",
+            "address_postcode": "1205",
+        },
+    )
+
+    assert signed_up.status_code == 201, signed_up.text
+    assert _count(owner_session, ScopeKind.SIGNUP_NUMBER_DAILY, phone) == 1
+    assert (
+        _count(owner_session, ScopeKind.LOOKUP_NUMBER_DAILY, phone)
+        == SIGNUP_PER_NUMBER_DAILY + 2
+    )
+
+
+def test_the_lookup_is_still_limited_per_number(
+    addressed_client: TestClient,
+) -> None:
+    """One number watched from many addresses still runs out [SEC-4].
+
+    :param addressed_client: A client whose caller address is a header
+    :return: None
+    """
+    phone = _phone()
+    for attempt in range(LOOKUP_PER_NUMBER_DAILY):
+        assert _lookup(addressed_client, phone, f"82.{attempt}.0.1").status_code == 200
+
+    refused = _lookup(addressed_client, phone, "83.0.0.1")
+
+    assert refused.status_code == 409
+    error = refused.json()["error"]
+    assert error["code"] == "TEMPORARILY_UNAVAILABLE"
+    assert error["message_key"] == "signup.temporarily_unavailable"
+
+
+def test_the_lookup_is_still_limited_per_address(
+    addressed_client: TestClient,
+) -> None:
+    """One caller enumerating numbers runs out, recorded or not [SEC-4].
+
+    :param addressed_client: A client whose caller address is a header
+    :return: None
+    """
+    for _ in range(LOOKUP_PER_IP_HOURLY):
+        assert _lookup(addressed_client, _phone(), "84.1.2.3").status_code == 200
+
+    refused = _lookup(addressed_client, _phone(), "84.1.2.4")
+    elsewhere = _lookup(addressed_client, _phone(), "85.1.2.3")
+
+    assert refused.status_code == 409
+    assert elsewhere.status_code == 200
+
+
+def test_a_lookup_refusal_is_the_same_for_a_recorded_and_a_new_number(
+    addressed_client: TestClient, owner_session: Session
+) -> None:
+    """The refusal does not say whether a seat exists [SEC-4].
+
+    :param addressed_client: A client whose caller address is a header
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    teacher = make_teacher(owner_session, name="Physics")
+    recorded = _phone()
+    owner_session.add(
+        Enrollment(
+            batch_id=teacher.batch_id,
+            student_id=student_for(owner_session, teacher.batch_id),
+            display_name="Karim Hossain",
+            student_phone=recorded,
+            student_decision="pending",
+            guardian_decision="pending",
+            created_at=dt.datetime.now(tz=dt.UTC),
+        )
+    )
+    owner_session.commit()
+    assert _lookup(addressed_client, recorded, "87.0.0.1").json()["already_added"]
+    for _ in range(LOOKUP_PER_IP_HOURLY):
+        _lookup(addressed_client, _phone(), "86.1.2.3")
+
+    for_recorded = _lookup(addressed_client, recorded, "86.1.2.3")
+    for_new = _lookup(addressed_client, _phone(), "86.1.2.3")
+
+    assert for_recorded.status_code == for_new.status_code == 409
+    assert for_recorded.content == for_new.content

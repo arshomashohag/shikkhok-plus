@@ -21,6 +21,11 @@ included [NFR17.2], and these are about I/O:
   retrying was the one shown as final. Each is now rendered through the
   same envelope, by mapping it onto the taxonomy class it is an instance
   of in all but type.
+* **A value the database cannot hold** [SEC-3]. An integer past
+  ``int4``, a string past a column's width, a malformed literal: each
+  raises ``DataError``, which used to fall through to the 500 handler
+  and log its traceback. It is the caller's input that is wrong, so it
+  renders as a 400 validation envelope and is logged by class only.
 """
 
 from __future__ import annotations
@@ -33,7 +38,7 @@ from typing import Final
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import DataError, IntegrityError, OperationalError
 from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 
 from app.errors import ConflictError, FatalError, TransientError, ValidationError
@@ -86,6 +91,14 @@ def render_infrastructure_error(error: Exception) -> JSONResponse | None:
                 code="SERVICE_UNAVAILABLE",
                 message_key="error.temporarily_unavailable",
             )
+        )
+    if isinstance(error, DataError):
+        # The input does not fit the column: an integer past int4, a
+        # string past its width. No value is echoed back, and the
+        # schema bounds that should have caught it first are gated by
+        # tests/contract/test_int_bounds.py.
+        return to_response(
+            ValidationError(code="REQUEST_INVALID", message_key="error.unexpected")
         )
     if isinstance(error, IntegrityError):
         # A constraint a service did not map is a race lost to another
@@ -189,6 +202,7 @@ def register_infrastructure_errors(app: FastAPI) -> None:
     app.add_exception_handler(OperationalError, _database)
     app.add_exception_handler(PoolTimeoutError, _database)
     app.add_exception_handler(IntegrityError, _database)
+    app.add_exception_handler(DataError, _database)
     app.add_exception_handler(RequestValidationError, _invalid_request)
     # Registered on Exception, Starlette runs this from its outermost
     # error middleware: it renders the response and still re-raises, so
