@@ -45,6 +45,7 @@ from app.notifications.recipients import (
     deliver_to_families,
     mark_unread_for_families,
 )
+from app.schemas.marks import MAX_TOTAL_MARKS
 from app.teaching.assignment import check_assignment
 from app.teaching.roster import refuse
 
@@ -312,13 +313,24 @@ def update_exam(
     :raises AuthorizationError: This lens does not reach the exam
     :raises ConflictError: The batch is inactive, the exam is cancelled,
         or a live mark already exceeds the proposed total
-    :raises ValidationError: The total is below one
+    :raises ValidationError: The total is below one, or is changed to
+        more than :data:`~app.schemas.marks.MAX_TOTAL_MARKS`
     """
     row = readable_exam(session, lens=lens, exam_id=exam_id)
     _owned_active_batch(session, lens=lens, batch_id=row.batch_id)
     if row.cancelled_at is not None:
         raise cancelled_refusal()
     _validate_total(total_marks)
+    # **The creation cap applies to a total being CHOSEN, not to one
+    # already stored** [SEC-3]. An exam created before the cap existed
+    # may hold a larger total; refusing every edit of it would leave its
+    # title and date frozen. Keeping that total is allowed, raising any
+    # total past the cap is refused as creation refuses it.
+    if total_marks > MAX_TOTAL_MARKS and total_marks != row.total_marks:
+        raise ValidationError(
+            code="EXAM_TOTAL_INVALID",
+            message_key="marks.exam.total_invalid",
+        )
 
     # **Lowering the total below a mark already recorded would leave a
     # stored mark above its own denominator**, which the write path's

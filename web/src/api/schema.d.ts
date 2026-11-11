@@ -6291,8 +6291,10 @@ export interface components {
      *
      *     :ivar title: The teacher's name for it
      *     :ivar date: When it was sat
-     *     :ivar total_marks: The denominator, 1 to :data:`MAX_TOTAL_MARKS`,
-     *         and not below any mark already recorded
+     *     :ivar total_marks: The denominator, and not below any mark already
+     *         recorded. 1 to :data:`MAX_TOTAL_MARKS` when it changes; an exam
+     *         whose stored total is already larger may keep that total, so the
+     *         schema bounds it only by :data:`INT4_MAX`
      *     :ivar topics: What it covers, replacing the old list; omitted or null
      *         keeps the existing topics, so an app built before topics existed
      *         cannot wipe them by editing the title [D-26]
