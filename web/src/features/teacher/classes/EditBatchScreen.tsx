@@ -240,7 +240,7 @@ function MarksheetToggle({ batch, fresh }: { batch: Batch; fresh: boolean }) {
         <div className="banner error" role="alert" style={{ marginTop: 16 }}>
           <div>
             <strong>{t('batch_marksheet_share_failed')}</strong>
-            <div>{message(failure.error.messageKey)}</div>
+            <div>{message(failure.error.messageKey, failure.error.details)}</div>
             {failure.error.retryable ? (
               <button
                 type="button"

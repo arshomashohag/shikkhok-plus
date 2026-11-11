@@ -952,6 +952,7 @@
     <string name="signup_role_help_student">You see your classes, marks and fees.</string>
     <string name="signup_role_help_guardian">You follow your child\'s classes, marks and fees.</string>
     <string name="signup_already_added_title">You\'ve been added already</string>
+    <string name="signup_already_added_body">A teacher has already added this number.</string>
     <string name="signup_have_account">Already have an account?</string>
     <string name="signup_log_in">Log in</string>
 

@@ -892,6 +892,7 @@
     <string name="signup_role_help_student">আপনি নিজের ক্লাস, নম্বর ও বেতন দেখেন।</string>
     <string name="signup_role_help_guardian">আপনি সন্তানের ক্লাস, নম্বর ও বেতনের খোঁজ রাখেন।</string>
     <string name="signup_already_added_title">আপনাকে আগেই যোগ করা হয়েছে</string>
+    <string name="signup_already_added_body">একজন শিক্ষক ইতিমধ্যে এই নম্বরটি যোগ করেছেন।</string>
     <string name="signup_have_account">আগেই অ্যাকাউন্ট আছে?</string>
     <string name="signup_log_in">লগ ইন</string>
 
