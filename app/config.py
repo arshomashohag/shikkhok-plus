@@ -43,6 +43,7 @@ from typing import Final
 from app.auth.client_address import TRUSTED_CLIENT_IP_HEADER_ENV
 from app.auth.hashing import OTP_HMAC_KEY_ENV
 from app.auth.mfa_crypto import MFA_ACTIVE_KID_ENV, MFA_KEYS_ENV, keyring_configured
+from app.auth.tokens import JWT_KEYS_ENV, keyring_problem
 from app.authz.admin import (
     ADMIN_ALLOWED_CIDRS_ENV,
     ADMIN_EDGE_SECRET_ENV,
@@ -113,12 +114,25 @@ def check_startup_configuration(environment: str | None = None) -> None:
 
     :param environment: The environment name, or None to read it
     :return: None
-    :raises ConfigurationError: A required production value is missing
+    :raises ConfigurationError: A required production value is missing,
+        or the JWT keyring is set but malformed in any environment
     """
+    # **The JWT keyring, in every environment once it is set** [ARC-7].
+    # It used to be read lazily, so a malformed value or an active key
+    # id naming no key failed the first sign-in rather than the boot.
+    # Unset stays lazy outside production, because the OpenAPI emitter
+    # and many tests build the app with no keys at all.
+    jwt_problem = keyring_problem()
+    if jwt_problem is not None and os.environ.get(JWT_KEYS_ENV):
+        raise ConfigurationError(f"refusing to start: {jwt_problem}")
+
     if not is_production(environment):
         return
 
     problems: list[str] = []
+
+    if jwt_problem is not None:
+        problems.append(jwt_problem)
 
     # FIRST, because it is the only item here that hands an attacker a
     # credential rather than degrading a feature. Everything else in
