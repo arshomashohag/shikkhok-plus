@@ -24,11 +24,12 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from typing import Annotated, Literal
+from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 __all__ = [
+    "MAX_TOTAL_MARKS",
     "BandResponse",
     "CorrectionEntryResponse",
     "ExamCancelRequest",
@@ -58,6 +59,12 @@ EnterableState = Literal["marked", "absent"]
 
 #: Why a marksheet published no comparison [BR6.4].
 SuppressionReason = Literal["too_few_results", "marking_incomplete"]
+
+#: The largest denominator an exam may have [SEC-3]. Generous for any
+#: school paper (a hundred or two is usual, a thousand covers a whole
+#: term's aggregate) and far inside ``Integer``, so an absurd total is a
+#: 400 at the schema rather than an int4 overflow at the database.
+MAX_TOTAL_MARKS: Final = 1000
 
 
 ExamTopic = Annotated[
@@ -131,7 +138,7 @@ class ExamCreateRequest(BaseModel):
     :ivar batch_subject_id: One of the batch's own subjects
     :ivar title: The teacher's name for it
     :ivar date: When it was sat
-    :ivar total_marks: The denominator, at least 1
+    :ivar total_marks: The denominator, 1 to :data:`MAX_TOTAL_MARKS`
     :ivar examiner_member_id: At a centre, the member who marks it; left
         out, the batch's one weekly teacher is the default. Read on
         creation only: an edit changes the examiner through its own route
@@ -143,7 +150,7 @@ class ExamCreateRequest(BaseModel):
     batch_subject_id: uuid.UUID
     title: str = Field(min_length=1, max_length=200)
     date: dt.date
-    total_marks: int = Field(ge=1)
+    total_marks: int = Field(ge=1, le=MAX_TOTAL_MARKS)
     topics: list[ExamTopic] = Field(default_factory=list, max_length=20)
     examiner_member_id: uuid.UUID | None = None
 
@@ -156,8 +163,8 @@ class ExamUpdateRequest(BaseModel):
 
     :ivar title: The teacher's name for it
     :ivar date: When it was sat
-    :ivar total_marks: The denominator, at least 1, and not below any
-        mark already recorded
+    :ivar total_marks: The denominator, 1 to :data:`MAX_TOTAL_MARKS`,
+        and not below any mark already recorded
     :ivar topics: What it covers, replacing the old list; omitted or null
         keeps the existing topics, so an app built before topics existed
         cannot wipe them by editing the title [D-26]
@@ -167,7 +174,7 @@ class ExamUpdateRequest(BaseModel):
 
     title: str = Field(min_length=1, max_length=200)
     date: dt.date
-    total_marks: int = Field(ge=1)
+    total_marks: int = Field(ge=1, le=MAX_TOTAL_MARKS)
     topics: list[ExamTopic] | None = Field(default=None, max_length=20)
 
 

@@ -83,6 +83,12 @@ def build_engine(url: str | None = None) -> Engine:
         resolved,
         pool_pre_ping=True,
         future=True,
+        # A failing statement's bound values never reach an exception's
+        # text [SEC-3]. Without this, every unmapped DBAPI error renders
+        # as ``[SQL: ...] [parameters: {...}]``, and the traceback the
+        # unexpected-failure handler logs would carry the names, phone
+        # numbers and marks the statement was bound with.
+        hide_parameters=True,
         # Sized, not defaulted [audit C-18]. Each uvicorn worker owns one
         # pool; a request waiting longer than ``pool_timeout`` for a
         # connection fails fast as a retryable 503 rather than hanging.

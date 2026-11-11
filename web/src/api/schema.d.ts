@@ -648,8 +648,9 @@ export interface paths {
      *     password yet is pointed at the code flow by the client's static
      *     hint, not by a response that would say their account exists.
      *
-     *     Bounded per identifier and per network, with the network-wide
-     *     failure ceilings shared with codes.
+     *     Bounded per identifier and per network, with the per-prefix failure
+     *     ceilings shared with codes. Failures across the whole product alert
+     *     and never refuse [SEC-1].
      *
      *     :param body: The request body
      *     :param request: The incoming request
@@ -6115,7 +6116,7 @@ export interface components {
      *     :ivar batch_subject_id: One of the batch's own subjects
      *     :ivar title: The teacher's name for it
      *     :ivar date: When it was sat
-     *     :ivar total_marks: The denominator, at least 1
+     *     :ivar total_marks: The denominator, 1 to :data:`MAX_TOTAL_MARKS`
      *     :ivar examiner_member_id: At a centre, the member who marks it; left
      *         out, the batch's one weekly teacher is the default. Read on
      *         creation only: an edit changes the examiner through its own route
@@ -6281,8 +6282,8 @@ export interface components {
      *
      *     :ivar title: The teacher's name for it
      *     :ivar date: When it was sat
-     *     :ivar total_marks: The denominator, at least 1, and not below any
-     *         mark already recorded
+     *     :ivar total_marks: The denominator, 1 to :data:`MAX_TOTAL_MARKS`,
+     *         and not below any mark already recorded
      *     :ivar topics: What it covers, replacing the old list; omitted or null
      *         keeps the existing topics, so an app built before topics existed
      *         cannot wipe them by editing the title [D-26]

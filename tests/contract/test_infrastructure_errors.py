@@ -22,9 +22,13 @@ import sqlalchemy as sa
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import DataError, IntegrityError, OperationalError
 
+from app.db.session import build_engine
 from app.request_scope import correlation_id_from
+
+#: A value past int4, bound into a statement that casts it to one.
+OVERFLOW = 3_000_000_000
 
 
 class _Body(BaseModel):
@@ -88,7 +92,18 @@ def probing_client(api_client: TestClient) -> TestClient:
         """
         return {"phone": body.phone}
 
+    def overflow() -> None:
+        """Fail as a value too large for its column does, in PostgreSQL.
+
+        :return: None
+        :raises DataError: Always
+        """
+        engine = app.state.engine
+        with engine.connect() as connection:
+            connection.execute(sa.text("SELECT CAST(:v AS integer)"), {"v": OVERFLOW})
+
     app.add_api_route("/__probe/operational", operational, methods=["GET"])
+    app.add_api_route("/__probe/overflow", overflow, methods=["GET"])
     app.add_api_route("/__probe/integrity", integrity, methods=["GET"])
     app.add_api_route("/__probe/crash", crash, methods=["GET"])
     app.add_api_route("/__probe/echo", echo, methods=["POST"])
@@ -208,3 +223,43 @@ def test_an_oversized_header_no_longer_drops_the_audit_row(
             {"cid": response.headers["X-Correlation-Id"]},
         )
     assert written and written >= 1
+
+
+def test_a_value_the_column_cannot_hold_is_a_400_envelope(
+    probing_client: TestClient,
+) -> None:
+    """An int4 overflow is the caller's input, not a server fault [SEC-3].
+
+    :param probing_client: A client with failing routes
+    :return: None
+    """
+    response = probing_client.get("/__probe/overflow")
+
+    assert response.status_code == 400, response.text
+    error = response.json()["error"]
+    assert error["code"] == "REQUEST_INVALID"
+    assert error["retryable"] is False
+    assert str(OVERFLOW) not in response.text
+
+
+def test_the_application_engine_hides_bound_parameters(restricted_url: str) -> None:
+    """A failing statement's values never reach the exception's text [SEC-3].
+
+    The unexpected-failure handler logs ``exc_info``; with parameters
+    shown, that traceback carries whatever the statement was bound with.
+
+    :param restricted_url: A URL the application role connects with
+    :return: None
+    """
+    engine = build_engine(restricted_url)
+    try:
+        with (
+            pytest.raises(DataError) as raised,
+            engine.connect() as connection,
+        ):
+            connection.execute(sa.text("SELECT CAST(:v AS integer)"), {"v": OVERFLOW})
+    finally:
+        engine.dispose()
+
+    assert str(OVERFLOW) not in str(raised.value)
+    assert "hidden due to hide_parameters" in str(raised.value)
