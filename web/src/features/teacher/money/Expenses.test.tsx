@@ -121,6 +121,24 @@ describe('Expenses', () => {
       ).toBe(true),
     )
   })
+
+  it('asks before a stray Escape throws away a typed expense [UX-10]', async () => {
+    fetchMock.mockImplementation(async () =>
+      json(200, { month: '2026-11', total: '0.00', by_category: [], expenses: [] }),
+    )
+    at('/expenses', <Expenses />)
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Record an expense' }))[0]!)
+    // Untouched: Escape closes at once.
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Record an expense' })[0]!)
+    await userEvent.type(screen.getByLabelText('What it was'), 'Chalk')
+    await userEvent.keyboard('{Escape}')
+    expect(screen.getByRole('dialog', { name: 'Discard what you typed?' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
+    expect(screen.getByLabelText('What it was')).toHaveValue('Chalk')
+  })
 })
 
 describe('MoneySummaryScreen', () => {

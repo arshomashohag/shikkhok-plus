@@ -5,7 +5,7 @@
  * a refused number shown in the server's words [D2], removal only when
  * the server says so [D4], and filtering done by the server.
  */
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -238,6 +238,48 @@ describe('Student detail', () => {
     expect(await screen.findByText(/must leave every batch and owe nothing/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Remove student' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Leave batch' })).toBeInTheDocument()
+  })
+
+  describe('removing a place asks first, as the Students tab does [UX-8]', () => {
+    function renderRemovable() {
+      api((m, u) => {
+        if (u.endsWith('/v1/batches')) return json(200, batches)
+        if (u.endsWith('/v1/students/s1') && m === 'GET')
+          return json(
+            200,
+            student('s1', 'Rafiq', [seat('b1', 'Physics A', { is_removable: true })]),
+          )
+        if (u.endsWith('/v1/enrollments/e-b1') && m === 'DELETE')
+          return new Response(null, { status: 204 })
+      })
+      renderScreen(
+        <Routes>
+          <Route path="/students/:studentId" element={<StudentDetail />} />
+        </Routes>,
+        '/students/s1',
+      )
+    }
+
+    it('sends nothing on the tap, and removes only once confirmed', async () => {
+      renderRemovable()
+      await userEvent.click(await screen.findByRole('button', { name: 'Remove from batch' }))
+      const dialog = screen.getByRole('dialog', { name: 'Remove this place?' })
+      expect(dialog).toHaveTextContent('Rafiq will be removed from this batch')
+      expect(calls('DELETE', '/enrollments/')).toHaveLength(0)
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
+      await waitFor(() => expect(calls('DELETE', '/v1/enrollments/e-b1')).toHaveLength(1))
+    })
+
+    it('sends nothing when cancelled, by button or by Escape', async () => {
+      renderRemovable()
+      await userEvent.click(await screen.findByRole('button', { name: 'Remove from batch' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByRole('dialog')).toBeNull()
+      await userEvent.click(screen.getByRole('button', { name: 'Remove from batch' }))
+      await userEvent.keyboard('{Escape}')
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(calls('DELETE', '/enrollments/')).toHaveLength(0)
+    })
   })
 
   it('adds the student to a batch they are not in', async () => {

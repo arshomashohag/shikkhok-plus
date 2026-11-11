@@ -19,6 +19,7 @@ import { formatClock, formatLongDay } from '../../../core/format'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import {
+  ConfirmSheet,
   EmptyState,
   ErrorCard,
   Loading,
@@ -180,14 +181,17 @@ function RoomsSheet({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
+  const [archiving, setArchiving] = useState<{ id: string; name: string } | null>(null)
 
   async function act(work: () => Promise<unknown>) {
     setBusy(true)
     setFailure(null)
     try {
       await work()
+      setArchiving(null)
       reload()
     } catch (e) {
+      setArchiving(null)
       setFailure(failureText(e, t, message))
     } finally {
       setBusy(false)
@@ -195,7 +199,7 @@ function RoomsSheet({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Sheet title={t('rooms_title')} onClose={onClose}>
+    <Sheet title={t('rooms_title')} onClose={onClose} dirty={name.trim() !== ''}>
       {resource.state === 'loading' ? <Loading rows={2} /> : null}
       {resource.state === 'failed' ? (
         <ErrorCard title={t('rooms_title')} error={resource.error} onRetry={reload} />
@@ -221,7 +225,12 @@ function RoomsSheet({ onClose }: { onClose: () => void }) {
                     type="button"
                     className="btn btn-text btn-small"
                     disabled={busy}
-                    onClick={() => void act(() => updateRoom(r.room_id, { archived: !r.archived }))}
+                    onClick={() =>
+                      // Stopping a room asks first [UX-9]; using it again does not.
+                      r.archived
+                        ? void act(() => updateRoom(r.room_id, { archived: false }))
+                        : setArchiving({ id: r.room_id, name: r.name })
+                    }
                   >
                     {r.archived ? t('rooms_restore') : t('rooms_archive')}
                   </button>
@@ -259,6 +268,19 @@ function RoomsSheet({ onClose }: { onClose: () => void }) {
           {t('rooms_add')}
         </button>
       </div>
+      {archiving ? (
+        <ConfirmSheet
+          title={t('web_rooms_archive_title', archiving.name)}
+          body={t('web_rooms_archive_body')}
+          confirmLabel={t('rooms_archive')}
+          busy={busy}
+          onConfirm={() => {
+            const { id } = archiving
+            void act(() => updateRoom(id, { archived: true }))
+          }}
+          onCancel={() => setArchiving(null)}
+        />
+      ) : null}
     </Sheet>
   )
 }

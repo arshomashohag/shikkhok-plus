@@ -14,7 +14,7 @@ import { ApiError } from '../../../api/errors'
 import { formatPhone } from '../../../core/format'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
-import { ErrorCard, Loading, Sheet, Snackbar, TopBar } from '../../../ui/components'
+import { ConfirmSheet, ErrorCard, Loading, Sheet, Snackbar, TopBar } from '../../../ui/components'
 import { mapBatch } from '../mappers'
 import { paths, seatState } from '../paths'
 import { removeEnrollment, setInactiveFrom } from '../students/api'
@@ -24,7 +24,11 @@ import { enrollStudent, readStudent, removeStudent } from './api'
 import { linkKey, mapStudent, otherBatches, type SeatLine } from './mappers'
 
 type Dialog =
-  { kind: 'leave'; seat: SeatLine } | { kind: 'remove' } | { kind: 'record'; seat: SeatLine } | null
+  | { kind: 'leave'; seat: SeatLine }
+  | { kind: 'remove' }
+  | { kind: 'remove-seat'; seat: SeatLine }
+  | { kind: 'record'; seat: SeatLine }
+  | null
 
 export function StudentDetail() {
   const { studentId = '' } = useParams()
@@ -147,7 +151,7 @@ export function StudentDetail() {
                     type="button"
                     className="btn btn-text"
                     disabled={busy}
-                    onClick={() => void act(() => removeEnrollment(seat.enrollmentId))}
+                    onClick={() => setDialog({ kind: 'remove-seat', seat })}
                   >
                     {t('student_detail_remove_seat')}
                   </button>
@@ -251,6 +255,17 @@ export function StudentDetail() {
             </button>
           </div>
         </Sheet>
+      ) : null}
+      {dialog?.kind === 'remove-seat' ? (
+        // The same confirmation the Students tab asks for the same write [UX-8].
+        <ConfirmSheet
+          title={t('roster_remove_confirm_title')}
+          body={t('roster_remove_confirm_body', student.name)}
+          confirmLabel={t('roster_remove_confirm')}
+          busy={busy}
+          onConfirm={() => void act(() => removeEnrollment(dialog.seat.enrollmentId))}
+          onCancel={close}
+        />
       ) : null}
       {dialog?.kind === 'record' ? (
         <RecordPaymentSheet

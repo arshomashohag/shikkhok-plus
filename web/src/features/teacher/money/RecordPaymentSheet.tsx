@@ -49,7 +49,10 @@ export function RecordPaymentSheet({
   onRecorded: (amount: string) => void
 }) {
   const { t, message } = useT()
-  const [input, setInput] = useState<RecordInput>(() => openRecord(owed, mutationId()))
+  const [opened] = useState<RecordInput>(() => openRecord(owed, mutationId()))
+  const [input, setInput] = useState<RecordInput>(opened)
+  // Anything changed from how the sheet opened is the teacher's typing.
+  const dirty = JSON.stringify(input) !== JSON.stringify(opened)
   const [busy, setBusy] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
   const id = useId()
@@ -85,7 +88,7 @@ export function RecordPaymentSheet({
   }
 
   return (
-    <Sheet title={t('fees_record_title')} subtitle={name} onClose={onClose}>
+    <Sheet title={t('fees_record_title')} subtitle={name} onClose={onClose} dirty={dirty}>
       {errorText ? (
         <div className="banner error" role="alert">
           <WarningIcon />
