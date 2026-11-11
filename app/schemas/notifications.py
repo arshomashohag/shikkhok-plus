@@ -82,7 +82,9 @@ class InboxResponse(BaseModel):
     """The reader's inbox, newest first.
 
     :ivar items: The messages
-    :ivar unread: How many have not been seen, over the whole inbox
+    :ivar unread: How many have not been seen, over the kinds this client
+        announced (the legacy kinds when it announced none) -- the same
+        kinds as ``items``, but across the whole inbox, not only the page
     """
 
     model_config = ConfigDict(extra="forbid")

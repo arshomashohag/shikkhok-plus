@@ -4750,7 +4750,7 @@
       },
       "InboxResponse": {
         "additionalProperties": false,
-        "description": "The reader's inbox, newest first.\n\n:ivar items: The messages\n:ivar unread: How many have not been seen, over the whole inbox",
+        "description": "The reader's inbox, newest first.\n\n:ivar items: The messages\n:ivar unread: How many have not been seen, over the kinds this client\n    announced (the legacy kinds when it announced none) -- the same\n    kinds as ``items``, but across the whole inbox, not only the page",
         "properties": {
           "items": {
             "items": {
