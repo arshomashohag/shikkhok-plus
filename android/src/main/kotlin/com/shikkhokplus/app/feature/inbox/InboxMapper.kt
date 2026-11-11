@@ -26,13 +26,28 @@ object InboxMapper {
             "exam_cancelled" to InboxKind.EXAM_CANCELLED,
             "marks_available" to InboxKind.MARKS_AVAILABLE,
             "claim_to_verify" to InboxKind.CLAIM_TO_VERIFY,
+            "class_cancelled" to InboxKind.CLASS_CANCELLED,
+            "class_rescheduled" to InboxKind.CLASS_RESCHEDULED,
         )
+
+    /**
+     * The wire names of every kind this app can show, sent as `?kind=` with
+     * each inbox read and with "mark all read" [PO-10].
+     *
+     * The server reads the items and counts `unread` over these only, so
+     * the bell never counts a message this version would drop. An install
+     * older than announcing sends none and the server falls back to the
+     * kinds every version could show; a kind added on the server later is
+     * neither shown nor counted here until a version that names it ships.
+     */
+    val KNOWN_KINDS: List<String> = KINDS.keys.toList()
 
     /**
      * Map a loaded inbox, in the server's order.
      *
      * A kind this version does not know is left out rather than shown
-     * as something it is not; the server's unread count still stands.
+     * as something it is not. The server's unread count covers only the
+     * kinds this version announced ([KNOWN_KINDS]), so the two agree.
      *
      * @param dto The inbox
      * @return The state to render
@@ -76,8 +91,26 @@ object InboxMapper {
                 sourceId = dto.sourceId,
                 childName = dto.childName,
                 preview = dto.preview,
+                classChange = classChangeOf(dto.classDate, dto.classTime, dto.movedFromDate, dto.movedFromTime),
             )
         }
+
+    /**
+     * The class a message names, when it names one.
+     *
+     * @param date The class's day
+     * @param time Its start time
+     * @param movedFromDate The day it moved from, for a move
+     * @param movedFromTime The time it moved from, for a move
+     * @return The change, or null without both a day and a time
+     */
+    private fun classChangeOf(
+        date: String?,
+        time: String?,
+        movedFromDate: String?,
+        movedFromTime: String?,
+    ): ClassChange? =
+        if (date == null || time == null) null else ClassChange(date, time, movedFromDate, movedFromTime)
 
     /**
      * Where tapping an item leads.
@@ -142,6 +175,8 @@ object InboxMapper {
             ?: dto.payment?.let {
                 InboxContent.Payment(it.period, it.claimed, it.approved, outcomeOf(it.outcome), it.reason)
             }
+            ?: classChangeOf(dto.classDate, dto.classTime, dto.movedFromDate, dto.movedFromTime)
+                ?.let(InboxContent::ClassChanged)
 
     /**
      * Name a payment outcome.

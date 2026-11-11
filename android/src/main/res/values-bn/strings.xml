@@ -1348,6 +1348,10 @@
     <string name="marks_exam_published">ফলাফল আগেই প্রকাশিত হয়েছে, তাই এই পরীক্ষা বাতিল করা যাবে না।</string>
     <string name="inbox_exam_cancelled_title">পরীক্ষা বাতিল · %1$s</string>
     <string name="inbox_exam_cancelled_line">এই পরীক্ষা বাতিল করা হয়েছে।</string>
+    <string name="inbox_class_cancelled_title">ক্লাস বাতিল · %1$s</string>
+    <string name="inbox_class_cancelled_body">%1$s-এর ক্লাসটি হবে না।</string>
+    <string name="inbox_class_rescheduled_title">ক্লাসের সময় বদলেছে · %1$s</string>
+    <string name="inbox_class_rescheduled_body">ক্লাসটি %1$s থেকে সরিয়ে %2$s-এ নেওয়া হয়েছে।</string>
 
     <!-- Exam and other fees, and what a payment is for [0020] -->
     <string name="extra_fees_title">পরীক্ষা ও অন্যান্য ফি</string>

@@ -100,6 +100,10 @@ private fun Body(detail: InboxDetail) {
             is InboxContent.Notice -> NoticeBody(content)
             is InboxContent.Exam -> ExamBody(content)
             is InboxContent.Payment -> PaymentBody(content)
+            is InboxContent.ClassChanged ->
+                classLine(detail.kind, content.change)?.let {
+                    Text(it, style = MaterialTheme.typography.bodyLarge)
+                }
             null -> Unit
         }
     }

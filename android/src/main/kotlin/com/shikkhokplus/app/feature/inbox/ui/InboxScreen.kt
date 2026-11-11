@@ -47,8 +47,11 @@ import com.shikkhokplus.app.core.designsystem.Spacing
 import com.shikkhokplus.app.core.designsystem.StateFade
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.monthName
+import com.shikkhokplus.app.core.format.shortDate
+import com.shikkhokplus.app.core.ui.displayTime
 import com.shikkhokplus.app.core.ui.ago
 import com.shikkhokplus.app.feature.auth.MessageKeys
+import com.shikkhokplus.app.feature.inbox.ClassChange
 import com.shikkhokplus.app.feature.inbox.InboxKind
 import com.shikkhokplus.app.feature.inbox.InboxMessage
 import com.shikkhokplus.app.feature.inbox.InboxUiState
@@ -263,7 +266,11 @@ private fun MessageRow(message: InboxMessage, onSelect: (InboxMessage) -> Unit) 
                         fontWeight = if (message.unread) FontWeight.Bold else FontWeight.Normal,
                     ),
             )
-            (message.preview?.let(Numerals::freeText) ?: body(message))?.let {
+            val line =
+                classLine(message.kind, message.classChange)
+                    ?: message.preview?.let(Numerals::freeText)
+                    ?: body(message)
+            line?.let {
                 Text(
                     it,
                     style = MaterialTheme.typography.bodyMedium,
@@ -314,7 +321,43 @@ private fun titleOf(kind: InboxKind): Int =
         InboxKind.EXAM_CANCELLED -> R.string.inbox_exam_cancelled_title
         InboxKind.MARKS_AVAILABLE -> R.string.inbox_marks_available_title
         InboxKind.CLAIM_TO_VERIFY -> R.string.inbox_claim_to_verify_title
+        InboxKind.CLASS_CANCELLED -> R.string.inbox_class_cancelled_title
+        InboxKind.CLASS_RESCHEDULED -> R.string.inbox_class_rescheduled_title
     }
+
+/**
+ * A class change's line: which class was cancelled, or where it moved
+ * from and to, each as `12 Apr, 4:00 pm`.
+ *
+ * @param kind What the message is about
+ * @param change The class it names, if any
+ * @return The line, or null for a message about no class
+ */
+@Composable
+internal fun classLine(kind: InboxKind, change: ClassChange?): String? {
+    if (change == null) return null
+    val now = classWhen(change.date, change.time)
+    val fromDate = change.movedFromDate
+    val fromTime = change.movedFromTime
+    return when {
+        kind == InboxKind.CLASS_CANCELLED -> stringResource(R.string.inbox_class_cancelled_body, now)
+        kind == InboxKind.CLASS_RESCHEDULED && fromDate != null && fromTime != null ->
+            stringResource(R.string.inbox_class_rescheduled_body, classWhen(fromDate, fromTime), now)
+        else -> null
+    }
+}
+
+/**
+ * A class's day and start time for people.
+ *
+ * @param date `YYYY-MM-DD`
+ * @param time `HH:MM[:SS]`
+ * @return e.g. `12 Apr, 4:00 pm`
+ */
+private fun classWhen(date: String, time: String): String = "${shortDate(date)}, ${displayTime(time.take(HHMM))}"
+
+/** The `HH:MM` prefix of a wire time. */
+private const val HHMM = 5
 
 /**
  * "৳1,200 is due, from Oct." or what happened to a payment.

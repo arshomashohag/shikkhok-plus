@@ -18,6 +18,10 @@ import kotlinx.serialization.Serializable
  * @property sourceId The record that produced it, if any
  * @property childName Which child it is about, on a guardian's copy
  * @property preview A short line of its content, if any
+ * @property classDate For a class change, the day the class is on, or was on if cancelled
+ * @property classTime For a class change, its start time
+ * @property movedFromDate For a reschedule, the day it was moved from
+ * @property movedFromTime For a reschedule, the start time it was moved from
  */
 @Serializable
 data class NotificationDto(
@@ -32,6 +36,10 @@ data class NotificationDto(
     @SerialName("source_id") val sourceId: String? = null,
     @SerialName("child_name") val childName: String? = null,
     val preview: String? = null,
+    @SerialName("class_date") val classDate: String? = null,
+    @SerialName("class_time") val classTime: String? = null,
+    @SerialName("moved_from_date") val movedFromDate: String? = null,
+    @SerialName("moved_from_time") val movedFromTime: String? = null,
 )
 
 /**
@@ -109,6 +117,10 @@ data class PaymentBlockDto(
  * @property notice Set for an available notice
  * @property exam Set for an available exam
  * @property payment Set for an available payment result
+ * @property classDate For a class change, the day the class is on, or was on if cancelled
+ * @property classTime For a class change, its start time
+ * @property movedFromDate For a reschedule, the day it was moved from
+ * @property movedFromTime For a reschedule, the start time it was moved from
  */
 @Serializable
 data class NotificationDetailDto(
@@ -127,6 +139,10 @@ data class NotificationDetailDto(
     val notice: NoticeBlockDto? = null,
     val exam: ExamBlockDto? = null,
     val payment: PaymentBlockDto? = null,
+    @SerialName("class_date") val classDate: String? = null,
+    @SerialName("class_time") val classTime: String? = null,
+    @SerialName("moved_from_date") val movedFromDate: String? = null,
+    @SerialName("moved_from_time") val movedFromTime: String? = null,
 )
 
 /**

@@ -1413,6 +1413,10 @@
     <string name="marks_exam_published">Its results are already published, so this exam cannot be cancelled.</string>
     <string name="inbox_exam_cancelled_title">Exam cancelled · %1$s</string>
     <string name="inbox_exam_cancelled_line">This exam was cancelled.</string>
+    <string name="inbox_class_cancelled_title">Class cancelled · %1$s</string>
+    <string name="inbox_class_cancelled_body">The class on %1$s will not be held.</string>
+    <string name="inbox_class_rescheduled_title">Class moved · %1$s</string>
+    <string name="inbox_class_rescheduled_body">Moved from %1$s to %2$s.</string>
 
     <!-- Exam and other fees, and what a payment is for [0020] -->
     <string name="extra_fees_title">Exam &amp; other fees</string>
