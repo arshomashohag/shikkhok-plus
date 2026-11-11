@@ -104,7 +104,6 @@
     <string name="signup_role_guardian">অভিভাবক</string>
     <string name="signup_submit">%1$s নম্বরে কোড পাঠান</string>
     <string name="signup_submit_generic">কোড পাঠান</string>
-    <string name="signup_already_added_notice">একজন শিক্ষক ইতিমধ্যে এই নম্বরটি যোগ করেছেন। নিচে আপনার নাম দেখে নিন, প্রয়োজনে ঠিক করুন।</string>
     <string name="signup_role_locked_note">আপনাকে যোগ করার সময় আপনার ভূমিকা নির্ধারিত হয়েছে।</string>
     <string name="signup_checking_number">দেখা হচ্ছে…</string>
     <string name="signup_submitting">আপনার অ্যাকাউন্ট তৈরি হচ্ছে…</string>
@@ -773,6 +772,9 @@
     <string name="batch_subject_in_use">যে বিষয়ে পরীক্ষা আছে সেটি সরানো যাবে না। বিষয়টি রাখুন, অথবা আগে পরীক্ষাগুলো মুছুন।</string>
     <string name="batch_edit_title">ব্যাচ সম্পাদনা</string>
     <string name="batch_edit_save">পরিবর্তন সংরক্ষণ করুন</string>
+    <string name="batch_marksheet_share">ব্যাচের সাথে নম্বরপত্র শেয়ার করুন</string>
+    <string name="batch_marksheet_share_help">এটি চালু থাকলেই কেবল এই ব্যাচের শিক্ষার্থী ও অভিভাবকেরা তাদের নম্বরপত্র দেখতে পান।</string>
+    <string name="batch_marksheet_share_failed">নম্বরপত্র শেয়ারের পরিবর্তন সংরক্ষণ করা যায়নি।</string>
     <string name="exam_edit_title">পরীক্ষা সম্পাদনা</string>
     <string name="exam_edit_save">পরিবর্তন সংরক্ষণ করুন</string>
     <string name="mark_history_open">ইতিহাস</string>
@@ -883,12 +885,12 @@
     <string name="auth_otp_expired_body">কোড 5 মিনিট কাজ করে। নতুন একটি কোড নিন।</string>
     <string name="auth_otp_no_tries_left">কোডটি সঠিক নয়, আর চেষ্টা করা যাবে না। নতুন একটি কোড নিন।</string>
     <string name="signup_name_help">বাংলা বা ইংরেজিতে, শিক্ষকেরা যেভাবে দেখবেন</string>
-    <string name="signup_name_help_prefilled">আপনার শিক্ষক লিখে দিয়েছেন। চাইলে ঠিক করে নিন।</string>
     <string name="signup_phone_help">এটিই আপনার লগ ইন। এই নম্বরে কোড পাঠানো হবে।</string>
     <string name="signup_role_help_teacher">আপনি ব্যাচ চালান, ক্লাসের হিসাব রাখেন ও বেতন তোলেন।</string>
     <string name="signup_role_help_student">আপনি নিজের ক্লাস, নম্বর ও বেতন দেখেন।</string>
     <string name="signup_role_help_guardian">আপনি সন্তানের ক্লাস, নম্বর ও বেতনের খোঁজ রাখেন।</string>
     <string name="signup_already_added_title">আপনাকে আগেই যোগ করা হয়েছে</string>
+    <string name="signup_already_added_body">একজন শিক্ষক ইতিমধ্যে এই নম্বরটি যোগ করেছেন।</string>
     <string name="signup_have_account">আগেই অ্যাকাউন্ট আছে?</string>
     <string name="signup_log_in">লগ ইন</string>
 
@@ -1348,6 +1350,10 @@
     <string name="marks_exam_published">ফলাফল আগেই প্রকাশিত হয়েছে, তাই এই পরীক্ষা বাতিল করা যাবে না।</string>
     <string name="inbox_exam_cancelled_title">পরীক্ষা বাতিল · %1$s</string>
     <string name="inbox_exam_cancelled_line">এই পরীক্ষা বাতিল করা হয়েছে।</string>
+    <string name="inbox_class_cancelled_title">ক্লাস বাতিল · %1$s</string>
+    <string name="inbox_class_cancelled_body">%1$s-এর ক্লাসটি হবে না।</string>
+    <string name="inbox_class_rescheduled_title">ক্লাসের সময় বদলেছে · %1$s</string>
+    <string name="inbox_class_rescheduled_body">ক্লাসটি %1$s থেকে সরিয়ে %2$s-এ নেওয়া হয়েছে।</string>
 
     <!-- Exam and other fees, and what a payment is for [0020] -->
     <string name="extra_fees_title">পরীক্ষা ও অন্যান্য ফি</string>

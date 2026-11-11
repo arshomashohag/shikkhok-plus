@@ -12,19 +12,21 @@ import type { Lens } from '../../../session/session'
 
 // ------------------------------------------------------------------ inbox
 
-export type InboxKind =
-  | 'fee_reminder'
-  | 'payment_approved'
-  | 'payment_partial'
-  | 'payment_rejected'
-  | 'payment_recorded'
-  | 'notice'
-  | 'exam_scheduled'
-  | 'exam_cancelled'
-  | 'marks_available'
-  | 'claim_to_verify'
+/** The kinds the API can send, from the generated OpenAPI schema. */
+type ApiInboxKind = Schemas['NotificationResponse']['kind']
 
-const KINDS: readonly InboxKind[] = [
+/**
+ * Every kind this client can draw. Sent with each inbox read and with
+ * "mark all read" (`?kind=`), so the server's `unread` counts only what
+ * this screen will show (PO-10): a kind added on the server later is
+ * neither shown nor counted until a client that names it ships.
+ *
+ * Checked against the API's own kind type, so a kind the server renames
+ * or drops fails typecheck here instead of being announced and never
+ * matched. A kind the server adds is not an error: by the rule above it
+ * waits for a client that names it.
+ */
+export const INBOX_KINDS = [
   'fee_reminder',
   'payment_approved',
   'payment_partial',
@@ -35,10 +37,41 @@ const KINDS: readonly InboxKind[] = [
   'exam_cancelled',
   'marks_available',
   'claim_to_verify',
-]
+  'class_cancelled',
+  'class_rescheduled',
+] as const satisfies readonly ApiInboxKind[]
+
+export type InboxKind = (typeof INBOX_KINDS)[number]
 
 function isKind(kind: string): kind is InboxKind {
-  return (KINDS as readonly string[]).includes(kind)
+  return (INBOX_KINDS as readonly string[]).includes(kind)
+}
+
+/**
+ * Which class a class-change message names, as the server sent it:
+ * ISO dates and wall-clock `HH:MM:SS` times in Dhaka. The moved-from
+ * pair is set on a reschedule only.
+ */
+export interface ClassChange {
+  date: string
+  time: string
+  movedFromDate: string | null
+  movedFromTime: string | null
+}
+
+function classChangeOf(dto: {
+  class_date?: string | null
+  class_time?: string | null
+  moved_from_date?: string | null
+  moved_from_time?: string | null
+}): ClassChange | null {
+  if (!dto.class_date || !dto.class_time) return null
+  return {
+    date: dto.class_date,
+    time: dto.class_time,
+    movedFromDate: dto.moved_from_date ?? null,
+    movedFromTime: dto.moved_from_time ?? null,
+  }
 }
 
 export interface InboxMessage {
@@ -53,6 +86,7 @@ export interface InboxMessage {
   enrollmentId: string | null
   sourceId: string | null
   preview: string | null
+  classChange: ClassChange | null
 }
 
 export interface InboxModel {
@@ -79,6 +113,7 @@ export function mapInbox(dto: Schemas['InboxResponse']): InboxModel {
               enrollmentId: i.enrollment_id ?? null,
               sourceId: i.source_id ?? null,
               preview: i.preview ?? null,
+              classChange: classChangeOf(i),
             },
           ]
         : [],
@@ -98,6 +133,8 @@ export const TITLE_KEY: Record<InboxKind, string> = {
   exam_cancelled: 'inbox_exam_cancelled_title',
   marks_available: 'inbox_marks_available_title',
   claim_to_verify: 'inbox_claim_to_verify_title',
+  class_cancelled: 'inbox_class_cancelled_title',
+  class_rescheduled: 'inbox_class_rescheduled_title',
 }
 
 /** "Child · Batch", or just the batch for the reader's own seat. */
@@ -107,15 +144,44 @@ export function inboxSubject(m: { childName: string | null; batchName: string })
 
 type T = (key: string, ...args: (string | number)[]) => string
 
+/** Renders a class's ISO date and `HH:MM[:SS]` time in the reader's language. */
+export type ClassWhen = (isoDate: string, time: string) => string
+
+/** Language-neutral fallback: the server's own date and the clock. */
+const plainWhen: ClassWhen = (isoDate, time) => `${isoDate} ${time.slice(0, 5)}`
+
 /**
- * The second line, as `InboxScreen.body` builds it: the server's preview
- * when it sent one, else the amount (and month) the server reported.
+ * A class change's line: which class was cancelled, or where it moved
+ * from and to. Null for a message about no class.
+ */
+export function classLine(
+  kind: InboxKind,
+  change: ClassChange | null,
+  t: T,
+  when: ClassWhen = plainWhen,
+): string | null {
+  if (!change) return null
+  const now = when(change.date, change.time)
+  if (kind === 'class_cancelled') return t('inbox_class_cancelled_body', now)
+  if (kind === 'class_rescheduled' && change.movedFromDate && change.movedFromTime) {
+    return t('inbox_class_rescheduled_body', when(change.movedFromDate, change.movedFromTime), now)
+  }
+  return null
+}
+
+/**
+ * The second line, as `InboxScreen.body` builds it: which class, for a
+ * class change; the server's preview when it sent one; else the amount
+ * (and month) the server reported.
  */
 export function inboxBody(
   m: InboxMessage,
   t: T,
   monthName: (period: string) => string,
+  when: ClassWhen = plainWhen,
 ): string | null {
+  const line = classLine(m.kind, m.classChange, t, when)
+  if (line) return line
   if (m.preview) return m.preview
   if (!m.amount) return null
   const money = m.amount.format()
@@ -197,6 +263,7 @@ export type InboxContent =
       outcome: 'approved' | 'partial' | 'pending' | 'rejected'
       reason: string | null
     }
+  | { kind: 'class'; classKind: InboxKind; change: ClassChange }
 
 export type InboxDetail =
   | { state: 'unavailable' }
@@ -239,6 +306,9 @@ export function mapDetail(dto: Schemas['NotificationDetailResponse']): InboxDeta
       outcome: dto.payment.outcome,
       reason: dto.payment.reason ?? null,
     }
+  } else {
+    const change = classChangeOf(dto)
+    if (change) content = { kind: 'class', classKind: dto.kind, change }
   }
   return {
     state: 'available',

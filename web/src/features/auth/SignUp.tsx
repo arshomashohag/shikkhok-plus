@@ -14,6 +14,18 @@
  * address's shape, a 4-digit postcode, a password's length and that the
  * two copies match. Whether the account may sign up is the server's
  * decision, shown through its `message_key`.
+ *
+ * **Already added** [BR2.3, BR4.5, AC1.12.2]. When the number field is
+ * left holding a well-formed mobile number, the form asks the server
+ * once whether a teacher already recorded it — the same moment Android
+ * asks (`SignupScreen` `onPhoneLeft`). A yes shows the notice and locks
+ * the role to the seat's. The notice names neither the teacher nor the
+ * batch, nor the person [C-06]: the response carries none of them, so
+ * there is nothing here that could show one. An email address is never
+ * looked up; the route answers for numbers only.
+ *
+ * The lookup is advisory. Its failure, or a yes without a role to lock,
+ * shows nothing and never stands between the person and Send code.
  */
 import {
   useCallback,
@@ -24,7 +36,15 @@ import {
   type InputHTMLAttributes,
 } from 'react'
 import { Link } from 'react-router'
-import { issueCode, setUpPassword, signUp, verifyCode, type Identifier } from '../../api/endpoints'
+import {
+  issueCode,
+  lookupAlreadyAdded,
+  setUpPassword,
+  signUp,
+  verifyCode,
+  type Identifier,
+  type Schemas,
+} from '../../api/endpoints'
 import { toLatinDigits } from '../../core/money'
 import { useSession } from '../../session/session'
 import { AuthFrame } from './AuthFrame'
@@ -69,6 +89,21 @@ type Step =
       error: string | null
     }
 
+/** The role a teacher's seat fixed for a number already added. */
+export type AddedRole = 'teacher' | 'student' | 'guardian'
+
+/**
+ * Map the lookup's answer to the role to lock, or to no notice.
+ *
+ * `display_name` is deprecated and never a name [C-06], so it is not
+ * read. A yes without a role is treated as no answer: locking the role
+ * to a guess is worse than not locking it [BR4.5], and the lookup must
+ * never block sign-up.
+ */
+export function alreadyAddedFrom(dto: Schemas['AlreadyAddedResponse']): AddedRole | null {
+  return dto.already_added && dto.role ? dto.role : null
+}
+
 const ROLE_ICONS = {
   teacher: TeacherIcon,
   coaching: LayersIcon,
@@ -81,7 +116,8 @@ export function SignUp() {
   const failure = useFailureText()
   const { signIn } = useSession()
   const [step, setStep] = useState<Step>({ step: 'form' })
-  const [role, setRole] = useState<Role>('teacher')
+  /** The person's own pick, kept apart from any lock so clearing the lock restores it. */
+  const [chosenRole, setChosenRole] = useState<Role>('teacher')
   const [kind, setKind] = useState<IdentifierKind>('phone')
   const [values, setValues] = useState<Record<FieldName, string>>({
     centre: '',
@@ -100,6 +136,17 @@ export function SignUp() {
   const [busy, setBusy] = useState(false)
   /** The chosen password, from submitting the form until it is sent. Memory only. */
   const held = useRef<string | null>(null)
+  /** The role a teacher's seat fixed for the number typed, while it applies. */
+  const [added, setAdded] = useState<AddedRole | null>(null)
+  // Each complete number is asked about once; the answer (or `null` for
+  // no notice, including a failed lookup) is remembered for the visit.
+  const answers = useRef(new Map<string, AddedRole | null>())
+  // The number the field holds now, so a late answer about a number the
+  // person has since changed is dropped rather than shown beside it.
+  const current = useRef<string | null>(null)
+  // The seat's role while the notice applies, else the person's own pick
+  // (as Android's `prefilled?.lockedRole ?: chosenRole`).
+  const role: Role = added ?? chosenRole
 
   useEffect(() => {
     document.title = `${t('signup_title')} · ShikkhokPlus`
@@ -115,6 +162,41 @@ export function SignUp() {
 
   const set = (name: FieldName) => (e: { target: { value: string } }) =>
     setValues((v) => ({ ...v, [name]: e.target.value }))
+
+  /** A new number: an answer about the previous one stops applying. */
+  function onIdentifierChange(e: { target: { value: string } }) {
+    set('identifier')(e)
+    const identifier = kind === 'phone' ? readIdentifier('phone', e.target.value) : null
+    current.current = identifier && 'phone' in identifier ? identifier.phone : null
+    setAdded(null)
+  }
+
+  /** Leaving the number field: ask about a complete mobile number, once. */
+  async function onIdentifierLeft() {
+    if (kind !== 'phone') return
+    const identifier = readIdentifier('phone', values.identifier)
+    const phone = identifier && 'phone' in identifier ? identifier.phone : null
+    current.current = phone
+    if (!phone) return
+    if (answers.current.has(phone)) {
+      setAdded(answers.current.get(phone) ?? null)
+      return
+    }
+    // Reserved before the request, so a second blur while it is in
+    // flight does not ask again.
+    answers.current.set(phone, null)
+    let answer: AddedRole | null = null
+    try {
+      answer = alreadyAddedFrom(await lookupAlreadyAdded(phone))
+    } catch {
+      // Advisory only: a refused or unreachable lookup shows no notice
+      // and leaves the form as it was. Sign-up itself reports its own
+      // failures when the person submits.
+      answer = null
+    }
+    answers.current.set(phone, answer)
+    if (current.current === phone) setAdded(answer)
+  }
 
   function validate(): { identifier: Identifier; postcode: string } | null {
     const next: Partial<Record<FieldName, string>> = {}
@@ -277,7 +359,8 @@ export function SignUp() {
       <input
         id={`su-${name}`}
         value={values[name]}
-        onChange={set(name)}
+        onChange={name === 'identifier' ? onIdentifierChange : set(name)}
+        onBlur={name === 'identifier' ? () => void onIdentifierLeft() : undefined}
         aria-invalid={errors[name] ? true : undefined}
         aria-describedby={errors[name] ? `su-${name}-error` : undefined}
         {...props}
@@ -307,7 +390,8 @@ export function SignUp() {
                   type="button"
                   className="role-tile"
                   aria-pressed={role === r}
-                  onClick={() => setRole(r)}
+                  disabled={added !== null && added !== r}
+                  onClick={() => setChosenRole(r)}
                 >
                   <Icon size={28} />
                   {t(`signup_role_${r}`)}
@@ -316,9 +400,22 @@ export function SignUp() {
             })}
           </div>
           <span className="help">{t(`signup_role_help_${role}`)}</span>
+          {added ? <span className="help">{t('signup_role_locked_note')}</span> : null}
         </fieldset>
 
         {role === 'coaching' ? field('centre', t('signup_centre_name_label')) : null}
+
+        {/* Always in the page, so the notice is announced when it fills. */}
+        <div role="status">
+          {added ? (
+            <div className="banner" style={{ marginTop: 16 }}>
+              <div>
+                <strong>{t('signup_already_added_title')}</strong>
+                <div>{t('signup_already_added_body')}</div>
+              </div>
+            </div>
+          ) : null}
+        </div>
 
         <div className="form-2">
           <div>
@@ -331,6 +428,8 @@ export function SignUp() {
               onKind={(k) => {
                 setKind(k)
                 setValues((v) => ({ ...v, identifier: '' }))
+                current.current = null
+                setAdded(null)
                 setErrors((e) => ({ ...e, identifier: undefined }))
               }}
             />

@@ -10,5 +10,7 @@
   "web_notices_updated": "Notice updated",
   "web_notices_removed": "Notice taken down",
   "web_notices_edit_title": "Edit notice",
-  "web_dues_remind_offline": "Reminders need a connection."
+  "web_dues_remind_offline": "Reminders need a connection.",
+  "web_students_remove_seat_named": "Remove from batch: {1}",
+  "web_students_remove_seat_body": "{1} will be removed from “{2}”. Nothing they have recorded is affected, because nobody has accepted this place."
 }

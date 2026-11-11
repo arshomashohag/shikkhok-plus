@@ -902,6 +902,11 @@ fieldset.field {
   margin-top: 3px;
   accent-color: var(--primary);
 }
+/* Saving: kept focusable (aria-disabled, not disabled), but looks unavailable. */
+.choice input[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: progress;
+}
 
 .segmented {
   display: flex;

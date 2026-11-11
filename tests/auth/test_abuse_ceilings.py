@@ -493,4 +493,6 @@ def test_every_new_scope_kind_is_distinct_and_alerting_is_deliberate() -> None:
         ScopeKind.SIGNUP_GLOBAL_DAILY,
         ScopeKind.VERIFY_FAIL_GLOBAL_HOURLY,
         ScopeKind.EMAIL_GLOBAL_DAILY,
+        ScopeKind.PASSWORD_FAIL_GLOBAL_HOURLY,
+        ScopeKind.LOOKUP_GLOBAL_HOURLY,
     }

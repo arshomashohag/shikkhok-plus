@@ -26,13 +26,28 @@ object InboxMapper {
             "exam_cancelled" to InboxKind.EXAM_CANCELLED,
             "marks_available" to InboxKind.MARKS_AVAILABLE,
             "claim_to_verify" to InboxKind.CLAIM_TO_VERIFY,
+            "class_cancelled" to InboxKind.CLASS_CANCELLED,
+            "class_rescheduled" to InboxKind.CLASS_RESCHEDULED,
         )
+
+    /**
+     * The wire names of every kind this app can show, sent as `?kind=` with
+     * each inbox read and with "mark all read" [PO-10].
+     *
+     * The server reads the items and counts `unread` over these only, so
+     * the bell never counts a message this version would drop. An install
+     * older than announcing sends none and the server falls back to the
+     * kinds every version could show; a kind added on the server later is
+     * neither shown nor counted here until a version that names it ships.
+     */
+    val KNOWN_KINDS: List<String> = KINDS.keys.toList()
 
     /**
      * Map a loaded inbox, in the server's order.
      *
      * A kind this version does not know is left out rather than shown
-     * as something it is not; the server's unread count still stands.
+     * as something it is not. The server's unread count covers only the
+     * kinds this version announced ([KNOWN_KINDS]), so the two agree.
      *
      * @param dto The inbox
      * @return The state to render
@@ -76,8 +91,51 @@ object InboxMapper {
                 sourceId = dto.sourceId,
                 childName = dto.childName,
                 preview = dto.preview,
+                classChange = classChangeOf(dto.classDate, dto.classTime, dto.movedFromDate, dto.movedFromTime),
             )
         }
+
+    /**
+     * The class a message names, when it names one.
+     *
+     * A time that is not a wall-clock `HH:MM[:SS]` is treated as absent
+     * rather than passed on: the screen formats it while composing, and a
+     * malformed one there would take the whole inbox down with it. So a
+     * bad class time drops the class line, and a bad moved-from time drops
+     * the moved-from pair (the move is then shown without its old slot).
+     *
+     * @param date The class's day
+     * @param time Its start time
+     * @param movedFromDate The day it moved from, for a move
+     * @param movedFromTime The time it moved from, for a move
+     * @return The change, or null without both a day and a well-formed time
+     */
+    private fun classChangeOf(
+        date: String?,
+        time: String?,
+        movedFromDate: String?,
+        movedFromTime: String?,
+    ): ClassChange? {
+        val now = time?.takeIf(::isWallClock)
+        if (date == null || now == null) return null
+        val before = movedFromTime?.takeIf(::isWallClock)
+        return if (movedFromDate != null && before != null) {
+            ClassChange(date, now, movedFromDate, before)
+        } else {
+            ClassChange(date, now)
+        }
+    }
+
+    /** `HH:MM`, optionally `:SS` and a fraction, on a 24-hour clock. */
+    private val WALL_CLOCK = Regex("([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9](\\.[0-9]+)?)?")
+
+    /**
+     * Whether a wire time can be shown as a clock time.
+     *
+     * @param time The server's time
+     * @return True for `HH:MM` or `HH:MM:SS`
+     */
+    private fun isWallClock(time: String): Boolean = WALL_CLOCK.matches(time)
 
     /**
      * Where tapping an item leads.
@@ -142,6 +200,8 @@ object InboxMapper {
             ?: dto.payment?.let {
                 InboxContent.Payment(it.period, it.claimed, it.approved, outcomeOf(it.outcome), it.reason)
             }
+            ?: classChangeOf(dto.classDate, dto.classTime, dto.movedFromDate, dto.movedFromTime)
+                ?.let(InboxContent::ClassChanged)
 
     /**
      * Name a payment outcome.

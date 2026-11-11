@@ -38,11 +38,11 @@ class InboxMapperTest {
             listOf(
                 "fee_reminder", "payment_approved", "payment_partial", "payment_rejected",
                 "payment_recorded", "notice", "exam_scheduled", "exam_cancelled",
-                "marks_available", "claim_to_verify",
+                "marks_available", "claim_to_verify", "class_cancelled", "class_rescheduled",
             )
         val kept = messages(*(known + "future").map { dto(it) }.toTypedArray())
 
-        assertEquals(10, kept.size)
+        assertEquals(12, kept.size)
         assertEquals(InboxKind.entries.toSet(), kept.map { it.kind }.toSet())
     }
 
@@ -151,5 +151,102 @@ class InboxMapperTest {
             ExamBlockDto(examId = "x-1", title = "Monthly", date = "2026-11-20", subjectName = "P", totalMarks = 5)
 
         assertEquals(false, exam.cancelled)
+    }
+
+    @Test
+    fun `a cancelled class keeps the class it names and opens its detail`() {
+        val message =
+            messages(
+                dto("class_cancelled", child = "Rahim").copy(classDate = "2099-04-12", classTime = "16:00:00"),
+            ).single()
+
+        assertEquals(InboxKind.CLASS_CANCELLED, message.kind)
+        assertEquals(ClassChange("2099-04-12", "16:00:00"), message.classChange)
+        assertEquals("Rahim", message.childName)
+        assertEquals(InboxTarget.Detail("n-1"), InboxMapper.targetOf(message))
+    }
+
+    @Test
+    fun `a moved class keeps where it was and where it is`() {
+        val message =
+            messages(
+                dto("class_rescheduled").copy(
+                    classDate = "2099-04-14",
+                    classTime = "18:00:00",
+                    movedFromDate = "2099-04-12",
+                    movedFromTime = "16:00:00",
+                ),
+            ).single()
+
+        assertEquals(InboxKind.CLASS_RESCHEDULED, message.kind)
+        assertEquals(ClassChange("2099-04-14", "18:00:00", "2099-04-12", "16:00:00"), message.classChange)
+    }
+
+    @Test
+    fun `a message about no class carries no class change`() {
+        assertEquals(null, messages(dto("notice")).single().classChange)
+        assertEquals(null, messages(dto("class_cancelled").copy(classDate = "2099-04-12")).single().classChange)
+    }
+
+    @Test
+    fun `a malformed class time is dropped in the mapper, not formatted on screen`() {
+        // The screen formats `HH:MM`; "4pm", "16" or "" would throw there,
+        // during composition, and take the whole inbox down.
+        for (bad in listOf("4pm", "16", "", "1:00", "25:00:00", "16-00-00")) {
+            assertEquals(
+                null,
+                messages(dto("class_cancelled").copy(classDate = "2099-04-12", classTime = bad)).single().classChange,
+                bad,
+            )
+        }
+        assertEquals(
+            ClassChange("2099-04-12", "16:00"),
+            messages(dto("class_cancelled").copy(classDate = "2099-04-12", classTime = "16:00")).single().classChange,
+        )
+    }
+
+    @Test
+    fun `a malformed moved-from time drops the old slot and keeps the new one`() {
+        val message =
+            messages(
+                dto("class_rescheduled").copy(
+                    classDate = "2099-04-14",
+                    classTime = "18:00:00",
+                    movedFromDate = "2099-04-12",
+                    movedFromTime = "4",
+                ),
+            ).single()
+
+        assertEquals(ClassChange("2099-04-14", "18:00:00"), message.classChange)
+    }
+
+    @Test
+    fun `a class change opens to its class on its own page`() {
+        val opened =
+            InboxMapper.afterDetail(
+                NotificationDetailDto(
+                    notificationId = "n-1",
+                    kind = "class_rescheduled",
+                    batchName = "Physics",
+                    createdAt = "2026-10-17T06:00:00Z",
+                    read = false,
+                    classDate = "2099-04-14",
+                    classTime = "18:00:00",
+                    movedFromDate = "2099-04-12",
+                    movedFromTime = "16:00:00",
+                ),
+            )
+
+        val loaded = assertIs<InboxDetailUiState.Loaded>(opened)
+        val content = assertIs<InboxContent.ClassChanged>(loaded.detail.content)
+        assertEquals(ClassChange("2099-04-14", "18:00:00", "2099-04-12", "16:00:00"), content.change)
+    }
+
+    @Test
+    fun `every kind this app can show is announced, and nothing else`() {
+        assertEquals(
+            InboxKind.entries.map { it.name.lowercase() }.toSet(),
+            InboxMapper.KNOWN_KINDS.toSet(),
+        )
     }
 }

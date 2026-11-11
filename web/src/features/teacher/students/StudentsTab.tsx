@@ -20,7 +20,15 @@ import { formatPhone } from '../../../core/format'
 import { useOnline, useResource } from '../../../core/useResource'
 import { useWide } from '../../../core/useWide'
 import { useT } from '../../../i18n/i18n'
-import { EmptyState, ErrorCard, FeeChip, Loading, Sheet, Snackbar } from '../../../ui/components'
+import {
+  ConfirmSheet,
+  EmptyState,
+  ErrorCard,
+  FeeChip,
+  Loading,
+  Sheet,
+  Snackbar,
+} from '../../../ui/components'
 import { PlusIcon } from '../../../ui/icons'
 import type { BatchTabProps } from '../area'
 import { paths, seatState } from '../paths'
@@ -324,26 +332,14 @@ export function StudentsTab({ batchId, batch }: BatchTabProps) {
     <>
       {body}
       {dialog?.kind === 'remove' ? (
-        <Sheet title={t('roster_remove_confirm_title')} onClose={() => setDialog(null)}>
-          <p className="meta">{t('roster_remove_confirm_body', label(dialog.seat))}</p>
-          <div className="button-row">
-            <button
-              type="button"
-              className="btn btn-danger btn-money"
-              disabled={busy}
-              onClick={() => void remove(dialog.seat)}
-            >
-              {t('roster_remove_confirm')}
-            </button>
-            <button
-              type="button"
-              className="btn btn-text btn-money"
-              onClick={() => setDialog(null)}
-            >
-              {t('action_cancel')}
-            </button>
-          </div>
-        </Sheet>
+        <ConfirmSheet
+          title={t('roster_remove_confirm_title')}
+          body={t('roster_remove_confirm_body', label(dialog.seat))}
+          confirmLabel={t('roster_remove_confirm')}
+          busy={busy}
+          onConfirm={() => void remove(dialog.seat)}
+          onCancel={() => setDialog(null)}
+        />
       ) : null}
       {dialog?.kind === 'refused' ? (
         <Sheet title={t('roster_remove_refused_title')} onClose={() => setDialog(null)}>

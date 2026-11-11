@@ -329,6 +329,68 @@ jobs:
             exit 1
           fi
 
+      # **The signing keyring's shape, not only its presence** [ARC-7].
+      # The application refuses to boot on a malformed keyring, on a key
+      # shorter than 32 bytes, or on an active key id the keyring does
+      # not hold (app/auth/tokens.py keyring_problem), and the release
+      # job writes SHIKKHOKPLUS_JWT_ACTIVE_KID as the literal below. Any
+      # of those would surface forty minutes from now as a failed
+      # refresh and a rollback; refused here instead. Entries are named
+      # by position and keys by id: no secret is ever printed.
+      - name: Check the signing keyring
+        env:
+          JWT_KEYS: ${{ secrets.SHIKKHOKPLUS_JWT_KEYS }}
+          # The id the release job writes as the active kid. Kept equal
+          # to that line by tests/gates/test_deploy_workflow.py.
+          JWT_ACTIVE_KID: k1
+        run: |
+          check_keyring() {
+            # Bytes, not characters, as the application measures a key.
+            local LC_ALL=C
+            local entry kid secret position=0 problems=() has_active=""
+            local -a entries
+            IFS=',' read -r -a entries <<< "$JWT_KEYS"
+            for entry in "${entries[@]}"; do
+              position=$((position + 1))
+              # A blank entry is skipped, as the application skips it.
+              [ -n "${entry//[[:space:]]/}" ] || continue
+              if [[ "$entry" != *:* ]]; then
+                problems+=("entry $position is not of the form kid:secret")
+                continue
+              fi
+              kid="${entry%%:*}"
+              secret="${entry#*:}"
+              kid="${kid#"${kid%%[![:space:]]*}"}"
+              kid="${kid%"${kid##*[![:space:]]}"}"
+              secret="${secret#"${secret%%[![:space:]]*}"}"
+              secret="${secret%"${secret##*[![:space:]]}"}"
+              if [ -z "$kid" ] || [ -z "$secret" ]; then
+                problems+=("entry $position is not of the form kid:secret")
+                continue
+              fi
+              if [ "${#secret}" -lt 32 ]; then
+                problems+=("key '$kid' is shorter than 32 bytes")
+              fi
+              [ "$kid" != "$JWT_ACTIVE_KID" ] || has_active="yes"
+            done
+            if [ ${#problems[@]} -eq 0 ] && [ -z "$has_active" ]; then
+              problems+=("it holds no key with id '$JWT_ACTIVE_KID', the active kid the release writes")
+            fi
+            if [ ${#problems[@]} -ne 0 ]; then
+              local problem
+              for problem in "${problems[@]}"; do
+                echo "::error::Secret SHIKKHOKPLUS_JWT_KEYS: $problem; the application would refuse to start."
+              done
+              return 1
+            fi
+          }
+
+          if [ -z "$JWT_KEYS" ]; then
+            echo "::error::Secret SHIKKHOKPLUS_JWT_KEYS is not set."
+            exit 1
+          fi
+          check_keyring
+
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
@@ -917,6 +979,8 @@ jobs:
             echo "SHIKKHOKPLUS_ENVIRONMENT=${ENVIRONMENT}"
             echo "SHIKKHOKPLUS_OTP_HMAC_KEY=${OTP_HMAC_KEY}"
             echo "SHIKKHOKPLUS_JWT_KEYS=${JWT_KEYS}"
+            # The plan job's "Check the signing keyring" step refused
+            # the run unless the keyring holds this id.
             echo "SHIKKHOKPLUS_JWT_ACTIVE_KID=k1"
             echo "SHIKKHOKPLUS_SMS_APP_HASH=${SMS_APP_HASH}"
             echo "SHIKKHOKPLUS_GLOBAL_DAILY_SMS=${DAILY_SMS}"

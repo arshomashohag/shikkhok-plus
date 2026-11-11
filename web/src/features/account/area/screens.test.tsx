@@ -136,7 +136,8 @@ const inbox = {
 describe('Inbox', () => {
   it('lists what the server sent, and opening an item marks it read and goes where it points', async () => {
     serve(me('guardian'), (method, url) => {
-      if (url.endsWith('/v1/me/notifications') && method === 'GET') return json(200, inbox)
+      if (url.split('?')[0]!.endsWith('/v1/me/notifications') && method === 'GET')
+        return json(200, inbox)
       if (url.endsWith('/v1/me/notifications/n1/read')) return new Response(null, { status: 204 })
       return undefined
     })
@@ -154,22 +155,60 @@ describe('Inbox', () => {
 
   it('marks everything read with one call', async () => {
     serve(me('guardian'), (method, url) => {
-      if (url.endsWith('/v1/me/notifications') && method === 'GET') return json(200, inbox)
-      if (url.endsWith('/v1/me/notifications/read')) return new Response(null, { status: 204 })
+      if (url.split('?')[0]!.endsWith('/v1/me/notifications') && method === 'GET')
+        return json(200, inbox)
+      if (url.split('?')[0]!.endsWith('/v1/me/notifications/read'))
+        return new Response(null, { status: 204 })
       return undefined
     })
     renderAt('/inbox')
     await userEvent.click(await screen.findByRole('button', { name: 'Mark all read' }))
     await waitFor(() =>
       expect(
-        calls.filter((c) => c.method === 'POST' && c.url.endsWith('/v1/me/notifications/read')),
+        calls.filter(
+          (c) => c.method === 'POST' && c.url.split('?')[0]!.endsWith('/v1/me/notifications/read'),
+        ),
       ).toHaveLength(1),
     )
+    // PO-10: both the read and "mark all read" name the kinds this
+    // client draws, so the server's count covers only those.
+    for (const c of calls.filter((c) => c.url.includes('/v1/me/notifications'))) {
+      expect(new URL(c.url, 'http://x').searchParams.getAll('kind')).toContain('class_rescheduled')
+    }
+  })
+
+  it('shows a cancelled class with its day and time', async () => {
+    const classInbox = {
+      unread: 1,
+      items: [
+        {
+          notification_id: 'c1',
+          kind: 'class_cancelled',
+          batch_name: 'Physics',
+          child_name: null,
+          created_at: '2026-11-05T03:00:00Z',
+          read: false,
+          source_id: 's1',
+          class_date: '2099-04-12',
+          class_time: '16:00:00',
+        },
+      ],
+    }
+    serve(me('student'), (method, url) =>
+      url.split('?')[0]!.endsWith('/v1/me/notifications') && method === 'GET'
+        ? json(200, classInbox)
+        : undefined,
+    )
+    renderAt('/inbox')
+    expect(await screen.findByText('Class cancelled · Physics')).toBeInTheDocument()
+    expect(screen.getByText('The class on 12 Apr, 4:00 pm will not be held.')).toBeInTheDocument()
   })
 
   it('says so when there is nothing', async () => {
     serve(me('student'), (_method, url) =>
-      url.endsWith('/v1/me/notifications') ? json(200, { unread: 0, items: [] }) : undefined,
+      url.split('?')[0]!.endsWith('/v1/me/notifications')
+        ? json(200, { unread: 0, items: [] })
+        : undefined,
     )
     renderAt('/inbox')
     expect(await screen.findByText('Nothing here yet')).toBeInTheDocument()
@@ -208,6 +247,28 @@ describe('Inbox', () => {
     expect(screen.getByText('Partly approved')).toBeInTheDocument()
     expect(screen.getByText('Only 800 arrived')).toBeInTheDocument()
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/n9/read'))).toBe(true))
+  })
+
+  it('draws no empty line for a reschedule the server sent without its old time', async () => {
+    serve(me('student'), (_method, url) => {
+      if (url.endsWith('/v1/me/notifications/r1'))
+        return json(200, {
+          notification_id: 'r1',
+          kind: 'class_rescheduled',
+          available: true,
+          batch_name: 'Physics',
+          child_name: null,
+          created_at: new Date().toISOString(),
+          read: true,
+          class_date: '2099-04-12',
+          class_time: '16:00:00',
+        })
+      return undefined
+    })
+    renderAt('/inbox/r1')
+    const title = await screen.findByText('Class moved · Physics')
+    const article = title.closest('article')!
+    expect(article.querySelector('p')).toBeNull()
   })
 
   it('says when an item is no longer available', async () => {
@@ -408,7 +469,7 @@ describe('Delete account', () => {
 describe('More', () => {
   it('a guardian sees the inbox with its unread count, children, edit and delete', async () => {
     serve(me('guardian'), (_method, url) =>
-      url.endsWith('/v1/me/notifications') ? json(200, inbox) : undefined,
+      url.split('?')[0]!.endsWith('/v1/me/notifications') ? json(200, inbox) : undefined,
     )
     renderAt('/more')
     expect(await screen.findByRole('link', { name: /Notifications/ })).toHaveAttribute(
@@ -430,7 +491,9 @@ describe('More', () => {
 
   it('a teacher keeps Getting paid and Your records, and has no children row', async () => {
     serve(me('teacher'), (_method, url) =>
-      url.endsWith('/v1/me/notifications') ? json(200, { unread: 0, items: [] }) : undefined,
+      url.split('?')[0]!.endsWith('/v1/me/notifications')
+        ? json(200, { unread: 0, items: [] })
+        : undefined,
     )
     renderAt('/more')
     expect(await screen.findByRole('link', { name: /Where students pay/ })).toHaveAttribute(

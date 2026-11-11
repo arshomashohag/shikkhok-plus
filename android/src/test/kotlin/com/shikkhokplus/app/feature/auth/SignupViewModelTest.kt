@@ -110,7 +110,7 @@ class SignupViewModelTest {
         val repo =
             FakeRepository(
                 lookupResult =
-                    AuthResult.Ok(AlreadyAddedDto(alreadyAdded = true, displayName = "Rahim", role = "student")),
+                    AuthResult.Ok(AlreadyAddedDto(alreadyAdded = true, role = "student")),
             )
         val model = SignupViewModel(repo)
         model.lookup("+8801700000000")
@@ -181,11 +181,7 @@ class SignupViewModelTest {
                 FakeRepository(
                     lookupResult =
                         AuthResult.Ok(
-                            AlreadyAddedDto(
-                                alreadyAdded = true,
-                                displayName = "Rahim",
-                                role = "student",
-                            ),
+                            AlreadyAddedDto(alreadyAdded = true, role = "student"),
                         ),
                 )
             val model = SignupViewModel(repo)
@@ -194,7 +190,6 @@ class SignupViewModelTest {
             advanceUntilIdle()
 
             val state = assertIs<SignupUiState.AlreadyAdded>(model.state.value)
-            assertEquals("Rahim", state.prefilledName)
             assertEquals(SignupRole.STUDENT, state.lockedRole)
         }
 

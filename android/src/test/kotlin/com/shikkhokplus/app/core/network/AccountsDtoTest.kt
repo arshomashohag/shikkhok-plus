@@ -100,14 +100,17 @@ class AccountsDtoTest {
         // **The absences are the requirement** [BR2.3, AC1.12.2]. A
         // field declared here is a field somebody will eventually ask
         // the server to fill, so the bound is held on the TYPE rather
-        // than on one response's values.
+        // than on one response's values. `display_name` is gone too: the
+        // server sends it as an empty string [C-06], and declaring it is
+        // what let the sign-up form copy that empty string over a typed
+        // name.
         val declared =
             AlreadyAddedDto.serializer().descriptor.let { descriptor ->
                 (0 until descriptor.elementsCount).map(descriptor::getElementName)
             }
 
         assertEquals(
-            listOf("already_added", "display_name", "role"),
+            listOf("already_added", "role"),
             declared,
         )
     }

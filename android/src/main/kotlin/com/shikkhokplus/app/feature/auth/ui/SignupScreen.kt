@@ -26,7 +26,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -106,9 +105,8 @@ private const val CENTRE_NAME_MAX: Int = 120
  * **The board's layout, top to bottom**: the mark beside "Create
  * account", then the role as three cards, then name, number and
  * address with a help line each, and a bar pinned to the foot holding
- * "Send code" and the way to log in. A number a teacher already added
- * puts the number before the name, as the board does, because the name
- * was filled in from it.
+ * "Send code" and the way to log in. The order does not change when a
+ * number turns out to be already added: nothing is filled in from it.
  *
  * Two of this unit's rules are visible as *absences* in the code below,
  * which is why they are named here:
@@ -180,12 +178,9 @@ fun SignupScreen(
         SignupUiState.Empty, SignupUiState.CheckingNumber -> added = null
         else -> Unit
     }
+    // Nothing is copied into the name field: the lookup carries no name
+    // [C-06], and copying its empty string erased a typed name.
     val prefilled = added
-    LaunchedEffect(prefilled?.prefilledName) {
-        // Seeded once from the teacher's name, then the person's own
-        // edits win [AC1.12.2: "You can correct it"].
-        prefilled?.let { name = it.prefilledName }
-    }
 
     val role = prefilled?.lockedRole ?: chosenRole
     val failure = state as? SignupUiState.Failed
@@ -250,7 +245,7 @@ fun SignupScreen(
                                 onSubmit(
                                     SignupForm(
                                         identifier = Identifier(kind, phone),
-                                        selfName = name.ifEmpty { prefilled?.prefilledName.orEmpty() },
+                                        selfName = name,
                                         address = address,
                                         role = it,
                                         password = password,
@@ -367,11 +362,7 @@ private fun Form(
                 onValueChange = onNameChange,
                 label = stringResource(R.string.signup_name_label),
                 help =
-                    when {
-                        prefilled != null -> stringResource(R.string.signup_name_help_prefilled)
-                        name.isEmpty() -> stringResource(R.string.signup_name_help)
-                        else -> null
-                    },
+                    stringResource(R.string.signup_name_help).takeIf { name.isEmpty() },
                 error = nameError,
                 fieldModifier = Modifier.testTag(TAG_SIGNUP_NAME),
             )
@@ -421,15 +412,11 @@ private fun Form(
                 }
             }
         }
-        // A number a teacher added comes first, because the name was
-        // filled in from it.
-        if (prefilled != null) {
-            phoneField()
-            nameField()
-        } else {
-            nameField()
-            phoneField()
-        }
+        // One order whatever the lookup says: the answer arrives as the
+        // person leaves the number field, and moving the fields under
+        // them then would take their place away.
+        nameField()
+        phoneField()
 
         AddressFields(
             address = address,
@@ -535,7 +522,7 @@ private fun Notices(
     if (prefilled) {
         Banner(
             title = stringResource(R.string.signup_already_added_title),
-            body = stringResource(R.string.signup_already_added_notice),
+            body = stringResource(R.string.signup_already_added_body),
         )
     }
     if (failure != null) {

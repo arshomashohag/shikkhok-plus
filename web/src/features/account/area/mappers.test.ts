@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { Schemas } from '../../../api/endpoints'
 import { MoneyFormatError } from '../../../core/money'
+import { BUNDLES, translate } from '../../../i18n/i18n'
+import { KINDS_QUERY } from './api'
 import {
+  INBOX_KINDS,
+  TITLE_KEY,
   footprintOf,
   inboxBody,
   inboxSubject,
@@ -375,4 +379,108 @@ it('keeps the server’s grouping of children', () => {
       ],
     },
   ])
+})
+
+describe('class changes (PO-1, PO-10)', () => {
+  const cancelled = {
+    kind: 'class_cancelled' as const,
+    amount: null,
+    period: null,
+    source_id: 'session1',
+    class_date: '2099-04-12',
+    class_time: '16:00:00',
+  }
+  const moved = {
+    ...cancelled,
+    kind: 'class_rescheduled' as const,
+    class_date: '2099-04-14',
+    class_time: '18:00:00',
+    moved_from_date: '2099-04-12',
+    moved_from_time: '16:00:00',
+  }
+  const when = (d: string, time: string) => `${d}@${time.slice(0, 5)}`
+
+  it('keeps both new kinds instead of dropping them', () => {
+    const model = mapInbox({ unread: 2, items: [item(cancelled), item(moved)] })
+    expect(model.messages.map((m) => m.kind)).toEqual(['class_cancelled', 'class_rescheduled'])
+    expect(model.messages[1]?.classChange).toEqual({
+      date: '2099-04-14',
+      time: '18:00:00',
+      movedFromDate: '2099-04-12',
+      movedFromTime: '16:00:00',
+    })
+  })
+
+  it('words a cancellation from the class the server named', () => {
+    expect(inboxBody(one(cancelled), t, (p) => p, when)).toBe(
+      'inbox_class_cancelled_body(2099-04-12@16:00)',
+    )
+  })
+
+  it('words a move from where it was to where it is', () => {
+    expect(inboxBody(one(moved), t, (p) => p, when)).toBe(
+      'inbox_class_rescheduled_body(2099-04-12@16:00,2099-04-14@18:00)',
+    )
+  })
+
+  it('a reschedule missing its old time says nothing rather than half a sentence', () => {
+    const half = one({ ...moved, moved_from_date: null, moved_from_time: null })
+    expect(inboxBody(half, t, (p) => p, when)).toBeNull()
+  })
+
+  it('a message about no class is worded as before', () => {
+    expect(one({}).classChange).toBeNull()
+    expect(inboxBody(one({}), t, (p) => p, when)).toBe('inbox_fee_reminder_body(৳1,200,2026-10)')
+  })
+
+  it('opens to the class line on its own page', () => {
+    const d = mapDetail({ ...item(moved), available: true })
+    expect(d.state === 'available' && d.content).toEqual({
+      kind: 'class',
+      classKind: 'class_rescheduled',
+      change: {
+        date: '2099-04-14',
+        time: '18:00:00',
+        movedFromDate: '2099-04-12',
+        movedFromTime: '16:00:00',
+      },
+    })
+  })
+
+  it('titles and lines come from Bangla strings, with no English fallback', () => {
+    for (const key of [
+      TITLE_KEY.class_cancelled,
+      TITLE_KEY.class_rescheduled,
+      'inbox_class_cancelled_body',
+      'inbox_class_rescheduled_body',
+    ]) {
+      const bn = BUNDLES.bn[key]
+      expect(typeof bn, key).toBe('string')
+      expect(bn).not.toEqual(BUNDLES.en[key])
+      expect(bn).toMatch(/[ঀ-৿]/)
+    }
+    expect(translate('bn', 'inbox_class_rescheduled_body', 'ক', 'খ')).toBe(
+      'ক্লাসটি ক থেকে সরিয়ে খ-এ নেওয়া হয়েছে।',
+    )
+  })
+
+  it('announces every kind it can draw, so the badge counts only those', () => {
+    expect(INBOX_KINDS).toContain('class_cancelled')
+    expect(INBOX_KINDS).toContain('class_rescheduled')
+    const announced = new URLSearchParams(KINDS_QUERY).getAll('kind')
+    expect(announced).toEqual([...INBOX_KINDS])
+    expect(Object.keys(TITLE_KEY).sort()).toEqual([...INBOX_KINDS].sort())
+  })
+
+  it('names only kinds the API declares, checked at typecheck', () => {
+    type ApiKind = Schemas['NotificationResponse']['kind']
+    // Every announced kind is one the API can send (`tsc` fails otherwise).
+    const announced: readonly ApiKind[] = INBOX_KINDS
+    // The API's kind is a closed set, not `string`, so that check has teeth:
+    // a kind the server never sends is refused.
+    // @ts-expect-error -- 'class_moved' is not a kind the API declares
+    const stale: ApiKind = 'class_moved'
+    expect(announced).toBe(INBOX_KINDS)
+    expect(stale).toBe('class_moved')
+  })
 })

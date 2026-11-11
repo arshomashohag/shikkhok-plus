@@ -118,6 +118,8 @@ def test_the_route_is_not_registered_in_production(
     monkeypatch.setenv("SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER", "X-Client-Address")
     monkeypatch.setenv("SHIKKHOKPLUS_MFA_KEYS", "k1:" + "B" * 43 + "=")
     monkeypatch.setenv("SHIKKHOKPLUS_MFA_ACTIVE_KID", "k1")
+    monkeypatch.setenv("SHIKKHOKPLUS_JWT_KEYS", "k1:" + "J" * 40)
+    monkeypatch.setenv("SHIKKHOKPLUS_JWT_ACTIVE_KID", "k1")
     monkeypatch.setenv("SHIKKHOKPLUS_EMAIL_ADAPTER", "ses")
     monkeypatch.setenv(
         "SHIKKHOKPLUS_SES_SMTP_HOST", "email-smtp.us-east-1.amazonaws.com"
@@ -183,6 +185,8 @@ def test_a_production_process_refuses_to_start_with_the_outbox_on(
     monkeypatch.setenv("SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER", "X-Client-Address")
     monkeypatch.setenv("SHIKKHOKPLUS_MFA_KEYS", "k1:" + "B" * 43 + "=")
     monkeypatch.setenv("SHIKKHOKPLUS_MFA_ACTIVE_KID", "k1")
+    monkeypatch.setenv("SHIKKHOKPLUS_JWT_KEYS", "k1:" + "J" * 40)
+    monkeypatch.setenv("SHIKKHOKPLUS_JWT_ACTIVE_KID", "k1")
     monkeypatch.setenv("SHIKKHOKPLUS_EMAIL_ADAPTER", "ses")
     monkeypatch.setenv(
         "SHIKKHOKPLUS_SES_SMTP_HOST", "email-smtp.us-east-1.amazonaws.com"
@@ -219,6 +223,8 @@ def test_an_otherwise_valid_production_process_starts(
     monkeypatch.setenv("SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER", "X-Client-Address")
     monkeypatch.setenv("SHIKKHOKPLUS_MFA_KEYS", "k1:" + "B" * 43 + "=")
     monkeypatch.setenv("SHIKKHOKPLUS_MFA_ACTIVE_KID", "k1")
+    monkeypatch.setenv("SHIKKHOKPLUS_JWT_KEYS", "k1:" + "J" * 40)
+    monkeypatch.setenv("SHIKKHOKPLUS_JWT_ACTIVE_KID", "k1")
     monkeypatch.setenv("SHIKKHOKPLUS_EMAIL_ADAPTER", "ses")
     monkeypatch.setenv(
         "SHIKKHOKPLUS_SES_SMTP_HOST", "email-smtp.us-east-1.amazonaws.com"

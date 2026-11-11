@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.auth
 import com.shikkhokplus.app.core.model.PostalAddress
 import com.shikkhokplus.app.core.model.SignupRole
 import com.shikkhokplus.app.core.network.AlreadyAddedDto
+import com.shikkhokplus.app.core.network.ApiClient
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.SignupResponseDto
@@ -46,20 +47,14 @@ class SignupStateMapperTest {
     }
 
     @Test
-    fun `an added number pre-fills the name and locks the role`() {
-        // AC1.12.1. The name is CORRECTABLE -- the state carries it as
-        // a starting value, not as a fixed one -- and the role is not.
+    fun `an added number locks the role`() {
+        // AC1.12.1. The role is locked; no name is carried [C-06].
         val state =
             SignupStateMapper.afterLookup(
-                AlreadyAddedDto(
-                    alreadyAdded = true,
-                    displayName = "Rahim Uddin",
-                    role = "guardian",
-                ),
+                AlreadyAddedDto(alreadyAdded = true, role = "guardian"),
             )
 
         val added = assertIs<SignupUiState.AlreadyAdded>(state)
-        assertEquals("Rahim Uddin", added.prefilledName)
         assertEquals(SignupRole.GUARDIAN, added.lockedRole)
     }
 
@@ -69,11 +64,7 @@ class SignupStateMapperTest {
         // person actually holds, which is worse than not locking it.
         val state =
             SignupStateMapper.afterLookup(
-                AlreadyAddedDto(
-                    alreadyAdded = true,
-                    displayName = "Rahim",
-                    role = "headmaster",
-                ),
+                AlreadyAddedDto(alreadyAdded = true, role = "headmaster"),
             )
 
         val failed = assertIs<SignupUiState.Failed>(state)
@@ -81,11 +72,26 @@ class SignupStateMapperTest {
     }
 
     @Test
-    fun `a seat claimed without a name or role is a failure`() {
+    fun `a seat claimed without a role is a failure`() {
         val state =
             SignupStateMapper.afterLookup(AlreadyAddedDto(alreadyAdded = true))
 
         assertIs<SignupUiState.Failed>(state)
+    }
+
+    @Test
+    fun `the server's deprecated empty display name is parsed and ignored`() {
+        // The live server still sends display_name = "" [C-06]. It must
+        // decode, and must not become anything the screen could copy.
+        val dto =
+            ApiClient.json.decodeFromString<AlreadyAddedDto>(
+                """{"already_added": true, "display_name": "", "role": "student"}""",
+            )
+
+        assertEquals(
+            SignupUiState.AlreadyAdded(lockedRole = SignupRole.STUDENT),
+            SignupStateMapper.afterLookup(dto),
+        )
     }
 
     @Test

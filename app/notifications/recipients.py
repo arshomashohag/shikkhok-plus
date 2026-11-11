@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Batch, Enrollment, Notification, Owner, OwnerMember
 from app.local_time import bangladesh_today
-from app.notifications.inbox import mark_unread_for_source
+from app.notifications.inbox import ClassChange, mark_unread_for_source
 
 __all__ = [
     "Recipient",
@@ -196,14 +196,16 @@ def deliver_to_families(
     batch: Batch,
     kind: str,
     source_id: uuid.UUID,
-    preview: str,
+    preview: str | None,
     now: dt.datetime,
+    on: dt.date | None = None,
+    class_change: ClassChange | None = None,
 ) -> None:
     """Put one message in every accepted family member's inbox.
 
     One row per ``(account, seat)``, so a guardian of two children gets
     two rows, each naming its child. Membership is as of today in
-    Bangladesh.
+    Bangladesh, unless the message is about another day (``on``).
 
     **One statement whatever the batch size**: an ``INSERT ... SELECT``
     over :func:`_recipient_rows`, so the rows are built inside the
@@ -213,11 +215,15 @@ def deliver_to_families(
     :param batch: The batch the message is for
     :param kind: What produced it
     :param source_id: The record it came from, already flushed
-    :param preview: A short line of its content
+    :param preview: A short line of its content, if any
     :param now: When it is sent
+    :param on: The day membership is judged on; today in Bangladesh when None
+    :param class_change: The class it is about, for a class change
     :return: None
     """
-    found = _recipient_rows(*_active_in_batch(batch.id, bangladesh_today())).subquery()
+    day = on or bangladesh_today()
+    found = _recipient_rows(*_active_in_batch(batch.id, day)).subquery()
+    change = class_change
     session.execute(
         sa.insert(Notification).from_select(
             [
@@ -230,6 +236,10 @@ def deliver_to_families(
                 "source_id",
                 "preview",
                 "child_name",
+                "class_date",
+                "class_time",
+                "moved_from_date",
+                "moved_from_time",
             ],
             sa.select(
                 sa.func.gen_random_uuid(),
@@ -241,6 +251,10 @@ def deliver_to_families(
                 sa.literal(source_id, PgUUID(as_uuid=True)),
                 sa.literal(preview, sa.Text),
                 found.c.child_name,
+                sa.literal(None if change is None else change.class_date, sa.Date),
+                sa.literal(None if change is None else change.class_time, sa.Time),
+                sa.literal(None if change is None else change.moved_from_date, sa.Date),
+                sa.literal(None if change is None else change.moved_from_time, sa.Time),
             ),
         )
     )

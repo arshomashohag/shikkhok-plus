@@ -322,8 +322,9 @@ def sign_in_with_password(
     password yet is pointed at the code flow by the client's static
     hint, not by a response that would say their account exists.
 
-    Bounded per identifier and per network, with the network-wide
-    failure ceilings shared with codes.
+    Bounded per identifier and per network, with the per-prefix failure
+    ceilings shared with codes. Failures across the whole product alert
+    and never refuse [SEC-1].
 
     :param body: The request body
     :param request: The incoming request

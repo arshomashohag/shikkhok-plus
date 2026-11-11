@@ -77,6 +77,7 @@ __all__ = [
     "TokenPair",
     "issue_pair",
     "issue_scoped_token",
+    "keyring_problem",
     "revoke_all_families",
     "revoke_family",
     "rotate",
@@ -176,19 +177,66 @@ class TokenPair:
     account_id: uuid.UUID
 
 
+def _parse_keys(raw: str) -> dict[str, str]:
+    """Parse ``kid:secret,kid:secret`` into a map, refusing a bad entry.
+
+    **No secret ever appears in a message raised here**: an entry is
+    named by its position, and a key by its id.
+
+    :param raw: The environment value
+    :return: Key id to secret
+    :raises RuntimeError: An entry has no id, no secret or no colon
+    """
+    keys: dict[str, str] = {}
+    for position, entry in enumerate(raw.split(","), start=1):
+        if not entry.strip():
+            continue
+        kid, separator, secret = entry.partition(":")
+        if not separator or not kid.strip() or not secret.strip():
+            raise RuntimeError(
+                f"{JWT_KEYS_ENV} entry {position} is not of the form kid:secret."
+            )
+        keys[kid.strip()] = secret.strip()
+    if not keys:
+        raise RuntimeError(f"{JWT_KEYS_ENV} names no keys.")
+    return keys
+
+
+def keyring_problem() -> str | None:
+    """Describe what is wrong with the signing keyring, if anything [ARC-7].
+
+    Called at startup, so a missing or malformed keyring stops the boot
+    instead of failing the first sign-in. Checks the key map parses, every
+    key is long enough, and the active key id names one of them.
+
+    :return: A sentence naming the problem and no key material, or None
+    """
+    try:
+        keys = _keys()
+        kid = _active_kid()
+    except RuntimeError as problem:
+        return str(problem)
+    if kid not in keys:
+        return (
+            f"{JWT_ACTIVE_KID_ENV} names a key id that {JWT_KEYS_ENV} does "
+            "not hold, so no token could be signed."
+        )
+    return None
+
+
 def _keys() -> dict[str, str]:
     """Read the verification key map from the environment.
 
     :return: Key id to secret
-    :raises RuntimeError: The environment names no keys
+    :raises RuntimeError: The environment names no keys, or names one
+        malformed or too short
     """
     raw = os.environ.get(JWT_KEYS_ENV)
     if not raw:
         raise RuntimeError(
             f"{JWT_KEYS_ENV} is unset. Signing keys are never hardcoded."
         )
-    pairs = [entry.split(":", 1) for entry in raw.split(",") if entry]
-    keys = {kid.strip(): secret.strip() for kid, secret in pairs}
+    keys = _parse_keys(raw)
     short = sorted(
         kid for kid, secret in keys.items() if len(secret.encode()) < MIN_KEY_BYTES
     )

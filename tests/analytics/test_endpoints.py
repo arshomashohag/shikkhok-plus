@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.auth.tokens import issue_pair
+from app.local_time import bangladesh_today
 from tests.analytics.conftest import add_batch, add_exam, seat_with_ledger
 from tests.batches.conftest import TeacherFixture, _account, make_teacher
 
@@ -190,7 +191,9 @@ def test_the_overview_carries_the_next_exam_with_its_days_remaining(
     :param teacher_token: Their bearer token
     :return: None
     """
-    when = dt.datetime.now(tz=dt.UTC).date() + dt.timedelta(days=5)
+    # Bangladesh's date, as the server counts: the UTC date is a day
+    # behind it from 18:00 to 24:00 UTC, which made this read 4.
+    when = bangladesh_today() + dt.timedelta(days=5)
     add_exam(
         owner_session,
         batch_id=signed_in_teacher.batch_id,

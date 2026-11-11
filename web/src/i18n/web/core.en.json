@@ -62,5 +62,9 @@
   "web_roster_col_contact": "Phones and invitation",
   "web_roster_col_fee": "This month",
   "web_roster_col_actions": "Actions",
-  "web_auth_otp_wrong_no_count": "That code isn't right."
+  "web_auth_otp_wrong_no_count": "That code isn't right.",
+  "web_sheet_discard_title": "Discard what you typed?",
+  "web_sheet_discard_body": "Closing now throws away what you have entered here.",
+  "web_sheet_discard": "Discard",
+  "web_sheet_keep_editing": "Keep editing"
 }

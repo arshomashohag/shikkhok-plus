@@ -9,7 +9,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { ago, formatMonth, formatShortDate, type Lang } from '../../../core/format'
+import { ago, formatClock, formatMonth, formatShortDate, type Lang } from '../../../core/format'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import { useReadySession } from '../../../session/session'
@@ -20,6 +20,7 @@ import { markAllRead, markRead, readInbox, readInboxItem } from './api'
 import {
   OUTCOME_KEY,
   TITLE_KEY,
+  classLine,
   inboxBody,
   inboxSubject,
   mapDetail,
@@ -42,6 +43,11 @@ export function formatDateTime(iso: string, lang: Lang): string {
   }).format(new Date(iso))
 }
 
+/** "17 Oct, 4:00 pm": a class's day and start time, for a class-change line. */
+export function formatClassWhen(isoDate: string, time: string, lang: Lang): string {
+  return `${formatShortDate(isoDate, lang)}, ${formatClock(time, lang)}`
+}
+
 export function Inbox() {
   const { t, lang, message: messageText } = useT()
   const navigate = useNavigate()
@@ -54,6 +60,14 @@ export function Inbox() {
   useEffect(() => {
     if (resource.state === 'loaded') setUnreadCount(resource.data.unread)
   }, [resource])
+
+  const line = (m: InboxMessage) =>
+    inboxBody(
+      m,
+      t,
+      (p) => formatMonth(p, lang),
+      (d, time) => formatClassWhen(d, time, lang),
+    )
 
   async function open(m: InboxMessage) {
     if (m.unread) {
@@ -137,11 +151,7 @@ export function Inbox() {
                     <span className="title inbox-title">
                       {t(TITLE_KEY[m.kind], inboxSubject(m))}
                     </span>
-                    {inboxBody(m, t, (p) => formatMonth(p, lang)) ? (
-                      <span className="meta inbox-line">
-                        {inboxBody(m, t, (p) => formatMonth(p, lang))}
-                      </span>
-                    ) : null}
+                    {line(m) ? <span className="meta inbox-line">{line(m)}</span> : null}
                     <span className="meta inbox-line">{ago(m.sentAt, new Date(), t)}</span>
                   </span>
                   {m.unread ? (
@@ -296,5 +306,13 @@ function Content({ content }: { content: InboxContent }) {
           ) : null}
         </dl>
       )
+    case 'class': {
+      const line = classLine(content.classKind, content.change, t, (d, time) =>
+        formatClassWhen(d, time, lang),
+      )
+      // A reschedule without its moved-from pair has no line to show:
+      // no empty paragraph in its place.
+      return line ? <p className="inbox-notice">{line}</p> : null
+    }
   }
 }

@@ -212,8 +212,8 @@ describe('Record a class', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Continue: Newton’s first law' }))
     expect(screen.getByLabelText('What did you cover?')).toHaveValue('Newton’s first law')
     await userEvent.click(screen.getByRole('button', { name: '2nd paper' }))
-    const rafsan = screen.getByRole('group', { name: 'Rafsan' })
-    await userEvent.click(within(rafsan).getByRole('button', { name: 'Absent' }))
+    // One tap on the row marks the student absent [UX-1].
+    await userEvent.click(screen.getByRole('button', { name: 'Rafsan' }))
     await userEvent.click(screen.getByRole('button', { name: 'Save class' }))
 
     expect(await screen.findByText('Class saved.')).toBeInTheDocument()
@@ -231,6 +231,36 @@ describe('Record a class', () => {
         { enrollment_id: 'e2', present: false },
       ],
     })
+  })
+
+  it('makes each whole seat row one toggle named by the student [UX-1]', async () => {
+    base()
+    const tasnim = await screen.findByRole('button', { name: 'Tasnim' })
+    // Unmarked seats start present, as on Android; pressed means present.
+    expect(tasnim).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('button', { name: 'Absent' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Mark everyone present' })).toBeNull()
+    // Sighted users still see the state word; it is not read a second time.
+    expect(tasnim).toHaveTextContent('Present')
+
+    await userEvent.click(tasnim)
+    // The same control, still named by the student alone: only the state moved.
+    expect(screen.getByRole('button', { name: 'Tasnim' })).toBe(tasnim)
+    expect(tasnim).toHaveAccessibleName('Tasnim')
+    expect(tasnim).toHaveAttribute('aria-pressed', 'false')
+    expect(tasnim).toHaveTextContent('Absent')
+    // The running number and the state word are decoration, not the name.
+    const hidden = Array.from(tasnim.querySelectorAll(':scope > [aria-hidden="true"]'))
+    expect(hidden.map((el) => el.textContent)).toEqual(['01', 'Absent'])
+
+    // A second tap undoes the first.
+    await userEvent.click(tasnim)
+    expect(tasnim).toHaveAttribute('aria-pressed', 'true')
+
+    // "Mark everyone present" appears once someone is absent and clears it.
+    await userEvent.click(screen.getByRole('button', { name: 'Rafsan' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Mark everyone present' }))
+    expect(screen.getByRole('button', { name: 'Rafsan' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('replays the same write after a dropped connection', async () => {
@@ -415,5 +445,142 @@ describe('Schedule and batch edit', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     expect(await screen.findByRole('alert')).toBeInTheDocument()
     expect(calls('PATCH', '/v1/batches/b1')[0]).toEqual({ subjects: ['1st paper'] })
+  })
+})
+
+describe('Share marksheet with the batch', () => {
+  const toggle = () => screen.findByRole('switch', { name: 'Share marksheet with the batch' })
+
+  it('sends the write and shows the value the server returned', async () => {
+    // The server answers with the value now in force, which here is not
+    // what was asked for: the switch shows the server's, not the click's.
+    serve({
+      'GET /v1/batches': [{ ...BATCH, marksheet_visible: false }],
+      'PUT /v1/batches/b1/marksheet-visibility': () => json(200, { visible: false }),
+    })
+    at('/batches/b1/edit', '/batches/:batchId/edit', <EditBatchScreen />)
+    const sw = await toggle()
+    expect(sw).not.toBeChecked()
+    expect(sw).toHaveAccessibleDescription(/see their marksheets only while this is on/)
+    await userEvent.click(sw)
+    await waitFor(() =>
+      expect(calls('PUT', '/v1/batches/b1/marksheet-visibility')).toEqual([{ visible: true }]),
+    )
+    await waitFor(() => expect(sw).not.toHaveAttribute('aria-busy'))
+    expect(sw).not.toBeChecked()
+  })
+
+  it('turns on when the server confirms it', async () => {
+    serve({
+      'GET /v1/batches': [{ ...BATCH, marksheet_visible: false }],
+      'PUT /v1/batches/b1/marksheet-visibility': (body: unknown) => json(200, body),
+    })
+    at('/batches/b1/edit', '/batches/:batchId/edit', <EditBatchScreen />)
+    const sw = await toggle()
+    await userEvent.click(sw)
+    await waitFor(() => expect(sw).toBeChecked())
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('keeps the confirmed value on failure and retries the same write on request', async () => {
+    let attempts = 0
+    serve({
+      'GET /v1/batches': [BATCH],
+      'PUT /v1/batches/b1/marksheet-visibility': (body: unknown) => {
+        attempts += 1
+        return attempts === 1
+          ? json(503, {
+              error: { code: 'UNAVAILABLE', message_key: 'error.unexpected', retryable: true },
+            })
+          : json(200, body)
+      },
+    })
+    at('/batches/b1/edit', '/batches/:batchId/edit', <EditBatchScreen />)
+    const sw = await toggle()
+    expect(sw).toBeChecked()
+    await userEvent.click(sw)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent("Couldn't save marksheet sharing.")
+    // No optimistic state: still the value the server last confirmed.
+    expect(sw).toBeChecked()
+
+    await userEvent.click(within(alert).getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(sw).not.toBeChecked())
+    expect(calls('PUT', '/v1/batches/b1/marksheet-visibility')).toEqual([
+      { visible: false },
+      { visible: false },
+    ])
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('offers no retry when the server says trying again cannot help', async () => {
+    serve({
+      'GET /v1/batches': [BATCH],
+      'PUT /v1/batches/b1/marksheet-visibility': () =>
+        json(409, {
+          error: {
+            code: 'BATCH_INACTIVE',
+            message_key: 'teaching.batch.inactive',
+            retryable: false,
+          },
+        }),
+    })
+    at('/batches/b1/edit', '/batches/:batchId/edit', <EditBatchScreen />)
+    const sw = await toggle()
+    await userEvent.click(sw)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('This batch has been closed')
+    expect(within(alert).queryByRole('button')).not.toBeInTheDocument()
+    expect(sw).toBeChecked()
+  })
+
+  it('keeps focus on the switch while the write is on its way, and ignores presses', async () => {
+    let answer: (r: Response) => void = () => {}
+    serve({
+      'GET /v1/batches': [{ ...BATCH, marksheet_visible: false }],
+      'PUT /v1/batches/b1/marksheet-visibility': () =>
+        new Promise<Response>((resolve) => {
+          answer = resolve
+        }),
+    })
+    at('/batches/b1/edit', '/batches/:batchId/edit', <EditBatchScreen />)
+    const sw = await toggle()
+    await userEvent.click(sw)
+    await waitFor(() => expect(sw).toHaveAttribute('aria-busy', 'true'))
+    expect(sw).toHaveAttribute('aria-disabled', 'true')
+    expect(sw).toHaveFocus()
+    // A second press while saving sends nothing and does not move the switch.
+    await userEvent.click(sw)
+    await userEvent.keyboard(' ')
+    expect(calls('PUT', '/v1/batches/b1/marksheet-visibility')).toHaveLength(1)
+    expect(sw).not.toBeChecked()
+
+    answer(json(200, { visible: true }))
+    await waitFor(() => expect(sw).toBeChecked())
+    expect(sw).not.toHaveAttribute('aria-disabled')
+    expect(sw).toHaveFocus()
+  })
+
+  it('follows the server when the batch is read again', async () => {
+    serve({ 'GET /v1/batches': [{ ...BATCH, marksheet_visible: false }] })
+    at('/batches/b1/edit', '/batches/:batchId/edit', <EditBatchScreen />)
+    const sw = await toggle()
+    expect(sw).not.toBeChecked()
+    // Turned on elsewhere (another device); coming back online re-reads.
+    serve({ 'GET /v1/batches': [{ ...BATCH, marksheet_visible: true }] })
+    window.dispatchEvent(new Event('online'))
+    await waitFor(() => expect(sw).toBeChecked())
+  })
+
+  it('is read-only on an inactive batch, as the server decides, and sends nothing', async () => {
+    serve({ 'GET /v1/batches': [{ ...BATCH, active: false }] })
+    at('/batches/b1/edit', '/batches/:batchId/edit', <EditBatchScreen />)
+    const sw = await toggle()
+    expect(sw).toBeDisabled()
+    expect(sw).toBeChecked()
+    expect(sw).toHaveAccessibleDescription(/This batch has been closed/)
+    await userEvent.click(sw)
+    expect(calls('PUT', '/v1/batches/b1/marksheet-visibility')).toHaveLength(0)
   })
 })

@@ -3,18 +3,12 @@ package com.shikkhokplus.app.feature.classcalendar.ui
 import com.shikkhokplus.app.feature.classcalendar.ClassDayUiState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -30,8 +24,7 @@ import com.shikkhokplus.app.core.ui.CalendarState
 import com.shikkhokplus.app.feature.attendance.AttendanceSeat
 import com.shikkhokplus.app.feature.attendance.AttendanceUiState
 import com.shikkhokplus.app.feature.attendance.ui.TAG_ATTENDANCE_RETRY
-import com.shikkhokplus.app.feature.attendance.ui.TAG_ATTENDANCE_SEAT
-import com.shikkhokplus.app.feature.attendance.ui.TAG_ATTENDANCE_TOGGLE
+import com.shikkhokplus.app.feature.attendance.ui.AttendanceSeatRow
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.record.SaveResult
 
@@ -161,7 +154,7 @@ private fun AttendanceSection(
                 style = MaterialTheme.typography.labelLarge,
             )
             attendance.seats.forEach { seat ->
-                SeatRow(seat, editable && attendance.writable, onToggle)
+                AttendanceSeatRow(seat, editable && attendance.writable, showWord = true, onToggle = onToggle)
             }
         }
         is AttendanceUiState.Queued ->
@@ -192,27 +185,6 @@ private fun AttendanceSection(
     }
 }
 
-@Composable
-private fun SeatRow(seat: AttendanceSeat, enabled: Boolean, onToggle: (AttendanceSeat, Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 2.dp).testTag(TAG_ATTENDANCE_SEAT),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(Numerals.freeText(seat.displayName), Modifier.weight(1f))
-        Text(
-            stringResource(if (seat.present) R.string.attendance_present else R.string.attendance_absent),
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(end = 8.dp),
-        )
-        Switch(
-            checked = seat.present,
-            onCheckedChange = { onToggle(seat, it) },
-            enabled = enabled,
-            modifier = Modifier.testTag(TAG_ATTENDANCE_TOGGLE),
-        )
-    }
-}
 
 @Composable
 private fun NoticeBanner(notice: SaveResult) {

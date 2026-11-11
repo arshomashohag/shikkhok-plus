@@ -4,11 +4,19 @@
  */
 import { request } from '../../../api/client'
 import type { Me, Schemas } from '../../../api/endpoints'
+import { INBOX_KINDS } from './mappers'
 
 const enc = encodeURIComponent
 
+/**
+ * `kind=…&kind=…`: the kinds this client can draw. The server reads the
+ * items and counts `unread` over these only (PO-10), so the badge never
+ * counts a message this screen would drop.
+ */
+export const KINDS_QUERY = INBOX_KINDS.map((k) => `kind=${enc(k)}`).join('&')
+
 export const readInbox = (signal?: AbortSignal) =>
-  request<Schemas['InboxResponse']>('GET', '/v1/me/notifications', { signal })
+  request<Schemas['InboxResponse']>('GET', `/v1/me/notifications?${KINDS_QUERY}`, { signal })
 
 export const readInboxItem = (notificationId: string, signal?: AbortSignal) =>
   request<Schemas['NotificationDetailResponse']>(
@@ -20,7 +28,8 @@ export const readInboxItem = (notificationId: string, signal?: AbortSignal) =>
 export const markRead = (notificationId: string) =>
   request<unknown>('POST', `/v1/me/notifications/${enc(notificationId)}/read`)
 
-export const markAllRead = () => request<unknown>('POST', '/v1/me/notifications/read')
+export const markAllRead = () =>
+  request<unknown>('POST', `/v1/me/notifications/read?${KINDS_QUERY}`)
 
 export const readProfile = (signal?: AbortSignal) => request<Me>('GET', '/v1/me', { signal })
 

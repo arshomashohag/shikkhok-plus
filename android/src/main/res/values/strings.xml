@@ -111,7 +111,6 @@
     <string name="signup_role_guardian">Guardian</string>
     <string name="signup_submit">Send code to %1$s</string>
     <string name="signup_submit_generic">Send code</string>
-    <string name="signup_already_added_notice">A teacher has already added this number. Check your name below and correct it if needed.</string>
     <string name="signup_role_locked_note">Your role was set when you were added.</string>
     <string name="signup_checking_number">Checking…</string>
     <string name="signup_submitting">Creating your account…</string>
@@ -833,6 +832,9 @@
     <string name="batch_subject_in_use">A subject with an exam can’t be removed. Keep it, or delete its exams first.</string>
     <string name="batch_edit_title">Edit batch</string>
     <string name="batch_edit_save">Save changes</string>
+    <string name="batch_marksheet_share">Share marksheet with the batch</string>
+    <string name="batch_marksheet_share_help">Students and guardians in this batch see their marksheets only while this is on.</string>
+    <string name="batch_marksheet_share_failed">Couldn\'t save marksheet sharing.</string>
     <string name="exam_edit_title">Edit exam</string>
     <string name="exam_edit_save">Save changes</string>
     <string name="mark_history_open">History</string>
@@ -943,12 +945,12 @@
     <string name="auth_otp_expired_body">Codes last 5 minutes. Ask for a new one.</string>
     <string name="auth_otp_no_tries_left">That code isn\'t right, and no tries are left. Ask for a new code.</string>
     <string name="signup_name_help">In Bangla or English, as you\'d like teachers to see it</string>
-    <string name="signup_name_help_prefilled">Filled in by your teacher. You can correct it.</string>
     <string name="signup_phone_help">This is your login. We\'ll text a code to it.</string>
     <string name="signup_role_help_teacher">You run batches, record classes and collect fees.</string>
     <string name="signup_role_help_student">You see your classes, marks and fees.</string>
     <string name="signup_role_help_guardian">You follow your child\'s classes, marks and fees.</string>
     <string name="signup_already_added_title">You\'ve been added already</string>
+    <string name="signup_already_added_body">A teacher has already added this number.</string>
     <string name="signup_have_account">Already have an account?</string>
     <string name="signup_log_in">Log in</string>
 
@@ -1413,6 +1415,10 @@
     <string name="marks_exam_published">Its results are already published, so this exam cannot be cancelled.</string>
     <string name="inbox_exam_cancelled_title">Exam cancelled · %1$s</string>
     <string name="inbox_exam_cancelled_line">This exam was cancelled.</string>
+    <string name="inbox_class_cancelled_title">Class cancelled · %1$s</string>
+    <string name="inbox_class_cancelled_body">The class on %1$s will not be held.</string>
+    <string name="inbox_class_rescheduled_title">Class moved · %1$s</string>
+    <string name="inbox_class_rescheduled_body">Moved from %1$s to %2$s.</string>
 
     <!-- Exam and other fees, and what a payment is for [0020] -->
     <string name="extra_fees_title">Exam &amp; other fees</string>

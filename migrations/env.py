@@ -23,6 +23,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.db import models as _models  # noqa: F401  registers the tables
 from app.db.base import Base
+from app.db.schema_compare import COMPARE_OPTIONS
 from app.db.session import DATABASE_URL_ENV, MIGRATION_DATABASE_URL_ENV, build_engine
 
 config = context.config
@@ -73,7 +74,13 @@ def run_migrations_online() -> None:
         section, prefix="sqlalchemy.", poolclass=pool.NullPool
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        # The comparison options are shared with the parity gate, so an
+        # `alembic check` here compares exactly what CI compares.
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            **COMPARE_OPTIONS,
+        )
         with context.begin_transaction():
             # Inside Alembic's own transaction: issued before it, the SET
             # would open the connection's transaction first, and Alembic

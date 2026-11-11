@@ -157,8 +157,9 @@ export interface paths {
      *     [BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's
      *     byte-identical requirement applies to the OTP endpoint and not to
      *     this one. What is bounded is the WIDTH -- never the teacher, never
-     *     the batch, never the name [C-06] -- and the rate, through signup's
-     *     own ceilings.
+     *     the batch, never the name [C-06] -- and the rate, through the
+     *     lookup's own ceilings. **Never signup's** [SEC-4]: three anonymous
+     *     lookups used to spend a number's whole daily signup allowance.
      *
      *     Public, and in ``PUBLIC_ROUTES``: it is called while the signup
      *     form renders, before any account exists.
@@ -169,7 +170,7 @@ export interface paths {
      *     :param request: The incoming request
      *     :param session: The request-scoped session
      *     :return: Existence and the role to lock; never a name
-     *     :raises CeilingBreach: A signup ceiling refused this request
+     *     :raises CeilingBreach: A lookup ceiling refused this request
      */
     get: operations['lookup_already_added_v1_accounts_already_added_get']
     put?: never
@@ -648,8 +649,9 @@ export interface paths {
      *     password yet is pointed at the code flow by the client's static
      *     hint, not by a response that would say their account exists.
      *
-     *     Bounded per identifier and per network, with the network-wide
-     *     failure ceilings shared with codes.
+     *     Bounded per identifier and per network, with the per-prefix failure
+     *     ceilings shared with codes. Failures across the whole product alert
+     *     and never refuse [SEC-1].
      *
      *     :param body: The request body
      *     :param request: The incoming request
@@ -3501,8 +3503,12 @@ export interface paths {
      * Read Inbox
      * @description Read this account's own messages, newest first.
      *
+     *     Only the kinds the client announces, and the unread count over the
+     *     same kinds (:func:`_readable`).
+     *
      *     :param account_id: The authenticated account
      *     :param session: The request-scoped session
+     *     :param kind: The kinds the client can show
      *     :return: The messages and the unread count
      */
     get: operations['read_inbox_v1_me_notifications_get']
@@ -3525,10 +3531,14 @@ export interface paths {
     put?: never
     /**
      * Read All
-     * @description Mark every message in this account's own inbox as read.
+     * @description Mark every message this client can show as read.
+     *
+     *     A kind the client did not announce stays unread, for the client
+     *     that can show it (:func:`_readable`).
      *
      *     :param account_id: The authenticated account
      *     :param session: The request-scoped session
+     *     :param kind: The kinds the client can show
      *     :return: None
      */
     post: operations['read_all_v1_me_notifications_read_post']
@@ -6115,7 +6125,7 @@ export interface components {
      *     :ivar batch_subject_id: One of the batch's own subjects
      *     :ivar title: The teacher's name for it
      *     :ivar date: When it was sat
-     *     :ivar total_marks: The denominator, at least 1
+     *     :ivar total_marks: The denominator, 1 to :data:`MAX_TOTAL_MARKS`
      *     :ivar examiner_member_id: At a centre, the member who marks it; left
      *         out, the batch's one weekly teacher is the default. Read on
      *         creation only: an edit changes the examiner through its own route
@@ -6281,8 +6291,10 @@ export interface components {
      *
      *     :ivar title: The teacher's name for it
      *     :ivar date: When it was sat
-     *     :ivar total_marks: The denominator, at least 1, and not below any
-     *         mark already recorded
+     *     :ivar total_marks: The denominator, and not below any mark already
+     *         recorded. 1 to :data:`MAX_TOTAL_MARKS` when it changes; an exam
+     *         whose stored total is already larger may keep that total, so the
+     *         schema bounds it only by :data:`INT4_MAX`
      *     :ivar topics: What it covers, replacing the old list; omitted or null
      *         keeps the existing topics, so an app built before topics existed
      *         cannot wipe them by editing the title [D-26]
@@ -7079,7 +7091,9 @@ export interface components {
      * @description The reader's inbox, newest first.
      *
      *     :ivar items: The messages
-     *     :ivar unread: How many have not been seen, over the whole inbox
+     *     :ivar unread: How many have not been seen, over the kinds this client
+     *         announced (the legacy kinds when it announced none) -- the same
+     *         kinds as ``items``, but across the whole inbox, not only the page
      */
     InboxResponse: {
       /** Items */
@@ -7849,6 +7863,10 @@ export interface components {
       batch_name: string
       /** Child Name */
       child_name?: string | null
+      /** Class Date */
+      class_date?: string | null
+      /** Class Time */
+      class_time?: string | null
       /**
        * Created At
        * Format: date-time
@@ -7863,6 +7881,8 @@ export interface components {
        */
       kind:
         | 'claim_to_verify'
+        | 'class_cancelled'
+        | 'class_rescheduled'
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
@@ -7872,6 +7892,10 @@ export interface components {
         | 'payment_partial'
         | 'payment_recorded'
         | 'payment_rejected'
+      /** Moved From Date */
+      moved_from_date?: string | null
+      /** Moved From Time */
+      moved_from_time?: string | null
       notice?: components['schemas']['NoticeBlock'] | null
       /**
        * Notification Id
@@ -7903,6 +7927,11 @@ export interface components {
      *     :ivar source_id: The record that produced it, if any
      *     :ivar child_name: Which child it is about, for a guardian's copy
      *     :ivar preview: A short line of its content, if any
+     *     :ivar class_date: For a class change, the day the class is now on, or
+     *         was on if cancelled
+     *     :ivar class_time: For a class change, its start time that day
+     *     :ivar moved_from_date: For a reschedule, the day it was moved from
+     *     :ivar moved_from_time: For a reschedule, the start time it was moved from
      */
     NotificationResponse: {
       amount?: components['schemas']['Money'] | null
@@ -7910,6 +7939,10 @@ export interface components {
       batch_name: string
       /** Child Name */
       child_name?: string | null
+      /** Class Date */
+      class_date?: string | null
+      /** Class Time */
+      class_time?: string | null
       /**
        * Created At
        * Format: date-time
@@ -7923,6 +7956,8 @@ export interface components {
        */
       kind:
         | 'claim_to_verify'
+        | 'class_cancelled'
+        | 'class_rescheduled'
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
@@ -7932,6 +7967,10 @@ export interface components {
         | 'payment_partial'
         | 'payment_recorded'
         | 'payment_rejected'
+      /** Moved From Date */
+      moved_from_date?: string | null
+      /** Moved From Time */
+      moved_from_time?: string | null
       /**
        * Notification Id
        * Format: uuid
@@ -19443,7 +19482,10 @@ export interface operations {
   }
   read_inbox_v1_me_notifications_get: {
     parameters: {
-      query?: never
+      query?: {
+        /** @description The kinds this client can show, repeated. Items and the unread count are both taken over these. Omitted: the kinds every client showed before kinds were announced. A kind this server does not publish is ignored. */
+        kind?: string[] | null
+      }
       header?: never
       path?: never
       cookie?: never
@@ -19457,6 +19499,15 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['InboxResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
         }
       }
       /** @description An unexpected failure; not retryable */
@@ -19481,7 +19532,10 @@ export interface operations {
   }
   read_all_v1_me_notifications_read_post: {
     parameters: {
-      query?: never
+      query?: {
+        /** @description The kinds this client can show, repeated. Items and the unread count are both taken over these. Omitted: the kinds every client showed before kinds were announced. A kind this server does not publish is ignored. */
+        kind?: string[] | null
+      }
       header?: never
       path?: never
       cookie?: never
@@ -19494,6 +19548,15 @@ export interface operations {
           [name: string]: unknown
         }
         content?: never
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
       }
       /** @description An unexpected failure; not retryable */
       500: {

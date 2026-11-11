@@ -33,11 +33,16 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from typing import Literal
+from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.fees import CurrentFeeResponse
+
+#: The largest value the ``Integer`` version columns hold. A base version
+#: past it can never match a stored one, and bounding it here keeps the
+#: comparison from reaching the database as an int4 overflow [SEC-3].
+_INT4_MAX: Final = 2**31 - 1
 
 __all__ = [
     "AnnouncementBodyRequest",
@@ -236,7 +241,7 @@ class AttendanceSubmitRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    base_attendance_version: int = Field(ge=0)
+    base_attendance_version: int = Field(ge=0, le=_INT4_MAX)
     client_mutation_id: uuid.UUID
     seats: list[SeatMarkRequest]
     composed_at: dt.datetime | None = None
@@ -276,7 +281,7 @@ class TopicWriteRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    base_topic_version: int = Field(ge=0)
+    base_topic_version: int = Field(ge=0, le=_INT4_MAX)
     client_mutation_id: uuid.UUID
     topic: str | None = Field(default=None, max_length=2000)
     plan: bool = False

@@ -33,7 +33,28 @@ enum class InboxKind {
 
     /** A payment waiting for the teacher to check. */
     CLAIM_TO_VERIFY,
+
+    /** A class the teacher cancelled before it was held. */
+    CLASS_CANCELLED,
+
+    /** A class the teacher moved to another day or time. */
+    CLASS_RESCHEDULED,
 }
+
+/**
+ * Which class a class-change message names, as the server sent it.
+ *
+ * @property date The day the class is on now, or was on if cancelled, as `YYYY-MM-DD`
+ * @property time Its start time, as `HH:MM:SS`
+ * @property movedFromDate For a move, the day it was on before
+ * @property movedFromTime For a move, the start time before
+ */
+data class ClassChange(
+    val date: String,
+    val time: String,
+    val movedFromDate: String? = null,
+    val movedFromTime: String? = null,
+)
 
 /**
  * One message, as the inbox shows it.
@@ -49,6 +70,7 @@ enum class InboxKind {
  * @property sourceId The record that produced it, if any
  * @property childName Which child it is about, on a guardian's copy
  * @property preview A short line of its content, if any
+ * @property classChange The class it names, for a class change
  */
 data class InboxMessage(
     val id: String,
@@ -62,6 +84,7 @@ data class InboxMessage(
     val sourceId: String? = null,
     val childName: String? = null,
     val preview: String? = null,
+    val classChange: ClassChange? = null,
 )
 
 /** Where tapping an item leads, decided from the server's fields. */

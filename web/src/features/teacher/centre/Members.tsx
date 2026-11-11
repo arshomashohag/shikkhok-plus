@@ -75,7 +75,11 @@ function InviteSheet({ onClose, onSent }: { onClose: () => void; onSent: (name: 
   }
 
   return (
-    <Sheet title={t('centre_invite_title')} onClose={onClose}>
+    <Sheet
+      title={t('centre_invite_title')}
+      onClose={onClose}
+      dirty={name.trim() !== '' || phone.trim() !== ''}
+    >
       <div className="field" style={{ marginTop: 0 }}>
         <label htmlFor="cm-name">{t('centre_invite_name_label')}</label>
         <input

@@ -77,9 +77,11 @@ function errorText(e: unknown, t: (k: string) => string, message: (k: string) =>
 
 function RecordSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const { t, message } = useT()
-  const [input, setInput] = useState<ExpenseInput>(() =>
+  const [opened] = useState<ExpenseInput>(() =>
     openExpense(mutationId(), new Date().toISOString().slice(0, 10)),
   )
+  const [input, setInput] = useState<ExpenseInput>(opened)
+  const dirty = JSON.stringify(input) !== JSON.stringify(opened)
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const body = expenseBody(input)
@@ -100,7 +102,7 @@ function RecordSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
   }
 
   return (
-    <Sheet title={t('expenses_record')} onClose={onClose}>
+    <Sheet title={t('expenses_record')} onClose={onClose} dirty={dirty}>
       <div className="field" style={{ marginTop: 0 }}>
         <label htmlFor="exp-cat">{t('expenses_category')}</label>
         <select

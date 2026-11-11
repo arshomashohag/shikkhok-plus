@@ -142,7 +142,9 @@ def set_app_role_password(owner_url: str, password: str) -> None:
     :raises CommandError: The connection or the ALTER failed; the
         message carries the redacted URL and the error class only
     """
-    engine = sa.create_engine(owner_url, future=True, poolclass=sa.pool.NullPool)
+    engine = sa.create_engine(
+        owner_url, future=True, poolclass=sa.pool.NullPool, hide_parameters=True
+    )
     try:
         with engine.begin() as connection:
             driver = cast(
@@ -243,7 +245,9 @@ def _current_revisions(owner_url: str) -> tuple[str, ...]:
     :raises CommandError: The database could not be reached; the message
         carries the redacted URL and the error class only
     """
-    engine = sa.create_engine(owner_url, future=True, poolclass=sa.pool.NullPool)
+    engine = sa.create_engine(
+        owner_url, future=True, poolclass=sa.pool.NullPool, hide_parameters=True
+    )
     try:
         with engine.connect() as connection:
             return tuple(MigrationContext.configure(connection).get_current_heads())

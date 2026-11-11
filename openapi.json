@@ -1078,6 +1078,7 @@
         "description": "A whole roster, written in one atomic operation [BR3.5].\n\n**One of exactly two D4 bodies carrying ``client_mutation_id``**\n[§ B.7]. ``base_attendance_version`` travels in the BODY rather\nthan an ``If-Match`` header [§ B.8]: a queued write is serialized\ninto the device's queue and replayed hours later by a sync worker,\nand a body field survives that naturally where a header is a\nsecond thing the queue must remember and the first thing a retry\nwrapper drops.\n\n``composed_at`` is the DEVICE's clock, recorded for the pilot's\nqueue-latency question and **used in no decision** [NFR24.20]. A\ndevice clock in a conflict rule would let a wrong phone time\nsilently reorder two teachers' writes.\n\n:ivar base_attendance_version: The version this was composed\n    against\n:ivar client_mutation_id: The replay key, per account\n:ivar seats: One mark per seat, the whole roster at once\n:ivar composed_at: When the device composed it, or null",
         "properties": {
           "base_attendance_version": {
+            "maximum": 2147483647.0,
             "minimum": 0.0,
             "title": "Base Attendance Version",
             "type": "integer"
@@ -3057,7 +3058,7 @@
       },
       "ExamCreateRequest": {
         "additionalProperties": false,
-        "description": "Create or edit an assessment [BR4.1].\n\n:ivar batch_subject_id: One of the batch's own subjects\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, at least 1\n:ivar examiner_member_id: At a centre, the member who marks it; left\n    out, the batch's one weekly teacher is the default. Read on\n    creation only: an edit changes the examiner through its own route\n:ivar topics: What it covers: at most 20, each 1 to 120 characters",
+        "description": "Create or edit an assessment [BR4.1].\n\n:ivar batch_subject_id: One of the batch's own subjects\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, 1 to :data:`MAX_TOTAL_MARKS`\n:ivar examiner_member_id: At a centre, the member who marks it; left\n    out, the batch's one weekly teacher is the default. Read on\n    creation only: an edit changes the examiner through its own route\n:ivar topics: What it covers: at most 20, each 1 to 120 characters",
         "properties": {
           "batch_subject_id": {
             "format": "uuid",
@@ -3098,6 +3099,7 @@
             "type": "array"
           },
           "total_marks": {
+            "maximum": 1000.0,
             "minimum": 1.0,
             "title": "Total Marks",
             "type": "integer"
@@ -3336,7 +3338,7 @@
       },
       "ExamUpdateRequest": {
         "additionalProperties": false,
-        "description": "Edit an assessment: what it is called, when, and out of how much.\n\nNo subject: an edit names what changes, and the exam stays in the\nsubject it was set in.\n\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, at least 1, and not below any\n    mark already recorded\n:ivar topics: What it covers, replacing the old list; omitted or null\n    keeps the existing topics, so an app built before topics existed\n    cannot wipe them by editing the title [D-26]",
+        "description": "Edit an assessment: what it is called, when, and out of how much.\n\nNo subject: an edit names what changes, and the exam stays in the\nsubject it was set in.\n\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, and not below any mark already\n    recorded. 1 to :data:`MAX_TOTAL_MARKS` when it changes; an exam\n    whose stored total is already larger may keep that total, so the\n    schema bounds it only by :data:`INT4_MAX`\n:ivar topics: What it covers, replacing the old list; omitted or null\n    keeps the existing topics, so an app built before topics existed\n    cannot wipe them by editing the title [D-26]",
         "properties": {
           "date": {
             "format": "date",
@@ -3367,6 +3369,7 @@
             "title": "Topics"
           },
           "total_marks": {
+            "maximum": 2147483647.0,
             "minimum": 1.0,
             "title": "Total Marks",
             "type": "integer"
@@ -4747,7 +4750,7 @@
       },
       "InboxResponse": {
         "additionalProperties": false,
-        "description": "The reader's inbox, newest first.\n\n:ivar items: The messages\n:ivar unread: How many have not been seen, over the whole inbox",
+        "description": "The reader's inbox, newest first.\n\n:ivar items: The messages\n:ivar unread: How many have not been seen, over the kinds this client\n    announced (the legacy kinds when it announced none) -- the same\n    kinds as ``items``, but across the whole inbox, not only the page",
         "properties": {
           "items": {
             "items": {
@@ -5988,6 +5991,30 @@
             ],
             "title": "Child Name"
           },
+          "class_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Date"
+          },
+          "class_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Time"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -6018,6 +6045,8 @@
           "kind": {
             "enum": [
               "claim_to_verify",
+              "class_cancelled",
+              "class_rescheduled",
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
@@ -6030,6 +6059,30 @@
             ],
             "title": "Kind",
             "type": "string"
+          },
+          "moved_from_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moved From Date"
+          },
+          "moved_from_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moved From Time"
           },
           "notice": {
             "anyOf": [
@@ -6109,7 +6162,7 @@
       },
       "NotificationResponse": {
         "additionalProperties": false,
-        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any",
+        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any\n:ivar class_date: For a class change, the day the class is now on, or\n    was on if cancelled\n:ivar class_time: For a class change, its start time that day\n:ivar moved_from_date: For a reschedule, the day it was moved from\n:ivar moved_from_time: For a reschedule, the start time it was moved from",
         "properties": {
           "amount": {
             "anyOf": [
@@ -6136,6 +6189,30 @@
             ],
             "title": "Child Name"
           },
+          "class_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Date"
+          },
+          "class_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Time"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -6156,6 +6233,8 @@
           "kind": {
             "enum": [
               "claim_to_verify",
+              "class_cancelled",
+              "class_rescheduled",
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
@@ -6168,6 +6247,30 @@
             ],
             "title": "Kind",
             "type": "string"
+          },
+          "moved_from_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moved From Date"
+          },
+          "moved_from_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moved From Time"
           },
           "notification_id": {
             "format": "uuid",
@@ -10592,6 +10695,7 @@
         "description": "A session's topic [BR2.1].\n\n**The second and last D4 body carrying ``client_mutation_id``.**\n\nAn empty string is a topic logged as BLANK and is a different fact\nfrom never writing one [BR2.2].\n\n:ivar base_topic_version: The version this was composed against\n:ivar client_mutation_id: The replay key, per account\n:ivar topic: What was covered; '' means logged-and-blank; null\n    clears a plan and is allowed only when ``plan`` is true\n:ivar plan: True plans the topic before the class starts\n:ivar notes: Free notes on the class",
         "properties": {
           "base_topic_version": {
+            "maximum": 2147483647.0,
             "minimum": 0.0,
             "title": "Base Topic Version",
             "type": "integer"
@@ -11403,7 +11507,7 @@
     },
     "/v1/accounts/already-added": {
       "get": {
-        "description": "Report whether a teacher recorded this number, and nothing more.\n\n**This route discloses that a seat exists, deliberately**\n[BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's\nbyte-identical requirement applies to the OTP endpoint and not to\nthis one. What is bounded is the WIDTH -- never the teacher, never\nthe batch, never the name [C-06] -- and the rate, through signup's\nown ceilings.\n\nPublic, and in ``PUBLIC_ROUTES``: it is called while the signup\nform renders, before any account exists.\n\n:param phone: The number typed into the form, canonicalised on the\n    way in like every other number, so the ceiling and the lookup\n    both see one spelling\n:param request: The incoming request\n:param session: The request-scoped session\n:return: Existence and the role to lock; never a name\n:raises CeilingBreach: A signup ceiling refused this request",
+        "description": "Report whether a teacher recorded this number, and nothing more.\n\n**This route discloses that a seat exists, deliberately**\n[BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's\nbyte-identical requirement applies to the OTP endpoint and not to\nthis one. What is bounded is the WIDTH -- never the teacher, never\nthe batch, never the name [C-06] -- and the rate, through the\nlookup's own ceilings. **Never signup's** [SEC-4]: three anonymous\nlookups used to spend a number's whole daily signup allowance.\n\nPublic, and in ``PUBLIC_ROUTES``: it is called while the signup\nform renders, before any account exists.\n\n:param phone: The number typed into the form, canonicalised on the\n    way in like every other number, so the ceiling and the lookup\n    both see one spelling\n:param request: The incoming request\n:param session: The request-scoped session\n:return: Existence and the role to lock; never a name\n:raises CeilingBreach: A lookup ceiling refused this request",
         "operationId": "lookup_already_added_v1_accounts_already_added_get",
         "parameters": [
           {
@@ -12631,7 +12735,7 @@
     },
     "/v1/auth/password": {
       "post": {
-        "description": "Sign in with a phone number or an email address and a password.\n\n**One refusal for every failure** [BR2.7]: an unknown destination, an\naccount with no password yet and a wrong password all answer\n``auth.password.wrong``, after the same work. The person who has no\npassword yet is pointed at the code flow by the client's static\nhint, not by a response that would say their account exists.\n\nBounded per identifier and per network, with the network-wide\nfailure ceilings shared with codes.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The token pair, or the authenticator challenge\n:raises CeilingBreach: A failure ceiling is full\n:raises PasswordRefused: The sign-in was refused",
+        "description": "Sign in with a phone number or an email address and a password.\n\n**One refusal for every failure** [BR2.7]: an unknown destination, an\naccount with no password yet and a wrong password all answer\n``auth.password.wrong``, after the same work. The person who has no\npassword yet is pointed at the code flow by the client's static\nhint, not by a response that would say their account exists.\n\nBounded per identifier and per network, with the per-prefix failure\nceilings shared with codes. Failures across the whole product alert\nand never refuse [SEC-1].\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The token pair, or the authenticator challenge\n:raises CeilingBreach: A failure ceiling is full\n:raises PasswordRefused: The sign-in was refused",
         "operationId": "sign_in_with_password_v1_auth_password_post",
         "requestBody": {
           "content": {
@@ -22567,8 +22671,31 @@
     },
     "/v1/me/notifications": {
       "get": {
-        "description": "Read this account's own messages, newest first.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The messages and the unread count",
+        "description": "Read this account's own messages, newest first.\n\nOnly the kinds the client announces, and the unread count over the\nsame kinds (:func:`_readable`).\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:param kind: The kinds the client can show\n:return: The messages and the unread count",
         "operationId": "read_inbox_v1_me_notifications_get",
+        "parameters": [
+          {
+            "description": "The kinds this client can show, repeated. Items and the unread count are both taken over these. Omitted: the kinds every client showed before kinds were announced. A kind this server does not publish is ignored.",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The kinds this client can show, repeated. Items and the unread count are both taken over these. Omitted: the kinds every client showed before kinds were announced. A kind this server does not publish is ignored.",
+              "title": "Kind"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -22579,6 +22706,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
           },
           "500": {
             "content": {
@@ -22609,11 +22746,44 @@
     },
     "/v1/me/notifications/read": {
       "post": {
-        "description": "Mark every message in this account's own inbox as read.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: None",
+        "description": "Mark every message this client can show as read.\n\nA kind the client did not announce stays unread, for the client\nthat can show it (:func:`_readable`).\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:param kind: The kinds the client can show\n:return: None",
         "operationId": "read_all_v1_me_notifications_read_post",
+        "parameters": [
+          {
+            "description": "The kinds this client can show, repeated. Items and the unread count are both taken over these. Omitted: the kinds every client showed before kinds were announced. A kind this server does not publish is ignored.",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The kinds this client can show, repeated. Items and the unread count are both taken over these. Omitted: the kinds every client showed before kinds were announced. A kind this server does not publish is ignored.",
+              "title": "Kind"
+            }
+          }
+        ],
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
           },
           "500": {
             "content": {

@@ -60,6 +60,17 @@ export const writeSchedule = (batchId: string, slots: Schemas['ScheduleSlotWire'
 export const updateBatch = (batchId: string, body: Schemas['BatchUpdateRequest']) =>
   request<Schemas['BatchResponse']>('PATCH', `/v1/batches/${enc(batchId)}`, { body })
 
+/**
+ * Whether families see this batch's marksheets [BR5.4]. The one route
+ * that writes it; the answer is the value now in force.
+ */
+export const setMarksheetVisibility = (batchId: string, visible: boolean) =>
+  request<Schemas['MarksheetToggleRequest']>(
+    'PUT',
+    `/v1/batches/${enc(batchId)}/marksheet-visibility`,
+    { body: { visible } },
+  )
+
 /** A fresh id for one write. A retry of the same write reuses it, so the server replays. */
 export function mutationId(): string {
   const c = globalThis.crypto as Crypto | undefined

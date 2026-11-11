@@ -4,10 +4,10 @@
  */
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearTokens, readTokens } from '../../api/tokens'
 import { json, renderScreen } from '../../test/render'
-import { SignUp } from './SignUp'
+import { alreadyAddedFrom, SignUp } from './SignUp'
 
 const fetchMock = vi.fn()
 beforeEach(() => {
@@ -174,4 +174,166 @@ it('shows the server’s refusal of the account itself', async () => {
   await fillForm()
   expect(await screen.findByRole('alert')).toHaveTextContent('temporarily unavailable')
   expect(screen.queryByLabelText('Enter the code')).toBeNull()
+})
+
+// ------------------------------------------------ already added [PO-6]
+
+const lookups = () =>
+  fetchMock.mock.calls
+    .map(([u]) => new URL(u as string, 'http://x'))
+    .filter((u) => u.pathname === '/v1/accounts/already-added')
+    .map((u) => u.searchParams.get('phone'))
+
+/** Serve the lookup with `answer`, and everything else as `serve()` does. */
+function serveLookup(answer: () => Response | Promise<Response>) {
+  serve()
+  const rest = fetchMock.getMockImplementation()!
+  fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+    new URL(url, 'http://x').pathname === '/v1/accounts/already-added' ? answer() : rest(url, init),
+  )
+}
+
+const ADDED = { already_added: true, display_name: '', role: 'student' }
+const NOT_ADDED = { already_added: false, display_name: null, role: null }
+
+async function typeNumberAndLeave(number: string) {
+  const phone = screen.getByLabelText('Mobile number')
+  await userEvent.clear(phone)
+  await userEvent.type(phone, number)
+  await userEvent.tab()
+}
+
+describe('already-added notice', () => {
+  it('shows the notice, naming no one, and locks the role to the seat’s', async () => {
+    serveLookup(() => json(200, ADDED))
+    renderScreen(<SignUp />)
+    await typeNumberAndLeave('০১৭১১-২৩৪৫৬৭')
+
+    const status = screen.getByRole('status')
+    await waitFor(() => expect(status).toHaveTextContent("You've been added already"))
+    expect(status).toHaveTextContent('A teacher has already added this number.')
+    expect(lookups()).toEqual(['01711234567'])
+    // Nothing is pre-filled: the response carries no name [C-06].
+    expect(screen.getByLabelText('Full name')).toHaveValue('')
+
+    expect(screen.getByRole('button', { name: 'Student' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Teacher' })).toBeDisabled()
+    expect(screen.getByText('Your role was set when you were added.')).toBeInTheDocument()
+  })
+
+  it('shows nothing for a number nobody added', async () => {
+    serveLookup(() => json(200, NOT_ADDED))
+    renderScreen(<SignUp />)
+    await typeNumberAndLeave('01711234567')
+    await waitFor(() => expect(lookups()).toHaveLength(1))
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    expect(screen.getByRole('button', { name: 'Teacher' })).toBeEnabled()
+  })
+
+  it('shows nothing when the lookup is refused, and sign-up still goes through', async () => {
+    serveLookup(() =>
+      json(429, { error: { code: 'CEILING', message_key: 'error.unexpected', retryable: true } }),
+    )
+    renderScreen(<SignUp />)
+    await fillForm()
+    expect(await screen.findByText(/We sent a 6-digit code by SMS to/)).toBeInTheDocument()
+    expect(lookups()).toEqual(['01711234567'])
+    expect(called('/v1/accounts')).toHaveLength(1)
+  })
+
+  it('shows nothing when the server is unreachable', async () => {
+    serveLookup(() => Promise.reject(new TypeError('Failed to fetch')))
+    renderScreen(<SignUp />)
+    await typeNumberAndLeave('01711234567')
+    await waitFor(() => expect(lookups()).toHaveLength(1))
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+})
+
+describe('lookup discipline', () => {
+  it('never asks while the number is being typed, or about a malformed number', async () => {
+    serveLookup(() => json(200, ADDED))
+    renderScreen(<SignUp />)
+    await userEvent.type(screen.getByLabelText('Mobile number'), '01711234567')
+    expect(lookups()).toHaveLength(0)
+    await typeNumberAndLeave('0171123')
+    expect(lookups()).toHaveLength(0)
+  })
+
+  it('asks once per number, and again only for a different one', async () => {
+    serveLookup(() => json(200, NOT_ADDED))
+    renderScreen(<SignUp />)
+    await typeNumberAndLeave('01711234567')
+    await waitFor(() => expect(lookups()).toHaveLength(1))
+    await userEvent.click(screen.getByLabelText('Mobile number'))
+    await userEvent.tab()
+    await typeNumberAndLeave('+8801711234567')
+    await typeNumberAndLeave('01811234567')
+    await waitFor(() => expect(lookups()).toEqual(['01711234567', '01811234567']))
+  })
+
+  it('never looks up an email address', async () => {
+    serveLookup(() => json(200, ADDED))
+    renderScreen(<SignUp />)
+    await userEvent.click(screen.getByRole('button', { name: 'Email' }))
+    await userEvent.type(screen.getByLabelText('Email address'), 'rina@example.com')
+    await userEvent.tab()
+    expect(lookups()).toHaveLength(0)
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+  })
+
+  it('restores the person’s own pick when the lock no longer applies', async () => {
+    // The first number was added as a student; the second was not.
+    let asked = 0
+    serveLookup(() => json(200, asked++ === 0 ? ADDED : NOT_ADDED))
+    renderScreen(<SignUp />)
+    await userEvent.click(screen.getByRole('button', { name: 'Teacher' }))
+    await typeNumberAndLeave('01711234567')
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Student' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      ),
+    )
+
+    await typeNumberAndLeave('01811234567')
+    await waitFor(() => expect(lookups()).toHaveLength(2))
+    expect(screen.getByRole('button', { name: 'Teacher' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Student' })).toHaveAttribute('aria-pressed', 'false')
+
+    await userEvent.type(screen.getByLabelText('Full name'), 'Rina Akter')
+    await userEvent.type(screen.getByLabelText('House or flat'), '12')
+    await userEvent.type(screen.getByLabelText('Road and area'), 'Road 4, Dhanmondi')
+    await userEvent.type(screen.getByLabelText('City or district'), 'Dhaka')
+    await userEvent.type(screen.getByLabelText('Postcode'), '1205')
+    await userEvent.type(screen.getByLabelText('Password'), PASSWORD)
+    await userEvent.type(screen.getByLabelText('Type the password again'), PASSWORD)
+    await userEvent.click(screen.getByRole('button', { name: 'Send code' }))
+    await waitFor(() => expect(called('/v1/accounts')).toHaveLength(1))
+    expect(bodyOf('/v1/accounts')).toMatchObject({ role: 'teacher', phone: '01811234567' })
+  })
+
+  it('drops the notice when the number is edited or email is chosen', async () => {
+    serveLookup(() => json(200, ADDED))
+    renderScreen(<SignUp />)
+    await typeNumberAndLeave('01711234567')
+    await waitFor(() => expect(screen.getByRole('status')).not.toBeEmptyDOMElement())
+    await userEvent.type(screen.getByLabelText('Mobile number'), '8')
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    expect(screen.getByRole('button', { name: 'Teacher' })).toBeEnabled()
+
+    await typeNumberAndLeave('01711234567')
+    await waitFor(() => expect(screen.getByRole('status')).not.toBeEmptyDOMElement())
+    await userEvent.click(screen.getByRole('button', { name: 'Email' }))
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+  })
+})
+
+it('alreadyAddedFrom locks only on a yes that carries a role', () => {
+  expect(alreadyAddedFrom({ already_added: true, display_name: '', role: 'guardian' })).toBe(
+    'guardian',
+  )
+  expect(alreadyAddedFrom({ already_added: false })).toBeNull()
+  expect(alreadyAddedFrom({ already_added: true, display_name: '', role: null })).toBeNull()
 })
