@@ -143,29 +143,61 @@ button.calendar-day {
   color: var(--on-surface-variant);
 }
 
-/* Attendance: one row per seat, a two-way switch the size of a touch. */
-.seat-toggle {
+/*
+ * Attendance: one row per seat, and the whole row is the switch [UX-1].
+ * A single status pill (icon + word) replaces the two 84 px buttons that
+ * left a Bangla name 35 px wide on a 320 px phone. The row is the tap
+ * target (full width, at least 56 px tall, above the 48 px touch floor),
+ * so the pill itself can stay compact.
+ */
+.row.seat-row {
+  min-height: 56px;
+  gap: var(--s2);
+}
+.seat-no {
+  flex: none;
+  width: 24px;
+}
+/*
+ * `.title` allows a break anywhere, which is what let flex squeeze the name
+ * to one glyph a line. Here a word only breaks when it alone is wider than
+ * the column.
+ */
+.seat-name {
+  overflow-wrap: break-word;
+}
+.seat-pill {
+  flex: none;
   display: inline-flex;
-  border-radius: var(--r-pill);
-  overflow: hidden;
+  align-items: center;
+  gap: var(--s1);
+  min-height: 32px;
+  padding: 0 var(--s3) 0 var(--s2);
   border: 1px solid var(--outline);
-}
-.seat-toggle button {
-  min-height: 40px;
-  min-width: 84px;
-  padding: 0 var(--s3);
-  border: 0;
-  background: transparent;
+  border-radius: var(--r-pill);
+  font-size: 0.875rem;
   font-weight: 600;
-  cursor: pointer;
+  white-space: nowrap;
 }
-.seat-toggle button[aria-pressed='true'].present {
+.seat-pill.present {
+  border-color: transparent;
   background: var(--paid-container);
   color: var(--on-paid-container);
 }
-.seat-toggle button[aria-pressed='true'].absent {
+.seat-pill.absent {
+  border-color: transparent;
   background: var(--error-container);
   color: var(--on-error-container);
+}
+/* On a small phone the running number gives way to the name. */
+@media (max-width: 399px) {
+  .seat-no {
+    display: none;
+  }
+  .row.seat-row {
+    padding-left: var(--s3);
+    padding-right: var(--s3);
+  }
 }
 
 .suggestion {
