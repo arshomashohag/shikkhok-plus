@@ -77,6 +77,13 @@ six-digit codes, which have no per-identifier ceiling to fall back on;
 passwords do. So a failed password counts against the identifier, the
 caller's /64 and /48 (all three refuse), and against its own global
 scope, which alerts when it fills and refuses nothing.
+
+**The already-added lookup is its own cascade** [SEC-4]. It used to
+spend signup's per-number allowance, so three anonymous lookups of a
+victim's number stopped that number signing up for a day -- the student
+or guardian a teacher had just enrolled, in the middle of acceptance.
+The lookup now counts per /64, per /48 and against a separate, higher
+per-number allowance, and spends nothing signup needs.
 """
 
 from __future__ import annotations
@@ -102,6 +109,9 @@ __all__ = [
     "DEL_PER_NUMBER_DAILY",
     "DEL_PER_NUMBER_HOURLY",
     "GLOBAL_DAILY",
+    "LOOKUP_PER_COARSE_IP_HOURLY",
+    "LOOKUP_PER_IP_HOURLY",
+    "LOOKUP_PER_NUMBER_DAILY",
     "PASSWORD_FAILURES_GLOBAL_HOURLY",
     "PER_COARSE_IP_HOURLY",
     "PER_IP_HOURLY",
@@ -153,6 +163,23 @@ SIGNUP_PER_NUMBER_DAILY: Final = 3
 #: tighter signup limit would lock out a school's wifi before it
 #: slowed anyone down.
 SIGNUP_PER_IP_HOURLY: Final = 10
+
+#: Already-added lookups of one number in a day, beyond which the next
+#: is refused [SEC-4]. Higher than signup's allowance, because the
+#: signup form looks the number up as it renders and a person retrying a
+#: failed send renders it again; low enough that the lookup is no
+#: cheaper a way to watch one number than any other.
+LOOKUP_PER_NUMBER_DAILY: Final = 20
+
+#: Already-added lookups from one /64 (IPv4: /24) in an hour [SEC-4].
+#: Above signup's per-IP allowance for the same re-render reason, and
+#: still what bounds enumerating which numbers hold a seat.
+LOOKUP_PER_IP_HOURLY: Final = 30
+
+#: Already-added lookups from one /48 in an hour [SEC-4], higher than
+#: the /64 limit for the carrier-sharing reason the other /48 scopes
+#: give.
+LOOKUP_PER_COARSE_IP_HOURLY: Final = 100
 
 #: A 4th deletion code for one number inside an hour is refused
 #: [NFR14.100]. Matched to the OTP path's hourly allowance: a person
@@ -342,6 +369,10 @@ class ScopeKind(enum.Enum):
     # Email and passwords [0032], inside `String(16)` like the rest.
     EMAIL_GLOBAL_DAILY = "em_global_day"
     PASSWORD_FAIL_ID_HOURLY = "pw_fail_id_hour"  # noqa: S105 -- a name, not a password
+    # The already-added lookup's own cascade [SEC-4], never signup's.
+    LOOKUP_NUMBER_DAILY = "lk_number_day"
+    LOOKUP_IP_HOURLY = "lk_ip_hour"
+    LOOKUP_IP48_HOURLY = "lk_ip48_hour"
     # Alert-only [SEC-1]: counted and alerted on, never checked.
     PASSWORD_FAIL_GLOBAL_HOURLY = "pwf_global_hour"  # noqa: S105 -- a name
 
@@ -445,6 +476,11 @@ class CeilingBreach(ConflictError):
             ScopeKind.SIGNUP_NUMBER_DAILY,
             ScopeKind.SIGNUP_IP_HOURLY,
             ScopeKind.SIGNUP_IP48_HOURLY,
+            # The lookup runs on the signup form, so its refusal reads
+            # in signup's words [SEC-4].
+            ScopeKind.LOOKUP_NUMBER_DAILY,
+            ScopeKind.LOOKUP_IP_HOURLY,
+            ScopeKind.LOOKUP_IP48_HOURLY,
         }
     )
 
@@ -602,6 +638,55 @@ class CeilingChecker:
         """
         self._refuse_cooled_off(number, now, during_signup=True)
         self._consume(self._signup_scopes(number, ip_prefix, coarse_prefix), now)
+
+    def check_and_consume_lookup(
+        self,
+        number: str,
+        ip_prefix: str,
+        coarse_prefix: str,
+        now: dt.datetime | None = None,
+    ) -> None:
+        """Consume one already-added lookup, refusing at the narrowest breach.
+
+        **A cascade of its own, never signup's** [SEC-4]: the lookup is
+        anonymous and repeatable, so sharing signup's per-number
+        allowance let anyone stop a number from signing up by looking it
+        up three times. Same ``_consume``, so the same narrowest-first
+        order and release-on-refusal accounting.
+
+        Called for every number, recorded or not, before anything is
+        read: the refusal must not depend on whether a seat exists.
+
+        :param number: The number looked up
+        :param ip_prefix: The caller's /64 (IPv4: /24)
+        :param coarse_prefix: The caller's /48 (IPv4: /24)
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: A lookup ceiling refused this request
+        """
+        self._consume(
+            [
+                (
+                    _Scope(
+                        ScopeKind.LOOKUP_NUMBER_DAILY, LOOKUP_PER_NUMBER_DAILY, _DAY
+                    ),
+                    number,
+                ),
+                (
+                    _Scope(ScopeKind.LOOKUP_IP_HOURLY, LOOKUP_PER_IP_HOURLY, _HOUR),
+                    ip_prefix,
+                ),
+                (
+                    _Scope(
+                        ScopeKind.LOOKUP_IP48_HOURLY,
+                        LOOKUP_PER_COARSE_IP_HOURLY,
+                        _HOUR,
+                    ),
+                    coarse_prefix,
+                ),
+            ],
+            now,
+        )
 
     def check_verify_allowed(
         self,

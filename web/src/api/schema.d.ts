@@ -157,8 +157,9 @@ export interface paths {
      *     [BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's
      *     byte-identical requirement applies to the OTP endpoint and not to
      *     this one. What is bounded is the WIDTH -- never the teacher, never
-     *     the batch, never the name [C-06] -- and the rate, through signup's
-     *     own ceilings.
+     *     the batch, never the name [C-06] -- and the rate, through the
+     *     lookup's own ceilings. **Never signup's** [SEC-4]: three anonymous
+     *     lookups used to spend a number's whole daily signup allowance.
      *
      *     Public, and in ``PUBLIC_ROUTES``: it is called while the signup
      *     form renders, before any account exists.
@@ -169,7 +170,7 @@ export interface paths {
      *     :param request: The incoming request
      *     :param session: The request-scoped session
      *     :return: Existence and the role to lock; never a name
-     *     :raises CeilingBreach: A signup ceiling refused this request
+     *     :raises CeilingBreach: A lookup ceiling refused this request
      */
     get: operations['lookup_already_added_v1_accounts_already_added_get']
     put?: never
