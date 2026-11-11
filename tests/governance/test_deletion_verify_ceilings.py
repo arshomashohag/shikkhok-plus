@@ -24,7 +24,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
-from app.auth.ceilings import VERIFY_FAILURES_PER_IP_HOURLY, ScopeKind
+from app.auth.ceilings import (
+    DEAD_CODES_PER_NUMBER_DAILY,
+    DEL_PER_NUMBER_HOURLY,
+    VERIFY_FAILURES_PER_IP_HOURLY,
+    ScopeKind,
+)
 from app.auth.client_address import TRUSTED_CLIENT_IP_HEADER_ENV
 from app.auth.hashing import OTP_HMAC_KEY_ENV
 from app.auth.otp import ATTEMPT_CEILING
@@ -244,3 +249,75 @@ def test_a_deletion_code_guessed_to_death_counts_toward_the_cool_off(
         )
 
     assert _counts(owner_session).get("dead_number_day") == 1
+
+
+def _guess_codes_to_death(
+    client: TestClient, phone: str, rounds: int, address: str
+) -> None:
+    """Request a deletion code and guess it to death, ``rounds`` times.
+
+    :param client: The test client
+    :param phone: The number codes are requested for
+    :param rounds: How many codes to kill
+    :param address: The caller address every request comes from
+    :return: None
+    """
+    for _ in range(rounds):
+        requested = client.post(
+            "/account-deletion", json={"phone": phone}, headers={HEADER: address}
+        )
+        assert requested.status_code == 200, requested.text
+        for _attempt in range(ATTEMPT_CEILING):
+            client.post(
+                "/account-deletion",
+                json={"phone": phone, "code": "000000"},
+                headers={HEADER: address},
+            )
+
+
+def test_a_number_whose_deletion_codes_died_is_refused_a_new_one(
+    client: TestClient, owner_session: Session, populated_seat: PopulatedSeat
+) -> None:
+    """The cool-off refuses a deletion code, alike for known and unknown.
+
+    Recording dead codes without ever reading the count on this route let
+    a guesser keep taking fresh codes at the one irreversible action
+    [C-20, SEC-6]. The refusal must also say nothing about whether the
+    number holds an account [BR2.7], and it must come from the cool-off
+    rather than from deletion's own per-number cascade, which still has
+    room for another code this hour -- so the refused request consumes
+    no deletion allowance.
+
+    :param client: The test client
+    :param owner_session: A session able to read everything
+    :param populated_seat: The fixture
+    :return: None
+    """
+    known = populated_seat.student_phone
+    unknown = "+8801799999999"
+    for index, phone in enumerate((known, unknown)):
+        _guess_codes_to_death(
+            client, phone, DEAD_CODES_PER_NUMBER_DAILY, f"9.6.{index}.1"
+        )
+    # Deletion's own per-number cascade would still allow this request,
+    # so a refusal can only be the cool-off's.
+    assert DEAD_CODES_PER_NUMBER_DAILY < DEL_PER_NUMBER_HOURLY
+    before = _counts(owner_session)
+
+    refusals = [
+        client.post(
+            "/account-deletion", json={"phone": phone}, headers={HEADER: "9.7.7.7"}
+        )
+        for phone in (known, unknown)
+    ]
+
+    for refused in refusals:
+        assert refused.status_code == 409
+        assert refused.json()["error"]["message_key"] == (
+            "auth.otp.temporarily_unavailable"
+        )
+    assert refusals[0].content == refusals[1].content
+    after = _counts(owner_session)
+    assert after.get("del_number_hour") == before.get("del_number_hour")
+    assert after.get("del_ip_hour") == before.get("del_ip_hour")
+    assert _account_exists(owner_session, known)

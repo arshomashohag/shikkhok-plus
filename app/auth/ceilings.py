@@ -856,12 +856,23 @@ class CeilingChecker:
         moment a code is actually sent, for the reason
         :meth:`check_and_consume` gives [PA-SEC-2].
 
+        A number in its dead-code cool-off [C-20, SEC-6] is refused
+        first, consuming nothing, exactly as sign-in and signup refuse
+        it: the deletion route records its dead codes against the same
+        per-number scope, and a cool-off that is counted here but never
+        read here would let a guesser who exhausted sign-in's codes keep
+        going on the route that destroys data. The refusal is the
+        deletion cascade's own contentless one, identical for a known
+        and an unknown number [BR2.7].
+
         :param number: The number a deletion code is being sent to
         :param ip_prefix: The caller's IP prefix
         :param now: The moment to count against, or None for the clock
         :return: None
-        :raises CeilingBreach: A ceiling refused this send
+        :raises CeilingBreach: A ceiling refused this send, or the number
+            is in its dead-code cool-off
         """
+        self._refuse_cooled_off(number, now, during_signup=False)
         self._consume(self._deletion_scopes(number, ip_prefix), now)
 
     def consume_send(
