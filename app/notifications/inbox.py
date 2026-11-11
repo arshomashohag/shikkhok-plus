@@ -181,8 +181,9 @@ class InboxItem:
 class Inbox:
     """An account's messages and how many are unread.
 
-    ``unread`` is counted over the whole inbox, not over the returned
-    page, so the badge is right even past :data:`INBOX_LIMIT`.
+    ``unread`` is counted over every row of the kinds read, not over the
+    returned page, so the badge is right even past :data:`INBOX_LIMIT`;
+    rows of other kinds are not counted (see :func:`deliver`).
 
     :ivar items: Newest first, at most :data:`INBOX_LIMIT`
     :ivar unread: How many have never been seen

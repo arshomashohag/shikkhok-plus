@@ -22,9 +22,12 @@ shipped, or a control whose absence would be silent:
 
 from __future__ import annotations
 
+import os
 import pathlib
 import re
+import subprocess
 
+import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -361,3 +364,160 @@ def test_no_checkout_persists_its_credentials() -> None:
         if (step.get("with") or {}).get("persist-credentials") is not False  # type: ignore[union-attr]
     ]
     assert persisted == [], f"{persisted}: no job here pushes with git"
+
+
+# ---------------------------------------------------------------------------
+# ARC-7: the keyring is checked for the shape the application boots on.
+# ---------------------------------------------------------------------------
+
+#: A secret long enough for the application's 32-byte floor.
+_LONG = "s" * 32
+
+
+def _keyring_step() -> dict[str, object]:
+    """Return the plan job's keyring check.
+
+    :return: The step
+    """
+    named = [s for s in _steps("plan") if s.get("name") == "Check the signing keyring"]
+    assert len(named) == 1
+    return named[0]
+
+
+def _keyring_env() -> dict[str, str]:
+    """Return the keyring step's declared environment.
+
+    :return: Variable name to value
+    """
+    declared = _keyring_step()["env"]
+    assert isinstance(declared, dict)
+    return {str(name): str(value) for name, value in declared.items()}
+
+
+def _run_keyring_check(keys: str) -> subprocess.CompletedProcess[str]:
+    """Run the step's script as Actions runs it, against one keyring.
+
+    :param keys: The value of the secret
+    :return: The finished process
+    """
+    env = _keyring_env()
+    env.update({"JWT_KEYS": keys, "PATH": os.environ["PATH"]})
+    return subprocess.run(  # noqa: S603 -- a fixed interpreter and our own script
+        [  # noqa: S607 -- bash from PATH, as the runner finds it
+            "bash",
+            "--noprofile",
+            "--norc",
+            "-eo",
+            "pipefail",
+            "-c",
+            str(_keyring_step()["run"]),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+
+
+@pytest.mark.parametrize(
+    "keys",
+    [f"k1:{_LONG}", f"k0:{_LONG}x, k1 : {_LONG}y ,"],
+    ids=["one-key", "rotation-with-spaces"],
+)
+def test_a_keyring_the_application_boots_on_passes(keys: str) -> None:
+    """A well-formed keyring holding the active kid is accepted.
+
+    :param keys: The secret's value
+    :return: None
+    """
+    finished = _run_keyring_check(keys)
+
+    assert finished.returncode == 0, finished.stdout + finished.stderr
+
+
+@pytest.mark.parametrize(
+    "keys",
+    [
+        "",
+        _LONG,
+        f"k1{_LONG}",
+        f":{_LONG}",
+        "k1:",
+        f"k1:{_LONG[:31]}",
+        f"k2:{_LONG}",
+        f"k1:{_LONG},k2",
+    ],
+    ids=[
+        "empty",
+        "no-colon",
+        "no-colon-prefixed",
+        "no-kid",
+        "no-secret",
+        "short-key",
+        "active-kid-absent",
+        "second-entry-malformed",
+    ],
+)
+def test_a_keyring_the_application_would_refuse_fails_the_preflight(
+    keys: str,
+) -> None:
+    """Each refusal the application would make at boot is made here first.
+
+    The output never carries key material: each problem names an entry
+    by position or a key by its id.
+
+    :param keys: The secret's value
+    :return: None
+    """
+    finished = _run_keyring_check(keys)
+
+    assert finished.returncode != 0
+    output = finished.stdout + finished.stderr
+    assert "::error::" in output
+    assert _LONG[:31] not in output
+
+
+@pytest.mark.parametrize(
+    "keys",
+    [
+        f"k1:{_LONG}",
+        f"k0:{_LONG}x, k1 : {_LONG}y ,",
+        _LONG,
+        f":{_LONG}",
+        "k1:",
+        f"k1:{_LONG[:31]}",
+        f"k2:{_LONG}",
+        f"k1:{_LONG},k2",
+        f"k1:{_LONG},,",
+    ],
+)
+def test_the_preflight_agrees_with_the_application(
+    keys: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The preflight refuses exactly the keyrings the application refuses.
+
+    :param keys: The secret's value
+    :param monkeypatch: The patcher
+    :return: None
+    """
+    from app.auth.tokens import JWT_ACTIVE_KID_ENV, JWT_KEYS_ENV, keyring_problem
+
+    monkeypatch.setenv(JWT_KEYS_ENV, keys)
+    monkeypatch.setenv(JWT_ACTIVE_KID_ENV, _keyring_env()["JWT_ACTIVE_KID"])
+
+    boots = keyring_problem() is None
+    passes = _run_keyring_check(keys).returncode == 0
+
+    assert passes == boots
+
+
+def test_the_preflight_checks_the_kid_the_release_writes() -> None:
+    """The kid the env file activates is the one the keyring must hold.
+
+    :return: None
+    """
+    record = [s for s in _steps("release") if s.get("id") == "record"]
+    written = re.findall(r"SHIKKHOKPLUS_JWT_ACTIVE_KID=(\w+)", str(record[0]["run"]))
+
+    assert written == [_keyring_env()["JWT_ACTIVE_KID"]]

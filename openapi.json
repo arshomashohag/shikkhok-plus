@@ -3338,7 +3338,7 @@
       },
       "ExamUpdateRequest": {
         "additionalProperties": false,
-        "description": "Edit an assessment: what it is called, when, and out of how much.\n\nNo subject: an edit names what changes, and the exam stays in the\nsubject it was set in.\n\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, 1 to :data:`MAX_TOTAL_MARKS`,\n    and not below any mark already recorded\n:ivar topics: What it covers, replacing the old list; omitted or null\n    keeps the existing topics, so an app built before topics existed\n    cannot wipe them by editing the title [D-26]",
+        "description": "Edit an assessment: what it is called, when, and out of how much.\n\nNo subject: an edit names what changes, and the exam stays in the\nsubject it was set in.\n\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, and not below any mark already\n    recorded. 1 to :data:`MAX_TOTAL_MARKS` when it changes; an exam\n    whose stored total is already larger may keep that total, so the\n    schema bounds it only by :data:`INT4_MAX`\n:ivar topics: What it covers, replacing the old list; omitted or null\n    keeps the existing topics, so an app built before topics existed\n    cannot wipe them by editing the title [D-26]",
         "properties": {
           "date": {
             "format": "date",
@@ -3369,7 +3369,7 @@
             "title": "Topics"
           },
           "total_marks": {
-            "maximum": 1000.0,
+            "maximum": 2147483647.0,
             "minimum": 1.0,
             "title": "Total Marks",
             "type": "integer"
@@ -4750,7 +4750,7 @@
       },
       "InboxResponse": {
         "additionalProperties": false,
-        "description": "The reader's inbox, newest first.\n\n:ivar items: The messages\n:ivar unread: How many have not been seen, over the whole inbox",
+        "description": "The reader's inbox, newest first.\n\n:ivar items: The messages\n:ivar unread: How many have not been seen, over the kinds this client\n    announced (the legacy kinds when it announced none) -- the same\n    kinds as ``items``, but across the whole inbox, not only the page",
         "properties": {
           "items": {
             "items": {

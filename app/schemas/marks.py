@@ -29,6 +29,7 @@ from typing import Annotated, Final, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 __all__ = [
+    "INT4_MAX",
     "MAX_TOTAL_MARKS",
     "BandResponse",
     "CorrectionEntryResponse",
@@ -65,6 +66,14 @@ SuppressionReason = Literal["too_few_results", "marking_incomplete"]
 #: term's aggregate) and far inside ``Integer``, so an absurd total is a
 #: 400 at the schema rather than an int4 overflow at the database.
 MAX_TOTAL_MARKS: Final = 1000
+
+#: The largest value the ``Integer`` ``total_marks`` column holds. An
+#: EDIT is bounded only by this at the schema, so a total past it is
+#: still a 422 rather than an int4 overflow at the database [SEC-3],
+#: while an exam stored before :data:`MAX_TOTAL_MARKS` existed, with a
+#: larger total, stays editable. The service then refuses any NEW total
+#: past :data:`MAX_TOTAL_MARKS` (see :func:`app.marks.exams.update_exam`).
+INT4_MAX: Final = 2**31 - 1
 
 
 ExamTopic = Annotated[
@@ -163,8 +172,10 @@ class ExamUpdateRequest(BaseModel):
 
     :ivar title: The teacher's name for it
     :ivar date: When it was sat
-    :ivar total_marks: The denominator, 1 to :data:`MAX_TOTAL_MARKS`,
-        and not below any mark already recorded
+    :ivar total_marks: The denominator, and not below any mark already
+        recorded. 1 to :data:`MAX_TOTAL_MARKS` when it changes; an exam
+        whose stored total is already larger may keep that total, so the
+        schema bounds it only by :data:`INT4_MAX`
     :ivar topics: What it covers, replacing the old list; omitted or null
         keeps the existing topics, so an app built before topics existed
         cannot wipe them by editing the title [D-26]
@@ -174,7 +185,7 @@ class ExamUpdateRequest(BaseModel):
 
     title: str = Field(min_length=1, max_length=200)
     date: dt.date
-    total_marks: int = Field(ge=1, le=MAX_TOTAL_MARKS)
+    total_marks: int = Field(ge=1, le=INT4_MAX)
     topics: list[ExamTopic] | None = Field(default=None, max_length=20)
 
 

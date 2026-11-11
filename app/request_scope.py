@@ -25,7 +25,11 @@ included [NFR17.2], and these are about I/O:
   ``int4``, a string past a column's width, a malformed literal: each
   raises ``DataError``, which used to fall through to the 500 handler
   and log its traceback. It is the caller's input that is wrong, so it
-  renders as a 400 validation envelope and is logged by class only.
+  renders as a 400 validation envelope and is logged by class and
+  SQLSTATE only. **Only the SQLSTATEs that mean bad input** do: the rest
+  of class 22 -- a division by zero, say -- is a defect in a statement,
+  not in a request, and goes the unexpected-failure path so its
+  traceback is logged and the client is not told to fix its input.
 """
 
 from __future__ import annotations
@@ -45,6 +49,7 @@ from app.errors import ConflictError, FatalError, TransientError, ValidationErro
 from app.errors.handler import to_response
 
 __all__ = [
+    "CLIENT_INPUT_SQLSTATES",
     "CORRELATION_HEADER",
     "correlation_id_from",
     "register_infrastructure_errors",
@@ -60,6 +65,19 @@ CORRELATION_HEADER: Final = "X-Correlation-Id"
 #: column's width; the alphabet keeps the value inert in a log line.
 _USABLE_ID: Final = re.compile(r"[A-Za-z0-9-]{1,64}")
 
+#: The ``DataError`` SQLSTATEs that mean the CALLER sent a value the
+#: database cannot hold, and so render as a 400 [SEC-3]. Every other
+#: class-22 state is a fault in a statement and is a 500.
+CLIENT_INPUT_SQLSTATES: Final = frozenset(
+    {
+        "22001",  # string_data_right_truncation
+        "22003",  # numeric_value_out_of_range
+        "22P02",  # invalid_text_representation
+        "22007",  # invalid_datetime_format
+        "22008",  # datetime_field_overflow
+    }
+)
+
 
 def correlation_id_from(sent: str | None) -> str:
     """Return the client's correlation id if usable, else a fresh one.
@@ -70,6 +88,25 @@ def correlation_id_from(sent: str | None) -> str:
     if sent is not None and _USABLE_ID.fullmatch(sent):
         return sent
     return str(uuid.uuid4())
+
+
+def sqlstate_of(error: DataError) -> str | None:
+    """Return the SQLSTATE the driver reported for a failed statement.
+
+    :param error: The wrapped driver error
+    :return: The five-character state, or None when the driver gave none
+    """
+    state = getattr(error.orig, "sqlstate", None)
+    return state if isinstance(state, str) else None
+
+
+def _is_client_input(error: Exception) -> bool:
+    """Say whether a failure is a ``DataError`` caused by the caller's input.
+
+    :param error: The exception that escaped
+    :return: True for a ``DataError`` whose SQLSTATE means bad input
+    """
+    return isinstance(error, DataError) and sqlstate_of(error) in CLIENT_INPUT_SQLSTATES
 
 
 def render_infrastructure_error(error: Exception) -> JSONResponse | None:
@@ -92,11 +129,12 @@ def render_infrastructure_error(error: Exception) -> JSONResponse | None:
                 message_key="error.temporarily_unavailable",
             )
         )
-    if isinstance(error, DataError):
+    if _is_client_input(error):
         # The input does not fit the column: an integer past int4, a
         # string past its width. No value is echoed back, and the
         # schema bounds that should have caught it first are gated by
-        # tests/contract/test_int_bounds.py.
+        # tests/contract/test_int_bounds.py. Any other DataError is
+        # left unrendered, for the unexpected-failure path.
         return to_response(
             ValidationError(code="REQUEST_INVALID", message_key="error.unexpected")
         )
@@ -128,7 +166,9 @@ async def _database(request: Request, exc: Exception) -> JSONResponse:
     :param request: The request being served
     :param exc: The failure
     :return: The rendered envelope
-    :raises Exception: The failure, when it is not a database one
+    :raises Exception: The failure, when it is not one this renders --
+        which includes a ``DataError`` whose SQLSTATE is not bad input,
+        re-raised for the unexpected-failure handler
     """
     rendered = render_infrastructure_error(exc)
     if rendered is None:
@@ -137,6 +177,8 @@ async def _database(request: Request, exc: Exception) -> JSONResponse:
         "database failure rendered as an envelope",
         extra={
             "error_class": type(exc).__name__,
+            # The state only, never the statement or its values.
+            "sqlstate": sqlstate_of(exc) if isinstance(exc, DataError) else None,
             "correlation_id": getattr(request.state, "correlation_id", None),
         },
     )

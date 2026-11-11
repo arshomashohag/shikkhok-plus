@@ -109,6 +109,7 @@ __all__ = [
     "DEL_PER_NUMBER_DAILY",
     "DEL_PER_NUMBER_HOURLY",
     "GLOBAL_DAILY",
+    "LOOKUP_GLOBAL_HOURLY",
     "LOOKUP_PER_COARSE_IP_HOURLY",
     "LOOKUP_PER_IP_HOURLY",
     "LOOKUP_PER_NUMBER_DAILY",
@@ -180,6 +181,18 @@ LOOKUP_PER_IP_HOURLY: Final = 30
 #: the /64 limit for the carrier-sharing reason the other /48 scopes
 #: give.
 LOOKUP_PER_COARSE_IP_HOURLY: Final = 100
+
+#: Already-added lookups served across the whole product inside an hour,
+#: at which the operator is alerted [SEC-4]. **Alert only, never a
+#: refusal**, on the password-failure scope's reasoning: the per-number,
+#: /64 and /48 ceilings bound one caller, and a product-wide refusal
+#: would let anyone break every signup form by looking numbers up. What
+#: the per-caller ceilings cannot see is an enumeration spread across
+#: more prefixes than they bound, and this is what notices one. **A
+#: value, not a decision**, configured at deployment.
+LOOKUP_GLOBAL_HOURLY: Final = int(
+    os.environ.get("SHIKKHOKPLUS_GLOBAL_HOURLY_LOOKUPS", "1000")
+)
 
 #: A 4th deletion code for one number inside an hour is refused
 #: [NFR14.100]. Matched to the OTP path's hourly allowance: a person
@@ -375,6 +388,7 @@ class ScopeKind(enum.Enum):
     LOOKUP_IP48_HOURLY = "lk_ip48_hour"
     # Alert-only [SEC-1]: counted and alerted on, never checked.
     PASSWORD_FAIL_GLOBAL_HOURLY = "pwf_global_hour"  # noqa: S105 -- a name
+    LOOKUP_GLOBAL_HOURLY = "lk_global_hour"
 
 
 #: The scopes whose breach reaches a human. Declared beside the enum
@@ -390,6 +404,7 @@ _ALERTING_SCOPES: Final = frozenset(
         ScopeKind.VERIFY_FAIL_GLOBAL_HOURLY,
         ScopeKind.EMAIL_GLOBAL_DAILY,
         ScopeKind.PASSWORD_FAIL_GLOBAL_HOURLY,
+        ScopeKind.LOOKUP_GLOBAL_HOURLY,
     }
 )
 
@@ -534,7 +549,8 @@ def fire_ceiling_alert(scope: str) -> None:
     """Alert the operator that the global ceiling tripped.
 
     Money, and also the signal for an active attack -- so it is one of
-    the six things that reach a human. The per-number and per-IP
+    the few things that reach a human, the members of
+    ``_ALERTING_SCOPES``. The per-number and per-IP
     sub-ceilings deliberately do **not** alert: they fire constantly once
     the product has users, which trains the operator to ignore this one
     sitting in the same channel.
@@ -657,6 +673,12 @@ class CeilingChecker:
         Called for every number, recorded or not, before anything is
         read: the refusal must not depend on whether a seat exists.
 
+        A lookup the cascade lets through is then counted product-wide,
+        alert-only: it alerts on the lookup that fills the hour's scope,
+        once, and never refuses [SEC-4]. Served lookups are what
+        disclose, so they are what is counted; a refused one is already
+        bounded by the scope that refused it.
+
         :param number: The number looked up
         :param ip_prefix: The caller's /64 (IPv4: /24)
         :param coarse_prefix: The caller's /48 (IPv4: /24)
@@ -687,6 +709,10 @@ class CeilingChecker:
             ],
             now,
         )
+        alerting = _Scope(ScopeKind.LOOKUP_GLOBAL_HOURLY, LOOKUP_GLOBAL_HOURLY, _HOUR)
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        if self._increment(alerting, GLOBAL_SCOPE_VALUE, moment) == alerting.limit:
+            fire_ceiling_alert(alerting.kind.value)
 
     def check_verify_allowed(
         self,
@@ -856,12 +882,23 @@ class CeilingChecker:
         moment a code is actually sent, for the reason
         :meth:`check_and_consume` gives [PA-SEC-2].
 
+        A number in its dead-code cool-off [C-20, SEC-6] is refused
+        first, consuming nothing, exactly as sign-in and signup refuse
+        it: the deletion route records its dead codes against the same
+        per-number scope, and a cool-off that is counted here but never
+        read here would let a guesser who exhausted sign-in's codes keep
+        going on the route that destroys data. The refusal is the
+        deletion cascade's own contentless one, identical for a known
+        and an unknown number [BR2.7].
+
         :param number: The number a deletion code is being sent to
         :param ip_prefix: The caller's IP prefix
         :param now: The moment to count against, or None for the clock
         :return: None
-        :raises CeilingBreach: A ceiling refused this send
+        :raises CeilingBreach: A ceiling refused this send, or the number
+            is in its dead-code cool-off
         """
+        self._refuse_cooled_off(number, now, during_signup=False)
         self._consume(self._deletion_scopes(number, ip_prefix), now)
 
     def consume_send(

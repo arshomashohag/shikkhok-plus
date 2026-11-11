@@ -6291,8 +6291,10 @@ export interface components {
      *
      *     :ivar title: The teacher's name for it
      *     :ivar date: When it was sat
-     *     :ivar total_marks: The denominator, 1 to :data:`MAX_TOTAL_MARKS`,
-     *         and not below any mark already recorded
+     *     :ivar total_marks: The denominator, and not below any mark already
+     *         recorded. 1 to :data:`MAX_TOTAL_MARKS` when it changes; an exam
+     *         whose stored total is already larger may keep that total, so the
+     *         schema bounds it only by :data:`INT4_MAX`
      *     :ivar topics: What it covers, replacing the old list; omitted or null
      *         keeps the existing topics, so an app built before topics existed
      *         cannot wipe them by editing the title [D-26]
@@ -7089,7 +7091,9 @@ export interface components {
      * @description The reader's inbox, newest first.
      *
      *     :ivar items: The messages
-     *     :ivar unread: How many have not been seen, over the whole inbox
+     *     :ivar unread: How many have not been seen, over the kinds this client
+     *         announced (the legacy kinds when it announced none) -- the same
+     *         kinds as ``items``, but across the whole inbox, not only the page
      */
     InboxResponse: {
       /** Items */
