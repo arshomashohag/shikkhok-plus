@@ -19,6 +19,7 @@ import { Money } from '../../../core/money'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import {
+  ConfirmSheet,
   EmptyState,
   ErrorCard,
   Loading,
@@ -73,7 +74,11 @@ function AdjustSheet({
   }
 
   return (
-    <Sheet title={t('payroll_adjust')} onClose={onClose}>
+    <Sheet
+      title={t('payroll_adjust')}
+      onClose={onClose}
+      dirty={label.trim() !== '' || typed.trim() !== ''}
+    >
       <p className="meta" style={{ marginTop: 0 }}>
         {line.staff_name} · {t('payroll_owed', money(line.owed))}
       </p>
@@ -135,7 +140,8 @@ function PaySheet({
   onDone: () => void
 }) {
   const { t, message } = useT()
-  const [typed, setTyped] = useState(Money.fromWire(line.remaining).wire)
+  const [prefilled] = useState(() => Money.fromWire(line.remaining).wire)
+  const [typed, setTyped] = useState(prefilled)
   const [paidOn, setPaidOn] = useState('')
   const [note, setNote] = useState('')
   const [key] = useState(mutationId)
@@ -158,7 +164,11 @@ function PaySheet({
   }
 
   return (
-    <Sheet title={t('payroll_pay_title')} onClose={onClose}>
+    <Sheet
+      title={t('payroll_pay_title')}
+      onClose={onClose}
+      dirty={typed !== prefilled || paidOn !== '' || note.trim() !== ''}
+    >
       <p className="meta" style={{ marginTop: 0 }}>
         {line.staff_name} · {t('payroll_paid_remaining', money(line.paid), money(line.remaining))}
       </p>
@@ -221,7 +231,7 @@ export function SalaryCard({
 }: {
   line: SalaryLine
   actions?: React.ReactNode
-  onRemoveAdjustment?: (adjustmentId: string) => void
+  onRemoveAdjustment?: (adjustment: Adjustment) => void
   /** While a write is on its way or the line is not confirmed fresh. */
   disabled?: boolean
 }) {
@@ -248,7 +258,9 @@ export function SalaryCard({
                   type="button"
                   className="btn btn-text btn-small"
                   disabled={disabled}
-                  onClick={() => onRemoveAdjustment(a.adjustment_id)}
+                  // Every row says "Remove"; the name says which one [UX-9].
+                  aria-label={t('web_payroll_remove_named', a.label)}
+                  onClick={() => onRemoveAdjustment(a)}
                 >
                   {t('payroll_remove')}
                 </button>
@@ -262,7 +274,12 @@ export function SalaryCard({
   )
 }
 
-type Open = { sheet: 'adjust' | 'pay'; line: SalaryLine } | null
+type Adjustment = SalaryLine['adjustments'][number]
+
+type Open =
+  | { sheet: 'adjust' | 'pay'; line: SalaryLine }
+  | { sheet: 'remove'; line: SalaryLine; adjustment: Adjustment }
+  | null
 
 export function Payroll() {
   const { t, lang, message } = useT()
@@ -317,7 +334,7 @@ export function Payroll() {
               disabled={!canAct}
               onRemoveAdjustment={
                 line.status === 'draft'
-                  ? (id) => void act(() => removeSalaryAdjustment(line.line_id, id))
+                  ? (adjustment) => setOpen({ sheet: 'remove', line, adjustment })
                   : undefined
               }
               actions={
@@ -417,6 +434,19 @@ export function Payroll() {
             setSnack(t('staff_saved'))
             reload()
           }}
+        />
+      ) : null}
+      {open?.sheet === 'remove' ? (
+        <ConfirmSheet
+          title={t('web_payroll_remove_title')}
+          body={t('web_payroll_remove_body', open.adjustment.label, open.line.staff_name)}
+          confirmLabel={t('payroll_remove')}
+          onConfirm={() => {
+            const { line, adjustment } = open
+            setOpen(null)
+            void act(() => removeSalaryAdjustment(line.line_id, adjustment.adjustment_id))
+          }}
+          onCancel={() => setOpen(null)}
         />
       ) : null}
       {snack ? <Snackbar text={snack} onDismiss={() => setSnack(null)} /> : null}

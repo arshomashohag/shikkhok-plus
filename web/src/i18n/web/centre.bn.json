@@ -1,0 +1,7 @@
+{
+  "web_payroll_remove_named": "{1} মুছুন",
+  "web_payroll_remove_title": "এই বোনাস বা কর্তন মুছবেন?",
+  "web_payroll_remove_body": "এই মাসে {2}-এর বেতনে “{1}” আর ধরা হবে না।",
+  "web_rooms_archive_title": "{1} রুমটি আর ব্যবহার করবেন না?",
+  "web_rooms_archive_body": "এটি তালিকায় ‘ব্যবহারে নেই’ হিসেবে থাকবে, যেকোনো সময় আবার ব্যবহার করতে পারবেন।"
+}

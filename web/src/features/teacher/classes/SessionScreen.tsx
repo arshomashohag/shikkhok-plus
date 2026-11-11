@@ -31,6 +31,7 @@ import {
   StaleBanner,
   TopBar,
 } from '../../../ui/components'
+import { CheckIcon, CrossIcon } from '../../../ui/icons'
 import { paths } from '../paths'
 import {
   cancelSession,
@@ -478,36 +479,32 @@ function RecordForm({
         ) : (
           <ul className="card flush list">
             {seats.map((s, i) => (
-              <li key={s.enrollmentId} className="row" style={{ minHeight: 64 }}>
-                <span className="meta" style={{ width: 24 }}>
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <span className="grow title" id={`seat-${s.enrollmentId}`}>
-                  {s.displayName}
-                </span>
-                <span
-                  className="seat-toggle"
-                  role="group"
-                  aria-labelledby={`seat-${s.enrollmentId}`}
+              // The whole row is the switch: on a 320 px phone two side-by-side
+              // buttons left the name 35 px wide [UX-1]. One tap still marks a
+              // student absent; the name, the state word and aria-pressed are
+              // what a screen reader announces.
+              <li key={s.enrollmentId}>
+                <button
+                  type="button"
+                  className="row seat-row"
+                  aria-pressed={s.present}
+                  onClick={() =>
+                    editSeats(
+                      seats.map((x) =>
+                        x.enrollmentId === s.enrollmentId ? { ...x, present: !x.present } : x,
+                      ),
+                    )
+                  }
                 >
-                  {([true, false] as const).map((present) => (
-                    <button
-                      key={String(present)}
-                      type="button"
-                      className={present ? 'present' : 'absent'}
-                      aria-pressed={s.present === present}
-                      onClick={() =>
-                        editSeats(
-                          seats.map((x) =>
-                            x.enrollmentId === s.enrollmentId ? { ...x, present } : x,
-                          ),
-                        )
-                      }
-                    >
-                      {t(present ? 'attendance_present' : 'attendance_absent')}
-                    </button>
-                  ))}
-                </span>
+                  <span className="meta seat-no" aria-hidden="true">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <span className="grow title seat-name">{s.displayName}</span>{' '}
+                  <span className={s.present ? 'seat-pill present' : 'seat-pill absent'}>
+                    {s.present ? <CheckIcon size={16} /> : <CrossIcon size={16} />}
+                    {t(s.present ? 'attendance_present' : 'attendance_absent')}
+                  </span>
+                </button>
               </li>
             ))}
           </ul>

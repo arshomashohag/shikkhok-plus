@@ -1,0 +1,7 @@
+{
+  "web_payroll_remove_named": "Remove {1}",
+  "web_payroll_remove_title": "Remove this bonus or deduction?",
+  "web_payroll_remove_body": "“{1}” will no longer be counted in {2}’s pay this month.",
+  "web_rooms_archive_title": "Stop using {1}?",
+  "web_rooms_archive_body": "It stays in your list as not in use, and you can use it again at any time."
+}

@@ -212,8 +212,8 @@ describe('Record a class', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Continue: Newton’s first law' }))
     expect(screen.getByLabelText('What did you cover?')).toHaveValue('Newton’s first law')
     await userEvent.click(screen.getByRole('button', { name: '2nd paper' }))
-    const rafsan = screen.getByRole('group', { name: 'Rafsan' })
-    await userEvent.click(within(rafsan).getByRole('button', { name: 'Absent' }))
+    // One tap on the row marks the student absent [UX-1].
+    await userEvent.click(screen.getByRole('button', { name: 'Rafsan Present' }))
     await userEvent.click(screen.getByRole('button', { name: 'Save class' }))
 
     expect(await screen.findByText('Class saved.')).toBeInTheDocument()
@@ -231,6 +231,37 @@ describe('Record a class', () => {
         { enrollment_id: 'e2', present: false },
       ],
     })
+  })
+
+  it('makes each whole seat row one toggle named by the student [UX-1]', async () => {
+    base()
+    const tasnim = await screen.findByRole('button', { name: 'Tasnim Present' })
+    // Unmarked seats start present, as on Android; pressed means present.
+    expect(tasnim).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('button', { name: 'Absent' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Mark everyone present' })).toBeNull()
+
+    await userEvent.click(tasnim)
+    const absent = screen.getByRole('button', { name: 'Tasnim Absent' })
+    expect(absent).toHaveAttribute('aria-pressed', 'false')
+    // The running number is decoration, not part of the name.
+    expect(absent).toHaveTextContent('01')
+    expect(absent.querySelector('[aria-hidden="true"]')).toHaveTextContent('01')
+
+    // A second tap undoes the first.
+    await userEvent.click(absent)
+    expect(screen.getByRole('button', { name: 'Tasnim Present' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    // "Mark everyone present" appears once someone is absent and clears it.
+    await userEvent.click(screen.getByRole('button', { name: 'Rafsan Present' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Mark everyone present' }))
+    expect(screen.getByRole('button', { name: 'Rafsan Present' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
   })
 
   it('replays the same write after a dropped connection', async () => {
