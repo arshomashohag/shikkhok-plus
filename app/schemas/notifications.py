@@ -39,6 +39,11 @@ class NotificationResponse(BaseModel):
     :ivar source_id: The record that produced it, if any
     :ivar child_name: Which child it is about, for a guardian's copy
     :ivar preview: A short line of its content, if any
+    :ivar class_date: For a class change, the day the class is now on, or
+        was on if cancelled
+    :ivar class_time: For a class change, its start time that day
+    :ivar moved_from_date: For a reschedule, the day it was moved from
+    :ivar moved_from_time: For a reschedule, the start time it was moved from
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -55,6 +60,8 @@ class NotificationResponse(BaseModel):
         "exam_cancelled",
         "marks_available",
         "claim_to_verify",
+        "class_cancelled",
+        "class_rescheduled",
     ]
     enrollment_id: uuid.UUID | None = None
     batch_name: str
@@ -65,6 +72,10 @@ class NotificationResponse(BaseModel):
     source_id: uuid.UUID | None = None
     child_name: str | None = None
     preview: str | None = None
+    class_date: dt.date | None = None
+    class_time: dt.time | None = None
+    moved_from_date: dt.date | None = None
+    moved_from_time: dt.time | None = None
 
 
 class InboxResponse(BaseModel):

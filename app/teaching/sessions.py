@@ -15,6 +15,15 @@ delete-and-recreate it would silently discard both.
 here transitions a session by the clock passing; ``held`` is reached by
 RECORDING, in ``submissions.py``. A clock-driven transition would
 quietly bury the classes most needing attention.
+
+**Cancelling or moving a class still to come tells its families**
+[PO-1]. The message is added to the same transaction as the change, so
+the two land together or not at all, and a refused change (a cancelled
+class, an inactive batch, an occupied slot) writes none. Recipients are
+:func:`~app.notifications.recipients.deliver_to_families`'s: accepted
+students and guardians only, never a pending or declined link and never
+the teacher. No push is sent: V1 has no device-token store, so the
+inbox is the channel, as it is for exams and notices.
 """
 
 from __future__ import annotations
@@ -29,6 +38,15 @@ from sqlalchemy.orm import Session as DbSession
 from app.authz.lenses import TeacherLens
 from app.db.models import Batch, BatchSubject, Session
 from app.errors import ConflictError
+from app.local_time import bangladesh_today
+from app.notifications.inbox import (
+    CLASS_CANCELLED,
+    CLASS_RESCHEDULED,
+    ClassChange,
+    remove_for_source,
+    sent_class_change,
+)
+from app.notifications.recipients import deliver_to_families
 from app.teaching.roster import readable_session, refuse, writable_session
 
 __all__ = [
@@ -270,7 +288,13 @@ def reschedule_session(
     date: dt.date,
     start_time: dt.time,
 ) -> SessionRow:
-    """Move a session, preserving its identity [BR1.7].
+    """Move a session, preserving its identity [BR1.7], and tell its families.
+
+    **A move is news when the class is still to be held** [PO-1]: it is
+    ``scheduled``, its date or time actually changed, and the old day or
+    the new one is today or later. Each accepted student and guardian
+    then gets one ``class_rescheduled`` item with the old and new day
+    and time (see :func:`_announce_move`). A refused move writes nothing.
 
     **An UPDATE of the existing row**, never a delete-and-recreate.
     The id, the topic and every attendance row survive, which is the
@@ -289,11 +313,15 @@ def reschedule_session(
         the new slot collides with another session of the same batch
     """
     record = writable_session(session, lens=lens, session_id=session_id)
+    was = (record.date, record.start_time)
+    announce = record.status == "scheduled" and was != (date, start_time)
 
     record.date = date
     record.start_time = start_time
     try:
-        session.commit()
+        # Flushed before any message is written, so an occupied slot
+        # refuses here and no family hears of a move that never happened.
+        session.flush()
     except sa.exc.IntegrityError as error:
         session.rollback()
         raise ConflictError(
@@ -301,7 +329,65 @@ def reschedule_session(
             message_key="teaching.session.already_exists",
         ) from error
 
+    today = bangladesh_today()
+    if announce and max(was[0], date) >= today:
+        _announce_move(session, record, was=was, today=today)
+    session.commit()
+
     return _row(record, None)
+
+
+def _announce_move(
+    session: DbSession,
+    record: Session,
+    *,
+    was: tuple[dt.date, dt.time],
+    today: dt.date,
+) -> None:
+    """Tell a moved class's families where it is now, replacing any earlier move.
+
+    **One item per person, never a stack.** The previous move's items
+    are removed and one new item written. It says where the class was
+    before the FIRST move, because the item it replaces may never have
+    been opened and the reader's last-known time is then the original;
+    moved back to that original, it names the move just made instead,
+    since "from 4 pm to 4 pm" says nothing.
+
+    **Membership is judged on the earlier of the two days**, no earlier
+    than today. A seat that has left by then would attend neither class.
+
+    Adds to the caller's transaction and does not commit.
+
+    :param session: The caller's session, holding the moved row
+    :param record: The session, already at its new date and time
+    :param was: Its date and start time before this move
+    :param today: Today in Bangladesh
+    :return: None
+    """
+    now_at = (record.date, record.start_time)
+    sent = sent_class_change(session, kind=CLASS_RESCHEDULED, source_id=record.id)
+    origin = was
+    if sent is not None and sent.moved_from_date and sent.moved_from_time:
+        origin = (sent.moved_from_date, sent.moved_from_time)
+    if origin == now_at:
+        origin = was
+
+    remove_for_source(session, kind=CLASS_RESCHEDULED, source_id=record.id)
+    deliver_to_families(
+        session,
+        batch=session.get_one(Batch, record.batch_id),
+        kind=CLASS_RESCHEDULED,
+        source_id=record.id,
+        preview=None,
+        now=dt.datetime.now(tz=dt.UTC),
+        on=max(today, min(was[0], record.date)),
+        class_change=ClassChange(
+            class_date=record.date,
+            class_time=record.start_time,
+            moved_from_date=origin[0],
+            moved_from_time=origin[1],
+        ),
+    )
 
 
 def cancel_session(
@@ -310,11 +396,18 @@ def cancel_session(
     lens: TeacherLens,
     session_id: uuid.UUID,
 ) -> SessionRow:
-    """Cancel a session [BR1.6].
+    """Cancel a session [BR1.6], and tell its families if it was still to come.
 
     ``cancelled`` is **terminal for writes and not for reads**: the
     row and its history remain readable, and only new attendance and
     topic writes are refused.
+
+    **Only a class still to be held is news** [PO-1]: a ``scheduled``
+    class dated today or later in Bangladesh. Each accepted student and
+    guardian gets one ``class_cancelled`` item naming the class's day
+    and time, replacing any ``class_rescheduled`` item for it. A past or
+    already-held class is cancelled as before and tells nobody; an
+    already-cancelled one keeps its refusal and writes nothing.
 
     :param session: The session to work through
     :param lens: The teacher lens
@@ -325,7 +418,25 @@ def cancel_session(
         cancelled
     """
     record = writable_session(session, lens=lens, session_id=session_id)
+    announce = record.status == "scheduled" and record.date >= bangladesh_today()
     record.status = "cancelled"
+    session.flush()
+    # A move's item is withdrawn whether or not the cancellation is
+    # news: "moved to Wednesday" must not outlive the class it names.
+    remove_for_source(session, kind=CLASS_RESCHEDULED, source_id=record.id)
+    if announce:
+        deliver_to_families(
+            session,
+            batch=session.get_one(Batch, record.batch_id),
+            kind=CLASS_CANCELLED,
+            source_id=record.id,
+            preview=None,
+            now=dt.datetime.now(tz=dt.UTC),
+            on=record.date,
+            class_change=ClassChange(
+                class_date=record.date, class_time=record.start_time
+            ),
+        )
     session.commit()
     return _row(record, None)
 

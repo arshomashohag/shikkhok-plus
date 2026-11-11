@@ -70,6 +70,13 @@ sealed interface InboxContent {
         val outcome: PaymentOutcome,
         val reason: String?,
     ) : InboxContent
+
+    /**
+     * A class that was cancelled or moved.
+     *
+     * @property change The class, and where it moved from
+     */
+    data class ClassChanged(val change: ClassChange) : InboxContent
 }
 
 /**

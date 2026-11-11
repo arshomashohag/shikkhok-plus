@@ -1,9 +1,12 @@
 package com.shikkhokplus.app.core.network
 
 import com.shikkhokplus.app.feature.auth.AuthResult
+import com.shikkhokplus.app.feature.inbox.InboxMapper
 import com.shikkhokplus.app.feature.inbox.InboxRepository
 import io.ktor.client.HttpClient
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 
 /**
@@ -23,7 +26,8 @@ class HttpInboxRepository(
      *
      * @return The messages, an error envelope, or a transport failure
      */
-    override suspend fun inbox(): AuthResult<InboxDto> = call { client.get("/v1/me/notifications") }
+    override suspend fun inbox(): AuthResult<InboxDto> =
+        call { client.get("/v1/me/notifications") { announceKinds() } }
 
     /**
      * Read one message and what it opens to.
@@ -40,7 +44,7 @@ class HttpInboxRepository(
      * @return Done, an error envelope, or a transport failure
      */
     override suspend fun markAllRead(): AuthResult<Unit> =
-        callDiscardingBody { client.post("/v1/me/notifications/read") }
+        callDiscardingBody { client.post("/v1/me/notifications/read") { announceKinds() } }
 
     /**
      * Mark one message read.
@@ -50,4 +54,12 @@ class HttpInboxRepository(
      */
     override suspend fun markRead(id: String): AuthResult<Unit> =
         callDiscardingBody { client.post("/v1/me/notifications/$id/read") }
+
+    /**
+     * Name every kind this version can show, so the server counts only
+     * those in `unread` and marks only those read [PO-10].
+     */
+    private fun HttpRequestBuilder.announceKinds() {
+        InboxMapper.KNOWN_KINDS.forEach { parameter("kind", it) }
+    }
 }

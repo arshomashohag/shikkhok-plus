@@ -1,6 +1,7 @@
 package com.shikkhokplus.app.core.network
 
 import com.shikkhokplus.app.feature.auth.AuthResult
+import com.shikkhokplus.app.feature.inbox.InboxMapper
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.ContentType
@@ -34,7 +35,21 @@ class HttpInboxRepositoryTest {
 
         val ok = assertIs<AuthResult.Ok<InboxDto>>(result)
         assertEquals("1200.00", ok.value.items.single().amount.toString())
-        assertEquals("/v1/me/notifications", engine.requestHistory.single().url.encodedPath)
+        val request = engine.requestHistory.single()
+        assertEquals("/v1/me/notifications", request.url.encodedPath)
+        // PO-10: the server counts unread over only what this version can show.
+        assertEquals(InboxMapper.KNOWN_KINDS, request.url.parameters.getAll("kind"))
+    }
+
+    @Test
+    fun `marking everything read names the kinds this version can show`() = runTest {
+        val engine = MockEngine { respond("", HttpStatusCode.NoContent) }
+
+        HttpInboxRepository(client(engine)).markAllRead()
+
+        val request = engine.requestHistory.single()
+        assertEquals("/v1/me/notifications/read", request.url.encodedPath)
+        assertEquals(InboxMapper.KNOWN_KINDS, request.url.parameters.getAll("kind"))
     }
 
     @Test

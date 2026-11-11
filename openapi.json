@@ -5991,6 +5991,30 @@
             ],
             "title": "Child Name"
           },
+          "class_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Date"
+          },
+          "class_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Time"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -6021,6 +6045,8 @@
           "kind": {
             "enum": [
               "claim_to_verify",
+              "class_cancelled",
+              "class_rescheduled",
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
@@ -6033,6 +6059,30 @@
             ],
             "title": "Kind",
             "type": "string"
+          },
+          "moved_from_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moved From Date"
+          },
+          "moved_from_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moved From Time"
           },
           "notice": {
             "anyOf": [
@@ -6112,7 +6162,7 @@
       },
       "NotificationResponse": {
         "additionalProperties": false,
-        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any",
+        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any\n:ivar class_date: For a class change, the day the class is now on, or\n    was on if cancelled\n:ivar class_time: For a class change, its start time that day\n:ivar moved_from_date: For a reschedule, the day it was moved from\n:ivar moved_from_time: For a reschedule, the start time it was moved from",
         "properties": {
           "amount": {
             "anyOf": [
@@ -6139,6 +6189,30 @@
             ],
             "title": "Child Name"
           },
+          "class_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Date"
+          },
+          "class_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Time"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -6159,6 +6233,8 @@
           "kind": {
             "enum": [
               "claim_to_verify",
+              "class_cancelled",
+              "class_rescheduled",
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
@@ -6171,6 +6247,30 @@
             ],
             "title": "Kind",
             "type": "string"
+          },
+          "moved_from_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moved From Date"
+          },
+          "moved_from_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moved From Time"
           },
           "notification_id": {
             "format": "uuid",
@@ -22571,8 +22671,31 @@
     },
     "/v1/me/notifications": {
       "get": {
-        "description": "Read this account's own messages, newest first.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The messages and the unread count",
+        "description": "Read this account's own messages, newest first.\n\nOnly the kinds the client announces, and the unread count over the\nsame kinds (:func:`_readable`).\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:param kind: The kinds the client can show\n:return: The messages and the unread count",
         "operationId": "read_inbox_v1_me_notifications_get",
+        "parameters": [
+          {
+            "description": "The kinds this client can show, repeated. Items and the unread count are both taken over these. Omitted: the kinds every client showed before kinds were announced. A kind this server does not publish is ignored.",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The kinds this client can show, repeated. Items and the unread count are both taken over these. Omitted: the kinds every client showed before kinds were announced. A kind this server does not publish is ignored.",
+              "title": "Kind"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -22583,6 +22706,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
           },
           "500": {
             "content": {
@@ -22613,11 +22746,44 @@
     },
     "/v1/me/notifications/read": {
       "post": {
-        "description": "Mark every message in this account's own inbox as read.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: None",
+        "description": "Mark every message this client can show as read.\n\nA kind the client did not announce stays unread, for the client\nthat can show it (:func:`_readable`).\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:param kind: The kinds the client can show\n:return: None",
         "operationId": "read_all_v1_me_notifications_read_post",
+        "parameters": [
+          {
+            "description": "The kinds this client can show, repeated. Items and the unread count are both taken over these. Omitted: the kinds every client showed before kinds were announced. A kind this server does not publish is ignored.",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The kinds this client can show, repeated. Items and the unread count are both taken over these. Omitted: the kinds every client showed before kinds were announced. A kind this server does not publish is ignored.",
+              "title": "Kind"
+            }
+          }
+        ],
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
           },
           "500": {
             "content": {

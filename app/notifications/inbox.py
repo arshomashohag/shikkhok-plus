@@ -27,16 +27,20 @@ from app.money import Money
 
 __all__ = [
     "CLAIM_TO_VERIFY",
+    "CLASS_CANCELLED",
+    "CLASS_RESCHEDULED",
     "EXAM_CANCELLED",
     "EXAM_SCHEDULED",
     "FEE_REMINDER",
     "INBOX_LIMIT",
+    "LEGACY_KINDS",
     "MARKS_AVAILABLE",
     "NOTICE",
     "PAYMENT_APPROVED",
     "PAYMENT_PARTIAL",
     "PAYMENT_RECORDED",
     "PAYMENT_REJECTED",
+    "ClassChange",
     "Inbox",
     "InboxItem",
     "deliver",
@@ -47,6 +51,7 @@ __all__ = [
     "mark_unread_for_source",
     "owned_item",
     "remove_for_source",
+    "sent_class_change",
 ]
 
 #: The kind a fee reminder is stored under.
@@ -84,9 +89,60 @@ MARKS_AVAILABLE: Final[str] = "marks_available"
 #: A payment claim waiting for the teacher to verify.
 CLAIM_TO_VERIFY: Final[str] = "claim_to_verify"
 
+#: A class the teacher cancelled before it was held [PO-1]. Replaces any
+#: :data:`CLASS_RESCHEDULED` item for the same session, so an inbox never
+#: holds "moved to Wednesday" beside "cancelled".
+CLASS_CANCELLED: Final[str] = "class_cancelled"
+
+#: A class the teacher moved to another day or time [PO-1]. A second move
+#: replaces the first move's item rather than stacking beside it.
+CLASS_RESCHEDULED: Final[str] = "class_rescheduled"
+
+#: The kinds every client knew before clients began announcing theirs
+#: [PO-10]. **Frozen: never add to it.** A client that does not say which
+#: kinds it can show is one built before the announcement existed, and
+#: these are exactly the kinds such a client renders, so its items and its
+#: unread badge are counted over these and nothing newer. A new kind is
+#: reached only by a client that names it, which is what keeps an old
+#: install's badge from counting a message it will never draw.
+LEGACY_KINDS: Final[frozenset[str]] = frozenset(
+    {
+        FEE_REMINDER,
+        PAYMENT_APPROVED,
+        PAYMENT_PARTIAL,
+        PAYMENT_REJECTED,
+        PAYMENT_RECORDED,
+        NOTICE,
+        EXAM_SCHEDULED,
+        EXAM_CANCELLED,
+        MARKS_AVAILABLE,
+        CLAIM_TO_VERIFY,
+    }
+)
+
 #: How many messages one read returns. An inbox is read on open, and a
 #: year of weekly reminders across two batches stays under it.
 INBOX_LIMIT: Final[int] = 100
+
+
+@dataclass(frozen=True, slots=True)
+class ClassChange:
+    """Which class a class-change message is about, as it was when sent.
+
+    Copied onto the message like ``batch_name``: the session row holds
+    only where the class is now, and the time a reschedule moved it from
+    exists nowhere else.
+
+    :ivar class_date: The day the class is on now, or was on if cancelled
+    :ivar class_time: Its start time that day
+    :ivar moved_from_date: For a reschedule, the day it was on before
+    :ivar moved_from_time: For a reschedule, the start time before
+    """
+
+    class_date: dt.date
+    class_time: dt.time
+    moved_from_date: dt.date | None = None
+    moved_from_time: dt.time | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +160,7 @@ class InboxItem:
     :ivar source_id: The record that produced it, if any
     :ivar child_name: Which child it is about, for a guardian's copy
     :ivar preview: A short line of its content, if any
+    :ivar class_change: The class it is about, for a class change
     """
 
     notification_id: uuid.UUID
@@ -117,6 +174,7 @@ class InboxItem:
     source_id: uuid.UUID | None
     child_name: str | None
     preview: str | None
+    class_change: ClassChange | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,6 +205,7 @@ def deliver(
     source_id: uuid.UUID | None = None,
     preview: str | None = None,
     child_names: dict[uuid.UUID, str] | None = None,
+    class_change: ClassChange | None = None,
 ) -> None:
     """Put one message in each of these accounts' inboxes.
 
@@ -163,9 +222,11 @@ def deliver(
     :param source_id: The record that produced it, if any
     :param preview: A short line of its content, if any
     :param child_names: Child label to store, keyed by recipient account
+    :param class_change: The class it is about, for a class change
     :return: None
     """
     labels = child_names or {}
+    change = class_change
     for account_id in account_ids:
         session.add(
             Notification(
@@ -179,6 +240,10 @@ def deliver(
                 source_id=source_id,
                 preview=preview,
                 child_name=labels.get(account_id),
+                class_date=None if change is None else change.class_date,
+                class_time=None if change is None else change.class_time,
+                moved_from_date=None if change is None else change.moved_from_date,
+                moved_from_time=None if change is None else change.moved_from_time,
             )
         )
 
@@ -201,29 +266,59 @@ def _item(row: Notification) -> InboxItem:
         source_id=row.source_id,
         child_name=row.child_name,
         preview=row.preview,
+        class_change=_class_change(row),
     )
 
 
-def inbox(session: Session, *, account_id: uuid.UUID) -> Inbox:
+def _class_change(row: Notification) -> ClassChange | None:
+    """Read the class a stored row names, if it names one.
+
+    :param row: The stored notification
+    :return: The class, or None for a row about no class
+    """
+    if row.class_date is None or row.class_time is None:
+        return None
+    return ClassChange(
+        class_date=row.class_date,
+        class_time=row.class_time,
+        moved_from_date=row.moved_from_date,
+        moved_from_time=row.moved_from_time,
+    )
+
+
+def inbox(
+    session: Session,
+    *,
+    account_id: uuid.UUID,
+    kinds: frozenset[str] | None = None,
+) -> Inbox:
     """Read an account's own inbox.
+
+    **The items and the unread count are taken over the same kinds**
+    [PO-10]. A client drops a kind it cannot draw, so counting one it
+    will drop would show a badge with nothing behind it; restricting
+    both to the kinds the client can show keeps the badge honest. The
+    rows not shown are left as they are, unread, for the client that
+    can show them.
 
     :param session: The session to read through
     :param account_id: The authenticated caller
+    :param kinds: The kinds to read; every kind when None
     :return: Their messages, newest first, and the unread count
     """
+    mine = [Notification.account_id == account_id]
+    if kinds is not None:
+        mine.append(Notification.kind.in_(sorted(kinds)))
     rows = session.scalars(
         sa.select(Notification)
-        .where(Notification.account_id == account_id)
+        .where(*mine)
         .order_by(Notification.created_at.desc(), Notification.id)
         .limit(INBOX_LIMIT)
     ).all()
     unread = session.scalar(
         sa.select(sa.func.count())
         .select_from(Notification)
-        .where(
-            Notification.account_id == account_id,
-            Notification.read_at.is_(None),
-        )
+        .where(*mine, Notification.read_at.is_(None))
     )
     return Inbox(
         items=[_item(row) for row in rows],
@@ -236,23 +331,27 @@ def mark_read(
     *,
     account_id: uuid.UUID,
     now: dt.datetime | None = None,
+    kinds: frozenset[str] | None = None,
 ) -> None:
     """Mark every unread message in an account's own inbox as read.
 
     The whole inbox at once, because the screen shows them all on open;
-    a per-message flag would ask the reader to tap each one.
+    a per-message flag would ask the reader to tap each one. Only the
+    kinds the reader's client can show, when it says which: a message
+    an old client never drew stays unread for the client that will.
 
     :param session: The session to write through
     :param account_id: The authenticated caller
     :param now: When it was read; the current time by default
+    :param kinds: The kinds to mark; every kind when None
     :return: None
     """
+    mine = [Notification.account_id == account_id, Notification.read_at.is_(None)]
+    if kinds is not None:
+        mine.append(Notification.kind.in_(sorted(kinds)))
     session.execute(
         sa.update(Notification)
-        .where(
-            Notification.account_id == account_id,
-            Notification.read_at.is_(None),
-        )
+        .where(*mine)
         .values(read_at=now or dt.datetime.now(tz=dt.UTC))
     )
     session.commit()
@@ -357,6 +456,27 @@ def mark_read_for_source(
         )
         .values(read_at=now or dt.datetime.now(tz=dt.UTC))
     )
+
+
+def sent_class_change(
+    session: Session, *, kind: str, source_id: uuid.UUID
+) -> ClassChange | None:
+    """Read the class change a record's messages already carry, if any.
+
+    Every recipient's copy of one record carries the same change, so
+    any one of them answers.
+
+    :param session: The session to read through
+    :param kind: What produced the messages
+    :param source_id: The record they came from
+    :return: The change as sent, or None when nothing was sent
+    """
+    row = session.scalars(
+        sa.select(Notification)
+        .where(Notification.kind == kind, Notification.source_id == source_id)
+        .limit(1)
+    ).first()
+    return None if row is None else _class_change(row)
 
 
 def remove_for_source(session: Session, *, kind: str, source_id: uuid.UUID) -> None:

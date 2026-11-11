@@ -2527,6 +2527,11 @@ class Notification(Base):
     :ivar preview: A notice shortened to 60 characters, or an exam title
     :ivar created_at: When it was sent
     :ivar read_at: When its owner opened the inbox after it arrived
+    :ivar class_date: For a class change, the day the class is now on (or
+        was, if cancelled); copied at send time like ``batch_name``
+    :ivar class_time: For a class change, its start time on that day
+    :ivar moved_from_date: For a reschedule, the day it was moved from
+    :ivar moved_from_time: For a reschedule, the start time it was moved from
     """
 
     __tablename__ = "notification"
@@ -2557,6 +2562,10 @@ class Notification(Base):
     read_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    class_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    class_time: Mapped[dt.time | None] = mapped_column(Time, nullable=True)
+    moved_from_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    moved_from_time: Mapped[dt.time | None] = mapped_column(Time, nullable=True)
 
     __table_args__ = (
         Index("ix_notification_account_created", "account_id", "created_at"),
