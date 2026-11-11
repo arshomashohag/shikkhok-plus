@@ -249,6 +249,28 @@ describe('Inbox', () => {
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/n9/read'))).toBe(true))
   })
 
+  it('draws no empty line for a reschedule the server sent without its old time', async () => {
+    serve(me('student'), (_method, url) => {
+      if (url.endsWith('/v1/me/notifications/r1'))
+        return json(200, {
+          notification_id: 'r1',
+          kind: 'class_rescheduled',
+          available: true,
+          batch_name: 'Physics',
+          child_name: null,
+          created_at: new Date().toISOString(),
+          read: true,
+          class_date: '2099-04-12',
+          class_time: '16:00:00',
+        })
+      return undefined
+    })
+    renderAt('/inbox/r1')
+    const title = await screen.findByText('Class moved · Physics')
+    const article = title.closest('article')!
+    expect(article.querySelector('p')).toBeNull()
+  })
+
   it('says when an item is no longer available', async () => {
     serve(me('student'), (_method, url) =>
       url.endsWith('/v1/me/notifications/gone')

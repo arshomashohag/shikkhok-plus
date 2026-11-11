@@ -306,13 +306,13 @@ function Content({ content }: { content: InboxContent }) {
           ) : null}
         </dl>
       )
-    case 'class':
-      return (
-        <p className="inbox-notice">
-          {classLine(content.classKind, content.change, t, (d, time) =>
-            formatClassWhen(d, time, lang),
-          )}
-        </p>
+    case 'class': {
+      const line = classLine(content.classKind, content.change, t, (d, time) =>
+        formatClassWhen(d, time, lang),
       )
+      // A reschedule without its moved-from pair has no line to show:
+      // no empty paragraph in its place.
+      return line ? <p className="inbox-notice">{line}</p> : null
+    }
   }
 }
