@@ -481,8 +481,11 @@ function RecordForm({
             {seats.map((s, i) => (
               // The whole row is the switch: on a 320 px phone two side-by-side
               // buttons left the name 35 px wide [UX-1]. One tap still marks a
-              // student absent; the name, the state word and aria-pressed are
-              // what a screen reader announces.
+              // student absent. The accessible name is the student's name alone,
+              // so it does not change under the person as they toggle it; the
+              // state is announced once, by aria-pressed (pressed is present).
+              // The visible state word is for sighted users and hidden from
+              // assistive technology, which would otherwise hear it twice.
               <li key={s.enrollmentId}>
                 <button
                   type="button"
@@ -500,7 +503,10 @@ function RecordForm({
                     {String(i + 1).padStart(2, '0')}
                   </span>
                   <span className="grow title seat-name">{s.displayName}</span>{' '}
-                  <span className={s.present ? 'seat-pill present' : 'seat-pill absent'}>
+                  <span
+                    className={s.present ? 'seat-pill present' : 'seat-pill absent'}
+                    aria-hidden="true"
+                  >
                     {s.present ? <CheckIcon size={16} /> : <CrossIcon size={16} />}
                     {t(s.present ? 'attendance_present' : 'attendance_absent')}
                   </span>

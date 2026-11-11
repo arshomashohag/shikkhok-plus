@@ -247,7 +247,10 @@ describe('Student detail', () => {
         if (u.endsWith('/v1/students/s1') && m === 'GET')
           return json(
             200,
-            student('s1', 'Rafiq', [seat('b1', 'Physics A', { is_removable: true })]),
+            student('s1', 'Rafiq', [
+              seat('b1', 'Physics A', { is_removable: true }),
+              seat('b2', 'Chemistry B', { is_removable: true }),
+            ]),
           )
         if (u.endsWith('/v1/enrollments/e-b1') && m === 'DELETE')
           return new Response(null, { status: 204 })
@@ -260,11 +263,27 @@ describe('Student detail', () => {
       )
     }
 
+    it('names the batch on each row’s Remove button', async () => {
+      renderRemovable()
+      expect(
+        await screen.findByRole('button', { name: 'Remove from batch: Chemistry B' }),
+      ).toBeInTheDocument()
+      // The visible words stay part of the name, for voice control.
+      expect(
+        screen.getByRole('button', { name: 'Remove from batch: Physics A' }),
+      ).toHaveTextContent('Remove from batch')
+    })
+
     it('sends nothing on the tap, and removes only once confirmed', async () => {
       renderRemovable()
-      await userEvent.click(await screen.findByRole('button', { name: 'Remove from batch' }))
+      await userEvent.click(
+        await screen.findByRole('button', { name: 'Remove from batch: Physics A' }),
+      )
       const dialog = screen.getByRole('dialog', { name: 'Remove this place?' })
-      expect(dialog).toHaveTextContent('Rafiq will be removed from this batch')
+      // The screen lists two batches; the confirmation names the one meant.
+      expect(dialog).toHaveTextContent('Rafiq will be removed from “Physics A”')
+      // A destructive confirmation opens on the safe choice.
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
       expect(calls('DELETE', '/enrollments/')).toHaveLength(0)
       await userEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
       await waitFor(() => expect(calls('DELETE', '/v1/enrollments/e-b1')).toHaveLength(1))
@@ -272,10 +291,12 @@ describe('Student detail', () => {
 
     it('sends nothing when cancelled, by button or by Escape', async () => {
       renderRemovable()
-      await userEvent.click(await screen.findByRole('button', { name: 'Remove from batch' }))
+      await userEvent.click(
+        await screen.findByRole('button', { name: 'Remove from batch: Physics A' }),
+      )
       await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
       expect(screen.queryByRole('dialog')).toBeNull()
-      await userEvent.click(screen.getByRole('button', { name: 'Remove from batch' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Remove from batch: Physics A' }))
       await userEvent.keyboard('{Escape}')
       expect(screen.queryByRole('dialog')).toBeNull()
       expect(calls('DELETE', '/enrollments/')).toHaveLength(0)

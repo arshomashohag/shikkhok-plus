@@ -189,6 +189,38 @@ class InboxMapperTest {
     }
 
     @Test
+    fun `a malformed class time is dropped in the mapper, not formatted on screen`() {
+        // The screen formats `HH:MM`; "4pm", "16" or "" would throw there,
+        // during composition, and take the whole inbox down.
+        for (bad in listOf("4pm", "16", "", "1:00", "25:00:00", "16-00-00")) {
+            assertEquals(
+                null,
+                messages(dto("class_cancelled").copy(classDate = "2099-04-12", classTime = bad)).single().classChange,
+                bad,
+            )
+        }
+        assertEquals(
+            ClassChange("2099-04-12", "16:00"),
+            messages(dto("class_cancelled").copy(classDate = "2099-04-12", classTime = "16:00")).single().classChange,
+        )
+    }
+
+    @Test
+    fun `a malformed moved-from time drops the old slot and keeps the new one`() {
+        val message =
+            messages(
+                dto("class_rescheduled").copy(
+                    classDate = "2099-04-14",
+                    classTime = "18:00:00",
+                    movedFromDate = "2099-04-12",
+                    movedFromTime = "4",
+                ),
+            ).single()
+
+        assertEquals(ClassChange("2099-04-14", "18:00:00"), message.classChange)
+    }
+
+    @Test
     fun `a class change opens to its class on its own page`() {
         val opened =
             InboxMapper.afterDetail(

@@ -98,19 +98,44 @@ object InboxMapper {
     /**
      * The class a message names, when it names one.
      *
+     * A time that is not a wall-clock `HH:MM[:SS]` is treated as absent
+     * rather than passed on: the screen formats it while composing, and a
+     * malformed one there would take the whole inbox down with it. So a
+     * bad class time drops the class line, and a bad moved-from time drops
+     * the moved-from pair (the move is then shown without its old slot).
+     *
      * @param date The class's day
      * @param time Its start time
      * @param movedFromDate The day it moved from, for a move
      * @param movedFromTime The time it moved from, for a move
-     * @return The change, or null without both a day and a time
+     * @return The change, or null without both a day and a well-formed time
      */
     private fun classChangeOf(
         date: String?,
         time: String?,
         movedFromDate: String?,
         movedFromTime: String?,
-    ): ClassChange? =
-        if (date == null || time == null) null else ClassChange(date, time, movedFromDate, movedFromTime)
+    ): ClassChange? {
+        val now = time?.takeIf(::isWallClock)
+        if (date == null || now == null) return null
+        val before = movedFromTime?.takeIf(::isWallClock)
+        return if (movedFromDate != null && before != null) {
+            ClassChange(date, now, movedFromDate, before)
+        } else {
+            ClassChange(date, now)
+        }
+    }
+
+    /** `HH:MM`, optionally `:SS` and a fraction, on a 24-hour clock. */
+    private val WALL_CLOCK = Regex("([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9](\\.[0-9]+)?)?")
+
+    /**
+     * Whether a wire time can be shown as a clock time.
+     *
+     * @param time The server's time
+     * @return True for `HH:MM` or `HH:MM:SS`
+     */
+    private fun isWallClock(time: String): Boolean = WALL_CLOCK.matches(time)
 
     /**
      * Where tapping an item leads.

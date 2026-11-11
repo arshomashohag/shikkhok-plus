@@ -74,6 +74,36 @@ describe('Sheet', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps focus in the field across a backdrop tap and "Keep editing"', async () => {
+    const onClose = show()
+    const amount = screen.getByLabelText('Amount')
+    await userEvent.type(amount, '500')
+    expect(amount).toHaveFocus()
+    // A real pointer press: user-event moves focus on mousedown unless the
+    // press is prevented, which fireEvent.mouseDown never does.
+    await userEvent.click(backdropOf('Record'))
+    expect(screen.getByRole('button', { name: 'Keep editing' })).toHaveFocus()
+    await userEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
+    expect(screen.queryByRole('dialog', { name: 'Discard what you typed?' })).toBeNull()
+    expect(amount).toHaveFocus()
+    // Escape still reaches the sheet, and still asks.
+    await userEvent.keyboard('{Escape}')
+    expect(screen.getByRole('dialog', { name: 'Discard what you typed?' })).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('returns to the last field when focus was lost before the prompt opened', async () => {
+    show()
+    const amount = screen.getByLabelText('Amount')
+    await userEvent.type(amount, '500')
+    // As a phone does when the press lands elsewhere first.
+    amount.blur()
+    expect(document.body).toHaveFocus()
+    fireEvent.mouseDown(backdropOf('Record'))
+    await userEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
+    expect(amount).toHaveFocus()
+  })
+
   it('lets the sheet’s own Cancel close a dirty sheet without asking', async () => {
     const onClose = show()
     await userEvent.type(screen.getByLabelText('Amount'), '500')
@@ -109,6 +139,14 @@ describe('ConfirmSheet', () => {
     )
     return { onConfirm, onCancel }
   }
+
+  it('opens on Cancel, so a reflex Enter destroys nothing', async () => {
+    const { onConfirm, onCancel } = confirmSheet()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+    expect(onCancel).toHaveBeenCalledTimes(1)
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
 
   it('calls onConfirm only from its confirm button', async () => {
     const { onConfirm, onCancel } = confirmSheet()

@@ -151,6 +151,8 @@ export function StudentDetail() {
                     type="button"
                     className="btn btn-text"
                     disabled={busy}
+                    // The screen lists several batches: the name says which.
+                    aria-label={t('web_students_remove_seat_named', seat.batchName)}
                     onClick={() => setDialog({ kind: 'remove-seat', seat })}
                   >
                     {t('student_detail_remove_seat')}
@@ -257,10 +259,11 @@ export function StudentDetail() {
         </Sheet>
       ) : null}
       {dialog?.kind === 'remove-seat' ? (
-        // The same confirmation the Students tab asks for the same write [UX-8].
+        // The same confirmation the Students tab asks for the same write
+        // [UX-8], naming the batch, since this screen lists several.
         <ConfirmSheet
           title={t('roster_remove_confirm_title')}
-          body={t('roster_remove_confirm_body', student.name)}
+          body={t('web_students_remove_seat_body', student.name, dialog.seat.batchName)}
           confirmLabel={t('roster_remove_confirm')}
           busy={busy}
           onConfirm={() => void act(() => removeEnrollment(dialog.seat.enrollmentId))}

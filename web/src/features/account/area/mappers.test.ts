@@ -471,4 +471,16 @@ describe('class changes (PO-1, PO-10)', () => {
     expect(announced).toEqual([...INBOX_KINDS])
     expect(Object.keys(TITLE_KEY).sort()).toEqual([...INBOX_KINDS].sort())
   })
+
+  it('names only kinds the API declares, checked at typecheck', () => {
+    type ApiKind = Schemas['NotificationResponse']['kind']
+    // Every announced kind is one the API can send (`tsc` fails otherwise).
+    const announced: readonly ApiKind[] = INBOX_KINDS
+    // The API's kind is a closed set, not `string`, so that check has teeth:
+    // a kind the server never sends is refused.
+    // @ts-expect-error -- 'class_moved' is not a kind the API declares
+    const stale: ApiKind = 'class_moved'
+    expect(announced).toBe(INBOX_KINDS)
+    expect(stale).toBe('class_moved')
+  })
 })

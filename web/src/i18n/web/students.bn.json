@@ -10,5 +10,7 @@
   "web_notices_updated": "নোটিশ বদলানো হয়েছে",
   "web_notices_removed": "নোটিশ সরিয়ে নেওয়া হয়েছে",
   "web_notices_edit_title": "নোটিশ বদলান",
-  "web_dues_remind_offline": "রিমাইন্ডার পাঠাতে ইন্টারনেট সংযোগ লাগবে।"
+  "web_dues_remind_offline": "রিমাইন্ডার পাঠাতে ইন্টারনেট সংযোগ লাগবে।",
+  "web_students_remove_seat_named": "ব্যাচ থেকে সরান: {1}",
+  "web_students_remove_seat_body": "{1}-কে “{2}” থেকে সরানো হবে। কেউ এই জায়গা গ্রহণ করেনি, তাই কারও কোনও রেকর্ড নষ্ট হবে না।"
 }
