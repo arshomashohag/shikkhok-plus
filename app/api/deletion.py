@@ -52,14 +52,17 @@ from sqlalchemy.orm import Session
 
 from app.accounts.identifier import Channel, Identifier
 from app.api.auth import (
+    coarse_prefix_of,
     correlation_of,
     get_email_gateway,
     get_gateway,
     ip_prefix_of,
 )
 from app.api.deps import authenticated_account, get_session, token_subject
+from app.api.html import html_response
+from app.audit.log import AuthEvent, write_audit
 from app.auth import otp
-from app.auth.ceilings import CeilingChecker, SendBudget
+from app.auth.ceilings import CeilingBreach, CeilingChecker, SendBudget
 from app.auth.delivery import deliver_code
 from app.auth.mfa import APP_DOOR, check_code, load_factor
 from app.auth.totp import DIGITS
@@ -189,6 +192,12 @@ _REFUSAL_COPY: Final = {
     ),
     "auth.otp.temporarily_unavailable": (
         "We cannot send a code right now. Please try again later."
+    ),
+    # The network-wide failed-verify ceilings [SEC-6]. Says nothing about
+    # the code or the number: nothing was checked.
+    "auth.verify.temporarily_unavailable": (
+        "Too many wrong codes have been tried from your network. "
+        "Please try again later."
     ),
     # Two-step verification [0028]. The SMS code has been spent by the
     # time these are shown, so each says to request a new one.
@@ -365,7 +374,7 @@ def deletion_page() -> HTMLResponse:
 
     :return: The page
     """
-    return HTMLResponse(content=DELETION_PAGE)
+    return html_response(DELETION_PAGE)
 
 
 @router.post(
@@ -482,9 +491,8 @@ def _page(
     :param show_form: Whether to offer the form again
     :return: The response
     """
-    return HTMLResponse(
-        content=_render(notice=notice, phone=phone, show_form=show_form),
-        status_code=status,
+    return html_response(
+        _render(notice=notice, phone=phone, show_form=show_form), status
     )
 
 
@@ -511,7 +519,8 @@ def _external_deletion(
     :param email_gateway: The configured email gateway
     :return: ``requested`` after a code is sent, ``deleted`` after one
         is spent
-    :raises CeilingBreach: A deletion ceiling refused this send
+    :raises CeilingBreach: A deletion ceiling refused this send, or a
+        failed-verify ceiling refused this verify
     :raises ValidationError: The code is wrong, expired, used or was
         issued for a different purpose
     """
@@ -564,13 +573,33 @@ def _external_deletion(
         # fields, so there is nothing here that could differ.
         return DeletionOutcome(status="requested")
 
-    account_id = otp.verify(
-        session,
-        identifier,
-        body.code,
-        correlation_id,
-        purpose=otp.DELETION_PURPOSE,
-    )
+    # **The same guessing controls as ``POST /v1/auth/verify``** [SEC-6,
+    # C-20]. The route that destroys data used to have the weakest: no
+    # /64, /48 or global failed-verify ceiling, and no dead-code
+    # cool-off. A verify is refused before its code is checked while any
+    # of those ceilings is full, and every failure counts against them.
+    checker = CeilingChecker(session)
+    ip_prefix = ip_prefix_of(request)
+    coarse_prefix = coarse_prefix_of(request)
+    try:
+        checker.check_verify_allowed(ip_prefix, coarse_prefix)
+    except CeilingBreach:
+        write_audit(session, None, AuthEvent.VERIFY_CEILING_BREACHED, correlation_id)
+        session.commit()
+        raise
+    try:
+        account_id = otp.verify(
+            session,
+            identifier,
+            body.code,
+            correlation_id,
+            purpose=otp.DELETION_PURPOSE,
+        )
+    except otp.CodeRefused as refusal:
+        checker.record_verify_failure(ip_prefix, coarse_prefix)
+        if refusal.code_died:
+            checker.record_dead_code(identifier.rate_key)
+        raise
     # **The second factor guards deletion too** [0028]. Asked only after
     # the SMS code has proven the phone, so the page never says which
     # numbers have it; a SIM swap alone then cannot destroy an account
