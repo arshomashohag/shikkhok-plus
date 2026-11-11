@@ -12,27 +12,21 @@ import type { Lens } from '../../../session/session'
 
 // ------------------------------------------------------------------ inbox
 
-export type InboxKind =
-  | 'fee_reminder'
-  | 'payment_approved'
-  | 'payment_partial'
-  | 'payment_rejected'
-  | 'payment_recorded'
-  | 'notice'
-  | 'exam_scheduled'
-  | 'exam_cancelled'
-  | 'marks_available'
-  | 'claim_to_verify'
-  | 'class_cancelled'
-  | 'class_rescheduled'
+/** The kinds the API can send, from the generated OpenAPI schema. */
+type ApiInboxKind = Schemas['NotificationResponse']['kind']
 
 /**
  * Every kind this client can draw. Sent with each inbox read and with
  * "mark all read" (`?kind=`), so the server's `unread` counts only what
  * this screen will show (PO-10): a kind added on the server later is
  * neither shown nor counted until a client that names it ships.
+ *
+ * Checked against the API's own kind type, so a kind the server renames
+ * or drops fails typecheck here instead of being announced and never
+ * matched. A kind the server adds is not an error: by the rule above it
+ * waits for a client that names it.
  */
-export const INBOX_KINDS: readonly InboxKind[] = [
+export const INBOX_KINDS = [
   'fee_reminder',
   'payment_approved',
   'payment_partial',
@@ -45,7 +39,9 @@ export const INBOX_KINDS: readonly InboxKind[] = [
   'claim_to_verify',
   'class_cancelled',
   'class_rescheduled',
-]
+] as const satisfies readonly ApiInboxKind[]
+
+export type InboxKind = (typeof INBOX_KINDS)[number]
 
 function isKind(kind: string): kind is InboxKind {
   return (INBOX_KINDS as readonly string[]).includes(kind)
