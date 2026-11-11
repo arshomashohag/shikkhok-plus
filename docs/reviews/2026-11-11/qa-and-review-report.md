@@ -96,7 +96,30 @@ The baseline before any change was green on all three surfaces: backend
 coverage 95%, money module at 100% branch coverage, plus the Android and
 web suites.
 
-**Pending:** the final `make check` on `7005dbb` is running. This section is updated with its results.
+The final `make check` ran on `7005dbb`, the full tree with no part
+skipped, and printed `All gates passed.` with exit code 0.
+
+| Gate | Result |
+|---|---|
+| Ruff format and lint, including the decimal import gate | clean |
+| mypy | clean, 237 source files |
+| Backend suite, real PostgreSQL 16 through testcontainers, run as the restricted role | 2,846 tests: 0 failed, 0 errors, 0 skipped |
+| Money module branch coverage | 100% (344 statements, 104 branches) |
+| Backend line coverage outside money (80% floor) | 96%, up from the 95% baseline |
+| Android unit tests | 1,822 tests in 200 classes, 0 failures |
+| Kotlin quality: spotless, detekt, lint, coverage ratchet | pass. See the note below the table |
+| Web: generated-file drift, format, lint, typecheck, tests, both builds, bundle split | pass, 856 tests in 61 files |
+| Public site | pass, 48 tests |
+| Infra CloudFront functions | pass, 29 tests |
+
+**Kotlin coverage note.** Line coverage is 89.99% against the committed
+floor of 90.05%. The ratchet (`android/coverage.gradle.kts:248-251`) fails
+only on a drop of more than 0.5 points, so the gate passes as designed.
+Even so, the sprint lowered Kotlin coverage by 0.06 points, and this report
+says so rather than reading the green gate as "no change". The likely
+cause is the new inbox and attendance composables, which are covered by
+mapper and row tests but not by full-screen tests. The floor file is left
+as it is.
 
 ## 5. Known limitations, carried forward
 
