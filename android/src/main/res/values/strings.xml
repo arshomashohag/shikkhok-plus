@@ -833,6 +833,9 @@
     <string name="batch_subject_in_use">A subject with an exam can’t be removed. Keep it, or delete its exams first.</string>
     <string name="batch_edit_title">Edit batch</string>
     <string name="batch_edit_save">Save changes</string>
+    <string name="batch_marksheet_share">Share marksheet with the batch</string>
+    <string name="batch_marksheet_share_help">Students and guardians in this batch see their marksheets only while this is on.</string>
+    <string name="batch_marksheet_share_failed">Couldn\'t save marksheet sharing.</string>
     <string name="exam_edit_title">Edit exam</string>
     <string name="exam_edit_save">Save changes</string>
     <string name="mark_history_open">History</string>

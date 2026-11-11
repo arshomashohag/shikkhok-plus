@@ -1,9 +1,12 @@
 /**
  * Edit batch: name, subjects, monthly fee and due day — the fields
- * Android's EditBatchScreen offers (the schedule has its own screen, and
- * marksheet visibility belongs to exams). Only fields that changed are
- * sent. Whether a subject can be removed is the server's call: one with
- * classes or exams recorded against it is refused with its own message.
+ * Android's EditBatchScreen offers (the schedule has its own screen).
+ * Only fields that changed are sent. Whether a subject can be removed is
+ * the server's call: one with classes or exams recorded against it is
+ * refused with its own message.
+ *
+ * Below the form, **Share marksheet with the batch** [BR5.4]: its own
+ * write, sent the moment it is flipped, not part of Save changes.
  */
 import { useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router'
@@ -14,7 +17,7 @@ import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import { ErrorCard, Loading, TopBar } from '../../../ui/components'
 import { paths } from '../paths'
-import { updateBatch } from './api'
+import { setMarksheetVisibility, updateBatch } from './api'
 
 type Batch = Schemas['BatchResponse']
 
@@ -79,7 +82,10 @@ export function EditBatchScreen() {
         <div className="card meta">{t('batch_not_found')}</div>
       ) : null}
       {resource.state === 'loaded' && resource.data ? (
-        <EditForm batch={resource.data} fresh={resource.error === null} />
+        <>
+          <EditForm batch={resource.data} fresh={resource.error === null} />
+          <MarksheetToggle batch={resource.data} fresh={resource.error === null} />
+        </>
       ) : null}
     </>
   )
@@ -169,5 +175,86 @@ function EditForm({ batch, fresh }: { batch: Batch; fresh: boolean }) {
         </div>
       ) : null}
     </form>
+  )
+}
+
+/**
+ * The marksheet toggle [BR5.4].
+ *
+ * **It shows what the server last confirmed, never what was asked for**
+ * [TC-8, D-9]. The switch does not move when clicked; it moves when the
+ * server answers with the value now in force. A failed write leaves it
+ * where it was, says so, and offers Try again — which repeats that same
+ * write, and only when the teacher asks.
+ *
+ * **Read-only when the batch is inactive, as the server decides**: the
+ * batch's `active` flag is the server's statement that it is read-only
+ * history, and the write would be refused with `teaching.batch.inactive`.
+ * Read-only too while the batch shown could not be refreshed, as Save
+ * changes is.
+ */
+function MarksheetToggle({ batch, fresh }: { batch: Batch; fresh: boolean }) {
+  const { t, message } = useT()
+  const [visible, setVisible] = useState(batch.marksheet_visible)
+  const [busy, setBusy] = useState(false)
+  const [failure, setFailure] = useState<{ error: ApiError; wanted: boolean } | null>(null)
+  const readOnly = !batch.active || !fresh
+
+  async function write(wanted: boolean) {
+    setBusy(true)
+    setFailure(null)
+    try {
+      const answer = await setMarksheetVisibility(batch.id, wanted)
+      setVisible(answer.visible)
+    } catch (err) {
+      const error =
+        err instanceof ApiError ? err : new ApiError(0, 'UNEXPECTED', 'error.unexpected', false)
+      setFailure({ error, wanted })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card" style={{ marginTop: 16 }}>
+      <label className="choice" htmlFor="eb-marksheet">
+        <input
+          id="eb-marksheet"
+          type="checkbox"
+          role="switch"
+          checked={visible}
+          disabled={readOnly || busy}
+          aria-busy={busy || undefined}
+          aria-labelledby="eb-marksheet-label"
+          aria-describedby="eb-marksheet-help"
+          onChange={() => void write(!visible)}
+        />
+        <span>
+          <strong id="eb-marksheet-label">{t('batch_marksheet_share')}</strong>
+          <span id="eb-marksheet-help" className="help">
+            {batch.active ? t('batch_marksheet_share_help') : t('teaching_batch_inactive')}
+          </span>
+        </span>
+      </label>
+      {failure ? (
+        <div className="banner error" role="alert" style={{ marginTop: 16 }}>
+          <div>
+            <strong>{t('batch_marksheet_share_failed')}</strong>
+            <div>{message(failure.error.messageKey)}</div>
+            {failure.error.retryable ? (
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ marginTop: 8 }}
+                disabled={busy}
+                onClick={() => void write(failure.wanted)}
+              >
+                {t('auth_retry')}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </section>
   )
 }

@@ -773,6 +773,9 @@
     <string name="batch_subject_in_use">যে বিষয়ে পরীক্ষা আছে সেটি সরানো যাবে না। বিষয়টি রাখুন, অথবা আগে পরীক্ষাগুলো মুছুন।</string>
     <string name="batch_edit_title">ব্যাচ সম্পাদনা</string>
     <string name="batch_edit_save">পরিবর্তন সংরক্ষণ করুন</string>
+    <string name="batch_marksheet_share">ব্যাচের সাথে নম্বরপত্র শেয়ার করুন</string>
+    <string name="batch_marksheet_share_help">এটি চালু থাকলেই কেবল এই ব্যাচের শিক্ষার্থী ও অভিভাবকেরা তাদের নম্বরপত্র দেখতে পান।</string>
+    <string name="batch_marksheet_share_failed">নম্বরপত্র শেয়ারের পরিবর্তন সংরক্ষণ করা যায়নি।</string>
     <string name="exam_edit_title">পরীক্ষা সম্পাদনা</string>
     <string name="exam_edit_save">পরিবর্তন সংরক্ষণ করুন</string>
     <string name="mark_history_open">ইতিহাস</string>

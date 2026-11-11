@@ -417,3 +417,102 @@ describe('Schedule and batch edit', () => {
     expect(calls('PATCH', '/v1/batches/b1')[0]).toEqual({ subjects: ['1st paper'] })
   })
 })
+
+describe('Share marksheet with the batch', () => {
+  const toggle = () => screen.findByRole('switch', { name: 'Share marksheet with the batch' })
+
+  it('sends the write and shows the value the server returned', async () => {
+    // The server answers with the value now in force, which here is not
+    // what was asked for: the switch shows the server's, not the click's.
+    serve({
+      'GET /v1/batches': [{ ...BATCH, marksheet_visible: false }],
+      'PUT /v1/batches/b1/marksheet-visibility': () => json(200, { visible: false }),
+    })
+    at('/batches/b1/edit', '/batches/:batchId/edit', <EditBatchScreen />)
+    const sw = await toggle()
+    expect(sw).not.toBeChecked()
+    expect(sw).toHaveAccessibleDescription(/see their marksheets only while this is on/)
+    await userEvent.click(sw)
+    await waitFor(() =>
+      expect(calls('PUT', '/v1/batches/b1/marksheet-visibility')).toEqual([{ visible: true }]),
+    )
+    await waitFor(() => expect(sw).toBeEnabled())
+    expect(sw).not.toBeChecked()
+  })
+
+  it('turns on when the server confirms it', async () => {
+    serve({
+      'GET /v1/batches': [{ ...BATCH, marksheet_visible: false }],
+      'PUT /v1/batches/b1/marksheet-visibility': (body: unknown) => json(200, body),
+    })
+    at('/batches/b1/edit', '/batches/:batchId/edit', <EditBatchScreen />)
+    const sw = await toggle()
+    await userEvent.click(sw)
+    await waitFor(() => expect(sw).toBeChecked())
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('keeps the confirmed value on failure and retries the same write on request', async () => {
+    let attempts = 0
+    serve({
+      'GET /v1/batches': [BATCH],
+      'PUT /v1/batches/b1/marksheet-visibility': (body: unknown) => {
+        attempts += 1
+        return attempts === 1
+          ? json(503, {
+              error: { code: 'UNAVAILABLE', message_key: 'error.unexpected', retryable: true },
+            })
+          : json(200, body)
+      },
+    })
+    at('/batches/b1/edit', '/batches/:batchId/edit', <EditBatchScreen />)
+    const sw = await toggle()
+    expect(sw).toBeChecked()
+    await userEvent.click(sw)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent("Couldn't save marksheet sharing.")
+    // No optimistic state: still the value the server last confirmed.
+    expect(sw).toBeChecked()
+
+    await userEvent.click(within(alert).getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(sw).not.toBeChecked())
+    expect(calls('PUT', '/v1/batches/b1/marksheet-visibility')).toEqual([
+      { visible: false },
+      { visible: false },
+    ])
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('offers no retry when the server says trying again cannot help', async () => {
+    serve({
+      'GET /v1/batches': [BATCH],
+      'PUT /v1/batches/b1/marksheet-visibility': () =>
+        json(409, {
+          error: {
+            code: 'BATCH_INACTIVE',
+            message_key: 'teaching.batch.inactive',
+            retryable: false,
+          },
+        }),
+    })
+    at('/batches/b1/edit', '/batches/:batchId/edit', <EditBatchScreen />)
+    const sw = await toggle()
+    await userEvent.click(sw)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('This batch has been closed')
+    expect(within(alert).queryByRole('button')).not.toBeInTheDocument()
+    expect(sw).toBeChecked()
+  })
+
+  it('is read-only on an inactive batch, as the server decides, and sends nothing', async () => {
+    serve({ 'GET /v1/batches': [{ ...BATCH, active: false }] })
+    at('/batches/b1/edit', '/batches/:batchId/edit', <EditBatchScreen />)
+    const sw = await toggle()
+    expect(sw).toBeDisabled()
+    expect(sw).toBeChecked()
+    expect(sw).toHaveAccessibleDescription(/This batch has been closed/)
+    await userEvent.click(sw)
+    expect(calls('PUT', '/v1/batches/b1/marksheet-visibility')).toHaveLength(0)
+  })
+})
