@@ -3501,8 +3501,12 @@ export interface paths {
      * Read Inbox
      * @description Read this account's own messages, newest first.
      *
+     *     Only the kinds the client announces, and the unread count over the
+     *     same kinds (:func:`_readable`).
+     *
      *     :param account_id: The authenticated account
      *     :param session: The request-scoped session
+     *     :param kind: The kinds the client can show
      *     :return: The messages and the unread count
      */
     get: operations['read_inbox_v1_me_notifications_get']
@@ -3525,10 +3529,14 @@ export interface paths {
     put?: never
     /**
      * Read All
-     * @description Mark every message in this account's own inbox as read.
+     * @description Mark every message this client can show as read.
+     *
+     *     A kind the client did not announce stays unread, for the client
+     *     that can show it (:func:`_readable`).
      *
      *     :param account_id: The authenticated account
      *     :param session: The request-scoped session
+     *     :param kind: The kinds the client can show
      *     :return: None
      */
     post: operations['read_all_v1_me_notifications_read_post']
@@ -7849,6 +7857,10 @@ export interface components {
       batch_name: string
       /** Child Name */
       child_name?: string | null
+      /** Class Date */
+      class_date?: string | null
+      /** Class Time */
+      class_time?: string | null
       /**
        * Created At
        * Format: date-time
@@ -7863,6 +7875,8 @@ export interface components {
        */
       kind:
         | 'claim_to_verify'
+        | 'class_cancelled'
+        | 'class_rescheduled'
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
@@ -7872,6 +7886,10 @@ export interface components {
         | 'payment_partial'
         | 'payment_recorded'
         | 'payment_rejected'
+      /** Moved From Date */
+      moved_from_date?: string | null
+      /** Moved From Time */
+      moved_from_time?: string | null
       notice?: components['schemas']['NoticeBlock'] | null
       /**
        * Notification Id
@@ -7903,6 +7921,11 @@ export interface components {
      *     :ivar source_id: The record that produced it, if any
      *     :ivar child_name: Which child it is about, for a guardian's copy
      *     :ivar preview: A short line of its content, if any
+     *     :ivar class_date: For a class change, the day the class is now on, or
+     *         was on if cancelled
+     *     :ivar class_time: For a class change, its start time that day
+     *     :ivar moved_from_date: For a reschedule, the day it was moved from
+     *     :ivar moved_from_time: For a reschedule, the start time it was moved from
      */
     NotificationResponse: {
       amount?: components['schemas']['Money'] | null
@@ -7910,6 +7933,10 @@ export interface components {
       batch_name: string
       /** Child Name */
       child_name?: string | null
+      /** Class Date */
+      class_date?: string | null
+      /** Class Time */
+      class_time?: string | null
       /**
        * Created At
        * Format: date-time
@@ -7923,6 +7950,8 @@ export interface components {
        */
       kind:
         | 'claim_to_verify'
+        | 'class_cancelled'
+        | 'class_rescheduled'
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
@@ -7932,6 +7961,10 @@ export interface components {
         | 'payment_partial'
         | 'payment_recorded'
         | 'payment_rejected'
+      /** Moved From Date */
+      moved_from_date?: string | null
+      /** Moved From Time */
+      moved_from_time?: string | null
       /**
        * Notification Id
        * Format: uuid
@@ -19443,7 +19476,10 @@ export interface operations {
   }
   read_inbox_v1_me_notifications_get: {
     parameters: {
-      query?: never
+      query?: {
+        /** @description The kinds this client can show, repeated. Items and the unread count are both taken over these. Omitted: the kinds every client showed before kinds were announced. A kind this server does not publish is ignored. */
+        kind?: string[] | null
+      }
       header?: never
       path?: never
       cookie?: never
@@ -19457,6 +19493,15 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['InboxResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
         }
       }
       /** @description An unexpected failure; not retryable */
@@ -19481,7 +19526,10 @@ export interface operations {
   }
   read_all_v1_me_notifications_read_post: {
     parameters: {
-      query?: never
+      query?: {
+        /** @description The kinds this client can show, repeated. Items and the unread count are both taken over these. Omitted: the kinds every client showed before kinds were announced. A kind this server does not publish is ignored. */
+        kind?: string[] | null
+      }
       header?: never
       path?: never
       cookie?: never
@@ -19494,6 +19542,15 @@ export interface operations {
           [name: string]: unknown
         }
         content?: never
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
       }
       /** @description An unexpected failure; not retryable */
       500: {
