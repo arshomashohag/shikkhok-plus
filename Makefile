@@ -214,6 +214,11 @@ test:
 	@# [C-37]. A skipped test exits 0 exactly like a passing one, so CI
 	@# reads this file and fails on any skip: a suite that silently
 	@# skipped is never evidence that it passed.
+	@#
+	@# **Schema parity is a test in this run, not a separate step**
+	@# [ARC-1]. tests/db/test_schema_parity.py migrates a fresh database
+	@# to head and fails if app/db/models.py describes anything else, so
+	@# drift an autogenerate would turn into a DROP is red here and in CI.
 	$(PY) -m pytest tests -q -p no:cacheprovider \
 		--junitxml=$(PYTEST_JUNIT) \
 		--cov=app.money \
