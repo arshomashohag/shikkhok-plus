@@ -1,4 +1,27 @@
-"""The nine tables: seven owned, two created empty.
+"""Every table the migrations create, described as the migrations built it.
+
+**The migrations are the source of truth; this module describes them.**
+``migrations/env.py`` hands this metadata to Alembic as
+``target_metadata``, so a table, column, index or foreign key missing
+here is one a routine ``alembic revision --autogenerate`` would DROP.
+``tests/db/test_schema_parity.py`` migrates a fresh database to head and
+fails on any difference, so drift is a red ``make check`` rather than a
+destructive migration someone has to notice in review [ARC-1].
+
+Two consequences for a reader:
+
+* Some tables here are written only through raw SQL
+  (``pending_signup``, ``staging_sms_outbox`` and others). Their classes
+  still exist, because a missing class is a drop.
+* A constraint whose migration-given name the naming convention would
+  not reproduce -- a CHECK added by raw SQL, a foreign key named before
+  the convention or before its column was renamed -- carries that exact
+  name through :class:`~sqlalchemy.sql.elements.conv`. Alembic compares
+  neither CHECK constraints nor foreign-key names; the parity test
+  compares both through PostgreSQL's catalogue.
+* What the models do not describe is owned by its migration alone:
+  exclusion constraints (``0024``), row-level-security policies,
+  triggers and their functions, grants and extensions.
 
 Three of them carry a security property in their **shape** rather than in
 the code that touches them, which is the principle that where a rule
@@ -45,6 +68,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql.elements import conv
 
 from app.db.base import Base
 from app.db.money_type import MoneyColumn
@@ -398,6 +422,7 @@ __all__ = [
     "Owner",
     "OwnerMember",
     "PaymentClaim",
+    "PendingSignup",
     "Profile",
     "QueuedSubmission",
     "RateLimitCounter",
@@ -409,6 +434,7 @@ __all__ = [
     "ScheduleSlot",
     "Session",
     "Staff",
+    "StagingSmsOutbox",
     "Student",
     "VerifyAttempt",
 ]
@@ -470,6 +496,14 @@ class Account(Base):
     )
     deleted_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        # [0032] An account is reachable by at least one identifier.
+        CheckConstraint(
+            "phone IS NOT NULL OR email IS NOT NULL",
+            name="ck_account_has_identifier",
+        ),
     )
 
 
@@ -555,6 +589,11 @@ class OtpRequest(Base):
     __table_args__ = (
         Index("ix_otp_request_phone_issued_at", "phone", "issued_at"),
         Index("ix_otp_request_email_issued_at", "email", "issued_at"),
+        # [0032] A code goes to a number or to an address, never both.
+        CheckConstraint(
+            "(phone IS NULL) <> (email IS NULL)",
+            name="ck_otp_request_one_identifier",
+        ),
     )
 
 
@@ -604,6 +643,13 @@ class RefreshToken(Base):
     :ivar rotated_at: Set when superseded; presenting such a token is reuse
     :ivar reuse_detected_at: Records the event for the audit log, and makes
         a mass-logout incident explicable afterwards
+    :ivar family_started_at: When the family's first token was issued,
+        carried on every row so the absolute family lifetime survives the
+        purge of its oldest rows [0031, C-21]. Nullable because a token
+        issued before ``0031`` deployed was backfilled, not written
+    :ivar revoked_at: Set when logout or "sign out everywhere" ended the
+        family [0031, C-21]; kept apart from ``reuse_detected_at`` so a
+        signed-out device is not reported as an attack
     """
 
     __tablename__ = "refresh_token"
@@ -628,8 +674,18 @@ class RefreshToken(Base):
     reuse_detected_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    family_started_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    revoked_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
-    __table_args__ = (Index("ix_refresh_token_family_id", "family_id"),)
+    __table_args__ = (
+        Index("ix_refresh_token_family_id", "family_id"),
+        # [0031] "Sign out everywhere" revokes by account.
+        Index("ix_refresh_token_account_id", "account_id"),
+    )
 
 
 class RateLimitCounter(Base):
@@ -709,7 +765,122 @@ class AuthAuditLog(Base):
     )
     correlation_id: Mapped[str] = mapped_column(String(64), nullable=False)
 
-    __table_args__ = (Index("ix_auth_audit_log_occurred_at", "occurred_at"),)
+    __table_args__ = (
+        Index("ix_auth_audit_log_occurred_at", "occurred_at"),
+        # [0030] Account deletion's SET NULL probes this column.
+        Index(
+            "ix_auth_audit_log_account_id",
+            "account_id",
+            postgresql_where=text("account_id IS NOT NULL"),
+        ),
+    )
+
+
+class PendingSignup(Base):
+    """A signup form held until its number or address is verified [0031].
+
+    **Written only through raw SQL** in :mod:`app.auth.pending`, which
+    documents the verify-first flow [C-07]. The class exists so the
+    metadata Alembic compares against describes the table: without it an
+    autogenerated migration would drop every draft in flight.
+
+    Owner-private like ``profile`` -- it carries an address -- and read by
+    no route.
+
+    :ivar id: Surrogate key
+    :ivar phone: The number the draft is for; exactly one of this and
+        ``email`` [0032]
+    :ivar email: Or the address it is for
+    :ivar role: What the person signed up as
+    :ivar self_name: The name they typed
+    :ivar address_house: House or flat
+    :ivar address_road: Road or area
+    :ivar address_city: City or district
+    :ivar address_postcode: The four-digit postcode
+    :ivar centre_name: A coaching centre's name, for that role only
+    :ivar otp_request_id: The one code whose verification completes this
+        draft; SET NULL so the code purge never blocks on a draft
+    :ivar created_at: When the draft was saved
+    :ivar expires_at: After which it can no longer be completed
+    """
+
+    __tablename__ = "pending_signup"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True, unique=True)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True, unique=True)
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    self_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    address_house: Mapped[str] = mapped_column(Text, nullable=False)
+    address_road: Mapped[str] = mapped_column(Text, nullable=False)
+    address_city: Mapped[str] = mapped_column(Text, nullable=False)
+    address_postcode: Mapped[str] = mapped_column(String(4), nullable=False)
+    centre_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    otp_request_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("otp_request.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    expires_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('teacher', 'student', 'guardian', 'coaching')",
+            name="ck_pending_signup_role",
+        ),
+        CheckConstraint(
+            "(phone IS NULL) <> (email IS NULL)",
+            name="ck_pending_signup_one_identifier",
+        ),
+        Index("ix_pending_signup_otp_request_id", "otp_request_id"),
+        # The retention purge deletes by age.
+        Index("ix_pending_signup_created_at", "created_at"),
+    )
+
+
+class StagingSmsOutbox(Base):
+    """Messages the null gateway did not send, readable on staging [0003].
+
+    **Must never hold a row in production**; the table exists in every
+    environment so staging and production share one schema. Written and
+    read only through raw SQL in :mod:`app.gateway.outbox`. The class
+    exists so the metadata Alembic compares against describes the table.
+
+    :ivar id: Surrogate key
+    :ivar phone: The destination number; exactly one of this and
+        ``email`` [0032]
+    :ivar email: Or the destination address
+    :ivar message: The rendered body
+    :ivar correlation_id: Ties the entry to the issuing request
+    :ivar recorded_at: When it was recorded; reads ignore anything older
+        than five minutes
+    """
+
+    __tablename__ = "staging_sms_outbox"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    correlation_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    recorded_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "(phone IS NULL) <> (email IS NULL)",
+            name="ck_staging_sms_outbox_one_identifier",
+        ),
+        # Reads are by destination, newest first, inside a short window.
+        Index("ix_staging_sms_outbox_phone_recorded", "phone", "recorded_at"),
+        Index("ix_staging_sms_outbox_email_recorded", "email", "recorded_at"),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -948,7 +1119,12 @@ class Enrollment(Base):
     __tablename__ = "enrollment"
 
     id: Mapped[uuid.UUID] = _uuid_column()
-    batch_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    # [0030, audit C-26] ``0002`` deferred this key to a migration that
+    # never landed; ``0030`` added it. No ON DELETE, matching the
+    # migration, so deleting a batch that still has seats is refused.
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("batch.id"), nullable=False
+    )
     # Which of the owner's students this seat belongs to [0018].
     # NULL only for a seat whose batch row is missing, which the 0018
     # backfill could give no owner; every seat the app writes has one.
@@ -970,12 +1146,21 @@ class Enrollment(Base):
     # because the manifest already says the row must survive.
     student_account_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True),
-        ForeignKey("account.id", ondelete="SET NULL"),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            # Named by 0001 for the column 0002 renamed.
+            name=conv("fk_enrollment_account_id_account"),
+        ),
         nullable=True,
     )
     guardian_account_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True),
-        ForeignKey("account.id", ondelete="SET NULL"),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_enrollment_guardian_account"),
+        ),
         nullable=True,
     )
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
@@ -1020,6 +1205,18 @@ class Enrollment(Base):
             unique=True,
             postgresql_where=text("student_account_id IS NOT NULL"),
         ),
+        # [0030] The signup link finds seats by guardian number.
+        Index(
+            "ix_enrollment_guardian_phone",
+            "guardian_phone",
+            postgresql_where=text("guardian_phone IS NOT NULL"),
+        ),
+        # [0030] Created by raw SQL with its exact name; see the module
+        # docstring on ``conv``.
+        CheckConstraint(
+            "fee_amount IS NULL OR fee_amount >= 0",
+            name=conv("ck_enrollment_fee_amount_non_negative"),
+        ),
     )
 
 
@@ -1054,7 +1251,7 @@ class Batch(Base):
     id: Mapped[uuid.UUID] = _uuid_column()
     owner_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True),
-        ForeignKey("owner.id", ondelete="CASCADE"),
+        ForeignKey("owner.id", ondelete="CASCADE", name=conv("fk_batch_owner")),
         nullable=False,
     )
     name: Mapped[str] = mapped_column(Text, nullable=False)
@@ -1069,7 +1266,18 @@ class Batch(Base):
         DateTime(timezone=True), nullable=False
     )
 
-    __table_args__ = (Index("ix_batch_owner_id", "owner_id"),)
+    __table_args__ = (
+        Index("ix_batch_owner_id", "owner_id"),
+        CheckConstraint(
+            "fee_due_day IS NULL OR (fee_due_day BETWEEN 1 AND 31)",
+            name="ck_batch_fee_due_day",
+        ),
+        # [0030] Created by raw SQL with its exact name.
+        CheckConstraint(
+            "default_fee IS NULL OR default_fee >= 0",
+            name=conv("ck_batch_default_fee_non_negative"),
+        ),
+    )
 
 
 class PaymentMethod(Base):
@@ -1252,6 +1460,13 @@ class PaymentSubmission(Base):
             name="ck_payment_submission_one_reference",
         ),
         Index("ix_payment_submission_batch_id_status", "batch_id", "status"),
+        # [0030] Duplicate payment references are found per batch.
+        Index(
+            "ix_payment_submission_batch_transaction",
+            "batch_id",
+            "transaction_id",
+            postgresql_where=text("transaction_id IS NOT NULL"),
+        ),
     )
 
 
@@ -1272,7 +1487,7 @@ class BatchSubject(Base):
     id: Mapped[uuid.UUID] = _uuid_column()
     batch_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True),
-        ForeignKey("batch.id", ondelete="CASCADE"),
+        ForeignKey("batch.id", ondelete="CASCADE", name=conv("fk_batch_subject_batch")),
         nullable=False,
     )
     name: Mapped[str] = mapped_column(Text, nullable=False)
@@ -1300,7 +1515,7 @@ class ScheduleSlot(Base):
     id: Mapped[uuid.UUID] = _uuid_column()
     batch_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True),
-        ForeignKey("batch.id", ondelete="CASCADE"),
+        ForeignKey("batch.id", ondelete="CASCADE", name=conv("fk_schedule_slot_batch")),
         nullable=False,
     )
     weekday: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -1317,6 +1532,19 @@ class ScheduleSlot(Base):
         PgUUID(as_uuid=True),
         ForeignKey("room.id", ondelete="SET NULL"),
         nullable=True,
+    )
+
+    __table_args__ = (
+        CheckConstraint("weekday BETWEEN 0 AND 6", name="ck_schedule_slot_weekday"),
+        # [0030] Created by raw SQL with its exact name.
+        CheckConstraint(
+            "end_time > start_time",
+            name=conv("ck_schedule_slot_ends_after_start"),
+        ),
+        # [0030] A batch's timetable is read by batch.
+        Index("ix_schedule_slot_batch_id", "batch_id"),
+        # [0024] The SET NULL from owner_member fans out through this.
+        Index("ix_schedule_slot_teacher_member_id", "teacher_member_id"),
     )
 
 
@@ -1342,12 +1570,20 @@ class HiddenBatchPreference(Base):
     id: Mapped[uuid.UUID] = _uuid_column()
     account_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True),
-        ForeignKey("account.id", ondelete="CASCADE"),
+        ForeignKey(
+            "account.id",
+            ondelete="CASCADE",
+            name=conv("fk_hidden_batch_preference_account"),
+        ),
         nullable=False,
     )
     batch_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True),
-        ForeignKey("batch.id", ondelete="CASCADE"),
+        ForeignKey(
+            "batch.id",
+            ondelete="CASCADE",
+            name=conv("fk_hidden_batch_preference_batch"),
+        ),
         nullable=False,
     )
     hidden_at: Mapped[dt.datetime] = mapped_column(
@@ -1356,6 +1592,8 @@ class HiddenBatchPreference(Base):
 
     __table_args__ = (
         UniqueConstraint("account_id", "batch_id", name="uq_hidden_batch_preference"),
+        # [0030] A batch deletion fans out through this column.
+        Index("ix_hidden_batch_preference_batch_id", "batch_id"),
     )
 
 
@@ -1412,6 +1650,12 @@ class FeeCycle(Base):
             name="uq_fee_cycle_enrollment_period",
         ),
         Index("ix_fee_cycle_enrollment_id", "enrollment_id"),
+        # [0030] The balance fold sorts periods as text and relies on the
+        # fixed ``YYYY-MM`` width. Created by raw SQL with its exact name.
+        CheckConstraint(
+            "period ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+            name=conv("ck_fee_cycle_period_format"),
+        ),
     )
 
 
@@ -1539,6 +1783,17 @@ class PaymentClaim(Base):
         Index("ix_payment_claim_enrollment_id", "enrollment_id"),
         Index("ix_payment_claim_status", "status"),
         Index("ix_payment_claim_payment_submission_id", "payment_submission_id"),
+        # [0030] An account deletion's SET NULL fans out through these.
+        Index(
+            "ix_payment_claim_submitted_by",
+            "submitted_by_account_id",
+            postgresql_where=text("submitted_by_account_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_payment_claim_verified_by",
+            "verified_by_account_id",
+            postgresql_where=text("verified_by_account_id IS NOT NULL"),
+        ),
     )
 
 
@@ -1625,6 +1880,17 @@ class LedgerEntryRow(Base):
             "ix_ledger_entry_superseded_by_id",
             "superseded_by_id",
             postgresql_where=text("superseded_by_id IS NOT NULL"),
+        ),
+        # [0030] An account deletion's SET NULL fans out through this.
+        Index(
+            "ix_ledger_entry_created_by",
+            "created_by_account_id",
+            postgresql_where=text("created_by_account_id IS NOT NULL"),
+        ),
+        # [0030] Created by raw SQL with its exact name.
+        CheckConstraint(
+            "period ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+            name=conv("ck_ledger_entry_period_format"),
         ),
     )
 
@@ -1790,6 +2056,12 @@ class ExtraFeeEntry(Base):
         ),
         Index("ix_extra_fee_entry_charge_id", "extra_fee_charge_id"),
         Index("ix_extra_fee_entry_payment_claim_id", "payment_claim_id"),
+        # [0030] Reads hiding corrected entries probe this column.
+        Index(
+            "ix_extra_fee_entry_superseded_by_id",
+            "superseded_by_id",
+            postgresql_where=text("superseded_by_id IS NOT NULL"),
+        ),
     )
 
 
@@ -1941,6 +2213,8 @@ class ReminderEvent(Base):
 
     __table_args__ = (
         Index("ix_reminder_event_enrollment_period", "enrollment_id", "period"),
+        # [0030] An account deletion fans out through this column.
+        Index("ix_reminder_event_sent_by", "sent_by_account_id"),
     )
 
 
@@ -2095,6 +2369,8 @@ class Session(Base):
         ),
         Index("ix_session_batch_id", "batch_id"),
         Index("ix_session_batch_date", "batch_id", "date"),
+        # [0024] The SET NULL from owner_member fans out through this.
+        Index("ix_session_teacher_member_id", "teacher_member_id"),
         CheckConstraint(
             "attendance_version >= 0",
             name="ck_session_attendance_version_non_negative",
@@ -2279,6 +2555,12 @@ class Attendance(Base):
         ),
         Index("ix_attendance_enrollment_id", "enrollment_id"),
         Index("ix_attendance_submission_fk", "submission_id"),
+        # [0030] An account deletion's SET NULL fans out through this.
+        Index(
+            "ix_attendance_recorded_by",
+            "recorded_by_account_id",
+            postgresql_where=text("recorded_by_account_id IS NOT NULL"),
+        ),
     )
 
 
@@ -2353,6 +2635,8 @@ class Exam(Base):
     __table_args__ = (
         Index("ix_exam_batch_id", "batch_id"),
         Index("ix_exam_batch_subject_id", "batch_subject_id"),
+        # [0025] The SET NULL from owner_member fans out through this.
+        Index("ix_exam_examiner_member_id", "examiner_member_id"),
         # At least 1: a total of zero makes every percentage undefined
         # and every band degenerate.
         CheckConstraint("total_marks >= 1", name="ck_exam_total_marks_positive"),
@@ -2448,6 +2732,12 @@ class Mark(Base):
         ),
         Index("ix_mark_exam_id", "exam_id"),
         Index("ix_mark_enrollment_id", "enrollment_id"),
+        # [0030] An account deletion's SET NULL fans out through this.
+        Index(
+            "ix_mark_recorded_by",
+            "recorded_by_account_id",
+            postgresql_where=text("recorded_by_account_id IS NOT NULL"),
+        ),
     )
 
 
@@ -2570,6 +2860,18 @@ class Notification(Base):
     __table_args__ = (
         Index("ix_notification_account_created", "account_id", "created_at"),
         Index("ix_notification_source", "kind", "source_id"),
+        # [0030] The unread count reads only unread rows.
+        Index(
+            "ix_notification_unread",
+            "account_id",
+            postgresql_where=text("read_at IS NULL"),
+        ),
+        # [0030] A seat deletion fans out through this column.
+        Index(
+            "ix_notification_enrollment_id",
+            "enrollment_id",
+            postgresql_where=text("enrollment_id IS NOT NULL"),
+        ),
     )
 
 
@@ -2688,6 +2990,15 @@ class Room(Base):
     __table_args__ = (
         CheckConstraint("length(trim(name)) > 0", name="ck_room_name"),
         Index("ix_room_owner_id", "owner_id"),
+        # [0024] A live room's name is unique per owner, ignoring case;
+        # an archived room frees its name.
+        Index(
+            "uq_room_live_name",
+            "owner_id",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("archived_at IS NULL"),
+        ),
     )
 
 
