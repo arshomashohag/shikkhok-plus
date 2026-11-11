@@ -20,17 +20,16 @@ sealed interface SignupUiState {
     /**
      * A teacher already added this number.
      *
-     * **The name is pre-filled and correctable, and the role is
-     * locked** [BR4.5, AC1.12.1]. The screen also states that a
-     * teacher added this number and names **neither the teacher nor
-     * the batch** [AC1.12.2] -- which this state can honour because it
-     * holds neither value to render.
+     * **The role is locked** [BR4.5, AC1.12.1]. The screen also states
+     * that a teacher added this number and names **neither the teacher
+     * nor the batch** [AC1.12.2] -- which this state can honour because
+     * it holds neither value to render. It holds **no name** either:
+     * the lookup stopped returning one [C-06], so the person's own
+     * typed name is what is sent.
      *
-     * @property prefilledName The teacher-typed name, correctable
      * @property lockedRole The role the seat carries
      */
     data class AlreadyAdded(
-        val prefilledName: String,
         val lockedRole: SignupRole,
     ) : SignupUiState
 

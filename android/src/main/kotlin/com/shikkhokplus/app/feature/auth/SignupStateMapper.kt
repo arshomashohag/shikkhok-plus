@@ -38,11 +38,11 @@ object SignupStateMapper {
      * Map the already-added lookup.
      *
      * **Three outcomes and no fourth.** A number with no seat gives
-     * the empty form; a number with one gives a pre-filled, role-locked
-     * form; and a response claiming a seat without the name or role to
-     * fill it is a failure rather than a half-locked form, because
-     * locking the role to a guess is worse than not locking it
-     * [BR4.5].
+     * the empty form; a number with one gives a role-locked form; and a
+     * response claiming a seat without a role this app knows is a
+     * failure rather than a half-locked form, because locking the role
+     * to a guess is worse than not locking it [BR4.5]. No name is read:
+     * the lookup no longer returns one [C-06].
      *
      * @param dto The lookup's answer
      * @return The state the screen renders
@@ -52,12 +52,10 @@ object SignupStateMapper {
             return SignupUiState.Empty
         }
 
-        val role = SignupRole.fromWire(dto.role)
-        val name = dto.displayName
-        if (role == null || name == null) {
-            return SignupUiState.Failed(UNEXPECTED_KEY, retryable = false)
-        }
-        return SignupUiState.AlreadyAdded(prefilledName = name, lockedRole = role)
+        val role =
+            SignupRole.fromWire(dto.role)
+                ?: return SignupUiState.Failed(UNEXPECTED_KEY, retryable = false)
+        return SignupUiState.AlreadyAdded(lockedRole = role)
     }
 
     /**

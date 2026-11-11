@@ -15,15 +15,18 @@ import kotlinx.serialization.Serializable
  * server to keep it: a field declared here is a field somebody will
  * eventually ask the server to fill.
  *
+ * **No name.** The server's `display_name` is deprecated and never a
+ * name [C-06]: it is an empty string when [alreadyAdded] is true. It is
+ * not declared here, so nothing in this app can pre-fill from it -- the
+ * empty string once overwrote a name the person had already typed.
+ * `ignoreUnknownKeys` lets the field arrive and be dropped.
+ *
  * @property alreadyAdded Whether a teacher recorded this number
- * @property displayName The teacher-typed name, to pre-fill as
- *   correctable, or null when no seat exists
  * @property role The role to lock the form to, or null
  */
 @Serializable
 data class AlreadyAddedDto(
     @SerialName("already_added") val alreadyAdded: Boolean,
-    @SerialName("display_name") val displayName: String? = null,
     val role: String? = null,
 )
 

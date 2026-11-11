@@ -111,7 +111,6 @@
     <string name="signup_role_guardian">Guardian</string>
     <string name="signup_submit">Send code to %1$s</string>
     <string name="signup_submit_generic">Send code</string>
-    <string name="signup_already_added_notice">A teacher has already added this number. Check your name below and correct it if needed.</string>
     <string name="signup_role_locked_note">Your role was set when you were added.</string>
     <string name="signup_checking_number">Checking…</string>
     <string name="signup_submitting">Creating your account…</string>
@@ -946,7 +945,6 @@
     <string name="auth_otp_expired_body">Codes last 5 minutes. Ask for a new one.</string>
     <string name="auth_otp_no_tries_left">That code isn\'t right, and no tries are left. Ask for a new code.</string>
     <string name="signup_name_help">In Bangla or English, as you\'d like teachers to see it</string>
-    <string name="signup_name_help_prefilled">Filled in by your teacher. You can correct it.</string>
     <string name="signup_phone_help">This is your login. We\'ll text a code to it.</string>
     <string name="signup_role_help_teacher">You run batches, record classes and collect fees.</string>
     <string name="signup_role_help_student">You see your classes, marks and fees.</string>

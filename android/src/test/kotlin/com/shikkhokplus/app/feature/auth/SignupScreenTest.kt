@@ -10,6 +10,9 @@ import com.shikkhokplus.app.core.model.Identifier
 import com.shikkhokplus.app.core.ui.TAG_KIND_EMAIL
 import com.shikkhokplus.app.feature.auth.ui.TAG_SIGNUP_CONFIRM
 import com.shikkhokplus.app.feature.auth.ui.TAG_SIGNUP_PASSWORD
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -83,10 +86,7 @@ class SignupScreenTest {
     @Test
     fun `an already-added number locks the role rather than hiding it`() {
         render(
-            SignupUiState.AlreadyAdded(
-                prefilledName = "Rahim",
-                lockedRole = SignupRole.STUDENT,
-            ),
+            SignupUiState.AlreadyAdded(lockedRole = SignupRole.STUDENT),
         )
 
         // Present, so the person can see which role the seat carries —
@@ -102,10 +102,7 @@ class SignupScreenTest {
     @Test
     fun `an already-added number names neither the teacher nor the batch`() {
         render(
-            SignupUiState.AlreadyAdded(
-                prefilledName = "Rahim",
-                lockedRole = SignupRole.STUDENT,
-            ),
+            SignupUiState.AlreadyAdded(lockedRole = SignupRole.STUDENT),
         )
 
         // The notice says a teacher added this number and stops there
@@ -122,18 +119,23 @@ class SignupScreenTest {
     }
 
     @Test
-    fun `the prefilled name is shown and correctable`() {
-        render(
-            SignupUiState.AlreadyAdded(
-                prefilledName = "Rahim",
-                lockedRole = SignupRole.STUDENT,
-            ),
-        )
+    fun `a typed name survives the already-added answer`() {
+        // Regression: the lookup answers as the person leaves the number
+        // field, after they may already have typed their name. The
+        // server's display_name is an empty string [C-06], and copying
+        // it into the field erased the typed name. Nothing is copied now.
+        var state: SignupUiState by mutableStateOf(SignupUiState.Empty)
+        compose.setContent {
+            SignupScreen(state = state, onSubmit = {}, onGoToLogin = {}, onRetry = {})
+        }
+        compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rahim")
 
-        // Scrolled to: the board puts the notice, the role cards and the
-        // number above the name, which a short test viewport cannot fit.
+        state = SignupUiState.AlreadyAdded(lockedRole = SignupRole.STUDENT)
+        compose.waitForIdle()
+
         compose.onNodeWithText("Rahim").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Rahim").assertIsEnabled()
+        compose.onNodeWithText("A teacher has already added this number.").assertExists()
     }
 
     @Test
@@ -356,7 +358,7 @@ class SignupScreenTest {
 
     @Test
     fun `an already-added number keeps the toggle on phone`() {
-        render(SignupUiState.AlreadyAdded(prefilledName = "Rahim", lockedRole = SignupRole.STUDENT))
+        render(SignupUiState.AlreadyAdded(lockedRole = SignupRole.STUDENT))
 
         compose.onNodeWithTag(TAG_KIND_EMAIL).assertIsNotEnabled()
     }
