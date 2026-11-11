@@ -283,6 +283,37 @@ describe('lookup discipline', () => {
     expect(screen.getByRole('status')).toBeEmptyDOMElement()
   })
 
+  it('restores the person’s own pick when the lock no longer applies', async () => {
+    // The first number was added as a student; the second was not.
+    let asked = 0
+    serveLookup(() => json(200, asked++ === 0 ? ADDED : NOT_ADDED))
+    renderScreen(<SignUp />)
+    await userEvent.click(screen.getByRole('button', { name: 'Teacher' }))
+    await typeNumberAndLeave('01711234567')
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Student' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      ),
+    )
+
+    await typeNumberAndLeave('01811234567')
+    await waitFor(() => expect(lookups()).toHaveLength(2))
+    expect(screen.getByRole('button', { name: 'Teacher' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Student' })).toHaveAttribute('aria-pressed', 'false')
+
+    await userEvent.type(screen.getByLabelText('Full name'), 'Rina Akter')
+    await userEvent.type(screen.getByLabelText('House or flat'), '12')
+    await userEvent.type(screen.getByLabelText('Road and area'), 'Road 4, Dhanmondi')
+    await userEvent.type(screen.getByLabelText('City or district'), 'Dhaka')
+    await userEvent.type(screen.getByLabelText('Postcode'), '1205')
+    await userEvent.type(screen.getByLabelText('Password'), PASSWORD)
+    await userEvent.type(screen.getByLabelText('Type the password again'), PASSWORD)
+    await userEvent.click(screen.getByRole('button', { name: 'Send code' }))
+    await waitFor(() => expect(called('/v1/accounts')).toHaveLength(1))
+    expect(bodyOf('/v1/accounts')).toMatchObject({ role: 'teacher', phone: '01811234567' })
+  })
+
   it('drops the notice when the number is edited or email is chosen', async () => {
     serveLookup(() => json(200, ADDED))
     renderScreen(<SignUp />)

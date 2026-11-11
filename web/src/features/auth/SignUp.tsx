@@ -116,7 +116,8 @@ export function SignUp() {
   const failure = useFailureText()
   const { signIn } = useSession()
   const [step, setStep] = useState<Step>({ step: 'form' })
-  const [role, setRole] = useState<Role>('teacher')
+  /** The person's own pick, kept apart from any lock so clearing the lock restores it. */
+  const [chosenRole, setChosenRole] = useState<Role>('teacher')
   const [kind, setKind] = useState<IdentifierKind>('phone')
   const [values, setValues] = useState<Record<FieldName, string>>({
     centre: '',
@@ -143,6 +144,9 @@ export function SignUp() {
   // The number the field holds now, so a late answer about a number the
   // person has since changed is dropped rather than shown beside it.
   const current = useRef<string | null>(null)
+  // The seat's role while the notice applies, else the person's own pick
+  // (as Android's `prefilled?.lockedRole ?: chosenRole`).
+  const role: Role = added ?? chosenRole
 
   useEffect(() => {
     document.title = `${t('signup_title')} · ShikkhokPlus`
@@ -158,11 +162,6 @@ export function SignUp() {
 
   const set = (name: FieldName) => (e: { target: { value: string } }) =>
     setValues((v) => ({ ...v, [name]: e.target.value }))
-
-  function apply(answer: AddedRole | null) {
-    setAdded(answer)
-    if (answer) setRole(answer)
-  }
 
   /** A new number: an answer about the previous one stops applying. */
   function onIdentifierChange(e: { target: { value: string } }) {
@@ -180,7 +179,7 @@ export function SignUp() {
     current.current = phone
     if (!phone) return
     if (answers.current.has(phone)) {
-      apply(answers.current.get(phone) ?? null)
+      setAdded(answers.current.get(phone) ?? null)
       return
     }
     // Reserved before the request, so a second blur while it is in
@@ -196,7 +195,7 @@ export function SignUp() {
       answer = null
     }
     answers.current.set(phone, answer)
-    if (current.current === phone) apply(answer)
+    if (current.current === phone) setAdded(answer)
   }
 
   function validate(): { identifier: Identifier; postcode: string } | null {
@@ -392,7 +391,7 @@ export function SignUp() {
                   className="role-tile"
                   aria-pressed={role === r}
                   disabled={added !== null && added !== r}
-                  onClick={() => setRole(r)}
+                  onClick={() => setChosenRole(r)}
                 >
                   <Icon size={28} />
                   {t(`signup_role_${r}`)}
