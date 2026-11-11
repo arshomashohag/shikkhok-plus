@@ -88,6 +88,17 @@ export const finishSignIn = (
 export const signUp = (body: SignupRequest) =>
   request<Schemas['SignupResponse']>('POST', '/v1/accounts', { body, anonymous: true })
 
+/**
+ * Whether a teacher already recorded this number [BR2.3, BR4.5]. Public
+ * and counted against sign-up's own ceilings, so the form asks once per
+ * complete number and never while it is still being typed.
+ */
+export const lookupAlreadyAdded = (phone: string) =>
+  request<Schemas['AlreadyAddedResponse']>('GET', '/v1/accounts/already-added', {
+    query: { phone },
+    anonymous: true,
+  })
+
 // ------------------------------------------------------------------- me
 
 export const readMe = (signal?: AbortSignal) => request<Me>('GET', '/v1/me', { signal })
