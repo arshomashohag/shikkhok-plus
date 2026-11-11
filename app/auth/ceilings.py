@@ -66,6 +66,17 @@ before its code is checked. And a number whose codes keep being guessed
 to death is cooled off: once :data:`DEAD_CODES_PER_NUMBER_DAILY` codes
 have died at the attempt ceiling today, no further code is issued for
 it, for a known and an unknown number alike.
+
+**A failed password alerts globally but never refuses globally**
+[SEC-1]. Password failures used to fill the same global hourly ceiling
+as failed codes, and that ceiling refuses every verify in the product
+once full. A password guesser spread across a few prefixes, or a busy
+evening of real typos, therefore stopped every sign-in for the rest of
+the hour. The outage-over-a-guessing-run trade-off was made for
+six-digit codes, which have no per-identifier ceiling to fall back on;
+passwords do. So a failed password counts against the identifier, the
+caller's /64 and /48 (all three refuse), and against its own global
+scope, which alerts when it fills and refuses nothing.
 """
 
 from __future__ import annotations
@@ -91,6 +102,7 @@ __all__ = [
     "DEL_PER_NUMBER_DAILY",
     "DEL_PER_NUMBER_HOURLY",
     "GLOBAL_DAILY",
+    "PASSWORD_FAILURES_GLOBAL_HOURLY",
     "PER_COARSE_IP_HOURLY",
     "PER_IP_HOURLY",
     "PER_NUMBER_DAILY",
@@ -203,6 +215,16 @@ EMAIL_GLOBAL_DAILY: Final = int(
 #: gets ten tries an hour per identifier, and the code flow stays open
 #: to the real owner throughout.
 PASSWORD_FAILURES_PER_IDENTIFIER_HOURLY: Final = 10
+
+#: Failed password sign-ins across the whole product inside an hour, at
+#: which the operator is alerted [SEC-1]. **Alert only, never a
+#: refusal**: the per-identifier, /64 and /48 ceilings bound a guesser,
+#: and a global refusal here would let anyone turn a few hundred wrong
+#: passwords into an outage of every sign-in. **A value, not a
+#: decision**, configured at deployment.
+PASSWORD_FAILURES_GLOBAL_HOURLY: Final = int(
+    os.environ.get("SHIKKHOKPLUS_GLOBAL_HOURLY_PASSWORD_FAILURES", "300")
+)
 
 #: Sign-in requests from one /48 inside an hour, beyond which the next is
 #: refused [C-05]. Higher than the /64 limit: the /48 bounds one caller
@@ -320,6 +342,8 @@ class ScopeKind(enum.Enum):
     # Email and passwords [0032], inside `String(16)` like the rest.
     EMAIL_GLOBAL_DAILY = "em_global_day"
     PASSWORD_FAIL_ID_HOURLY = "pw_fail_id_hour"  # noqa: S105 -- a name, not a password
+    # Alert-only [SEC-1]: counted and alerted on, never checked.
+    PASSWORD_FAIL_GLOBAL_HOURLY = "pwf_global_hour"  # noqa: S105 -- a name
 
 
 #: The scopes whose breach reaches a human. Declared beside the enum
@@ -334,6 +358,7 @@ _ALERTING_SCOPES: Final = frozenset(
         ScopeKind.SIGNUP_GLOBAL_DAILY,
         ScopeKind.VERIFY_FAIL_GLOBAL_HOURLY,
         ScopeKind.EMAIL_GLOBAL_DAILY,
+        ScopeKind.PASSWORD_FAIL_GLOBAL_HOURLY,
     }
 )
 
@@ -647,10 +672,15 @@ class CeilingChecker:
     ) -> None:
         """Refuse a password sign-in while a failure ceiling is full [0032].
 
-        The network-wide failed-verify ceilings are shared with codes:
+        The per-prefix failed-verify ceilings are shared with codes:
         guessing a password and guessing a code are the same activity,
         and one attacker should not get two allowances by alternating.
         The per-identifier ceiling is the password path's own.
+
+        **The global failed-verify ceiling is not read here** [SEC-1].
+        It is the codes' outage switch; a password has the
+        per-identifier ceiling instead, and a full global count of
+        anybody's failures must not refuse this person's sign-in.
 
         Read, never incremented, like :meth:`check_verify_allowed`.
 
@@ -665,7 +695,9 @@ class CeilingChecker:
         scope = self._password_scope()
         if self._peek(scope, rate_key, moment) >= scope.limit:
             raise CeilingBreach(scope.kind)
-        self.check_verify_allowed(ip_prefix, coarse_prefix, moment)
+        for prefix_scope, value in self._prefix_verify_scopes(ip_prefix, coarse_prefix):
+            if self._peek(prefix_scope, value, moment) >= prefix_scope.limit:
+                raise CeilingBreach(prefix_scope.kind)
 
     def record_password_failure(
         self,
@@ -676,6 +708,11 @@ class CeilingChecker:
     ) -> None:
         """Count one failed password against the identifier and the caller.
 
+        The caller's /64 and /48 failed-verify counters are shared with
+        codes. The product-wide count is the password path's own,
+        alert-only scope, so it never fills the codes' global ceiling
+        [SEC-1].
+
         :param rate_key: The identifier's counter key
         :param ip_prefix: The caller's /64 (IPv4: /24)
         :param coarse_prefix: The caller's /48 (IPv4: /24)
@@ -684,7 +721,15 @@ class CeilingChecker:
         """
         moment = now or dt.datetime.now(tz=dt.UTC)
         self._increment(self._password_scope(), rate_key, moment)
-        self.record_verify_failure(ip_prefix, coarse_prefix, moment)
+        for scope, value in self._prefix_verify_scopes(ip_prefix, coarse_prefix):
+            self._increment(scope, value, moment)
+        alerting = _Scope(
+            ScopeKind.PASSWORD_FAIL_GLOBAL_HOURLY,
+            PASSWORD_FAILURES_GLOBAL_HOURLY,
+            _HOUR,
+        )
+        if self._increment(alerting, GLOBAL_SCOPE_VALUE, moment) == alerting.limit:
+            fire_ceiling_alert(alerting.kind.value)
 
     def check_and_consume_centre(
         self, account_id: uuid.UUID, now: dt.datetime | None = None
@@ -836,9 +881,36 @@ class CeilingChecker:
             _HOUR,
         )
 
-    @staticmethod
-    def _verify_scopes(ip_prefix: str, coarse_prefix: str) -> list[tuple[_Scope, str]]:
+    @classmethod
+    def _verify_scopes(
+        cls, ip_prefix: str, coarse_prefix: str
+    ) -> list[tuple[_Scope, str]]:
         """Build the failed-verify scopes, narrowest first [C-20].
+
+        :param ip_prefix: The caller's /64 (IPv4: /24)
+        :param coarse_prefix: The caller's /48 (IPv4: /24)
+        :return: Each scope paired with the value it counts against
+        """
+        return [
+            *cls._prefix_verify_scopes(ip_prefix, coarse_prefix),
+            (
+                _Scope(
+                    ScopeKind.VERIFY_FAIL_GLOBAL_HOURLY,
+                    VERIFY_FAILURES_GLOBAL_HOURLY,
+                    _HOUR,
+                ),
+                GLOBAL_SCOPE_VALUE,
+            ),
+        ]
+
+    @staticmethod
+    def _prefix_verify_scopes(
+        ip_prefix: str, coarse_prefix: str
+    ) -> list[tuple[_Scope, str]]:
+        """Build the per-caller failed-verify scopes, narrowest first.
+
+        Shared by codes and passwords; the product-wide scope is not
+        [SEC-1].
 
         :param ip_prefix: The caller's /64 (IPv4: /24)
         :param coarse_prefix: The caller's /48 (IPv4: /24)
@@ -860,14 +932,6 @@ class CeilingChecker:
                     _HOUR,
                 ),
                 coarse_prefix,
-            ),
-            (
-                _Scope(
-                    ScopeKind.VERIFY_FAIL_GLOBAL_HOURLY,
-                    VERIFY_FAILURES_GLOBAL_HOURLY,
-                    _HOUR,
-                ),
-                GLOBAL_SCOPE_VALUE,
             ),
         ]
 
