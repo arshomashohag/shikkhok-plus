@@ -54,11 +54,12 @@ VERSIONS: Final[pathlib.Path] = (
 #: and the supersession index -- once more, and ``0030`` -- integrity
 #: constraints and indexes -- again, and ``0031`` -- verify-first signup and
 #: the end of a session -- once more, and ``0032`` -- email as an identifier,
-#: and passwords -- again.
-EXPECTED_REVISIONS: Final[int] = 32
+#: and passwords -- again, and ``0033`` -- the class a class-change
+#: notification names -- once more.
+EXPECTED_REVISIONS: Final[int] = 33
 
-#: The head ``0032`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0032"
+#: The head ``0033`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0033"
 
 
 def _revision_files() -> list[pathlib.Path]:
