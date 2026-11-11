@@ -352,6 +352,8 @@ export function Sheet({
   const backdrop = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const [asking, setAsking] = useState(false)
+  /** The last element focused inside the sheet, to return to after the discard prompt. */
+  const lastFocused = useRef<HTMLElement | null>(null)
   // Callers pass an inline arrow, a new function every render: read the
   // latest through a ref so the opening effect never re-runs because of it.
   const latest = useRef({ onClose, dirty })
@@ -375,6 +377,16 @@ export function Sheet({
       if (previous?.isConnected) previous.focus()
     }
   }, [])
+
+  // Back from the discard prompt: if focus did not land inside this sheet
+  // (the prompt returns it to whatever had it when it opened, which may
+  // have been <body>), put it on the field the person was last in.
+  useEffect(() => {
+    const sheet = ref.current
+    if (asking || !sheet || sheet.contains(document.activeElement)) return
+    const target = lastFocused.current
+    ;(target?.isConnected && sheet.contains(target) ? target : sheet).focus()
+  }, [asking])
 
   /** A stray tap or Escape: close a clean sheet, ask about a dirty one. */
   function dismiss() {
@@ -410,7 +422,13 @@ export function Sheet({
       ref={backdrop}
       onKeyDown={onKeyDown}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) dismiss()
+        if (e.target !== e.currentTarget) return
+        // The backdrop is not focusable, so a press on it would otherwise
+        // blur the field to <body> before the discard prompt opens, and
+        // "Keep editing" would hand focus back to <body>: the phone's
+        // keyboard closes and Escape stops reaching the sheet.
+        e.preventDefault()
+        dismiss()
       }}
     >
       <div
@@ -420,6 +438,9 @@ export function Sheet({
         aria-labelledby={titleId}
         ref={ref}
         tabIndex={-1}
+        onFocus={(e) => {
+          if (e.target !== e.currentTarget) lastFocused.current = e.target
+        }}
       >
         <div className="sheet-handle" />
         <h2 id={titleId}>{title}</h2>
@@ -436,7 +457,6 @@ export function Sheet({
           body={t('web_sheet_discard_body')}
           confirmLabel={t('web_sheet_discard')}
           cancelLabel={t('web_sheet_keep_editing')}
-          focusCancel
           onConfirm={() => {
             setAsking(false)
             latest.current.onClose()
@@ -452,7 +472,9 @@ export function Sheet({
  * Ask before a destructive write: the one confirmation every screen uses,
  * first written for removing a place on the Students tab [UX-8, UX-9].
  * Nothing is sent until the confirm button is pressed; Cancel, Escape and
- * the backdrop send nothing.
+ * the backdrop send nothing. It opens with focus on Cancel, the safe
+ * choice, so an Enter carried over from the button that opened it (or a
+ * second one pressed by reflex) destroys nothing.
  */
 export function ConfirmSheet({
   title,
@@ -460,7 +482,6 @@ export function ConfirmSheet({
   confirmLabel,
   cancelLabel,
   busy = false,
-  focusCancel = false,
   onConfirm,
   onCancel,
 }: {
@@ -470,8 +491,6 @@ export function ConfirmSheet({
   /** Defaults to "Cancel". */
   cancelLabel?: string
   busy?: boolean
-  /** Start on the safe choice, for a confirmation nobody asked to see. */
-  focusCancel?: boolean
   onConfirm: () => void
   onCancel: () => void
 }) {
@@ -488,12 +507,7 @@ export function ConfirmSheet({
         >
           {confirmLabel}
         </button>
-        <button
-          type="button"
-          className="btn btn-text btn-money"
-          data-autofocus={focusCancel ? true : undefined}
-          onClick={onCancel}
-        >
+        <button type="button" className="btn btn-text btn-money" data-autofocus onClick={onCancel}>
           {cancelLabel ?? t('action_cancel')}
         </button>
       </div>
