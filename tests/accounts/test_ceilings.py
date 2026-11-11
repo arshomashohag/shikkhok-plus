@@ -15,6 +15,7 @@ exists. Signup must not weaken what the prior Unit built.
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import uuid
 from typing import Any
 
@@ -26,6 +27,7 @@ from sqlalchemy.orm import Session
 from app.accounts.service import SignupRole, create_account
 from app.api.accounts import get_gateway
 from app.auth.ceilings import (
+    LOOKUP_GLOBAL_HOURLY,
     LOOKUP_PER_IP_HOURLY,
     LOOKUP_PER_NUMBER_DAILY,
     SIGNUP_PER_NUMBER_DAILY,
@@ -553,3 +555,75 @@ def test_a_lookup_refusal_is_the_same_for_a_recorded_and_a_new_number(
 
     assert for_recorded.status_code == for_new.status_code == 409
     assert for_recorded.content == for_new.content
+
+
+def _set_global_lookups(session: Session, count: int) -> None:
+    """Set this hour's product-wide lookup count, whatever it was.
+
+    :param session: A session able to write counters
+    :param count: The count to hold
+    :return: None
+    """
+    window = dt.datetime.now(tz=dt.UTC).replace(minute=0, second=0, microsecond=0)
+    session.execute(
+        sa.text(
+            "INSERT INTO rate_limit_counter "
+            "(id, scope_kind, scope_value, window_start, count) "
+            "VALUES (gen_random_uuid(), :kind, 'global', :window, :count) "
+            "ON CONFLICT (scope_kind, scope_value, window_start) "
+            "DO UPDATE SET count = :count"
+        ),
+        {
+            "kind": ScopeKind.LOOKUP_GLOBAL_HOURLY.value,
+            "window": window,
+            "count": count,
+        },
+    )
+    session.commit()
+
+
+def test_a_served_lookup_counts_product_wide(
+    addressed_client: TestClient, owner_session: Session
+) -> None:
+    """Every lookup let through is counted against the whole product [SEC-4].
+
+    :param addressed_client: A client whose caller address is a header
+    :param owner_session: A session able to read counters back
+    :return: None
+    """
+    before = _count(owner_session, ScopeKind.LOOKUP_GLOBAL_HOURLY, "global")
+
+    for attempt in range(3):
+        assert (
+            _lookup(addressed_client, _phone(), f"88.{attempt}.0.1").status_code == 200
+        )
+
+    after = _count(owner_session, ScopeKind.LOOKUP_GLOBAL_HOURLY, "global")
+    assert after - before == 3
+
+
+def test_the_product_wide_lookup_scope_alerts_once_and_refuses_nothing(
+    addressed_client: TestClient,
+    owner_session: Session,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The lookup that fills the hour alerts; neither it nor the next is refused.
+
+    A wide enumeration spread past the per-caller ceilings is the one
+    those ceilings cannot see. Refusing here would let anyone break the
+    signup form for everyone, so the scope only reaches a human.
+
+    :param addressed_client: A client whose caller address is a header
+    :param owner_session: A session able to arrange fixture data
+    :param caplog: The log capture
+    :return: None
+    """
+    _set_global_lookups(owner_session, LOOKUP_GLOBAL_HOURLY - 1)
+
+    with caplog.at_level(logging.CRITICAL, logger="app.auth.ceilings"):
+        filling = _lookup(addressed_client, _phone(), "89.0.0.1")
+        beyond = _lookup(addressed_client, _phone(), "89.1.0.1")
+
+    assert filling.status_code == beyond.status_code == 200
+    alerted = [getattr(r, "scope", None) for r in caplog.records]
+    assert alerted.count(ScopeKind.LOOKUP_GLOBAL_HOURLY.value) == 1
