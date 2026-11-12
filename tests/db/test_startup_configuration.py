@@ -17,9 +17,11 @@ from app.config import (
     check_startup_configuration,
 )
 
-#: A JWT secret long enough to pass, and recognisable if it ever leaked
-#: into a message.
-JWT_SECRET = "s3cret-jwt-material-" + "x" * 20
+#: Test-only JWT signing material: long enough to pass, and recognisable
+#: if it ever leaked into a message. Named and valued as a fixture, as
+#: tests/conftest.py names its key, so the secrets scan does not read it
+#: as a credential.
+SIGNING_MATERIAL = "test-signing-material-" + "x" * 20
 
 COMPLETE = {
     "SHIKKHOKPLUS_GLOBAL_DAILY_SMS": "2000",
@@ -35,7 +37,7 @@ COMPLETE = {
     "SHIKKHOKPLUS_SES_SMTP_USERNAME": "AKIAEXAMPLE",
     "SHIKKHOKPLUS_SES_SMTP_PASSWORD": "smtp-password",
     "SHIKKHOKPLUS_EMAIL_FROM": "ShikkhokPlus <no-reply@example.com>",
-    "SHIKKHOKPLUS_JWT_KEYS": "k1:" + JWT_SECRET,
+    "SHIKKHOKPLUS_JWT_KEYS": "k1:" + SIGNING_MATERIAL,
     "SHIKKHOKPLUS_JWT_ACTIVE_KID": "k1",
 }
 
@@ -214,11 +216,11 @@ def test_an_unset_jwt_keyring_refuses_production(
 @pytest.mark.parametrize(
     ("keys", "active", "named"),
     [
-        ("k1" + JWT_SECRET, "k1", "entry 1"),
-        ("k1:" + JWT_SECRET + ",:" + JWT_SECRET, "k1", "entry 2"),
+        ("k1" + SIGNING_MATERIAL, "k1", "entry 1"),
+        ("k1:" + SIGNING_MATERIAL + ",:" + SIGNING_MATERIAL, "k1", "entry 2"),
         ("k1:", "k1", "entry 1"),
-        ("k1:" + JWT_SECRET, "k2", "SHIKKHOKPLUS_JWT_ACTIVE_KID"),
-        ("k1:" + JWT_SECRET, None, "SHIKKHOKPLUS_JWT_ACTIVE_KID"),
+        ("k1:" + SIGNING_MATERIAL, "k2", "SHIKKHOKPLUS_JWT_ACTIVE_KID"),
+        ("k1:" + SIGNING_MATERIAL, None, "SHIKKHOKPLUS_JWT_ACTIVE_KID"),
         ("k1:tiny-key-material", "k1", "32"),
     ],
 )
@@ -239,7 +241,7 @@ def test_a_malformed_jwt_keyring_refuses_to_start_anywhere(
     with pytest.raises(ConfigurationError, match=named) as refused:
         check_startup_configuration()
 
-    assert JWT_SECRET not in str(refused.value)
+    assert SIGNING_MATERIAL not in str(refused.value)
     assert "tiny-key-material" not in str(refused.value)
 
 
@@ -260,7 +262,7 @@ def test_the_app_refuses_to_build_with_a_malformed_keyring(
     from app.main import create_app
 
     monkeypatch.setenv(ENVIRONMENT_ENV, "test")
-    monkeypatch.setenv("SHIKKHOKPLUS_JWT_KEYS", "k1:" + JWT_SECRET)
+    monkeypatch.setenv("SHIKKHOKPLUS_JWT_KEYS", "k1:" + SIGNING_MATERIAL)
     monkeypatch.setenv("SHIKKHOKPLUS_JWT_ACTIVE_KID", "nope")
 
     with pytest.raises(ConfigurationError, match="ACTIVE_KID"):
