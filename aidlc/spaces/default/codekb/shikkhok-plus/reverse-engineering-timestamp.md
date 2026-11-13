@@ -2,97 +2,111 @@
 
 ## Run Record
 
-- Date: 2026-10-22
-- Commit: b14b1fab94768602a0e396e03ec32b079ffb9cf4
+- Date: 2026-11-13
+- Commit: cb20fd12abf7dcb3100730f2f9aabc852fd552af
 
 ### What this run was
 
-The first scan of this repository — the store check returned `NO_STORE`, so
-this is a **full scan** creating all nine artifacts from scratch. Store
-generation at the pre-scan snapshot: `none`.
+A **full rescan** for intent `261113-unique-usernames`, replacing the store built on 2026-10-22 at `b14b1fa` wholesale. The repository has grown since then (coaching centres, staff, payroll, expenses, extra fees, help centre, two-step verification, verify-first sign-up, email identity and passwords, class-change notifications; migrations 0018-0033), so every artifact was rebuilt from this run. The prior store was read for orientation only.
 
-The whole repository was analyzed. Build outputs, dependency folders and
-tool caches were left unopened per the "What to Skip" rule, and AI-DLC's own
-install (`.claude/` and the `aidlc/` workspace) is not the project's code
-and was not scanned or documented.
+Collaborators were off: one developer agent did both the code scan (`inception/reverse-engineering/developer-scan.md` in the intent record) and this synthesis.
 
-### What was verified by running it, not by reading it
+Depth was not uniform, and the Scope of Analysis block says so: the identity, sign-in, invitation, privacy-gate and schema areas the intent touches were read deeply; the other domain packages, the clients' non-identity features, infrastructure and workflows were read at module-docstring and inventory depth and are listed under `shallow.paths`. Build output, dependency folders, tool caches, the AI-DLC install and workspace, and the AI-tool scratch file `claude` were left unopened. `claude_design/` holds AI design-tool HTML mockups and is recorded as shallow reference, not as code.
 
-- `python3 -m pytest tests` — **615 passed**, 35 s
-- `python3 -m pytest tests --cov=app.money --cov-branch` — **100.00%**
-  branch, `fail_under = 100` reached
-- the 13-package backend coverage run against `.coveragerc-backend` —
-  **91%** line, floor 80%
-- `python3 -m pytest tests/privacy tests/db tests/batches` — **115 passed**
-  against a real PostgreSQL 16 container (Docker was reachable)
-- `ruff check app tests` — all checks passed
-- `ruff format --check app tests` — 135 files already formatted
-- `mypy app` — no issues in 65 source files
-- `openapi.json` parsed and reconciled against the four registered routers:
-  12 operations, 11 paths, 19 component schemas, all matching
+### What was verified by running it
 
-### Findings recorded in the artifacts
+- `ruff check app tests` — all checks passed (local Ruff 0.16.9; CI pins 0.17.3)
+- `ruff format --check app tests` — 548 files already formatted
+- `openapi.json` parsed: OpenAPI 3.1.0, 150 paths, 174 operations, 226 component schemas
+- Backend package import graph computed from the source (`dependencies.md`)
 
-Three items of drift between a written decision and the code, documented in
-`code-quality-assessment.md` with file and line:
+### What was not run
 
-1. `app.authz` is named as a mypy strict island and is not configured in
-   `pyproject.toml`.
-2. `PUBLIC_ROUTES` holds six entries under a comment stating "exactly five",
-   and two of them allowlist `/account-deletion` paths that no handler
-   registers.
-3. The `check.yml` step labelled "Lockfile verification, Python side"
-   performs an unpinned `pip install -e`.
+pytest and mypy: the Python dependencies are not installed in this environment. Test and coverage statements are counts and configured floors, not results from this run.
 
-No live security hole was found. The largest gaps are absences rather than
-defects: no dependency lockfile on either application surface, no CVE
-scanning anywhere, and the entire Android quality toolchain (ktlint,
-spotless, detekt, `lint.xml`, Kotlin coverage, screenshot tests) unbuilt.
+### Main findings
+
+Recorded in `code-quality-assessment.md` (findings U1-U17 for the username change request, and the state of every control team.md assigned "before D1"). In short: the lockfiles, both CVE-scanning speeds, the Android quality toolchain, the `app.authz` strict island and the `PUBLIC_ROUTES` count have landed since 2026-10-22; Dependabot and a backend SBOM have not; the Bangla layout obligation is discharged by a manual table and nothing automated. For the intent: sign-in identity is a closed phone-or-email type, teacher recording and seat matching are phone-only, and there are no dormant teacher-created accounts in the current code despite prose that says there are.
 
 ## Scope of Analysis
 
 ```yaml
 scope_version: 1
 kind: full
-intent: remaining-slices
-fingerprint: 7599d1532485cb8715d7d2aee3a583674ebb01d3
+intent: unique-usernames
+fingerprint: b2b153221d369075481a09309061d20cbccf4897
 analyzed:
   paths:
     - ./
   components:
     - app.main
-    - app.config
+    - app.request_scope
     - app.api
-    - app.authz
+    - app.accounts
     - app.auth
-    - app.money
+    - app.authz
+    - app.contract
     - app.schemas
     - app.db
-    - app.contract
     - app.errors
-    - app.gateway
     - app.audit
-    - app.governance
+    - app.gateway
+    - app.money
+    - app.fees
     - app.batches
-    - core.model
-    - core.network
-    - core.designsystem
-    - core.format
-    - core.ui
-    - feature.auth
-    - feature.batches
-    - feature.roster
-    - MainActivity
-    - infra (Terraform root)
-    - infra.modules
-    - infra.bootstrap
+    - app.students
+    - app.guardians
+    - app.centres
+    - app.staff
+    - app.payroll
+    - app.expenses
+    - app.teaching
+    - app.marks
+    - app.analytics
+    - app.notifications
+    - app.help
+    - app.admin
+    - app.governance
+    - app.seed
+    - migrations
+    - android.core
+    - android.feature.auth
+    - android.feature.account
+    - android.feature.profile
+    - android.feature.invitations
+    - android.feature.other
+    - web.app
+    - web.admin
+    - site
+    - infra
+    - deploy
+    - ci.workflows
+    - scripts
 shallow:
   paths:
+    - app/fees/
+    - app/money/
+    - app/marks/
+    - app/teaching/
+    - app/analytics/
+    - app/payroll/
+    - app/expenses/
+    - app/staff/
+    - app/notifications/
+    - app/gateway/
+    - app/seed/
+    - app/errors/
+    - app/admin/
+    - android/src/main/kotlin/com/shikkhokplus/app/feature/
+    - web/src/features/teacher/
+    - web/src/features/family/
+    - web/src/admin/
+    - site/
+    - infra/
+    - .github/workflows/deploy.yml
+    - .github/workflows/release-android.yml
+    - .github/workflows/security-scan.yml
+    - docs/
     - store_listing/
     - claude_design/
-    - infra/modules/cdn/
-    - infra/modules/network/
-    - infra/modules/registry/
-    - android/src/main/res/drawable/
-    - android/src/main/res/mipmap-anydpi-v26/
 ```
