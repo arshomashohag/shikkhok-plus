@@ -14,5 +14,13 @@
     "scope": "classic",
     "status": "in-flight",
     "request": "41f65988"
+  },
+  {
+    "uuid": "01a1d31d-d610-7478-90a5-93b1beb4d48b",
+    "slug": "unique-usernames",
+    "dirName": "261113-unique-usernames",
+    "scope": "refactor",
+    "status": "in-flight",
+    "request": "fa723a17"
   }
 ]
