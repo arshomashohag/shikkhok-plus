@@ -1,0 +1,37 @@
+{
+  "stage": "functional-design",
+  "unit": "contacts-and-invites-backend",
+  "upstream_ids": [
+    "FR2.5",
+    "FR6",
+    "FR6.1",
+    "FR6.2",
+    "FR6.3",
+    "FR6.4",
+    "FR6.5",
+    "FR6.6",
+    "FR6.7",
+    "FR8",
+    "FR8.1",
+    "FR8.2",
+    "FR8.3",
+    "FR8.4"
+  ],
+  "coverage": [
+    { "id": "FR2.5", "status": "OK", "target": "BR3.1, BR3.4, BR3.9" },
+    { "id": "FR6", "status": "OK", "target": "BR3.1" },
+    { "id": "FR6.1", "status": "OK", "target": "BR1.1, BR1.5, BR1.6, BR1.10, BR1.11" },
+    { "id": "FR6.2", "status": "OK", "target": "BR1.2, BR1.3, BR1.7" },
+    { "id": "FR6.3", "status": "OK", "target": "BR1.4, BR1.11" },
+    { "id": "FR6.4", "status": "OK", "target": "BR1.1, BR1.8, BR1.9, BR1.10" },
+    { "id": "FR6.5", "status": "OK", "target": "BR2.1, BR2.2, BR2.5, BR2.7, BR3.1, BR3.2, BR3.3, BR3.7, BR3.8, BR3.9" },
+    { "id": "FR6.6", "status": "OK", "target": "BR2.1, BR2.3, BR2.4, BR2.6, BR3.3, BR3.4, BR3.5, BR3.6" },
+    { "id": "FR6.7", "status": "OK", "target": "BR1.1, BR4.1, BR4.2, BR4.3, BR4.4" },
+    { "id": "FR8", "status": "OK", "target": "BR5.1, BR5.2" },
+    { "id": "FR8.1", "status": "OK", "target": "BR5.1" },
+    { "id": "FR8.2", "status": "OK", "target": "BR5.2, BR5.3, BR5.4, BR5.6, BR5.9, BR5.10, BR5.11, BR5.12" },
+    { "id": "FR8.3", "status": "OK", "target": "BR3.5, BR5.7, BR5.8, BR5.13" },
+    { "id": "FR8.4", "status": "OK", "target": "BR5.5" }
+  ],
+  "reverse": []
+}
