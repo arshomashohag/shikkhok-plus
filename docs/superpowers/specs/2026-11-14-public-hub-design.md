@@ -283,6 +283,27 @@ At day 90 of R1:
 
 Counts are server-side only.
 
+## Calls made while writing this up
+
+These are not owner decisions; correct any of them.
+
+- **Rate limiting behind the cache.** The `/hub/*` origin request policy
+  forwards exactly one header, `CloudFront-Viewer-Address`, kept out of the
+  cache key. Without it, the per-IP origin limit would put every cache miss in
+  one bucket. No other header and no cookie is forwarded.
+- **Migration order.** `hub_report` and `hub_moderation_event` move into 0034,
+  because R1 needs reports and suspension.
+- **Centre teacher consent.** The member name-consent route cannot use
+  `TeacherLens`, which centre `teacher`-role members never hold. It is a
+  lens-exempt authenticated route scoped to the caller's own `owner_member`
+  row. Without consent, the listing shows "Centre faculty".
+- **"Attended"** means an `attendance` row with `present = true` on a
+  non-cancelled session.
+- **The public fee** is the batch's `default_fee`. A per-seat fee never
+  appears.
+- **An opt-in rate between 10% and 20%** at day 90 means "hold": re-measure at
+  day 120 with the same bars.
+
 ## Left to the builder
 
 - Jinja2 or hand-escaped templates. The analysis recommends Jinja2, pinned and
