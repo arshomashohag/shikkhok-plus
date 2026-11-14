@@ -23,10 +23,15 @@ from app.gateway.email_html import render_email_html, site_url_from_env
 
 __all__ = [
     "APP_HASH_LENGTH",
+    "CONTACT_NOTICE_EMAIL",
+    "CONTACT_NOTICE_SMS",
+    "CONTACT_NOTICE_SUBJECT",
     "EMAIL_SUBJECT",
     "EMAIL_TEMPLATE",
     "GSM7_SEGMENT",
     "OTP_TEMPLATE",
+    "render_contact_notice_email",
+    "render_contact_notice_sms",
     "render_email_code",
     "render_otp_message",
 ]
@@ -113,6 +118,50 @@ EMAIL_TEMPLATE: Final = (
     "It expires in 5 minutes. Do not share it.\n"
     "If you did not ask for a code, you can ignore this email.\n"
 )
+
+
+#: The notice sent to a contact that left an account [U2: BR5.9]. **No
+#: username, no new contact, no account id and no code** [NFR3.5]: the
+#: person reading it may not be the account's holder any more, so it says
+#: only that something changed and where to turn if it was not them.
+#:
+#: The text is English only: GSM-7 keeps it to one segment, as the OTP
+#: text is, and Bangla would force UCS-2 at 70 characters per segment.
+CONTACT_NOTICE_SMS: Final = (
+    "This number was removed from a ShikkhokPlus account. If you did not "
+    "do this, contact ShikkhokPlus support."
+)
+
+#: The emailed notice, Bangla first then English, as the emailed code is.
+CONTACT_NOTICE_SUBJECT: Final = "ShikkhokPlus অ্যাকাউন্টে পরিবর্তন / account change"
+
+CONTACT_NOTICE_EMAIL: Final = (
+    "এই ইমেইল ঠিকানাটি একটি ShikkhokPlus অ্যাকাউন্ট থেকে সরানো হয়েছে।\n"
+    "আপনি এটি না করে থাকলে ShikkhokPlus সহায়তায় যোগাযোগ করুন।\n"
+    "\n"
+    "This email address was removed from a ShikkhokPlus account.\n"
+    "If you did not do this, contact ShikkhokPlus support.\n"
+)
+
+
+def render_contact_notice_sms() -> str:
+    """Render the removed-contact text, refusing one over a segment.
+
+    :return: The body to send
+    :raises ValueError: The body exceeds one GSM-7 segment
+    """
+    length = gsm7_length(CONTACT_NOTICE_SMS)
+    if length > GSM7_SEGMENT:
+        raise ValueError(f"the contact notice is {length} septets, over one segment")
+    return CONTACT_NOTICE_SMS
+
+
+def render_contact_notice_email() -> EmailMessage:
+    """Render the removed-contact email, plain text only.
+
+    :return: The rendered email
+    """
+    return EmailMessage(subject=CONTACT_NOTICE_SUBJECT, text=CONTACT_NOTICE_EMAIL)
 
 
 def render_email_code(code: str) -> EmailMessage:

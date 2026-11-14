@@ -205,7 +205,7 @@ These records are about how the service itself is running, not about any person.
 
 **A teacher's classes stay with their students.** If you are a teacher and delete your account, your sign-in, your own name and address are removed, and so are your name and payment number on each of your classes. The classes themselves stay as read-only history for your students and their guardians: their record of who came to each class, their results and fee records are theirs too. No new fees fall due on those classes, and amounts already recorded as owed stay on the records, where nobody can collect them.
 
-<!-- governance manifest digest: 2626a2fb4a76b5680b4958f915eab2de181c4496fee5743db879fa899f1a789d
+<!-- governance manifest digest: d970fe1034f42ab60a347bf29d6060e2b61b529b9930674109714db547da11a3
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

@@ -397,3 +397,163 @@ def test_the_public_lookup_never_returns_a_name(
         "display_name": None,
         "role": None,
     }
+
+
+# --------------------------------------------------------------------------
+# The email form [U2: BR4.1 to BR4.3, NFR1.1]. Written BEFORE the email
+# form existed: what the lookup may say is knowable from the recorded
+# seats, and a wider answer is an oracle on a guessable identifier.
+# --------------------------------------------------------------------------
+
+_NOTHING = {"already_added": False, "display_name": None, "role": None}
+
+
+def _email_lookup(client: TestClient, email: str) -> object:
+    """Ask the public lookup about an address.
+
+    :param client: A client against the restricted engine
+    :param email: The address typed into the form
+    :return: The response
+    """
+    return client.get("/v1/accounts/already-added", params={"email": email})
+
+
+def test_an_email_recorded_on_an_email_only_seat_reports_its_role(
+    client: TestClient, owner_session: Session
+) -> None:
+    """The student link is preferred; the answer is existence and role only.
+
+    :param client: A client against the restricted engine
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    from tests.accounts.contact_support import address, seat
+
+    teacher = make_teacher(owner_session, name="Physics")
+    as_student, as_guardian = address(), address()
+    seat(owner_session, teacher.batch_id, student_email=as_student)
+    seat(owner_session, teacher.batch_id, guardian_email=as_guardian)
+
+    student = _email_lookup(client, as_student.upper())
+    guardian = _email_lookup(client, as_guardian)
+
+    assert student.status_code == 200, student.text
+    assert student.json() == {
+        "already_added": True,
+        "display_name": "",
+        "role": "student",
+    }
+    assert guardian.json() == {
+        "already_added": True,
+        "display_name": "",
+        "role": "guardian",
+    }
+    assert "Rahim" not in student.text + guardian.text
+
+
+def test_an_email_answers_alike_whether_or_not_an_account_holds_it(
+    client: TestClient, owner_session: Session
+) -> None:
+    """Three cases, one byte-identical answer [BR4.3, NFR1.1].
+
+    An address recorded on no seat; an address held by an account that
+    IS linked to a seat, which records only a phone; and an address never
+    seen. A true answer would mean "an account holds this email", an
+    account-existence oracle on a guessable identifier.
+
+    :param client: A client against the restricted engine
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address, number, seat
+
+    teacher = make_teacher(owner_session, name="Physics")
+    held = address()
+    holder = account(owner_session, phone=number(), email=held)
+    seat(
+        owner_session,
+        teacher.batch_id,
+        student_phone=number(),
+        student_account_id=holder,
+        guardian_phone=number(),
+        guardian_account_id=holder,
+    )
+
+    answers = [
+        _email_lookup(client, held),
+        _email_lookup(client, address()),
+        _email_lookup(client, "never-seen@example.com"),
+    ]
+
+    assert {response.status_code for response in answers} == {200}
+    assert [response.json() for response in answers] == [_NOTHING] * 3
+    assert len({response.content for response in answers}) == 1
+    headers = [
+        {k: v for k, v in response.headers.items() if k.lower() != "x-correlation-id"}
+        for response in answers
+    ]
+    assert headers[0] == headers[1] == headers[2]
+
+
+def test_an_email_recorded_beside_a_phone_reports_nothing(
+    client: TestClient, owner_session: Session
+) -> None:
+    """The phone owns that link, so the email would never link it [BR4.3].
+
+    :param client: A client against the restricted engine
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    from tests.accounts.contact_support import address, number, seat
+
+    teacher = make_teacher(owner_session, name="Physics")
+    email = address()
+    seat(
+        owner_session,
+        teacher.batch_id,
+        guardian_email=email,
+        guardian_phone=number(),
+        student_email=email,
+        student_phone=number(),
+    )
+
+    assert _email_lookup(client, email).json() == _NOTHING
+
+
+def test_an_erased_email_link_reports_nothing(
+    client: TestClient, owner_session: Session
+) -> None:
+    """Sign-up will not relink it, so the form must not promise it [BR4.3].
+
+    :param client: A client against the restricted engine
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    from tests.accounts.contact_support import address, seat
+
+    teacher = make_teacher(owner_session, name="Physics")
+    email = address()
+    seat(
+        owner_session,
+        teacher.batch_id,
+        student_email=email,
+        student_relink_blocked_at=dt.datetime.now(tz=dt.UTC),
+    )
+
+    assert _email_lookup(client, email).json() == _NOTHING
+
+
+def test_the_lookup_takes_exactly_one_of_phone_or_email(client: TestClient) -> None:
+    """Neither and both are refused before anything is counted [BR4.1].
+
+    :param client: A client against the restricted engine
+    :return: None
+    """
+    neither = client.get("/v1/accounts/already-added")
+    both = client.get(
+        "/v1/accounts/already-added",
+        params={"phone": _phone(), "email": "a@example.com"},
+    )
+
+    assert neither.status_code == 422
+    assert both.status_code == 422

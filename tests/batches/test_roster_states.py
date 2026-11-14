@@ -406,3 +406,33 @@ def test_a_newly_added_seat_with_no_guardian_reports_absent(
     assert added.guardian_state == "absent"
     assert rows[0].guardian_state == added.guardian_state
     assert rows[0].student_state == added.student_state
+
+
+def test_the_roster_shows_recorded_emails_and_an_email_guardian_is_pending(
+    owner_session: Session,
+) -> None:
+    """Both addresses beside the number; email alone is pending [U2: BR1.6, BR1.11].
+
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    from tests.accounts.contact_support import address, seat
+
+    teacher = make_teacher(owner_session, name="Physics")
+    student_email, guardian_email = address(), address()
+    seat(
+        owner_session,
+        teacher.batch_id,
+        student_email=student_email,
+        guardian_email=guardian_email,
+    )
+
+    rows = list_roster(owner_session, lens=_lens(teacher), batch_id=teacher.batch_id)
+
+    assert len(rows) == 1
+    assert (rows[0].student_email, rows[0].guardian_email) == (
+        student_email,
+        guardian_email,
+    )
+    assert rows[0].guardian_phone is None
+    assert rows[0].guardian_state == "pending"

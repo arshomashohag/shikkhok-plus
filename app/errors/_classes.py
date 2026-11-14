@@ -110,7 +110,34 @@ class ConflictError(TaxonomyError):
 
     Retrying as-is is wrong, which is why a cost-ceiling or balance refusal
     is this class and never :class:`TransientError`.
+
+    **409, or 429 for a public lookup's ceiling** [U2: BR4.4]. The lookup
+    contracts (C1, C2) answer a lookup ceiling with 429; it stays in this
+    class, so ``retryable`` is still false and no retry-after hint is sent.
+    The status is typed ``Literal[409, 429]`` for the reason
+    :class:`AuthorizationError`'s is: a third value is a build-time error
+    at the raise site.
+
+    :ivar status: 409, or 429 for a lookup ceiling
     """
+
+    def __init__(
+        self,
+        code: str,
+        message_key: str,
+        details: dict[str, str] | None = None,
+        *,
+        status: Literal[409, 429] = 409,
+    ) -> None:
+        """Initialize a conflict.
+
+        :param code: A stable machine value
+        :param message_key: The client string resource to render
+        :param details: Optional typed payload
+        :param status: 409, or 429 for a lookup ceiling
+        """
+        super().__init__(code, message_key, details)
+        self.status: Literal[409, 429] = status
 
 
 class TransientError(TaxonomyError):

@@ -103,6 +103,7 @@ from app.errors import ConflictError
 
 __all__ = [
     "CENTRES_PER_ACCOUNT_DAILY",
+    "CONTACT_CHANGES_PER_ACCOUNT_DAILY",
     "DEAD_CODES_PER_NUMBER_DAILY",
     "DEL_GLOBAL_DAILY",
     "DEL_PER_IP_HOURLY",
@@ -193,6 +194,11 @@ LOOKUP_PER_COARSE_IP_HOURLY: Final = 100
 LOOKUP_GLOBAL_HOURLY: Final = int(
     os.environ.get("SHIKKHOKPLUS_GLOBAL_HOURLY_LOOKUPS", "1000")
 )
+
+#: Completed contact replacements and removals per account per UTC day
+#: [U2: BR5.6, NFR2.2]; the 6th is refused. Also what bounds the
+#: removed-contact notices one account can cause to five a day.
+CONTACT_CHANGES_PER_ACCOUNT_DAILY: Final = 5
 
 #: A 4th deletion code for one number inside an hour is refused
 #: [NFR14.100]. Matched to the OTP path's hourly allowance: a person
@@ -389,6 +395,10 @@ class ScopeKind(enum.Enum):
     # Alert-only [SEC-1]: counted and alerted on, never checked.
     PASSWORD_FAIL_GLOBAL_HOURLY = "pwf_global_hour"  # noqa: S105 -- a name
     LOOKUP_GLOBAL_HOURLY = "lk_global_hour"
+    # Completed contact replacements and removals per account per day
+    # [U2: BR5.6]. Fifteen characters, inside `String(16)`. Consumed only
+    # by the NON-committing consume, inside the change's own transaction.
+    CONTACT_CHANGE_DAILY = "contact_chg_day"
 
 
 #: The scopes whose breach reaches a human. Declared beside the enum
@@ -491,8 +501,16 @@ class CeilingBreach(ConflictError):
             ScopeKind.SIGNUP_NUMBER_DAILY,
             ScopeKind.SIGNUP_IP_HOURLY,
             ScopeKind.SIGNUP_IP48_HOURLY,
-            # The lookup runs on the signup form, so its refusal reads
-            # in signup's words [SEC-4].
+        }
+    )
+
+    #: The already-added lookup's scopes. Their refusal is its own: HTTP
+    #: 429 ``auth.lookup.too_many`` with ``retryable`` false and no
+    #: retry-after hint, for the phone and the email form alike [U2:
+    #: BR4.4]. It used to read in signup's words with a 409; the lookup
+    #: contracts fix 429, and keeping the class keeps "do not retry".
+    _LOOKUP_SCOPES: Final = frozenset(
+        {
             ScopeKind.LOOKUP_NUMBER_DAILY,
             ScopeKind.LOOKUP_IP_HOURLY,
             ScopeKind.LOOKUP_IP48_HOURLY,
@@ -517,7 +535,18 @@ class CeilingBreach(ConflictError):
         :param scope: The scope that refused
         :param during_signup: The refusal is on the signup path
         """
-        if scope in self._SIGNUP_SCOPES or during_signup:
+        if scope in self._LOOKUP_SCOPES:
+            super().__init__(
+                code="TEMPORARILY_UNAVAILABLE",
+                message_key="auth.lookup.too_many",
+                status=429,
+            )
+        elif scope is ScopeKind.CONTACT_CHANGE_DAILY:
+            super().__init__(
+                code="CONTACT_CHANGE_LIMIT",
+                message_key="account.contact.change_limit",
+            )
+        elif scope in self._SIGNUP_SCOPES or during_signup:
             super().__init__(
                 code="TEMPORARILY_UNAVAILABLE",
                 message_key="signup.temporarily_unavailable",
@@ -841,6 +870,73 @@ class CeilingChecker:
         )
         if self._increment(alerting, GLOBAL_SCOPE_VALUE, moment) == alerting.limit:
             fire_ceiling_alert(alerting.kind.value)
+
+    def check_contact_change_allowed(
+        self, account_id: uuid.UUID, now: dt.datetime | None = None
+    ) -> None:
+        """Refuse a replacement request when today's changes are spent.
+
+        **Read, never incremented** [U2: BR5.6]: only a COMPLETED change
+        counts, and asking for a code is not one. Checked before a code
+        is sent, so a person at the limit is not sent a code they cannot
+        use.
+
+        :param account_id: The account asking
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: Five changes were completed today
+        """
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        scope = self._contact_change_scope()
+        if self._peek(scope, str(account_id), moment) >= scope.limit:
+            raise CeilingBreach(scope.kind)
+
+    def consume_contact_change(
+        self, account_id: uuid.UUID, now: dt.datetime | None = None
+    ) -> None:
+        """Count one completed contact change, WITHOUT committing [BR5.6].
+
+        **The one consume that does not commit**, and the difference is
+        the requirement rather than a variation. :meth:`_consume` commits
+        after each scope, which inside a contact change would commit the
+        spent code and the change's partial writes, release the account's
+        lock, and make the count survive a later failure. Here the same
+        atomic upsert-and-compare runs in the change's own transaction:
+        the counter, the spent code and the contact write commit together
+        in the change's one commit or roll back together. A breach raises
+        and the caller rolls back, so nothing is counted and the code
+        stays unspent. Every other scope keeps the committing cascade.
+
+        Not an alerting scope: it is per account, and an alert on it
+        would fire on ordinary use.
+
+        :param account_id: The account changing a contact
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: This would be the sixth change today
+        """
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        scope = self._contact_change_scope()
+        count = self.session.execute(
+            _UPSERT,
+            {
+                "kind": scope.kind.value,
+                "value": str(account_id),
+                "window": _window_start(moment, scope.window),
+            },
+        ).scalar_one()
+        if count > scope.limit:
+            raise CeilingBreach(scope.kind)
+
+    @staticmethod
+    def _contact_change_scope() -> _Scope:
+        """Return the per-account contact-change scope [BR5.6].
+
+        :return: The scope
+        """
+        return _Scope(
+            ScopeKind.CONTACT_CHANGE_DAILY, CONTACT_CHANGES_PER_ACCOUNT_DAILY, _DAY
+        )
 
     def check_and_consume_centre(
         self, account_id: uuid.UUID, now: dt.datetime | None = None

@@ -614,3 +614,160 @@ def test_two_invitations_of_one_number_at_once_get_one_member(
         (201, None),
         (409, "MEMBER_ALREADY_INVITED"),
     ]
+
+
+# --------------------------------------------------------------------------
+# Inviting by email [U2: BR1.8, BR1.9, BR2.1], written from the rules.
+# --------------------------------------------------------------------------
+
+
+def _manager(session: Session) -> tuple[uuid.UUID, dict[str, str]]:
+    """Arrange a centre and an accepted manager acting on it.
+
+    :param session: An arranging session
+    :return: The centre id and the manager's headers
+    """
+    centre = _centre(session)
+    manager = _account(session)
+    _member(session, centre=centre, account_id=manager)
+    return centre, _headers(session, manager, centre)
+
+
+def _invite(client: TestClient, headers: dict[str, str], **body: object) -> object:
+    """Invite a teacher to the centre.
+
+    :param client: The test client
+    :param headers: The manager's headers
+    :param body: The contact fields
+    :return: The response
+    """
+    return client.post(
+        "/v1/centre/members",
+        json={"display_name": "Nadia", "role": "teacher", **body},
+        headers=headers,
+    )
+
+
+def test_a_centre_invites_by_email_alone(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """No phone in the response, the address lowercased, linked at once.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address
+
+    _, headers = _manager(owner_session)
+    email = address()
+    holder = account(owner_session, email=email)
+
+    invited = _invite(api_client, headers, email=f"  {email.upper()} ")
+
+    assert invited.status_code == 201, invited.text  # type: ignore[attr-defined]
+    body = invited.json()  # type: ignore[attr-defined]
+    assert body["phone"] is None
+    assert body["invited_email"] == email
+    assert body["decision"] == "pending"
+    owner_session.expire_all()
+    linked = owner_session.execute(
+        sa.select(OwnerMember.account_id).where(OwnerMember.id == body["member_id"])
+    ).scalar_one()
+    assert linked == holder
+
+
+def test_a_live_email_is_invited_once_per_centre(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """The same address again, alone or beside a phone, is refused [BR1.8].
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :return: None
+    """
+    from tests.accounts.contact_support import address
+
+    _, headers = _manager(owner_session)
+    email = address()
+
+    first = _invite(api_client, headers, email=email)
+    again = _invite(api_client, headers, email=email)
+    beside = _invite(api_client, headers, email=email, phone=_phone())
+
+    assert first.status_code == 201  # type: ignore[attr-defined]
+    for refused in (again, beside):
+        assert refused.status_code == 409  # type: ignore[attr-defined]
+        assert refused.json()["error"]["code"] == "MEMBER_ALREADY_INVITED"  # type: ignore[attr-defined]
+
+
+def test_an_invitation_must_name_a_phone_or_an_email(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """Naming nobody is a request validation error [BR1.8].
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :return: None
+    """
+    _, headers = _manager(owner_session)
+
+    assert _invite(api_client, headers).status_code == 422  # type: ignore[attr-defined]
+
+
+def test_a_phone_beside_an_email_decides_the_link(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """The address's account is not linked when a phone is recorded [BR2.1].
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address
+
+    _, headers = _manager(owner_session)
+    email = address()
+    account(owner_session, email=email)
+
+    invited = _invite(api_client, headers, email=email, phone=_phone())
+
+    assert invited.status_code == 201, invited.text  # type: ignore[attr-defined]
+    owner_session.expire_all()
+    linked = owner_session.execute(
+        sa.select(OwnerMember.account_id).where(
+            OwnerMember.id == invited.json()["member_id"]  # type: ignore[attr-defined]
+        )
+    ).scalar_one()
+    assert linked is None
+
+
+def test_a_legacy_empty_phone_is_listed_as_none(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """A manager row written before U2 with ``""`` reads as no phone [BR1.9].
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :return: None
+    """
+    centre, headers = _manager(owner_session)
+    owner_session.add(
+        OwnerMember(
+            owner_id=centre,
+            account_id=None,
+            invited_phone="",
+            display_name="Legacy manager",
+            role="manager",
+            decision="pending",
+            created_at=dt.datetime.now(tz=dt.UTC),
+        )
+    )
+    owner_session.commit()
+
+    listed = api_client.get("/v1/centre/members", headers=headers)
+
+    assert listed.status_code == 200, listed.text
+    phones = [row["phone"] for row in listed.json()]
+    assert None in phones
+    assert "" not in phones

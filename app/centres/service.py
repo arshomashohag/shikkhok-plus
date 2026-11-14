@@ -28,7 +28,9 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.accounts.identifier import resolve_link_target
 from app.authz.lenses import TeacherLens
+from app.db.advisory import contact_key, lock_keys
 from app.db.models import Account, Owner, OwnerMember
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.teaching.unassign import unassign_member
@@ -52,7 +54,9 @@ class MemberRow:
 
     :ivar member_id: The membership
     :ivar display_name: The name the inviting manager typed
-    :ivar phone: The number invited
+    :ivar phone: The number invited, or None for an invitation by email
+        alone; a legacy ``""`` is read as None [U2: BR1.9]
+    :ivar invited_email: The address invited, or None
     :ivar role: ``manager`` or ``teacher``
     :ivar decision: ``pending``, ``accepted`` or ``declined``
     :ivar invited_at: When they were invited
@@ -62,7 +66,8 @@ class MemberRow:
 
     member_id: uuid.UUID
     display_name: str
-    phone: str
+    phone: str | None
+    invited_email: str | None
     role: str
     decision: str
     invited_at: dt.datetime
@@ -137,12 +142,18 @@ def create_centre(
     session.add(centre)
     session.flush()
 
-    phone = session.scalar(sa.select(Account.phone).where(Account.id == account_id))
+    # The manager's own contacts, as recorded: no phone is NULL rather than
+    # the ``""`` this row used to carry, and the address is kept so an
+    # email-only manager's row says how they were reached [U2: BR1.9].
+    phone, email = session.execute(
+        sa.select(Account.phone, Account.email).where(Account.id == account_id)
+    ).one()
     session.add(
         OwnerMember(
             owner_id=centre.id,
             account_id=account_id,
-            invited_phone=phone or "",
+            invited_phone=phone,
+            invited_email=email,
             display_name=_clean(manager_name),
             role="manager",
             decision="accepted",
@@ -174,26 +185,30 @@ def invite_member(
     session: Session,
     *,
     lens: TeacherLens,
-    phone: str,
+    phone: str | None,
     display_name: str,
     role: str,
     now: dt.datetime | None = None,
+    email: str | None = None,
 ) -> uuid.UUID:
-    """Invite a number to the centre as a manager or a teacher.
+    """Invite a number, an address, or both to the centre.
 
     **Pending, and linked to an account at once only if one already holds
-    the number**; otherwise sign-up links it. Either way the membership
-    grants nothing until its holder accepts. Commits.
+    the contact that decides** -- the phone when one is given, else the
+    address [BR2.1]; otherwise the account that later verifies it is
+    linked by the matcher. Either way the membership grants nothing until
+    its holder accepts. Commits.
 
     :param session: The session to write through
     :param lens: The manager's lens on the centre
-    :param phone: The canonical number invited
+    :param phone: The canonical number invited, or None
     :param display_name: The name the manager typed
     :param role: ``manager`` or ``teacher``
     :param now: The moment, or None for the clock
+    :param email: The canonical address invited, or None [U2: FR6.4]
     :return: The new membership
-    :raises ConflictError: Not a centre, or the number already holds a
-        live membership here
+    :raises ConflictError: Not a centre, or the number or the address
+        already holds a live membership here
     """
     centre = centre_of(session, lens)
     member = add_invitation(
@@ -201,6 +216,7 @@ def invite_member(
         centre_id=centre.id,
         invited_by=lens.account_id,
         phone=phone,
+        email=email,
         display_name=display_name,
         role=role,
         now=now,
@@ -209,49 +225,79 @@ def invite_member(
     return member.id
 
 
+def _already_invited() -> ConflictError:
+    """Build the refusal for a contact a live invitation here already has.
+
+    :return: The error
+    """
+    return ConflictError(
+        code="MEMBER_ALREADY_INVITED", message_key="centre.member.already_invited"
+    )
+
+
 def add_invitation(
     session: Session,
     *,
     centre_id: uuid.UUID,
     invited_by: uuid.UUID,
-    phone: str,
+    phone: str | None,
     display_name: str,
     role: str,
     now: dt.datetime | None = None,
+    email: str | None = None,
 ) -> OwnerMember:
-    """Add a pending membership, refusing a number already live here.
+    """Add a pending membership, refusing a contact already live here.
 
     The one writer of an invitation, shared by the member routes and the
-    staff console so both apply the same rule. Adds to the caller's
-    transaction, flushes, and does not commit.
+    staff console so both apply the same rule [BR1.10]. Adds to the
+    caller's transaction, flushes, and does not commit.
+
+    **By phone, by email, or both** [U2: BR1.8]. A live invitation of this
+    centre holding the phone, or holding the address, refuses the new one.
+    The given contacts' advisory keys are taken before the target is
+    resolved, so a match for the same contact running now either
+    committed first and is seen, or sees this invitation [BR2.7].
 
     :param session: The session to write through
     :param centre_id: The centre, already checked to be one
     :param invited_by: The inviting manager's account
-    :param phone: The canonical number invited
+    :param phone: The canonical number invited, or None
     :param display_name: The name the manager typed
     :param role: ``manager`` or ``teacher``
     :param now: The moment, or None for the clock
+    :param email: The canonical address invited, or None
     :return: The new membership
-    :raises ConflictError: The number already holds a live membership here,
-        including one written concurrently
+    :raises ConflictError: The number or the address already holds a live
+        membership here, including one written concurrently
+    :raises ValueError: Neither a number nor an address was given
     """
+    phone = phone or None
+    if phone is None and email is None:
+        raise ValueError("an invitation needs a phone number or an email address")
+    contacts = [
+        *([("phone", phone)] if phone is not None else []),
+        *([("email", email)] if email is not None else []),
+    ]
+    lock_keys(session, [contact_key(kind, value) for kind, value in contacts])
+    same_contact = [
+        *([OwnerMember.invited_phone == phone] if phone is not None else []),
+        *([OwnerMember.invited_email == email] if email is not None else []),
+    ]
     live = session.scalar(
         sa.select(OwnerMember.id).where(
             OwnerMember.owner_id == centre_id,
-            OwnerMember.invited_phone == phone,
+            sa.or_(*same_contact),
             OwnerMember.revoked_at.is_(None),
         )
     )
     if live is not None:
-        raise ConflictError(
-            code="MEMBER_ALREADY_INVITED", message_key="centre.member.already_invited"
-        )
-    holder = session.scalar(sa.select(Account.id).where(Account.phone == phone))
+        raise _already_invited()
+    holder = resolve_link_target(session, phone=phone, email=email)
     member = OwnerMember(
         owner_id=centre_id,
         account_id=holder,
         invited_phone=phone,
+        invited_email=email,
         display_name=_clean(display_name),
         role=role,
         decision="pending",
@@ -295,7 +341,9 @@ def list_members(session: Session, *, lens: TeacherLens) -> list[MemberRow]:
         MemberRow(
             member_id=row.id,
             display_name=row.display_name,
-            phone=row.invited_phone,
+            # A legacy manager row's "" means no phone [BR1.9].
+            phone=row.invited_phone or None,
+            invited_email=row.invited_email,
             role=row.role,
             decision=row.decision,
             invited_at=row.created_at,

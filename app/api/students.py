@@ -9,11 +9,13 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
+from app.api.auth import correlation_of
 from app.api.deps import get_session, teacher_lens
 from app.authz.lenses import TeacherLens
+from app.db.retry import run_with_retry
 from app.money import Money as DomainMoney
 from app.money.wire import parse, to_wire
 from app.schemas.money import Money as WireMoney
@@ -65,6 +67,8 @@ def _response(row: service.StudentRow) -> StudentResponse:
         display_name=row.display_name,
         student_phone=row.student_phone,
         guardian_phone=row.guardian_phone,
+        student_email=row.student_email,
+        guardian_email=row.guardian_email,
         student_state=row.student_state,
         guardian_state=row.guardian_state,
         enrollments=[
@@ -156,29 +160,40 @@ def list_students(
 )
 def create_student(
     body: StudentCreateRequest,
+    request: Request,
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
     session: Annotated[Session, Depends(get_session)],
 ) -> StudentResponse:
     """Record a student, optionally seating them in batches [D3].
 
+    Re-run once or twice on a deadlock or serialization failure [U2:
+    NFR4.3]; it sends nothing before its commit.
+
     :param body: The student and their batches
+    :param request: The incoming request
     :param lens: The teacher lens carrying the owner id
     :param session: The request-scoped session
     :return: The new student
     """
-    row = service.create_student(
+    row = run_with_retry(
         session,
-        lens=lens,
-        display_name=body.display_name,
-        student_phone=body.student_phone,
-        guardian_phone=body.guardian_phone,
-        seats=[
-            service.SeatRequest(
-                batch_id=seat.batch_id, fee_amount=_from_wire(seat.fee_amount)
-            )
-            for seat in body.enrollments
-        ],
-        client_mutation_id=body.client_mutation_id,
+        lambda: service.create_student(
+            session,
+            lens=lens,
+            display_name=body.display_name,
+            student_phone=body.student_phone,
+            guardian_phone=body.guardian_phone,
+            student_email=body.student_email,
+            guardian_email=body.guardian_email,
+            seats=[
+                service.SeatRequest(
+                    batch_id=seat.batch_id, fee_amount=_from_wire(seat.fee_amount)
+                )
+                for seat in body.enrollments
+            ],
+            client_mutation_id=body.client_mutation_id,
+        ),
+        correlation_id=correlation_of(request),
     )
     return _response(row)
 
@@ -203,29 +218,37 @@ def read_student(
 def update_student(
     student_id: uuid.UUID,
     body: StudentUpdateRequest,
+    request: Request,
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
     session: Annotated[Session, Depends(get_session)],
 ) -> StudentResponse:
-    """Edit a student's name or numbers, on every seat at once.
+    """Edit a student's name or contacts, on every seat at once.
 
     :param student_id: The student
     :param body: What to change; omitted fields are unchanged
+    :param request: The incoming request
     :param lens: The teacher lens carrying the owner id
     :param session: The request-scoped session
     :return: The student, as edited
     """
     sent = body.model_fields_set
-    row = service.update_student(
+    changes = service.StudentChanges(
+        display_name=body.display_name,
+        student_phone=body.student_phone,
+        student_phone_set="student_phone" in sent,
+        guardian_phone=body.guardian_phone,
+        guardian_phone_set="guardian_phone" in sent,
+        student_email=body.student_email,
+        student_email_set="student_email" in sent,
+        guardian_email=body.guardian_email,
+        guardian_email_set="guardian_email" in sent,
+    )
+    row = run_with_retry(
         session,
-        lens=lens,
-        student_id=student_id,
-        changes=service.StudentChanges(
-            display_name=body.display_name,
-            student_phone=body.student_phone,
-            student_phone_set="student_phone" in sent,
-            guardian_phone=body.guardian_phone,
-            guardian_phone_set="guardian_phone" in sent,
+        lambda: service.update_student(
+            session, lens=lens, student_id=student_id, changes=changes
         ),
+        correlation_id=correlation_of(request),
     )
     return _response(row)
 
@@ -265,12 +288,16 @@ def enroll_student(
     :param session: The request-scoped session
     :return: The student, with the new seat
     """
-    row = service.enroll_student(
+    row = run_with_retry(
         session,
-        lens=lens,
-        student_id=student_id,
-        batch_id=body.batch_id,
-        fee_amount=_from_wire(body.fee_amount),
+        lambda: service.enroll_student(
+            session,
+            lens=lens,
+            student_id=student_id,
+            batch_id=body.batch_id,
+            fee_amount=_from_wire(body.fee_amount),
+        ),
+        correlation_id=None,
     )
     return _response(row)
 
@@ -294,7 +321,11 @@ def add_students_to_batch(
     :param session: The request-scoped session
     :return: How many were added
     """
-    added = service.add_students_to_batch(
-        session, lens=lens, batch_id=batch_id, student_ids=body.student_ids
+    added = run_with_retry(
+        session,
+        lambda: service.add_students_to_batch(
+            session, lens=lens, batch_id=batch_id, student_ids=body.student_ids
+        ),
+        correlation_id=None,
     )
     return AddStudentsResponse(added=added)

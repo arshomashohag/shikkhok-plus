@@ -40,6 +40,12 @@ STRUCTURED_FIELDS: Final[tuple[str, ...]] = (
     "provider_code",
     "correlation_id",
     "event",
+    # [U2: NFR2.6] which ceiling alerted, so a breach names its scope.
+    "scope",
+    # [U2: NFR4.8, NFR4.10] which database failure and which state, so a
+    # deadlock or a lock timeout is visible as itself in the log.
+    "error_class",
+    "sqlstate",
 )
 
 

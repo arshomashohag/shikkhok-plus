@@ -459,6 +459,83 @@ def test_a_staff_field_inside_the_console_is_permitted() -> None:
     assert staff_field_leaks(app) == []
 
 
+# ------------------------------------------- recorded emails [U2: NFR3.3]
+
+#: The teacher- and centre-written addresses [BR1.4]. Each names what a
+#: teacher or a manager TYPED about somebody else, never an account's own.
+RECORDED_EMAIL_FIELDS = frozenset({"student_email", "guardian_email", "invited_email"})
+
+#: The only response schemas that may carry them: the owning teacher's
+#: student and roster reads, and the centre manager's member list.
+RECORDED_EMAIL_SCHEMAS = frozenset(
+    {"StudentResponse", "RosterRowResponse", "MemberResponse"}
+)
+
+#: The request bodies the teacher writes them through. Inputs, not reads:
+#: they carry what the teacher is typing, back to nobody else.
+RECORDED_EMAIL_INPUTS = frozenset({"StudentCreateRequest", "StudentUpdateRequest"})
+
+
+def _recorded_email_leaks(document: dict[str, object]) -> list[tuple[str, str]]:
+    """List every schema outside the allowlist carrying a recorded email.
+
+    Walks the whole generated document rather than a list of endpoints, so
+    a schema added later is covered without anyone remembering it.
+
+    :param document: The OpenAPI document
+    :return: ``(schema, field)`` per leak
+    """
+    components = document.get("components", {})
+    schemas: dict[str, dict[str, object]] = components.get("schemas", {})  # type: ignore[attr-defined]
+    return sorted(
+        (name, field)
+        for name, schema in schemas.items()
+        if name not in RECORDED_EMAIL_SCHEMAS | RECORDED_EMAIL_INPUTS
+        for field in schema.get("properties", {})  # type: ignore[attr-defined]
+        if field in RECORDED_EMAIL_FIELDS
+    )
+
+
+def test_a_recorded_email_outside_the_allowlist_is_reported() -> None:
+    """The walk fires on a planted schema, so a green run is evidence.
+
+    :return: None
+    """
+
+    class GuardianCard(BaseModel):
+        """A family-facing response that must not carry a teacher's typing."""
+
+        guardian_email: str | None
+
+    app = _app_with(GuardianCard, _student_lens)
+
+    assert _recorded_email_leaks(app.openapi()) == [("GuardianCard", "guardian_email")]
+
+
+def test_recorded_emails_reach_only_their_teacher_and_manager_responses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The real application serves them on the three allowlisted schemas only.
+
+    :param monkeypatch: The patcher
+    :return: None
+    """
+    monkeypatch.setenv("SHIKKHOKPLUS_OTP_HMAC_KEY", "x")
+    monkeypatch.setenv(
+        "SHIKKHOKPLUS_JWT_KEYS", "k1:test-signing-key-padded-to-thirty-two"
+    )
+    monkeypatch.setenv("SHIKKHOKPLUS_JWT_ACTIVE_KID", "k1")
+    from app.main import create_app
+
+    document = create_app().openapi()
+    schemas = document["components"]["schemas"]
+
+    assert _recorded_email_leaks(document) == []
+    for name in RECORDED_EMAIL_SCHEMAS:
+        carried = set(schemas[name]["properties"]) & RECORDED_EMAIL_FIELDS
+        assert carried, f"{name} lost its recorded email fields"
+
+
 def test_the_application_serves_staff_fields_only_in_the_console(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

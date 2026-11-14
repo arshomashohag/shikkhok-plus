@@ -611,3 +611,695 @@ def test_keyset_pages_walk_the_same_list_the_unpaged_read_returns(
     )
     assert refused.status_code == 404
     assert client.get("/v1/students?limit=0", headers=headers).status_code == 422
+
+
+# --------------------------------------------------------------------------
+# Contacts by email: relinking, refusals and the edit-versus-accept race
+# [U2: BR2.1, BR2.3, BR2.4, BR2.6]. Written BEFORE the implementation:
+# which account a link names after an edit is knowable from the recorded
+# contacts alone, and a wrong answer is an authorization error.
+# --------------------------------------------------------------------------
+
+
+def _email_seat_owned_by(
+    client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    *,
+    student_email: str,
+    batches: list[uuid.UUID],
+) -> dict[str, object]:
+    """Record a student by email through the API.
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :param student_email: The student's address
+    :param batches: The batches to seat them in
+    :return: The response body
+    """
+    response = client.post(
+        "/v1/students",
+        headers=bearer(owner_session, teacher.account_id),
+        json={
+            "display_name": "Mitu",
+            "student_email": student_email,
+            "enrollments": [{"batch_id": str(batch)} for batch in batches],
+        },
+    )
+    assert response.status_code == 201, response.text
+    body: dict[str, object] = response.json()
+    return body
+
+
+def _links(session: Session, student_id: object) -> list[tuple[object, ...]]:
+    """Read every seat's student and guardian links and decisions.
+
+    :param session: An arranging session
+    :param student_id: The student
+    :return: One tuple per seat, by seat id
+    """
+    session.expire_all()
+    rows = session.execute(
+        sa.text(
+            "SELECT student_account_id, student_decision, guardian_account_id, "
+            "guardian_decision FROM enrollment WHERE student_id = :s ORDER BY id"
+        ),
+        {"s": student_id},
+    ).all()
+    session.commit()
+    return [tuple(row) for row in rows]
+
+
+def test_a_save_never_links_an_email_where_a_phone_is_recorded(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """The phone owns the link even when only the email has an account [BR2.1].
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address, number
+
+    email = address()
+    account(owner_session, email=email)
+    response = client.post(
+        "/v1/students",
+        headers=bearer(owner_session, teacher.account_id),
+        json={
+            "display_name": "Mitu",
+            "student_phone": number(),
+            "student_email": email,
+            "enrollments": [{"batch_id": str(teacher.batch_id)}],
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    assert _links(owner_session, response.json()["student_id"]) == [
+        (None, "pending", None, "pending")
+    ]
+
+
+def test_a_save_links_an_email_only_link_to_that_emails_account(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """With no phone recorded, the email's account takes the link, pending.
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address
+
+    email = address()
+    holder = account(owner_session, email=email)
+    created = _email_seat_owned_by(
+        client, owner_session, teacher, student_email=email, batches=[teacher.batch_id]
+    )
+
+    assert _links(owner_session, created["student_id"]) == [
+        (holder, "pending", None, "pending")
+    ]
+
+
+def test_changing_a_recorded_email_relinks_every_seat_and_resets_it(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """A different address is a different person, who agreed to nothing [BR2.3].
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address
+
+    first, second = address(), address()
+    first_holder = account(owner_session, email=first)
+    second_holder = account(owner_session, email=second)
+    other_batch = _second_batch(owner_session, teacher, "Chemistry")
+    created = _email_seat_owned_by(
+        client,
+        owner_session,
+        teacher,
+        student_email=first,
+        batches=[teacher.batch_id, other_batch],
+    )
+    owner_session.execute(
+        sa.text(
+            "UPDATE enrollment SET student_decision = 'declined' WHERE student_id = :s"
+        ),
+        {"s": created["student_id"]},
+    )
+    owner_session.commit()
+    assert {row[0] for row in _links(owner_session, created["student_id"])} == {
+        first_holder
+    }
+
+    edited = client.patch(
+        f"/v1/students/{created['student_id']}",
+        headers=bearer(owner_session, teacher.account_id),
+        json={"student_email": second},
+    )
+
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["student_email"] == second
+    assert _links(owner_session, created["student_id"]) == [
+        (second_holder, "pending", None, "pending"),
+        (second_holder, "pending", None, "pending"),
+    ]
+
+
+def test_clearing_a_guardian_email_unlinks_and_resets_that_link_only(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """Null clears it; the link empties and the student link is untouched.
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address
+
+    guardian_email = address()
+    guardian = account(owner_session, email=guardian_email)
+    response = client.post(
+        "/v1/students",
+        headers=bearer(owner_session, teacher.account_id),
+        json={
+            "display_name": "Mitu",
+            "guardian_email": guardian_email,
+            "enrollments": [{"batch_id": str(teacher.batch_id)}],
+        },
+    )
+    assert response.status_code == 201, response.text
+    student_id = response.json()["student_id"]
+    assert _links(owner_session, student_id) == [(None, "pending", guardian, "pending")]
+
+    cleared = client.patch(
+        f"/v1/students/{student_id}",
+        headers=bearer(owner_session, teacher.account_id),
+        json={"guardian_email": None},
+    )
+
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["guardian_email"] is None
+    assert cleared.json()["guardian_state"] == "absent"
+    assert _links(owner_session, student_id) == [(None, "pending", None, "pending")]
+
+
+def test_an_accepted_email_cannot_be_changed(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """The existing refusal now covers an email [BR2.4].
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address
+
+    email = address()
+    holder = account(owner_session, email=email)
+    created = _email_seat_owned_by(
+        client, owner_session, teacher, student_email=email, batches=[teacher.batch_id]
+    )
+    owner_session.execute(
+        sa.text(
+            "UPDATE enrollment SET student_decision = 'accepted' WHERE student_id = :s"
+        ),
+        {"s": created["student_id"]},
+    )
+    owner_session.commit()
+
+    refused = client.patch(
+        f"/v1/students/{created['student_id']}",
+        headers=bearer(owner_session, teacher.account_id),
+        json={"student_email": address()},
+    )
+
+    assert refused.status_code == 409
+    assert refused.json()["error"]["code"] == "STUDENT_NUMBER_ACCEPTED"
+    assert _links(owner_session, created["student_id"]) == [
+        (holder, "accepted", None, "pending")
+    ]
+
+
+def test_an_erased_email_link_cannot_be_changed(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """Changing it would reattach records the person deleted [BR2.4].
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    from tests.accounts.contact_support import address
+
+    email = address()
+    created = _email_seat_owned_by(
+        client, owner_session, teacher, student_email=email, batches=[teacher.batch_id]
+    )
+    owner_session.execute(
+        sa.text(
+            "UPDATE enrollment SET guardian_relink_blocked_at = now() "
+            "WHERE student_id = :s"
+        ),
+        {"s": created["student_id"]},
+    )
+    owner_session.commit()
+
+    refused = client.patch(
+        f"/v1/students/{created['student_id']}",
+        headers=bearer(owner_session, teacher.account_id),
+        json={"guardian_email": address()},
+    )
+
+    assert refused.status_code == 409
+    assert refused.json()["error"]["code"] == "STUDENT_NUMBER_ERASED"
+
+
+def _accept_held_open(
+    engine: sa.Engine, *, holder: uuid.UUID, seat_id: uuid.UUID
+) -> Session:
+    """Run the holder's accept in its own transaction and leave it open.
+
+    :param engine: The restricted engine, the application's role
+    :param holder: The account accepting
+    :param seat_id: The seat accepted through
+    :return: The session holding the uncommitted accept
+    """
+    from app.accounts.decisions import _SET_DECISION
+
+    session = Session(bind=engine)
+    session.execute(
+        _SET_DECISION,
+        {"account_id": holder, "enrollment_id": seat_id, "decision": "accepted"},
+    )
+    return session
+
+
+def test_an_accept_committed_first_makes_the_concurrent_edit_refuse(
+    restricted_engine: sa.Engine, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """Accept first: the edit waits on the seat row, then sees accepted [BR2.6].
+
+    Without the seat-row lock the edit read ``pending`` before the accept
+    committed, and its write reset an accepted link to ``pending`` on a
+    new number -- an accepted decision silently undone.
+
+    :param restricted_engine: The application's role
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    import threading
+
+    from app.authz.lenses import TeacherLens
+    from app.errors import ConflictError
+    from app.students.service import StudentChanges, update_student
+    from tests.accounts.contact_support import number, seat
+
+    phone = STUDENT_PHONE
+    holder = _account(owner_session, phone)
+    seat_id = seat(
+        owner_session, teacher.batch_id, student_phone=phone, student_account_id=holder
+    )
+    student_id = owner_session.execute(
+        sa.text("SELECT student_id FROM enrollment WHERE id = :e"), {"e": seat_id}
+    ).scalar_one()
+    owner_session.commit()
+
+    accept = _accept_held_open(restricted_engine, holder=holder, seat_id=seat_id)
+    outcome: list[object] = []
+
+    def edit() -> None:
+        """Run the teacher's edit on a second connection.
+
+        :return: None
+        """
+        with Session(bind=restricted_engine, expire_on_commit=False) as session:
+            try:
+                update_student(
+                    session,
+                    lens=TeacherLens(
+                        account_id=teacher.account_id, owner_id=teacher.owner_id
+                    ),
+                    student_id=student_id,
+                    changes=StudentChanges(
+                        student_phone=number(), student_phone_set=True
+                    ),
+                )
+                outcome.append("edited")
+            except ConflictError as refusal:
+                outcome.append(refusal.code)
+
+    worker = threading.Thread(target=edit)
+    worker.start()
+    worker.join(timeout=1.0)
+    assert worker.is_alive(), "the edit must wait for the open accept"
+    accept.commit()
+    accept.close()
+    worker.join(timeout=10.0)
+
+    assert outcome == ["STUDENT_NUMBER_ACCEPTED"]
+    assert _links(owner_session, student_id) == [(holder, "accepted", None, "pending")]
+
+
+def test_an_edit_committed_first_makes_the_concurrent_accept_change_nothing(
+    restricted_engine: sa.Engine, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """Edit first: the accept finds the link re-pointed and writes nothing [BR2.6].
+
+    :param restricted_engine: The application's role
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    import threading
+
+    from app.authz.lenses import TeacherLens
+    from app.students.service import StudentChanges, update_student
+    from tests.accounts.contact_support import address, seat
+
+    email = address()
+    holder = _account(owner_session, STUDENT_PHONE)
+    seat_id = seat(
+        owner_session, teacher.batch_id, student_email=email, student_account_id=holder
+    )
+    student_id = owner_session.execute(
+        sa.text("SELECT student_id FROM enrollment WHERE id = :e"), {"e": seat_id}
+    ).scalar_one()
+    owner_session.commit()
+
+    release = threading.Event()
+    edited = threading.Event()
+    edit_session = Session(bind=restricted_engine, expire_on_commit=False)
+    real_commit = edit_session.commit
+
+    def held_commit() -> None:
+        """Hold the edit's commit until the accept is waiting on it.
+
+        :return: None
+        """
+        edited.set()
+        release.wait(timeout=10.0)
+        real_commit()
+
+    edit_session.commit = held_commit  # type: ignore[method-assign]
+
+    def edit() -> None:
+        """Run the teacher's edit, held open at its commit.
+
+        :return: None
+        """
+        update_student(
+            edit_session,
+            lens=TeacherLens(account_id=teacher.account_id, owner_id=teacher.owner_id),
+            student_id=student_id,
+            changes=StudentChanges(student_email=address(), student_email_set=True),
+        )
+
+    editor = threading.Thread(target=edit)
+    editor.start()
+    assert edited.wait(timeout=10.0)
+
+    def accept() -> None:
+        """Run the holder's accept; it must wait for the edit.
+
+        :return: None
+        """
+        with Session(bind=restricted_engine) as session:
+            from app.accounts.decisions import _SET_DECISION
+
+            session.execute(
+                _SET_DECISION,
+                {
+                    "account_id": holder,
+                    "enrollment_id": seat_id,
+                    "decision": "accepted",
+                },
+            )
+            session.commit()
+
+    acceptor = threading.Thread(target=accept)
+    acceptor.start()
+    acceptor.join(timeout=1.0)
+    assert acceptor.is_alive(), "the accept must wait for the open edit"
+    release.set()
+    editor.join(timeout=10.0)
+    acceptor.join(timeout=10.0)
+    edit_session.close()
+
+    assert _links(owner_session, student_id) == [(None, "pending", None, "pending")]
+
+
+# --------------------------------------------------------------------------
+# Test-after: recording emails [U2: BR1.1 to BR1.7, BR2.5, NFR1.4], written
+# from the rules.
+# --------------------------------------------------------------------------
+
+
+def _post_student(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture, **body: object
+) -> object:
+    """Record a student through the API, returning the raw response.
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :param body: The request fields besides the name
+    :return: The response
+    """
+    return client.post(
+        "/v1/students",
+        headers=bearer(owner_session, teacher.account_id),
+        json={"display_name": "Mitu", **body},
+    )
+
+
+def test_recorded_emails_are_stored_canonical_and_blank_is_absent(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """Trimmed and lowercased; an empty field records nobody [BR1.1].
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    response = _post_student(
+        client,
+        owner_session,
+        teacher,
+        student_email="  Mitu.Rahman@Example.COM ",
+        guardian_email="   ",
+        enrollments=[{"batch_id": str(teacher.batch_id)}],
+    )
+
+    assert response.status_code == 201, response.text  # type: ignore[attr-defined]
+    body = response.json()  # type: ignore[attr-defined]
+    assert body["student_email"] == "mitu.rahman@example.com"
+    assert body["guardian_email"] is None
+    owner_session.expire_all()
+    seat = owner_session.execute(
+        sa.select(Enrollment).where(Enrollment.student_id == body["student_id"])
+    ).scalar_one()
+    assert (seat.student_email, seat.guardian_email) == (
+        "mitu.rahman@example.com",
+        None,
+    )
+
+
+def test_a_malformed_email_is_refused_with_its_own_key(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """Nothing is written [BR1.1].
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    response = _post_student(
+        client, owner_session, teacher, student_email="not-an-address"
+    )
+
+    assert response.status_code == 400  # type: ignore[attr-defined]
+    assert response.json()["error"]["message_key"] == "email.invalid"  # type: ignore[attr-defined]
+
+
+def test_a_student_email_is_unique_per_teacher_and_a_guardian_email_is_not(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """The student's address names one record; a parent's names many [BR1.2, BR1.3].
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    from tests.accounts.contact_support import address
+
+    shared_guardian = address()
+    taken = address()
+    first = _post_student(
+        client,
+        owner_session,
+        teacher,
+        student_email=taken,
+        guardian_email=shared_guardian,
+    )
+    sibling = _post_student(
+        client,
+        owner_session,
+        teacher,
+        student_email=address(),
+        guardian_email=shared_guardian,
+    )
+    clash = _post_student(client, owner_session, teacher, student_email=taken)
+    other_teacher = make_teacher(owner_session, name="Maths")
+    elsewhere = _post_student(client, owner_session, other_teacher, student_email=taken)
+    edited = client.patch(
+        f"/v1/students/{sibling.json()['student_id']}",  # type: ignore[attr-defined]
+        headers=bearer(owner_session, teacher.account_id),
+        json={"student_email": taken},
+    )
+
+    assert first.status_code == sibling.status_code == 201  # type: ignore[attr-defined]
+    assert clash.status_code == 409  # type: ignore[attr-defined]
+    assert clash.json()["error"]["code"] == "STUDENT_EMAIL_TAKEN"  # type: ignore[attr-defined]
+    assert clash.json()["error"]["message_key"] == "student.email.taken"  # type: ignore[attr-defined]
+    assert elsewhere.status_code == 201  # type: ignore[attr-defined]
+    assert edited.status_code == 409
+    assert edited.json()["error"]["message_key"] == "student.email.taken"
+
+
+def test_an_email_belonging_to_an_archived_student_revives_them(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """With no number, the address identifies the student [BR1.7].
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    from tests.accounts.contact_support import address
+
+    email = address()
+    archived = Student(
+        owner_id=teacher.owner_id,
+        display_name="Old name",
+        student_email=email,
+        archived_at=dt.datetime.now(tz=dt.UTC),
+        created_at=dt.datetime.now(tz=dt.UTC),
+    )
+    owner_session.add(archived)
+    owner_session.commit()
+
+    again = _post_student(client, owner_session, teacher, student_email=email)
+
+    assert again.status_code == 201, again.text  # type: ignore[attr-defined]
+    assert again.json()["student_id"] == str(archived.id)  # type: ignore[attr-defined]
+    assert again.json()["display_name"] == "Mitu"  # type: ignore[attr-defined]
+
+
+def test_the_phone_identifies_first_and_the_email_must_agree(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """A number of one student beside another student's address is refused [BR1.7].
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    from tests.accounts.contact_support import address, number
+
+    email = address()
+    _post_student(client, owner_session, teacher, student_email=email)
+
+    refused = _post_student(
+        client, owner_session, teacher, student_phone=number(), student_email=email
+    )
+
+    assert refused.status_code == 409  # type: ignore[attr-defined]
+    assert refused.json()["error"]["code"] == "STUDENT_EMAIL_TAKEN"  # type: ignore[attr-defined]
+
+
+def test_a_guardian_recorded_only_by_email_reads_the_same_with_or_without_an_account(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """Pending either way, never absent: the teacher learns nothing [BR1.6, NFR1.4].
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address
+
+    with_account = address()
+    account(owner_session, email=with_account)
+    states = []
+    for email in (with_account, address()):
+        created = _post_student(
+            client,
+            owner_session,
+            teacher,
+            guardian_email=email,
+            enrollments=[
+                {"batch_id": str(_second_batch(owner_session, teacher, email))}
+            ],
+        )
+        assert created.status_code == 201, created.text  # type: ignore[attr-defined]
+        body = created.json()  # type: ignore[attr-defined]
+        roster = client.get(
+            f"/v1/batches/{body['enrollments'][0]['batch_id']}/roster",
+            headers=bearer(owner_session, teacher.account_id),
+        ).json()
+        states.append((body["guardian_state"], roster[0]["guardian_state"]))
+
+    assert states == [("pending", "pending"), ("pending", "pending")]
+
+
+def test_a_save_never_seats_one_account_twice_in_a_batch(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """The address's account already sits in the batch: a clear refusal [BR2.5].
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address, number, seat
+
+    email = address()
+    holder = account(owner_session, email=email)
+    seat(
+        owner_session,
+        teacher.batch_id,
+        student_phone=number(),
+        student_account_id=holder,
+    )
+
+    refused = _post_student(
+        client,
+        owner_session,
+        teacher,
+        student_email=email,
+        enrollments=[{"batch_id": str(teacher.batch_id)}],
+    )
+
+    assert refused.status_code == 409  # type: ignore[attr-defined]
+    assert (
+        refused.json()["error"]["message_key"] == "enrollment.student_already_in_batch"
+    )  # type: ignore[attr-defined]

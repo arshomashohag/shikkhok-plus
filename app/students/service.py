@@ -29,19 +29,22 @@ import datetime as dt
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import Final
 
 import sqlalchemy as sa
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.accounts.identifier import resolve_link_target
 from app.analytics.seats import owing_ledger_for_seats
 from app.authz.lenses import TeacherLens
 from app.batches.service import (
     BatchNotFound,
-    _account_for,
     _check_joined_on,
     _owned_batch,
     _refuse_second_seat,
 )
+from app.db.advisory import contact_key, lock_keys
 from app.db.models import Batch, Enrollment, Student
 from app.errors import AuthorizationError, ConflictError
 from app.money import Money, derive
@@ -123,6 +126,9 @@ class StudentRow:
     :ivar display_name: The teacher-typed name
     :ivar student_phone: The student's number, as the teacher typed it
     :ivar guardian_phone: The guardian's number, as the teacher typed it
+    :ivar student_email: The student's address, as the teacher typed it,
+        lowercased [U2]
+    :ivar guardian_email: The guardian's address, likewise
     :ivar student_state: ``accepted`` when the student accepted any seat,
         ``declined`` when they declined and accepted none, else
         ``pending``
@@ -137,6 +143,8 @@ class StudentRow:
     display_name: str
     student_phone: str | None
     guardian_phone: str | None
+    student_email: str | None
+    guardian_email: str | None
     student_state: str
     guardian_state: str
     seats: list[StudentSeat]
@@ -166,13 +174,17 @@ class StudentChanges:
     """An edit to a student.
 
     A ``*_set`` flag distinguishes "clear" from "leave as it is" for the
-    two numbers.
+    four contacts.
 
     :ivar display_name: The new name, or None to keep it
     :ivar student_phone: The new student number, or None to clear it
     :ivar student_phone_set: Whether the student number is being changed
     :ivar guardian_phone: The new guardian number, or None to clear it
     :ivar guardian_phone_set: Whether the guardian number is being changed
+    :ivar student_email: The new student address, or None to clear it
+    :ivar student_email_set: Whether the student address is being changed
+    :ivar guardian_email: The new guardian address, or None to clear it
+    :ivar guardian_email_set: Whether the guardian address is being changed
     """
 
     display_name: str | None = None
@@ -180,6 +192,10 @@ class StudentChanges:
     student_phone_set: bool = False
     guardian_phone: str | None = None
     guardian_phone_set: bool = False
+    student_email: str | None = None
+    student_email_set: bool = False
+    guardian_email: str | None = None
+    guardian_email_set: bool = False
 
 
 # --------------------------------------------------------------------------
@@ -290,8 +306,14 @@ def _rows(session: Session, students: list[Student]) -> list[StudentRow]:
                 )
             )
         total = Money.sum(seat.outstanding for seat in described)
-        has_guardian = student.guardian_phone is not None or any(
-            seat.guardian_account_id is not None for seat, _, _ in mine
+        # Absent only when no guardian contact of either kind is recorded
+        # and no account is linked: a guardian recorded by email alone is
+        # pending, not absent [BR1.6], and reading only the phone would
+        # tell the teacher whether an account holds the address [NFR1.4].
+        has_guardian = (
+            student.guardian_phone is not None
+            or student.guardian_email is not None
+            or any(seat.guardian_account_id is not None for seat, _, _ in mine)
         )
         rows.append(
             StudentRow(
@@ -299,6 +321,8 @@ def _rows(session: Session, students: list[Student]) -> list[StudentRow]:
                 display_name=student.display_name,
                 student_phone=student.student_phone,
                 guardian_phone=student.guardian_phone,
+                student_email=student.student_email,
+                guardian_email=student.guardian_email,
                 student_state=_link_state([s.student_decision for s, _, _ in mine]),
                 guardian_state=_link_state([s.guardian_decision for s, _, _ in mine])
                 if has_guardian
@@ -414,20 +438,6 @@ def get_student(
 # --------------------------------------------------------------------------
 
 
-def _siblings(session: Session, student_id: uuid.UUID) -> list[Enrollment]:
-    """Every seat a student already holds.
-
-    :param session: The session to query through
-    :param student_id: The student
-    :return: The seats
-    """
-    return list(
-        session.execute(
-            sa.select(Enrollment).where(Enrollment.student_id == student_id)
-        ).scalars()
-    )
-
-
 def _carried_decision(
     siblings: list[Enrollment], *, link: str, account_id: uuid.UUID | None
 ) -> str:
@@ -457,6 +467,213 @@ def _carried_decision(
     return "pending"
 
 
+# --------------------------------------------------------------------------
+# Linking seats to a verified contact [U2: BR3.2 to BR3.8]
+# --------------------------------------------------------------------------
+
+#: The guardian half, keyed by the kind of contact verified. A phone takes
+#: every empty, unblocked guardian link recording it; an email takes only
+#: those recording NO phone [BR3.3], because a link that records a phone
+#: belongs to that phone's holder [BR2.1].
+#:
+#: **The link and NOT the decision** [BR3.4], and only an EMPTY link
+#: [BR3.5]: the condition names the link's current state, so a concurrent
+#: teacher edit holding the seat row makes this re-check the committed row
+#: rather than overwrite it [BR2.6].
+_LINK_GUARDIANS: Final = {
+    "phone": sa.text(
+        """
+        UPDATE enrollment
+        SET guardian_account_id = :account_id
+        WHERE guardian_phone = :value
+          AND guardian_account_id IS NULL
+          AND guardian_relink_blocked_at IS NULL
+        """
+    ),
+    "email": sa.text(
+        """
+        UPDATE enrollment
+        SET guardian_account_id = :account_id
+        WHERE guardian_email = :value
+          AND guardian_phone IS NULL
+          AND guardian_account_id IS NULL
+          AND guardian_relink_blocked_at IS NULL
+        """
+    ),
+}
+
+#: The student half, under the guardian half's rules plus one more: an
+#: account is the student of at most one seat per batch [BR3.7,
+#: ``uq_enrollment_batch_student``]. A batch where the account already
+#: holds a student link is skipped, and of two candidate seats in one
+#: batch only the oldest is taken. Skipping is silent: the seat waits for
+#: the teacher, and the sign-up or contact add it rides on succeeds.
+_STUDENT_MATCH: Final = {
+    "phone": "c.student_phone = :value",
+    "email": "c.student_email = :value AND c.student_phone IS NULL",
+}
+_LINK_STUDENTS: Final = {
+    kind: sa.text(
+        f"""
+        UPDATE enrollment
+        SET student_account_id = :account_id
+        WHERE id IN (
+            SELECT DISTINCT ON (c.batch_id) c.id
+            FROM enrollment c
+            WHERE {match}
+              AND c.student_account_id IS NULL
+              AND c.student_relink_blocked_at IS NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM enrollment o
+                  WHERE o.batch_id = c.batch_id
+                    AND o.student_account_id = :account_id
+              )
+            ORDER BY c.batch_id, c.created_at, c.id
+        )
+          AND student_account_id IS NULL
+          AND student_relink_blocked_at IS NULL
+        """  # noqa: S608 -- `match` is one of two literals in this module
+    )
+    for kind, match in _STUDENT_MATCH.items()
+}
+
+
+def link_seats(
+    session: Session, *, account_id: uuid.UUID, kind: str, value: str
+) -> None:
+    """Attach the seats a verified contact names to the account that holds it.
+
+    Two set-based statements whatever the number of seats [NFR8.4]: one
+    per link. Adds to the caller's transaction and does not commit.
+
+    :param session: The session to write through
+    :param account_id: The account that now holds the contact
+    :param kind: ``phone`` or ``email``
+    :param value: The canonical contact
+    :return: None
+    """
+    parameters = {"account_id": account_id, "value": value}
+    session.execute(_LINK_GUARDIANS[kind], parameters)
+    session.execute(_LINK_STUDENTS[kind], parameters)
+
+
+#: Every seat the account holds a link on, locked in ascending id order
+#: [NFR4.2 LO-2], so a teacher edit of the same seats either finished
+#: first or waits for the erasure.
+_LOCK_HELD_SEATS: Final = sa.text(
+    """
+    SELECT id FROM enrollment
+    WHERE student_account_id = :account_id OR guardian_account_id = :account_id
+    ORDER BY id
+    FOR UPDATE
+    """
+)
+
+#: Each role's erasure marker, set where the link is the erased account
+#: and only where it is not already set [NFR3.1]. The link itself is
+#: cleared afterwards by ``ON DELETE SET NULL`` when the account row goes.
+_BLOCK_STUDENT_LINKS: Final = sa.text(
+    """
+    UPDATE enrollment SET student_relink_blocked_at = :now
+    WHERE student_account_id = :account_id AND student_relink_blocked_at IS NULL
+    """
+)
+_BLOCK_GUARDIAN_LINKS: Final = sa.text(
+    """
+    UPDATE enrollment SET guardian_relink_blocked_at = :now
+    WHERE guardian_account_id = :account_id AND guardian_relink_blocked_at IS NULL
+    """
+)
+
+
+def block_relinking(session: Session, *, account_id: uuid.UUID) -> int:
+    """Mark every link an erased account held so nothing relinks it [NFR3.1].
+
+    Called by account deletion before the account row is deleted. Without
+    the markers, ``ON DELETE SET NULL`` would leave an empty link still
+    recording the erased person's contact, and whoever verified that
+    contact next would be handed the seat. The block is per LINK: the
+    other link of the same seat is untouched.
+
+    Adds to the caller's transaction and does not commit.
+
+    :param session: The session to write through
+    :param account_id: The account being erased
+    :return: How many links were blocked, for the deletion's own record
+    """
+    session.execute(_LOCK_HELD_SEATS, {"account_id": account_id})
+    parameters = {"account_id": account_id, "now": dt.datetime.now(tz=dt.UTC)}
+    blocked = 0
+    for statement in (_BLOCK_STUDENT_LINKS, _BLOCK_GUARDIAN_LINKS):
+        result = session.connection().execute(statement, parameters)
+        blocked += result.rowcount
+    return blocked
+
+
+#: The four recorded contacts of a student, as (kind, column) pairs.
+_CONTACT_COLUMNS: Final = (
+    ("phone", "student_phone"),
+    ("phone", "guardian_phone"),
+    ("email", "student_email"),
+    ("email", "guardian_email"),
+)
+
+
+def _contacts_of(holder: object) -> list[tuple[str, str]]:
+    """List the recorded contacts on a student or a change, as (kind, value).
+
+    :param holder: A ``Student`` or a ``StudentChanges``
+    :return: Every recorded contact, absent ones skipped
+    """
+    found: list[tuple[str, str]] = []
+    for kind, column in _CONTACT_COLUMNS:
+        value = getattr(holder, column)
+        if value is not None:
+            found.append((kind, value))
+    return found
+
+
+def _lock_for_save(
+    session: Session, student_id: uuid.UUID | None, contacts: list[tuple[str, str]]
+) -> list[Enrollment]:
+    """Take a teacher save's locks, in the one order, and read the seats.
+
+    **Contact keys first, then the student's seat rows** [NFR4.2 LO-1 to
+    LO-3]. The keys serialise this save against a match for the same
+    contact [BR2.7]: a match that committed first is seen when the target
+    is resolved, and one that starts later sees this seat. The seat rows,
+    locked in ascending id order and read fresh under the lock, serialise
+    it against a holder's accept, decline or erasure of the same seats
+    [BR2.6]: the decision this save checks is the decision in force when
+    it writes.
+
+    :param session: The session to write through
+    :param student_id: The student, or None for one not yet written
+    :param contacts: Every contact the save resolves, before and after
+    :return: The student's seats, locked
+    """
+    lock_keys(session, [contact_key(kind, value) for kind, value in contacts])
+    if student_id is None:
+        return []
+    return list(
+        session.execute(
+            sa.select(Enrollment)
+            .where(Enrollment.student_id == student_id)
+            .order_by(Enrollment.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ).scalars()
+    )
+
+
+def _email_taken_error() -> ConflictError:
+    """Build the refusal for a student email another student has [BR1.2].
+
+    :return: The error
+    """
+    return ConflictError(code="STUDENT_EMAIL_TAKEN", message_key="student.email.taken")
+
+
 def seat_for(
     session: Session,
     *,
@@ -484,7 +701,7 @@ def seat_for(
     _owned_batch(session, lens=lens, batch_id=batch_id)
     # Here because this is the one place a seat is created [audit C-24].
     _check_joined_on(joined_on)
-    siblings = _siblings(session, student.id)
+    siblings = _lock_for_save(session, student.id, _contacts_of(student))
     if any(seat.batch_id == batch_id for seat in siblings):
         raise ConflictError(
             code="ENROLLMENT_STUDENT_ALREADY_SEATED",
@@ -506,17 +723,28 @@ def seat_for(
         ),
         None,
     )
+    # Each link's target by the one precedence rule [BR2.1]: the phone's
+    # account when a phone is recorded, the email's only when none is.
     student_account = (
-        None if student_blocked else _account_for(session, student.student_phone)
+        None
+        if student_blocked
+        else resolve_link_target(
+            session, phone=student.student_phone, email=student.student_email
+        )
     )
     guardian_account = (
-        None if guardian_blocked else _account_for(session, student.guardian_phone)
+        None
+        if guardian_blocked
+        else resolve_link_target(
+            session, phone=student.guardian_phone, email=student.guardian_email
+        )
     )
     _refuse_second_seat(
         session,
         batch_id=batch_id,
         student_phone=student.student_phone,
         student_account_id=student_account,
+        student_email=student.student_email,
     )
 
     record = Enrollment(
@@ -527,6 +755,9 @@ def seat_for(
         display_name=student.display_name,
         guardian_phone=student.guardian_phone,
         student_phone=student.student_phone,
+        # Copies of the student's addresses, as the numbers are [BR1.5].
+        student_email=student.student_email,
+        guardian_email=student.guardian_email,
         fee_amount=fee_amount,
         joined_on=joined_on,
         # STATED, never defaulted [ADR-013]: pending unless the same
@@ -585,6 +816,64 @@ def _refuse_taken(existing: Student | None) -> None:
         )
 
 
+def _email_taken(
+    session: Session,
+    *,
+    lens: TeacherLens,
+    email: str | None,
+    except_id: uuid.UUID | None = None,
+) -> Student | None:
+    """Find this teacher's student who already has a student email [BR1.2].
+
+    :param session: The session to query through
+    :param lens: The teacher lens carrying the owner id
+    :param email: A canonical student address, or None
+    :param except_id: A student to ignore, for edits
+    :return: That student, archived or not, or None
+    """
+    if email is None:
+        return None
+    statement = sa.select(Student).where(
+        Student.owner_id == lens.owner_id, Student.student_email == email
+    )
+    if except_id is not None:
+        statement = statement.where(Student.id != except_id)
+    return session.execute(statement).scalar_one_or_none()
+
+
+def _identify(
+    session: Session,
+    *,
+    lens: TeacherLens,
+    student_phone: str | None,
+    student_email: str | None,
+) -> tuple[Student | None, str]:
+    """Find the existing student a create names, by phone first [BR1.7].
+
+    A typed number identifies the student, as it always has. A typed
+    student email must then agree: belonging to a DIFFERENT student of
+    this teacher, it is refused rather than quietly moved. With no number,
+    the email identifies by the same active-or-archived rule.
+
+    :param session: The session to query through
+    :param lens: The teacher lens carrying the owner id
+    :param student_phone: The typed student number, canonical
+    :param student_email: The typed student address, canonical
+    :return: The student found, or None; and ``phone`` or ``email`` for
+        which contact found it
+    :raises ConflictError: The email belongs to another student
+    """
+    by_email = _email_taken(session, lens=lens, email=student_email)
+    if student_phone is None:
+        return by_email, "email"
+    by_phone = _phone_taken(session, lens=lens, phone=student_phone)
+    if by_phone is not None and by_phone.archived_at is None:
+        return by_phone, "phone"
+    if by_email is not None and (by_phone is None or by_email.id != by_phone.id):
+        raise _email_taken_error()
+    return by_phone, "phone"
+
+
 def find_or_create_student(
     session: Session,
     *,
@@ -594,11 +883,14 @@ def find_or_create_student(
     guardian_phone: str | None,
     reuse_by_phone: bool,
     client_mutation_id: uuid.UUID | None = None,
+    student_email: str | None = None,
+    guardian_email: str | None = None,
 ) -> Student:
     """Return the student to seat, creating one when needed. No commit.
 
-    A number belonging to an archived student brings that student back
-    rather than making a second one, so their history stays theirs.
+    A number -- or, with no number, a student email -- belonging to an
+    archived student brings that student back rather than making a second
+    one, so their history stays theirs [BR1.7].
 
     :param session: The session to write through
     :param lens: The teacher lens carrying the owner id
@@ -610,22 +902,35 @@ def find_or_create_student(
         add-student path)
     :param client_mutation_id: The create's retry key, stored on a new
         student so a resend finds it
+    :param student_email: The typed student address, canonical
+    :param guardian_email: The typed guardian address, canonical
     :return: The student
-    :raises ConflictError: The number is taken and reuse was not asked for
+    :raises ConflictError: The number or the address is taken and reuse
+        was not asked for
     """
-    existing = _phone_taken(session, lens=lens, phone=student_phone)
+    existing, found_by = _identify(
+        session, lens=lens, student_phone=student_phone, student_email=student_email
+    )
     if existing is not None and existing.archived_at is None:
-        if reuse_by_phone:
+        if reuse_by_phone and found_by == "phone":
             return existing
+        if found_by == "email":
+            raise _email_taken_error()
         _refuse_taken(existing)
     if existing is not None:
         existing.archived_at = None
         _apply_identity(
             session,
             existing,
-            display_name=display_name,
-            guardian_phone=guardian_phone,
-            guardian_phone_set=True,
+            StudentChanges(
+                display_name=display_name,
+                guardian_phone=guardian_phone,
+                guardian_phone_set=True,
+                guardian_email=guardian_email,
+                guardian_email_set=True,
+                student_email=student_email,
+                student_email_set=student_email is not None,
+            ),
         )
         return existing
 
@@ -634,12 +939,38 @@ def find_or_create_student(
         display_name=display_name,
         student_phone=student_phone,
         guardian_phone=guardian_phone,
+        student_email=student_email,
+        guardian_email=guardian_email,
         created_at=dt.datetime.now(tz=dt.UTC),
         client_mutation_id=client_mutation_id,
     )
-    session.add(student)
-    session.flush()
+    # In a savepoint: two creates of one number or address at once both
+    # pass the reads above, and the partial unique index refuses the
+    # second -- with the same refusal a sequential duplicate gets [BR1.2].
+    try:
+        with session.begin_nested():
+            session.add(student)
+            session.flush()
+    except IntegrityError as error:
+        raise _uniqueness_refusal(error) from None
     return student
+
+
+def _uniqueness_refusal(error: IntegrityError) -> ConflictError:
+    """Map a per-teacher uniqueness violation to its business refusal.
+
+    :param error: The violation a concurrent duplicate reached
+    :return: The refusal a sequential duplicate gets
+    :raises IntegrityError: Any other constraint, re-raised unmapped
+    """
+    constraint = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+    if constraint == "uq_student_owner_email":
+        return _email_taken_error()
+    if constraint == "uq_student_owner_phone":
+        return ConflictError(
+            code="STUDENT_PHONE_TAKEN", message_key="student.phone_taken"
+        )
+    raise error
 
 
 def replayed_student(
@@ -687,6 +1018,8 @@ def create_student(
     guardian_phone: str | None = None,
     seats: list[SeatRequest] | None = None,
     client_mutation_id: uuid.UUID | None = None,
+    student_email: str | None = None,
+    guardian_email: str | None = None,
 ) -> StudentRow:
     """Record a student and, optionally, seat them in batches [D3].
 
@@ -698,9 +1031,12 @@ def create_student(
     :param student_phone: The typed student number, canonical
     :param guardian_phone: The typed guardian number, canonical
     :param seats: The batches to put them in, possibly none
+    :param client_mutation_id: The retry key
+    :param student_email: The typed student address, canonical [U2]
+    :param guardian_email: The typed guardian address, canonical
     :return: The new student
-    :raises ConflictError: The number belongs to another student, or a
-        batch is listed twice
+    :raises ConflictError: The number or the address belongs to another
+        student, or a batch is listed twice
     :raises BatchNotFound: A batch is not this lens's
     """
     earlier = replayed_student(
@@ -715,6 +1051,22 @@ def create_student(
             message_key="enrollment.student_already_in_batch",
         )
     try:
+        # The typed contacts' keys before anything resolves a target
+        # [BR2.7]; a revived student's own adds its old ones, still ahead
+        # of every seat-row lock [LO-1].
+        lock_keys(
+            session,
+            [
+                contact_key(kind, value)
+                for kind, value in (
+                    ("phone", student_phone),
+                    ("phone", guardian_phone),
+                    ("email", student_email),
+                    ("email", guardian_email),
+                )
+                if value is not None
+            ],
+        )
         student = find_or_create_student(
             session,
             lens=lens,
@@ -723,6 +1075,8 @@ def create_student(
             guardian_phone=guardian_phone,
             reuse_by_phone=False,
             client_mutation_id=client_mutation_id,
+            student_email=student_email,
+            guardian_email=guardian_email,
         )
         for seat in requested:
             seat_for(
@@ -813,51 +1167,86 @@ def add_students_to_batch(
 # --------------------------------------------------------------------------
 
 
+def _after(student: Student, changes: StudentChanges) -> dict[str, str | None]:
+    """Compute a student's four contacts as they will be after an edit.
+
+    :param student: The student, as stored
+    :param changes: The edit
+    :return: Each contact column to its value after the edit
+    """
+    return {
+        column: getattr(changes, column)
+        if getattr(changes, f"{column}_set")
+        else getattr(student, column)
+        for _, column in _CONTACT_COLUMNS
+    }
+
+
+def _changed_links(student: Student, after: dict[str, str | None]) -> set[str]:
+    """Name the links whose recorded contacts an edit changes.
+
+    A link is the student's (``student_phone``, ``student_email``) or the
+    guardian's (``guardian_phone``, ``guardian_email``). A value equal to
+    the stored one is no change.
+
+    :param student: The student, as stored
+    :param after: The contacts after the edit
+    :return: ``student``, ``guardian``, both or neither
+    """
+    return {
+        column.split("_", 1)[0]
+        for _, column in _CONTACT_COLUMNS
+        if after[column] != getattr(student, column)
+    }
+
+
 def _apply_identity(
-    session: Session,
-    student: Student,
-    *,
-    display_name: str | None = None,
-    student_phone: str | None = None,
-    student_phone_set: bool = False,
-    guardian_phone: str | None = None,
-    guardian_phone_set: bool = False,
-) -> None:
+    session: Session, student: Student, changes: StudentChanges
+) -> list[Enrollment]:
     """Write new identity fields to a student AND every seat. No commit.
 
-    A changed number relinks each seat to the account that number signs
-    in with, and resets that link to ``pending``: a different number is
-    a different person, who has agreed to nothing.
+    **A changed contact relinks its link and resets it** [BR2.3]. For each
+    link with at least one changed contact, every seat's link is set to
+    the target its contacts resolve to after the change by the one
+    precedence rule [BR2.1] -- possibly nobody -- and its decision becomes
+    ``pending``: a different contact is a different person, who has
+    agreed to nothing. That holds even when the target is unchanged. A
+    seat whose link is erased keeps an empty link whatever is recorded.
+
+    Takes the save's locks first (:func:`_lock_for_save`), for the
+    contacts before AND after the change, so the seats it writes are the
+    seats it read.
 
     :param session: The session to write through
     :param student: The student
-    :param display_name: The new name, or None to keep it
-    :param student_phone: The new student number
-    :param student_phone_set: Whether to apply ``student_phone``
-    :param guardian_phone: The new guardian number
-    :param guardian_phone_set: Whether to apply ``guardian_phone``
-    :return: None
+    :param changes: The edit
+    :return: The student's seats, locked and written
     """
-    seats = _siblings(session, student.id)
-    if display_name is not None:
-        student.display_name = display_name
+    after = _after(student, changes)
+    links = _changed_links(student, after)
+    keys = _contacts_of(student) + [
+        (kind, value)
+        for kind, column in _CONTACT_COLUMNS
+        if (value := after[column]) is not None
+    ]
+    seats = _lock_for_save(session, student.id, keys)
+    if changes.display_name is not None:
+        student.display_name = changes.display_name
         for seat in seats:
-            seat.display_name = display_name
-    if student_phone_set and student_phone != student.student_phone:
-        student.student_phone = student_phone
-        account = _account_for(session, student_phone)
+            seat.display_name = changes.display_name
+    for link in sorted(links):
+        phone, email = after[f"{link}_phone"], after[f"{link}_email"]
+        setattr(student, f"{link}_phone", phone)
+        setattr(student, f"{link}_email", email)
+        target = resolve_link_target(session, phone=phone, email=email)
         for seat in seats:
-            seat.student_phone = student_phone
-            seat.student_account_id = account
-            seat.student_decision = "pending"
-    if guardian_phone_set and guardian_phone != student.guardian_phone:
-        student.guardian_phone = guardian_phone
-        account = _account_for(session, guardian_phone)
-        for seat in seats:
-            seat.guardian_phone = guardian_phone
-            seat.guardian_account_id = account
-            seat.guardian_decision = "pending"
+            setattr(seat, f"{link}_phone", phone)
+            setattr(seat, f"{link}_email", email)
+            blocked = getattr(seat, f"{link}_relink_blocked_at") is not None
+            setattr(seat, f"{link}_account_id", None if blocked else target)
+            setattr(seat, f"{link}_decision", "pending")
     session.flush()
+    return seats
 
 
 def _refuse_relink(seats: list[Enrollment], *, link: str) -> None:
@@ -900,10 +1289,13 @@ def update_student(
     student_id: uuid.UUID,
     changes: StudentChanges,
 ) -> StudentRow:
-    """Edit a student's name or numbers, on the student and every seat.
+    """Edit a student's name or contacts, on the student and every seat.
 
-    The name can always change. A number can change only while nobody
-    holding it has accepted and it was never erased.
+    The name can always change. A contact -- number or address -- can
+    change only while nobody holding that link has accepted it and it was
+    never erased [BR2.4], checked on the seat rows LOCKED for this edit,
+    so a holder's concurrent accept either committed first and refuses
+    the edit, or waits and then finds the link re-pointed [BR2.6].
 
     :param session: The session to write through
     :param lens: The teacher lens carrying the owner id
@@ -911,34 +1303,96 @@ def update_student(
     :param changes: What to change
     :return: The student, as edited
     :raises StudentNotFound: Not this lens's student
-    :raises ConflictError: The number is taken, accepted or erased
+    :raises ConflictError: A contact is taken, accepted or erased, or the
+        new student link's account already sits in one of its batches
     """
     student = _owned_student(session, lens=lens, student_id=student_id)
-    seats = _siblings(session, student.id)
-    if changes.student_phone_set and changes.student_phone != student.student_phone:
-        _refuse_relink(seats, link="student")
-        # Archived or not: two records for one number is the duplicate
-        # D2 exists to prevent.
-        if _phone_taken(
-            session, lens=lens, phone=changes.student_phone, except_id=student.id
-        ):
-            raise ConflictError(
-                code="STUDENT_PHONE_TAKEN", message_key="student.phone_taken"
-            )
-    if changes.guardian_phone_set and changes.guardian_phone != student.guardian_phone:
-        _refuse_relink(seats, link="guardian")
-
-    _apply_identity(
-        session,
-        student,
-        display_name=changes.display_name,
-        student_phone=changes.student_phone,
-        student_phone_set=changes.student_phone_set,
-        guardian_phone=changes.guardian_phone,
-        guardian_phone_set=changes.guardian_phone_set,
-    )
+    after = _after(student, changes)
+    links = _changed_links(student, after)
+    keys = _contacts_of(student) + [
+        (kind, value)
+        for kind, column in _CONTACT_COLUMNS
+        if (value := after[column]) is not None
+    ]
+    try:
+        seats = _lock_for_save(session, student.id, keys)
+        for link in sorted(links):
+            _refuse_relink(seats, link=link)
+        _refuse_duplicate_contacts(session, lens, student, after)
+        if "student" in links:
+            _refuse_student_twice(session, student, seats, after)
+        _apply_identity(session, student, changes)
+    except ConflictError:
+        session.rollback()
+        raise
     session.commit()
     return get_student(session, lens=lens, student_id=student_id)
+
+
+def _refuse_duplicate_contacts(
+    session: Session,
+    lens: TeacherLens,
+    student: Student,
+    after: dict[str, str | None],
+) -> None:
+    """Refuse a student number or address another student of this teacher has.
+
+    Archived or not: two records for one contact is the duplicate D2 and
+    BR1.2 exist to prevent.
+
+    :param session: The session to query through
+    :param lens: The teacher lens carrying the owner id
+    :param student: The student being edited
+    :param after: The contacts after the edit
+    :return: None
+    :raises ConflictError: The number or the address is taken
+    """
+    phone, email = after["student_phone"], after["student_email"]
+    if phone != student.student_phone and _phone_taken(
+        session, lens=lens, phone=phone, except_id=student.id
+    ):
+        raise ConflictError(
+            code="STUDENT_PHONE_TAKEN", message_key="student.phone_taken"
+        )
+    if email != student.student_email and _email_taken(
+        session, lens=lens, email=email, except_id=student.id
+    ):
+        raise _email_taken_error()
+
+
+def _refuse_student_twice(
+    session: Session,
+    student: Student,
+    seats: list[Enrollment],
+    after: dict[str, str | None],
+) -> None:
+    """Refuse a relink that would seat one account twice in a batch [BR2.5].
+
+    :param session: The session to query through
+    :param student: The student being edited
+    :param seats: The student's seats, locked
+    :param after: The contacts after the edit
+    :return: None
+    :raises ConflictError: The new target already holds another student
+        seat in one of this student's batches
+    """
+    target = resolve_link_target(
+        session, phone=after["student_phone"], email=after["student_email"]
+    )
+    if target is None or not seats:
+        return
+    clash = session.execute(
+        sa.select(Enrollment.id).where(
+            Enrollment.batch_id.in_([seat.batch_id for seat in seats]),
+            Enrollment.student_account_id == target,
+            Enrollment.student_id != student.id,
+        )
+    ).first()
+    if clash is not None:
+        raise ConflictError(
+            code="ENROLLMENT_STUDENT_ALREADY_SEATED",
+            message_key="enrollment.student_already_in_batch",
+        )
 
 
 def remove_student(

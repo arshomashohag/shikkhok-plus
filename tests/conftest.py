@@ -260,6 +260,56 @@ def api_client(
         yield test_client
 
 
+@pytest.fixture
+def outbound(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[tuple[str, str]]]:
+    """Capture every text and email the null gateways are asked to send.
+
+    Used by the contact suites [0034] to read a code back and to assert
+    what a removed-contact notice said and when it was sent.
+
+    :param monkeypatch: The patcher
+    :return: A context manager yielding ``(destination, body)`` per send
+    """
+    from app.gateway.email import EmailMessage, NullEmailGateway
+    from app.gateway.null import NullGateway
+
+    captured: list[tuple[str, str]] = []
+    sms = NullGateway.send
+    email = NullEmailGateway.send
+
+    def capture_sms(
+        self: NullGateway, number: str, message: str, correlation_id: str
+    ) -> object:
+        """Record a text, then send as the null gateway would.
+
+        :param self: The gateway
+        :param number: The destination
+        :param message: The body
+        :param correlation_id: The request's correlation id
+        :return: The null gateway's result
+        """
+        captured.append((number, message))
+        return sms(self, number, message, correlation_id)
+
+    def capture_email(
+        self: NullEmailGateway, address: str, message: EmailMessage, cid: str
+    ) -> object:
+        """Record an email, then send as the null gateway would.
+
+        :param self: The gateway
+        :param address: The destination
+        :param message: The rendered email
+        :param cid: The request's correlation id
+        :return: The null gateway's result
+        """
+        captured.append((address, message.text))
+        return email(self, address, message, cid)
+
+    monkeypatch.setattr(NullGateway, "send", capture_sms)
+    monkeypatch.setattr(NullEmailGateway, "send", capture_email)
+    yield captured
+
+
 def bearer(session: Session, account_id: uuid.UUID) -> dict[str, str]:
     """Authorize as an account.
 

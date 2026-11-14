@@ -208,6 +208,9 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             ("POST", "/v1/me/password"),
             ("POST", "/v1/me/contact"),
             ("POST", "/v1/me/contact/verify"),
+            # Removing one of the caller's own contacts [U2: FR8.4]; it asks
+            # for the account's password.
+            ("POST", "/v1/me/contact/remove"),
         }
     )
 

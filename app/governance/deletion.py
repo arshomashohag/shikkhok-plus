@@ -62,7 +62,9 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.accounts.identifier import Channel, Identifier
+from app.db.advisory import account_key, contact_key, lock_keys
 from app.governance.dispositions import DISPOSITIONS, Disposition
+from app.students.service import block_relinking
 from app.teaching.unassign import unassign_member
 
 __all__ = [
@@ -302,6 +304,23 @@ _LIVE_MEMBERSHIPS: Final = sa.text(
     "SELECT id FROM owner_member WHERE account_id = :account_id AND revoked_at IS NULL"
 )
 
+#: The account's contacts, read again under its advisory key [U2: NFR3.1].
+_HELD_CONTACTS: Final = sa.text(
+    "SELECT id, phone, email FROM account WHERE id = :account_id"
+)
+
+#: The replacement codes the account asked for [U2: NFR3.2].
+_REPLACEMENT_CODES: Final = sa.text(
+    "DELETE FROM otp_request WHERE requested_by_account_id = :account_id"
+)
+
+#: The account's live memberships, locked in ascending id order before
+#: any legacy statement touches them [U2: NFR4.2 LO-2].
+_LOCK_LIVE_MEMBERSHIPS: Final = sa.text(
+    "SELECT id FROM owner_member WHERE account_id = :account_id "
+    "AND revoked_at IS NULL ORDER BY id FOR UPDATE"
+)
+
 
 def delete_account(session: Session, destination: str | Identifier) -> DeletionResult:
     """Delete the account registered to a number or address, or report it absent.
@@ -361,6 +380,25 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
         {"value": identifier.value},
     ).one_or_none()
     account_id: uuid.UUID | None = row.id if row else None
+    if account_id is not None:
+        # The account's key, then a re-read under it, then every contact's
+        # key [U2: NFR3.1, NFR4.2 LO-1, LO-3]. A contact added between the
+        # read above and the key is seen here, so its codes and drafts go
+        # too; a concurrent deletion that finished first leaves nothing,
+        # and this one takes the absent branch below.
+        lock_keys(session, [account_key(account_id)])
+        row = session.execute(_HELD_CONTACTS, {"account_id": account_id}).one_or_none()
+        if row is None:
+            account_id = None
+        else:
+            lock_keys(
+                session,
+                [
+                    contact_key(kind, value)
+                    for kind, value in (("phone", row.phone), ("email", row.email))
+                    if value is not None
+                ],
+            )
     phones = {identifier.value} if identifier.is_phone else set()
     emails = set() if identifier.is_phone else {identifier.value}
     if row is not None:
@@ -388,6 +426,24 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
     if account_id is None:
         session.commit()
         return DeletionResult(existed=False, rows_deleted=rows_deleted)
+
+    # A replacement code this account asked for names a destination it
+    # typed; `SET NULL` on its requester would leave that destination
+    # beside a code with nobody to own it [U2: NFR3.2].
+    rows_deleted["otp_request"] += (
+        session.connection()
+        .execute(_REPLACEMENT_CODES, {"account_id": account_id})
+        .rowcount
+    )
+
+    # Every link the account held is marked, so whoever verifies its phone
+    # or its email next is never handed the seat [U2: NFR3.1]. Its seat
+    # rows are locked in ascending id order, then its live memberships,
+    # before any legacy statement [NFR4.2 LO-2, LO-3].
+    rows_deleted["enrollment_relink_blocked"] = block_relinking(
+        session, account_id=account_id
+    )
+    session.execute(_LOCK_LIVE_MEMBERSHIPS, {"account_id": account_id})
 
     # A teacher's batches stay with their students [BR1.6 amended].
     # Retired before the account row goes, in the same transaction.

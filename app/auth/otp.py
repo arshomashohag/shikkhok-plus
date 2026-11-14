@@ -47,6 +47,7 @@ __all__ = [
     "ATTEMPT_CEILING",
     "CODE_LIFETIME",
     "CONTACT_PURPOSE",
+    "CONTACT_REPLACE_PURPOSE",
     "DELETION_PURPOSE",
     "OTP_PURPOSE",
     "CodeRefused",
@@ -54,6 +55,8 @@ __all__ = [
     "SignupCompleter",
     "account_for",
     "consume_code",
+    "consume_replacement_code",
+    "find_replacement_code",
     "issue",
     "verify",
 ]
@@ -124,6 +127,14 @@ DELETION_PURPOSE: Final = "deletion"
 #: and a code sent to attach one must not sign anyone in.
 CONTACT_PURPOSE: Final = "contact"
 
+#: Proving the phone number or address that REPLACES one an account holds
+#: [U2: BR5.3]. Its own purpose, and bound to the account that confirmed
+#: its password for it (``requested_by_account_id``): a replacement is
+#: selected by its requester as part of row selection, so another
+#: account's code for the same destination is never read, attempted or
+#: spent. Fifteen characters against ``String(32)``.
+CONTACT_REPLACE_PURPOSE: Final = "contact_replace"
+
 
 @dataclass(frozen=True, slots=True)
 class IssuedCode:
@@ -154,6 +165,7 @@ def issue(
     *,
     purpose: str,
     now: dt.datetime | None = None,
+    requested_by: uuid.UUID | None = None,
 ) -> IssuedCode:
     """Issue a code, doing equivalent work whether or not the number exists.
 
@@ -167,6 +179,8 @@ def issue(
     :param correlation_id: Ties the audit row to this request
     :param purpose: What this code may be spent on
     :param now: The moment of issue, or None for the clock
+    :param requested_by: For a replacement code, the account that asked
+        for it after confirming its password [BR5.3]; None otherwise
     :return: The code to transmit and whether an account existed
     """
     moment = now or dt.datetime.now(tz=dt.UTC)
@@ -185,6 +199,7 @@ def issue(
         "purpose": purpose,
         "issued_at": moment,
         "expires_at": moment + CODE_LIFETIME,
+        "requested_by": requested_by,
     }
 
     # **Kept for an unknown number too, and never sent to it.** This
@@ -201,9 +216,10 @@ def issue(
     session.execute(
         sa.text(
             "INSERT INTO otp_request "
-            "(id, phone, email, otp_hash, purpose, issued_at, expires_at) "
+            "(id, phone, email, otp_hash, purpose, issued_at, expires_at, "
+            "requested_by_account_id) "
             "VALUES (:id, :phone, :email, :otp_hash, :purpose, :issued_at, "
-            ":expires_at)"
+            ":expires_at, :requested_by)"
         ),
         parameters,
     )
@@ -294,7 +310,125 @@ def consume_code(
 
     if row is None:
         raise CodeRefused(message_key="auth.otp.not_valid")
+    return _spend(session, identifier, code, correlation_id, row, moment)
 
+
+#: The latest replacement code this account asked for, for one
+#: destination [BR5.3]. The requester is part of the selection, so another
+#: account's later code for the same destination cannot shadow this one.
+_REPLACEMENT_CODE: Final = {
+    column: sa.text(
+        f"SELECT id FROM otp_request WHERE {column} = :value "  # noqa: S608
+        "AND purpose = :purpose AND requested_by_account_id = :requester "
+        "ORDER BY issued_at DESC LIMIT 1"
+    )
+    for column in ("phone", "email")
+}
+
+#: The row read again under its lock, by id [NFR4.2 LO-3 (c)].
+_LOCKED_BY_ID: Final = sa.text(
+    "SELECT id, phone, email, purpose, requested_by_account_id, otp_hash, "
+    "expires_at, consumed_at FROM otp_request WHERE id = :id FOR UPDATE"
+)
+
+
+def find_replacement_code(
+    session: Session, identifier: Identifier, *, requester: uuid.UUID
+) -> uuid.UUID | None:
+    """Find, WITHOUT locking, the replacement code this account asked for.
+
+    The unlocked read of the replacement verify [NFR4.2 LO-3 (a)]: it runs
+    before the advisory keys are taken, so it locks no row. Another
+    account's code for the same destination is never selected [BR5.3].
+
+    :param session: The session to read through
+    :param identifier: The destination the code was sent to
+    :param requester: The verifying account
+    :return: The code's id, or None when this account asked for none
+    """
+    found: uuid.UUID | None = session.execute(
+        _REPLACEMENT_CODE[identifier.column],
+        {
+            "value": identifier.value,
+            "purpose": CONTACT_REPLACE_PURPOSE,
+            "requester": requester,
+        },
+    ).scalar_one_or_none()
+    return found
+
+
+def consume_replacement_code(
+    session: Session,
+    identifier: Identifier,
+    code: str,
+    correlation_id: str,
+    *,
+    requester: uuid.UUID,
+    code_id: uuid.UUID,
+    now: dt.datetime | None = None,
+) -> uuid.UUID:
+    """Lock the code the unlocked read found, re-check it, and spend it.
+
+    [NFR4.2 LO-3 (c), (d)]. Between the unlocked read and this lock a
+    concurrent request may have spent or expired the row, or issued a
+    newer one for the same destination and requester. Any difference is
+    refused as an invalid code, with the attempt recorded against THIS
+    row only, exactly as a wrong code is; no other row is spent.
+
+    **Does not commit a success**, like :func:`consume_code`.
+
+    :param session: The session to work through
+    :param identifier: The destination the code was sent to
+    :param code: The presented code
+    :param correlation_id: Ties the audit row to this request
+    :param requester: The verifying account
+    :param code_id: The row the unlocked read found
+    :param now: The moment of verification, or None for the clock
+    :return: The spent code's row id
+    :raises CodeRefused: The code is wrong, expired, used, dead, or the
+        row changed since it was read
+    """
+    moment = now or dt.datetime.now(tz=dt.UTC)
+    row = session.execute(_LOCKED_BY_ID, {"id": code_id}).one_or_none()
+    if row is None:
+        raise CodeRefused(message_key="auth.otp.not_valid")
+    latest = find_replacement_code(session, identifier, requester=requester)
+    unchanged = (
+        getattr(row, identifier.column) == identifier.value
+        and row.purpose == CONTACT_REPLACE_PURPOSE
+        and row.requested_by_account_id == requester
+        and latest == row.id
+    )
+    if not unchanged:
+        _record_attempt(session, row.id, moment, succeeded=False)
+        _audit_failure(session, identifier, correlation_id, moment)
+        session.commit()
+        raise CodeRefused(message_key="auth.otp.not_valid")
+    return _spend(session, identifier, code, correlation_id, row, moment)
+
+
+def _spend(
+    session: Session,
+    identifier: Identifier,
+    code: str,
+    correlation_id: str,
+    row: sa.Row[tuple[object, ...]],
+    moment: dt.datetime,
+) -> uuid.UUID:
+    """Check one locked code row and spend it, or record the refusal.
+
+    The expiry, the single-use rule and the attempt ceiling, shared by
+    every purpose so they cannot drift between them.
+
+    :param session: The session to work through
+    :param identifier: The destination the code was sent to
+    :param code: The presented code
+    :param correlation_id: Ties the audit row to this request
+    :param row: The code's row, already locked
+    :param moment: The moment of verification
+    :return: The spent code's row id
+    :raises CodeRefused: The code is wrong, expired, used or dead
+    """
     attempts = session.execute(
         sa.text("SELECT count(*) FROM verify_attempt WHERE otp_request_id = :id"),
         {"id": row.id},

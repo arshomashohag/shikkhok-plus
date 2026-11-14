@@ -19,8 +19,12 @@ from __future__ import annotations
 import enum
 import hashlib
 import re
+import uuid
 from dataclasses import dataclass
 from typing import Final, Literal
+
+import sqlalchemy as sa
+from sqlalchemy.orm import Session
 
 from app.accounts.phone import canonical_phone
 from app.errors import ValidationError
@@ -30,6 +34,8 @@ __all__ = [
     "Channel",
     "Identifier",
     "canonical_email",
+    "optional_email",
+    "resolve_link_target",
 ]
 
 #: RFC 5321's limit on a forward path; nothing longer can receive mail.
@@ -136,3 +142,58 @@ def canonical_email(raw: str) -> str:
         # Literal key, for the message-key contract gate (see phone.py).
         raise ValidationError(code="EMAIL_INVALID", message_key="email.invalid")
     return text
+
+
+def optional_email(raw: str | None) -> str | None:
+    """Canonicalise a teacher-recorded address, reading blank as absent.
+
+    A form field left empty, or holding only spaces, records nobody
+    [BR1.1]; anything else must be an address.
+
+    :param raw: The address as typed, or None
+    :return: The canonical address, or None for absent or blank
+    :raises ValidationError: It is not an email address
+    """
+    if raw is None or not raw.strip():
+        return None
+    return canonical_email(raw)
+
+
+#: The account a phone number, or else an address, signs in with.
+_HOLDER: Final = {
+    "phone": sa.text("SELECT id FROM account WHERE phone = :value"),
+    "email": sa.text("SELECT id FROM account WHERE email = :value"),
+}
+
+
+def resolve_link_target(
+    session: Session, *, phone: str | None, email: str | None
+) -> uuid.UUID | None:
+    """Return the account a link's recorded contacts send it to [BR2.1].
+
+    **The one precedence rule.** A link that records a phone belongs to
+    the account holding that phone, or to nobody yet -- never to the
+    account holding the email beside it, because the teacher addressed
+    that person by both and only the phone is the identity seats have
+    always followed. The email decides only when no phone is recorded.
+    A save is never refused because the two belong to different
+    accounts, so the teacher learns nothing about who holds which.
+
+    The caller decides first whether the link is relink-blocked, which
+    sends it to nobody whatever is recorded.
+
+    :param session: The session to read through
+    :param phone: The link's recorded number, canonical, or None
+    :param email: The link's recorded address, canonical, or None
+    :return: The target account, or None
+    """
+    if phone:
+        kind, value = "phone", phone
+    elif email:
+        kind, value = "email", email
+    else:
+        return None
+    target: uuid.UUID | None = session.execute(
+        _HOLDER[kind], {"value": value}
+    ).scalar_one_or_none()
+    return target

@@ -33,11 +33,12 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.accounts.identifier import Channel, Identifier
+from app.accounts.matching import contact_key, match_contact
 from app.audit.log import AuthEvent, write_audit
 from app.auth.pending import discard, take_bound_draft
 from app.authz.rls import set_account_context
-from app.centres.memberships import link_memberships
 from app.centres.service import create_centre
+from app.db.advisory import lock_keys
 from app.db.models import Account, Owner, Profile
 from app.errors import ConflictError
 
@@ -51,7 +52,6 @@ __all__ = [
     "complete_signup",
     "create_account",
     "create_account_rows",
-    "link_phone_seats",
 ]
 
 
@@ -175,50 +175,56 @@ _LOOKUP_QUERY = sa.text(
     """
 )
 
-#: The seats a number has when its account did not exist until now.
-#:
-#: A teacher records a number BEFORE anyone signs up on it, so at that
-#: moment no account exists to link and the enrollment carries the
-#: typed number on ``guardian_phone`` alone -- or, for a student seat,
-#: nothing linkable at all. This statement finds the guardian case.
-#:
-#: **It sets the link and NOT the decision** [BR5.1]. That is the
-#: absence this whole Unit turns on: linking is not agreeing.
-_LINK_GUARDIAN_SEATS = sa.text(
+#: The email form [U2: BR4.3]. **Only what a teacher typed, and only where
+#: that email could ever link**: a link recording this address AND no
+#: phone, unblocked, linked or not. There is deliberately no account half,
+#: unlike the phone form: a true answer must mean "a teacher recorded this
+#: address", never "an account holds this address", or the public route
+#: becomes an account-existence oracle on a guessable identifier. A link
+#: that records a phone beside the email is not reported either, because
+#: the email will never link it [BR3.3]. Centre invitations are not
+#: consulted, as for the phone form: the role the answer locks has no
+#: centre value.
+_EMAIL_LOOKUP_QUERY = sa.text(
     """
-    UPDATE enrollment
-    SET guardian_account_id = :account_id
-    WHERE guardian_phone = :phone
-      AND guardian_account_id IS NULL
-      AND guardian_relink_blocked_at IS NULL
+    SELECT is_student
+    FROM (
+        SELECT TRUE AS is_student, e.created_at, e.id
+        FROM enrollment e
+        WHERE e.student_email = :email
+          AND e.student_phone IS NULL
+          AND e.student_relink_blocked_at IS NULL
+        UNION ALL
+        SELECT FALSE AS is_student, e.created_at, e.id
+        FROM enrollment e
+        WHERE e.guardian_email = :email
+          AND e.guardian_phone IS NULL
+          AND e.guardian_relink_blocked_at IS NULL
+    ) seat
+    ORDER BY is_student DESC, created_at, id
+    LIMIT 1
     """
 )
 
 
-#: The student half of :data:`_LINK_GUARDIAN_SEATS`, under the same rules:
-#: the link and NOT the decision [BR5.1], and never a blocked seat [BR6.2].
-_LINK_STUDENT_SEATS = sa.text(
-    """
-    UPDATE enrollment
-    SET student_account_id = :account_id
-    WHERE student_phone = :phone
-      AND student_account_id IS NULL
-      AND student_relink_blocked_at IS NULL
-    """
-)
-
-
-def already_added(session: Session, phone: str) -> AlreadyAdded:
-    """Report whether a teacher recorded this number, and nothing more.
+def already_added(session: Session, contact: str | Identifier) -> AlreadyAdded:
+    """Report whether a teacher recorded this contact, and nothing more.
 
     Called before the signup form renders, so the form can lock the
     role [BR4.5]. It no longer pre-fills a name [C-06].
 
     :param session: The session to query through
-    :param phone: The number typed into the form
+    :param contact: The number or address typed into the form; a bare
+        string is a canonical phone number
     :return: Existence and the role to lock
     """
-    row = session.execute(_LOOKUP_QUERY, {"phone": phone}).one_or_none()
+    if isinstance(contact, Identifier) and not contact.is_phone:
+        row = session.execute(
+            _EMAIL_LOOKUP_QUERY, {"email": contact.value}
+        ).one_or_none()
+    else:
+        phone = contact.value if isinstance(contact, Identifier) else contact
+        row = session.execute(_LOOKUP_QUERY, {"phone": phone}).one_or_none()
 
     if row is None:
         return AlreadyAdded(exists=False, role=None)
@@ -407,6 +413,14 @@ def create_account_rows(
     moment = now or dt.datetime.now(tz=dt.UTC)
     if phone is None and email is None:
         raise ValueError("an account needs a phone number or an email address")
+    contacts = [
+        *([Identifier(Channel.PHONE, phone)] if phone is not None else []),
+        *([Identifier(Channel.EMAIL, email)] if email is not None else []),
+    ]
+    # Each contact's key BEFORE the account row exists [NFR4.2 LO-5], so a
+    # concurrent contact add of the same value waits here rather than on
+    # the unique index while holding the key this insert would need.
+    lock_keys(session, [contact_key(contact) for contact in contacts])
 
     # Asked before inserting, so the refusal is a clean ConflictError
     # rather than a driver IntegrityError the caller has to classify.
@@ -481,56 +495,10 @@ def create_account_rows(
         )
         is_teacher = True
 
-    if phone is not None:
-        link_phone_seats(session, account_id=account.id, phone=phone)
+    # Everything teachers and centres recorded against the contact the
+    # account was created with: linked, never accepted [BR3.1, BR3.4].
+    # The phone-only `link_phone_seats` this replaced is gone [BR3.9].
+    for contact in contacts:
+        match_contact(session, account_id=account.id, contact=contact)
 
     return AccountCreated(account_id=account.id, is_teacher=is_teacher)
-
-
-def link_phone_seats(session: Session, *, account_id: uuid.UUID, phone: str) -> None:
-    """Attach everything teachers and centres recorded against a number.
-
-    Run when an account is created on a number, and when an email-only
-    account adds and verifies one [0032] -- the only two moments a
-    number becomes an account's. Teachers find students, guardians and
-    staff by number, so this is what makes their records reach the
-    person. Adds to the caller's transaction and does not commit.
-
-    :param session: The session to write through
-    :param account_id: The account that now holds the number
-    :param phone: The number, verified
-    :return: None
-    """
-    _link_existing_seats(session, account_id=account_id, phone=phone)
-    # A centre may have invited this number before it had an account.
-    # Linked, never accepted: the person still answers the invitation.
-    link_memberships(session, account_id=account_id, phone=phone)
-
-
-def _link_existing_seats(
-    session: Session, *, account_id: uuid.UUID, phone: str
-) -> None:
-    """Attach the new account to seats a teacher already created.
-
-    **Sets the links and never a decision** [BR5.1]. A seat that was
-    ``pending`` is still ``pending`` after this runs, and that is the
-    point: signing up is not accepting, so the person is offered an
-    invitation rather than a lens.
-
-    **Both links, by the number the teacher typed.** This used to attach
-    only the guardian: a seat had no column for its student's number, so
-    the student link was left to "D2's screen", which was never built --
-    and no student a teacher added could reach their own seat. ``0008``
-    added ``Enrollment.student_phone``, and the student link now attaches
-    here exactly as the guardian's does.
-
-    Both statements skip a seat whose relink is blocked: a number whose
-    account was erased must not reattach to the records it left [BR6.2].
-
-    :param session: The session to write through
-    :param account_id: The account just created
-    :param phone: The number it is keyed on
-    :return: None
-    """
-    session.execute(_LINK_GUARDIAN_SEATS, {"account_id": account_id, "phone": phone})
-    session.execute(_LINK_STUDENT_SEATS, {"account_id": account_id, "phone": phone})

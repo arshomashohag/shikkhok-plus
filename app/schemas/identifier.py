@@ -12,10 +12,30 @@ from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, Field, model_validator
 
-from app.accounts.identifier import Channel, Identifier, canonical_email
+from app.accounts.identifier import (
+    EMAIL_MAX_LENGTH,
+    Channel,
+    Identifier,
+    canonical_email,
+    optional_email,
+)
 from app.schemas.phone import PhoneField
 
-__all__ = ["EmailField", "IdentifierFields"]
+__all__ = ["EmailField", "IdentifierFields", "RecordedEmailField"]
+
+#: An address a teacher or a centre RECORDS for somebody else [U2: BR1.1].
+#: Trimmed and lowercased like :data:`EmailField`; a blank value records
+#: nobody and is read as null, as an empty form field is.
+RecordedEmailField = Annotated[
+    Annotated[str, Field(max_length=EMAIL_MAX_LENGTH)] | None,
+    BeforeValidator(optional_email),
+    Field(
+        description=(
+            "An email address, at most 254 characters, stored and returned "
+            "trimmed and lowercased. Empty is the same as null."
+        ),
+    ),
+]
 
 #: An email address, stored and compared trimmed and lowercased.
 EmailField = Annotated[

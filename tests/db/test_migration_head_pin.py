@@ -55,11 +55,12 @@ VERSIONS: Final[pathlib.Path] = (
 #: constraints and indexes -- again, and ``0031`` -- verify-first signup and
 #: the end of a session -- once more, and ``0032`` -- email as an identifier,
 #: and passwords -- again, and ``0033`` -- the class a class-change
-#: notification names -- once more.
-EXPECTED_REVISIONS: Final[int] = 33
+#: notification names -- once more, and ``0034`` -- contacts recorded and
+#: invited by email -- again.
+EXPECTED_REVISIONS: Final[int] = 34
 
-#: The head ``0033`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0033"
+#: The head ``0034`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0034"
 
 
 def _revision_files() -> list[pathlib.Path]:

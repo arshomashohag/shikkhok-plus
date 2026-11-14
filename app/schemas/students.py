@@ -16,6 +16,7 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.identifier import RecordedEmailField
 from app.schemas.money import MoneyField
 from app.schemas.phone import PhoneField
 
@@ -51,6 +52,8 @@ class StudentCreateRequest(BaseModel):
     :ivar display_name: The teacher-typed name
     :ivar student_phone: The student's number; unique per teacher [D2]
     :ivar guardian_phone: The guardian's number, if one is recorded
+    :ivar student_email: The student's address; unique per teacher [U2]
+    :ivar guardian_email: The guardian's address, if one is recorded
     :ivar enrollments: The batches to put them in, possibly none
     :ivar client_mutation_id: The retry key; a resend under it returns the
         student the first request created
@@ -61,19 +64,24 @@ class StudentCreateRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=120)
     student_phone: PhoneField | None = None
     guardian_phone: PhoneField | None = None
+    student_email: RecordedEmailField = None
+    guardian_email: RecordedEmailField = None
     enrollments: list[StudentSeatRequest] = Field(default_factory=list, max_length=50)
     client_mutation_id: uuid.UUID | None = None
 
 
 class StudentUpdateRequest(BaseModel):
-    """Edit a student's name or numbers. Omitted fields are unchanged.
+    """Edit a student's name or contacts. Omitted fields are unchanged.
 
-    A number can be changed only while nobody holding it has accepted
-    and it was never erased; the name can always change.
+    A number or an address can be changed only while nobody holding that
+    link has accepted it and it was never erased; the name can always
+    change.
 
     :ivar display_name: The new name
     :ivar student_phone: The new student number, or null to clear it
     :ivar guardian_phone: The new guardian number, or null to clear it
+    :ivar student_email: The new student address, or null to clear it
+    :ivar guardian_email: The new guardian address, or null to clear it
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -81,6 +89,8 @@ class StudentUpdateRequest(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
     student_phone: PhoneField | None = None
     guardian_phone: PhoneField | None = None
+    student_email: RecordedEmailField = None
+    guardian_email: RecordedEmailField = None
 
 
 class StudentEnrollRequest(BaseModel):
@@ -147,6 +157,9 @@ class StudentResponse(BaseModel):
     :ivar display_name: The teacher-typed name
     :ivar student_phone: The student's number as the teacher typed it
     :ivar guardian_phone: The guardian's number as the teacher typed it
+    :ivar student_email: The student's address as the teacher typed it,
+        lowercased. Teacher-written, never an account's own [U2: BR1.4]
+    :ivar guardian_email: The guardian's address, likewise
     :ivar student_state: ``pending``, ``accepted`` or ``declined``
     :ivar guardian_state: The same, or ``absent`` with no guardian
     :ivar enrollments: The seats, by batch name; possibly none
@@ -158,6 +171,8 @@ class StudentResponse(BaseModel):
     display_name: str
     student_phone: str | None
     guardian_phone: str | None
+    student_email: str | None
+    guardian_email: str | None
     student_state: str
     guardian_state: str
     enrollments: list[StudentSeatResponse]

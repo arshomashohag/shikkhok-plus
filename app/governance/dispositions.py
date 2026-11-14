@@ -146,7 +146,8 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         basis=(
             "High volume, carries a phone number or an email address, and "
             "has an obviously short lifetime. A code is useless after five "
-            "minutes."
+            "minutes. A code to replace a contact also names the account "
+            "that asked for it, and is deleted with that account."
         ),
     ),
     "verify_attempt": TableGovernance(
@@ -232,7 +233,11 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "display_name is TEACHER-authored and part of the teacher's "
             "own record. This is the direct tension between a guardian's "
             "erasure right and a teacher's business record, and U11 "
-            "resolves it against the full schema."
+            "resolves it against the full schema. When the person a seat "
+            "links to deletes their account, the link is cleared and the "
+            "time of the erasure is kept on the seat, naming nobody, so "
+            "the seat is never linked to whoever holds that number or "
+            "address next."
         ),
     ),
     "student": TableGovernance(
@@ -240,7 +245,8 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         retention=RetentionClass.LIFE_OF_ACCOUNT,
         basis=(
             "The teacher's own record of a student: the name and the "
-            "numbers the TEACHER typed, the same fields every one of "
+            "numbers and email addresses the TEACHER typed, the same "
+            "fields every one of "
             "that student's enrollments carries. It holds nothing the "
             "student or guardian wrote and links to no account, so it "
             "is retained on the same basis as the enrollments it groups."
@@ -358,7 +364,8 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         retention=RetentionClass.LIFE_OF_ACCOUNT,
         basis=(
             "A coaching centre's own record of who works there: the name "
-            "and phone number its manager typed, the role, and when the "
+            "and the phone number or email address its manager typed, the "
+            "role, and when the "
             "person was invited, answered and left. When a member deletes "
             "their account the membership is ended and its link to the "
             "account cleared; the centre keeps the record, which names "

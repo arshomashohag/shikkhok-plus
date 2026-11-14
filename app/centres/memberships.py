@@ -19,6 +19,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 from dataclasses import dataclass
+from typing import Final
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
@@ -120,27 +121,49 @@ def decide_membership(
     return decision
 
 
-#: Attaches the invitations a number holds to the account that now owns
-#: it. The link and NOT the decision; never a revoked offer.
-_LINK = sa.text(
-    """
-    UPDATE owner_member
-    SET account_id = :account_id
-    WHERE invited_phone = :phone
-      AND account_id IS NULL
-      AND revoked_at IS NULL
-    """
-)
+#: Attaches the invitations a contact names to the account that now holds
+#: it, keyed by the kind of contact. The link and NOT the decision; never a
+#: revoked offer; never an invitation already linked [BR3.4 to BR3.6].
+#:
+#: **An email takes only an invitation recording no phone** [BR3.3]: the
+#: centre addressed the other kind by its phone too, and that phone's
+#: holder owns it [BR2.1]. A legacy manager row stored ``""`` for "no
+#: phone" [BR1.9], and is read as absent here as everywhere.
+_LINK: Final = {
+    "phone": sa.text(
+        """
+        UPDATE owner_member
+        SET account_id = :account_id
+        WHERE invited_phone = :value
+          AND account_id IS NULL
+          AND revoked_at IS NULL
+        """
+    ),
+    "email": sa.text(
+        """
+        UPDATE owner_member
+        SET account_id = :account_id
+        WHERE invited_email = :value
+          AND (invited_phone IS NULL OR invited_phone = '')
+          AND account_id IS NULL
+          AND revoked_at IS NULL
+        """
+    ),
+}
 
 
-def link_memberships(session: Session, *, account_id: uuid.UUID, phone: str) -> None:
-    """Attach this number's live invitations to its new account.
+def link_memberships(
+    session: Session, *, account_id: uuid.UUID, kind: str, value: str
+) -> None:
+    """Attach this contact's live invitations to the account that holds it.
 
-    Adds to the caller's transaction and does not commit.
+    One set-based statement [NFR8.4]. Adds to the caller's transaction
+    and does not commit.
 
     :param session: The session to write through
-    :param account_id: The account just created
-    :param phone: The number it is keyed on
+    :param account_id: The account that now holds the contact
+    :param kind: ``phone`` or ``email``
+    :param value: The canonical contact
     :return: None
     """
-    session.execute(_LINK, {"account_id": account_id, "phone": phone})
+    session.execute(_LINK[kind], {"account_id": account_id, "value": value})

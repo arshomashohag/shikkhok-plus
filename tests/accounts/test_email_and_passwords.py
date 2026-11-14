@@ -627,11 +627,13 @@ def test_an_email_only_account_reaches_its_seats_once_it_proves_a_phone(
     assert proved.json()["phone"] == phone
     assert linked() == account_id
 
+    # A second number is a REPLACEMENT since U2 [FR8, BR5.2], and a
+    # replacement without the password is refused before any code is sent.
     again = api_client.post(
         "/v1/me/contact", json={"phone": _number()}, headers=headers
     )
-    assert again.status_code == 409
-    assert again.json()["error"]["message_key"] == "account.contact.already_set"
+    assert again.status_code == 400
+    assert again.json()["error"]["message_key"] == "account.contact.password_required"
 
 
 def test_a_destination_another_account_holds_is_refused_only_after_its_code(

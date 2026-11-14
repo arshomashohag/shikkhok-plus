@@ -25,6 +25,7 @@ from app.api.fee_line import current_fee
 from app.api.teaching import upcoming_response
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.batches import service
+from app.db.retry import run_with_retry
 from app.errors import AuthorizationError
 from app.marks.views import guardian_progress
 from app.money import Money as DomainMoney
@@ -158,6 +159,8 @@ def _roster_row_response(row: service.RosterRow) -> RosterRowResponse:
         student_id=row.student_id,
         display_name=row.display_name,
         guardian_phone=row.guardian_phone,
+        student_email=row.student_email,
+        guardian_email=row.guardian_email,
         fee_amount=_to_wire(row.fee_amount),
         # `status` is UNCHANGED [functional-spec § 1]. Acceptance is a
         # different axis, and collapsing the two is what produced the
@@ -312,16 +315,22 @@ def add_enrollment(
     :param session: The request-scoped session
     :return: The created seat
     """
-    row = service.add_enrollment(
+    # Re-run on a deadlock or serialization failure [U2: NFR4.3]: it is a
+    # seat creation through `seat_for`, which sends nothing before commit.
+    row = run_with_retry(
         session,
-        lens=lens,
-        batch_id=batch_id,
-        display_name=body.display_name,
-        guardian_phone=body.guardian_phone,
-        student_phone=body.student_phone,
-        fee_amount=_from_wire(body.fee_amount),
-        joined_on=body.joined_on,
-        client_mutation_id=body.client_mutation_id,
+        lambda: service.add_enrollment(
+            session,
+            lens=lens,
+            batch_id=batch_id,
+            display_name=body.display_name,
+            guardian_phone=body.guardian_phone,
+            student_phone=body.student_phone,
+            fee_amount=_from_wire(body.fee_amount),
+            joined_on=body.joined_on,
+            client_mutation_id=body.client_mutation_id,
+        ),
+        correlation_id=None,
     )
     # **The same mapping the roster uses**, rather than a second one
     # written beside it. A new seat is pending on both links [ADR-013,

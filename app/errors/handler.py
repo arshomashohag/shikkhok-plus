@@ -75,7 +75,7 @@ def to_response(error: TaxonomyError) -> JSONResponse:
         case AuthorizationError():
             status, retryable = error.status, False
         case ConflictError():
-            status, retryable = 409, False
+            status, retryable = error.status, False
         case TransientError():
             status, retryable = 503, True
         case FatalError():

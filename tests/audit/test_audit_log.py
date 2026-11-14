@@ -138,6 +138,9 @@ def test_the_event_vocabulary_is_closed() -> None:
         "PASSWORD_SIGN_IN_FAILED",
         "PASSWORD_CEILING_BREACHED",
         "CONTACT_ADDED",
+        # U2 [BR5.11, NFR3.9]: a contact replaced or removed.
+        "CONTACT_REPLACED",
+        "CONTACT_REMOVED",
     }
 
 

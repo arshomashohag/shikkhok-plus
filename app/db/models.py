@@ -567,6 +567,8 @@ class OtpRequest(Base):
         the five-minute window advisory [AC1.1.3]
     :ivar consumed_at: Set in the same transaction as the check that read
         it, so a concurrent second verify cannot slip between them
+    :ivar requested_by_account_id: For a ``contact_replace`` code, the
+        account that requested it; None for every other purpose [0034]
     """
 
     __tablename__ = "otp_request"
@@ -585,10 +587,26 @@ class OtpRequest(Base):
     consumed_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # [0034] The account that confirmed its password for a contact
+    # replacement; only that account can spend the code [BR5.3].
+    requested_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_otp_request_requested_by_account_id_account"),
+        ),
+        nullable=True,
+    )
 
     __table_args__ = (
         Index("ix_otp_request_phone_issued_at", "phone", "issued_at"),
         Index("ix_otp_request_email_issued_at", "email", "issued_at"),
+        Index(
+            "ix_otp_request_requested_by_account_id",
+            "requested_by_account_id",
+            postgresql_where=text("requested_by_account_id IS NOT NULL"),
+        ),
         # [0032] A code goes to a number or to an address, never both.
         CheckConstraint(
             "(phone IS NULL) <> (email IS NULL)",
@@ -952,7 +970,10 @@ class OwnerMember(Base):
     :ivar id: Surrogate key
     :ivar owner_id: The centre
     :ivar account_id: The person, once an account holds the number
-    :ivar invited_phone: The number invited, canonical
+    :ivar invited_phone: The number invited, canonical, or None for an
+        invitation by email alone [0034]. Legacy manager rows may hold
+        ``""``, which every reader treats as absent
+    :ivar invited_email: The address invited, lowercased, or None
     :ivar display_name: The name the inviting manager typed
     :ivar role: ``manager`` or ``teacher``
     :ivar decision: ``pending``, ``accepted`` or ``declined``
@@ -975,7 +996,8 @@ class OwnerMember(Base):
         ForeignKey("account.id", ondelete="SET NULL"),
         nullable=True,
     )
-    invited_phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    invited_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    invited_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     display_name: Mapped[str] = mapped_column(String(120), nullable=False)
     role: Mapped[str] = mapped_column(_MEMBER_ROLE, nullable=False)
     decision: Mapped[str] = mapped_column(_DECISION, nullable=False)
@@ -1008,6 +1030,31 @@ class OwnerMember(Base):
             unique=True,
             postgresql_where=text("revoked_at IS NULL"),
         ),
+        # [0034] Invited by phone, by email, or both [BR1.8].
+        CheckConstraint(
+            "invited_phone IS NOT NULL OR invited_email IS NOT NULL",
+            name="ck_owner_member_has_contact",
+        ),
+        CheckConstraint(
+            "invited_email = lower(invited_email)",
+            name="ck_owner_member_invited_email_lower",
+        ),
+        Index(
+            "uq_owner_member_live_email",
+            "owner_id",
+            "invited_email",
+            unique=True,
+            postgresql_where=text("revoked_at IS NULL AND invited_email IS NOT NULL"),
+        ),
+        # The matcher's invitation statement, across centres [NFR8.8].
+        Index(
+            "ix_owner_member_unlinked_email",
+            "invited_email",
+            postgresql_where=text(
+                "revoked_at IS NULL AND account_id IS NULL "
+                "AND invited_email IS NOT NULL"
+            ),
+        ),
     )
 
 
@@ -1029,6 +1076,9 @@ class Student(Base):
     :ivar display_name: The teacher-typed name
     :ivar student_phone: The student's number, canonical; unique per owner
     :ivar guardian_phone: The guardian's number, canonical
+    :ivar student_email: The student's address, lowercased; unique per
+        owner [0034]
+    :ivar guardian_email: The guardian's address, lowercased; not unique
     :ivar archived_at: Set when the teacher removed a student whose seats
         must outlive them as history; an archived student is hidden
     :ivar created_at: When the student was recorded
@@ -1045,6 +1095,8 @@ class Student(Base):
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
     student_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     guardian_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    student_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    guardian_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     archived_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -1072,6 +1124,22 @@ class Student(Base):
             "student_phone",
             unique=True,
             postgresql_where=text("student_phone IS NOT NULL"),
+        ),
+        # [0034] A student email is unique per teacher, as the number is.
+        Index(
+            "uq_student_owner_email",
+            "owner_id",
+            "student_email",
+            unique=True,
+            postgresql_where=text("student_email IS NOT NULL"),
+        ),
+        CheckConstraint(
+            "student_email = lower(student_email)",
+            name="ck_student_student_email_lower",
+        ),
+        CheckConstraint(
+            "guardian_email = lower(guardian_email)",
+            name="ck_student_guardian_email_lower",
         ),
     )
 
@@ -1105,6 +1173,9 @@ class Enrollment(Base):
     :ivar student_phone: The teacher-typed STUDENT number, canonical. What
         links the seat to the student's account, at creation when that
         account exists and at sign-up when it does not [0008]
+    :ivar student_email: The teacher-typed student address, lowercased; a
+        copy of the student's, as ``student_phone`` is [0034]
+    :ivar guardian_email: The teacher-typed guardian address, likewise
     :ivar fee_amount: This seat's fee, or NULL to inherit the batch
         default. Zero is a real fee of zero, which is a waiver
     :ivar joined_on: When the student joined
@@ -1166,6 +1237,8 @@ class Enrollment(Base):
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
     guardian_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     student_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    student_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    guardian_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     fee_amount: Mapped[Money | None] = mapped_column(MoneyColumn, nullable=True)
     joined_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     inactive_from: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
@@ -1216,6 +1289,25 @@ class Enrollment(Base):
         CheckConstraint(
             "fee_amount IS NULL OR fee_amount >= 0",
             name=conv("ck_enrollment_fee_amount_non_negative"),
+        ),
+        # [0034] The matcher and the email lookup find seats by address.
+        Index(
+            "ix_enrollment_student_email",
+            "student_email",
+            postgresql_where=text("student_email IS NOT NULL"),
+        ),
+        Index(
+            "ix_enrollment_guardian_email",
+            "guardian_email",
+            postgresql_where=text("guardian_email IS NOT NULL"),
+        ),
+        CheckConstraint(
+            "student_email = lower(student_email)",
+            name="ck_enrollment_student_email_lower",
+        ),
+        CheckConstraint(
+            "guardian_email = lower(guardian_email)",
+            name="ck_enrollment_guardian_email_lower",
         ),
     )
 

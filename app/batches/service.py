@@ -30,7 +30,6 @@ from sqlalchemy.orm import Session
 
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.db.models import (
-    Account,
     Attendance,
     Batch,
     BatchSubject,
@@ -110,6 +109,10 @@ class RosterRow:
     :ivar student_id: The teacher's student this seat belongs to [0018]
     :ivar display_name: The teacher-typed name
     :ivar guardian_phone: The teacher-typed guardian contact, if any
+    :ivar student_email: The teacher-typed student address, if any [U2:
+        BR1.11]
+    :ivar guardian_email: The teacher-typed guardian address, if any, so a
+        guardian recorded only by email shows a contact beside ``pending``
     :ivar fee_amount: This seat's fee, or None when it inherits the
         batch default. None is NOT zero: zero is a waiver [AC2.2.5]
     :ivar is_dormant: True while **no link has accepted** this seat
@@ -139,6 +142,8 @@ class RosterRow:
     student_id: uuid.UUID | None
     display_name: str
     guardian_phone: str | None
+    student_email: str | None
+    guardian_email: str | None
     fee_amount: Money | None
     is_dormant: bool
     inactive_from: dt.date | None
@@ -215,10 +220,20 @@ def _guardian_state(record: Enrollment) -> str:
     report every unregistered guardian as ``absent``, which is the exact
     inversion this rule exists to prevent.
 
+    **The address counts as the number does** [U2: BR1.6]. A guardian
+    recorded by email alone was asked and has not answered, so is
+    ``pending``; reading only the phone would report them ``absent``
+    until an account holding the address was linked -- telling the
+    teacher whether one exists [NFR1.4].
+
     :param record: The seat to read
     :return: The guardian decision, or ``absent``
     """
-    if record.guardian_phone is None and record.guardian_account_id is None:
+    if (
+        record.guardian_phone is None
+        and record.guardian_email is None
+        and record.guardian_account_id is None
+    ):
         return "absent"
     return record.guardian_decision
 
@@ -272,6 +287,8 @@ def _roster_row(record: Enrollment) -> RosterRow:
         student_id=record.student_id,
         display_name=record.display_name,
         guardian_phone=record.guardian_phone,
+        student_email=record.student_email,
+        guardian_email=record.guardian_email,
         fee_amount=record.fee_amount,
         is_dormant=_nobody_accepted(record),
         inactive_from=record.inactive_from,
@@ -875,30 +892,13 @@ def list_batches(session: Session, *, lens: TeacherLens) -> list[BatchSummary]:
     ]
 
 
-def _account_for(session: Session, phone: str | None) -> uuid.UUID | None:
-    """Find the account a canonical number signs in with, if any.
-
-    Exact comparison is correct only because every stored and incoming
-    number is canonical [0008, ``app.schemas.phone``]; before that it
-    missed every number typed in a different spelling.
-
-    :param session: The session to query through
-    :param phone: A canonical number, or None
-    :return: The account's id, or None
-    """
-    if phone is None:
-        return None
-    return session.execute(
-        sa.select(Account.id).where(Account.phone == phone)
-    ).scalar_one_or_none()
-
-
 def _refuse_second_seat(
     session: Session,
     *,
     batch_id: uuid.UUID,
     student_phone: str | None,
     student_account_id: uuid.UUID | None,
+    student_email: str | None = None,
 ) -> None:
     """Refuse a second seat for one student in one batch.
 
@@ -913,12 +913,16 @@ def _refuse_second_seat(
     :param batch_id: The batch
     :param student_phone: The typed student number, canonical, or None
     :param student_account_id: The account it resolves to, or None
+    :param student_email: The typed student address, or None; another
+        seat here recording it is the same student too [U2: BR2.5]
     :return: None
     :raises ConflictError: That student already has a seat here
     """
     clauses = []
     if student_phone is not None:
         clauses.append(Enrollment.student_phone == student_phone)
+    if student_email is not None:
+        clauses.append(Enrollment.student_email == student_email)
     if student_account_id is not None:
         clauses.append(Enrollment.student_account_id == student_account_id)
     if not clauses:

@@ -52,6 +52,19 @@ FORBIDDEN_TOKENS = (
     "fee",
 )
 
+
+def test_recorded_emails_are_forbidden_in_every_admin_response() -> None:
+    """The teacher- and centre-written addresses never reach an administrator.
+
+    [U2: NFR3.3] A token match rather than a list of names, so this pins
+    that each of the three is caught by it.
+
+    :return: None
+    """
+    for field in ("student_email", "guardian_email", "invited_email"):
+        assert any(token in field for token in FORBIDDEN_TOKENS), field
+
+
 #: Fields that name a person. Allowed only on the two models whose name
 #: is a teacher's or a centre's.
 NAME_FIELDS = frozenset({"name", "centre"})

@@ -2121,9 +2121,34 @@
         "title": "CollectionsResponse",
         "type": "object"
       },
+      "ContactRemoveRequest": {
+        "additionalProperties": false,
+        "description": "Remove the account's phone number or email address [U2: FR8.4].\n\n:ivar kind: Which contact to remove\n:ivar password: The account's password",
+        "properties": {
+          "kind": {
+            "enum": [
+              "email",
+              "phone"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 1024,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "password"
+        ],
+        "title": "ContactRemoveRequest",
+        "type": "object"
+      },
       "ContactRequest": {
         "additionalProperties": false,
-        "description": "Ask for a code to add a phone number or an email address.\n\n:ivar phone: The number to add, or None\n:ivar email: Or the address to add",
+        "description": "Ask for a code to add, or to replace, a phone number or an address.\n\n:ivar phone: The number to add, or None\n:ivar email: Or the address to add\n:ivar password: Required when the account already holds a contact of\n    this kind: the request is then a replacement [BR5.2]",
         "properties": {
           "email": {
             "anyOf": [
@@ -2136,6 +2161,19 @@
               }
             ],
             "title": "Email"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required when the account already holds a contact of this kind: the request is then a replacement.",
+            "title": "Password"
           },
           "phone": {
             "anyOf": [
@@ -5117,7 +5155,7 @@
       },
       "MemberInviteRequest": {
         "additionalProperties": false,
-        "description": "Invite a number to the centre.\n\n:ivar phone: The number, typed by the manager\n:ivar display_name: The name the centre knows them by\n:ivar role: ``manager`` or ``teacher``",
+        "description": "Invite a number, an address, or both, to the centre [U2: FR6.4].\n\nAt least one of the two; a request naming neither is refused at the\nschema [BR1.8].\n\n:ivar phone: The number, typed by the manager, or null\n:ivar email: The address, typed by the manager, or null\n:ivar display_name: The name the centre knows them by\n:ivar role: ``manager`` or ``teacher``",
         "properties": {
           "display_name": {
             "maxLength": 120,
@@ -5125,10 +5163,30 @@
             "title": "Display Name",
             "type": "string"
           },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An email address, at most 254 characters, stored and returned trimmed and lowercased. Empty is the same as null.",
+            "title": "Email"
+          },
           "phone": {
-            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
-            "title": "Phone",
-            "type": "string"
+            "anyOf": [
+              {
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           },
           "role": {
             "enum": [
@@ -5141,14 +5199,13 @@
         },
         "required": [
           "display_name",
-          "phone",
           "role"
         ],
         "title": "MemberInviteRequest",
         "type": "object"
       },
       "MemberResponse": {
-        "description": "One membership, as a manager sees it.\n\n:ivar member_id: The membership\n:ivar display_name: The name the centre typed\n:ivar phone: The number invited\n:ivar role: ``manager`` or ``teacher``\n:ivar decision: Where the offer stands\n:ivar invited_at: When they were invited\n:ivar revoked: Whether the membership has been ended\n:ivar is_you: Whether this is the caller's own membership",
+        "description": "One membership, as a manager sees it.\n\n:ivar member_id: The membership\n:ivar display_name: The name the centre typed\n:ivar phone: The number invited, or null for an invitation by email\n    alone [U2: BR1.9]\n:ivar invited_email: The address invited, or null. Centre-written,\n    never the member's own account address [BR1.4]\n:ivar role: ``manager`` or ``teacher``\n:ivar decision: Where the offer stands\n:ivar invited_at: When they were invited\n:ivar revoked: Whether the membership has been ended\n:ivar is_you: Whether this is the caller's own membership",
         "properties": {
           "decision": {
             "enum": [
@@ -5168,6 +5225,17 @@
             "title": "Invited At",
             "type": "string"
           },
+          "invited_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invited Email"
+          },
           "is_you": {
             "title": "Is You",
             "type": "boolean"
@@ -5178,8 +5246,15 @@
             "type": "string"
           },
           "phone": {
-            "title": "Phone",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           },
           "revoked": {
             "title": "Revoked",
@@ -5198,6 +5273,7 @@
           "decision",
           "display_name",
           "invited_at",
+          "invited_email",
           "is_you",
           "member_id",
           "phone",
@@ -8423,7 +8499,7 @@
         "type": "object"
       },
       "RosterRowResponse": {
-        "description": "One seat as a teacher sees it.\n\n``status`` is a **server-computed decision**, not an input to one\n[TC-9]: the client switches on this enum and never compares a date\nor an amount of its own.\n\n:ivar enrollment_id: The teacher-facing key for this seat\n:ivar student_id: The teacher's student this seat belongs to, the\n    teacher's own record and never an account id [0018]\n:ivar display_name: The teacher-typed name\n:ivar guardian_phone: The teacher-typed guardian contact\n:ivar fee_amount: This seat's fee, or null when it inherits\n:ivar status: ``dormant``, ``active`` or ``inactive``.\n\n    **Unchanged, and the two new fields sit beside it rather than\n    replacing it.** Acceptance is a different axis from activity:\n    an inactive seat keeps whatever decisions its links carry,\n    because leaving a batch is not un-accepting it. Folding the two\n    together would produce a product of two axes and a value set\n    nobody can switch on exhaustively\n:ivar student_state: The student link's own decision --\n    ``pending``, ``accepted`` or ``declined`` [BR2.1]\n:ivar guardian_state: The guardian link's own decision, plus\n    ``absent`` when no guardian was recorded [BR2.2]. ``absent`` is\n    a fourth VALUE and not a null, because a decision nobody was\n    asked for is not an outstanding one\n:ivar is_removable: Whether removal would succeed [BR3.1].\n\n    **A decision the client reads and never derives** [NFR14.31].\n    Removal tests two conditions -- no link accepted, and no erasure\n    marker set -- and this row carries only the first. A client\n    inferring removability from the link states it displays would\n    offer the action on an erased seat, which is a wrong answer\n    presented as an available action rather than a style violation\n:ivar inactive_from: The recorded date, if any",
+        "description": "One seat as a teacher sees it.\n\n``status`` is a **server-computed decision**, not an input to one\n[TC-9]: the client switches on this enum and never compares a date\nor an amount of its own.\n\n:ivar enrollment_id: The teacher-facing key for this seat\n:ivar student_id: The teacher's student this seat belongs to, the\n    teacher's own record and never an account id [0018]\n:ivar display_name: The teacher-typed name\n:ivar guardian_phone: The teacher-typed guardian contact\n:ivar student_email: The teacher-typed student address, or null\n    [U2: BR1.11]. Teacher-written, like the numbers [BR1.4]\n:ivar guardian_email: The teacher-typed guardian address, or null\n:ivar fee_amount: This seat's fee, or null when it inherits\n:ivar status: ``dormant``, ``active`` or ``inactive``.\n\n    **Unchanged, and the two new fields sit beside it rather than\n    replacing it.** Acceptance is a different axis from activity:\n    an inactive seat keeps whatever decisions its links carry,\n    because leaving a batch is not un-accepting it. Folding the two\n    together would produce a product of two axes and a value set\n    nobody can switch on exhaustively\n:ivar student_state: The student link's own decision --\n    ``pending``, ``accepted`` or ``declined`` [BR2.1]\n:ivar guardian_state: The guardian link's own decision, plus\n    ``absent`` when no guardian was recorded [BR2.2]. ``absent`` is\n    a fourth VALUE and not a null, because a decision nobody was\n    asked for is not an outstanding one\n:ivar is_removable: Whether removal would succeed [BR3.1].\n\n    **A decision the client reads and never derives** [NFR14.31].\n    Removal tests two conditions -- no link accepted, and no erasure\n    marker set -- and this row carries only the first. A client\n    inferring removability from the link states it displays would\n    offer the action on an erased seat, which is a wrong answer\n    presented as an available action rather than a style violation\n:ivar inactive_from: The recorded date, if any",
         "properties": {
           "display_name": {
             "title": "Display Name",
@@ -8443,6 +8519,17 @@
                 "type": "null"
               }
             ]
+          },
+          "guardian_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Email"
           },
           "guardian_phone": {
             "anyOf": [
@@ -8479,6 +8566,17 @@
             "title": "Status",
             "type": "string"
           },
+          "student_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Email"
+          },
           "student_id": {
             "anyOf": [
               {
@@ -8500,11 +8598,13 @@
           "display_name",
           "enrollment_id",
           "fee_amount",
+          "guardian_email",
           "guardian_phone",
           "guardian_state",
           "inactive_from",
           "is_removable",
           "status",
+          "student_email",
           "student_id",
           "student_state"
         ],
@@ -9943,7 +10043,7 @@
       },
       "StudentCreateRequest": {
         "additionalProperties": false,
-        "description": "Record a student, and optionally seat them in batches [D3].\n\n:ivar display_name: The teacher-typed name\n:ivar student_phone: The student's number; unique per teacher [D2]\n:ivar guardian_phone: The guardian's number, if one is recorded\n:ivar enrollments: The batches to put them in, possibly none\n:ivar client_mutation_id: The retry key; a resend under it returns the\n    student the first request created",
+        "description": "Record a student, and optionally seat them in batches [D3].\n\n:ivar display_name: The teacher-typed name\n:ivar student_phone: The student's number; unique per teacher [D2]\n:ivar guardian_phone: The guardian's number, if one is recorded\n:ivar student_email: The student's address; unique per teacher [U2]\n:ivar guardian_email: The guardian's address, if one is recorded\n:ivar enrollments: The batches to put them in, possibly none\n:ivar client_mutation_id: The retry key; a resend under it returns the\n    student the first request created",
         "properties": {
           "client_mutation_id": {
             "anyOf": [
@@ -9971,6 +10071,19 @@
             "title": "Enrollments",
             "type": "array"
           },
+          "guardian_email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An email address, at most 254 characters, stored and returned trimmed and lowercased. Empty is the same as null.",
+            "title": "Guardian Email"
+          },
           "guardian_phone": {
             "anyOf": [
               {
@@ -9982,6 +10095,19 @@
               }
             ],
             "title": "Guardian Phone"
+          },
+          "student_email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An email address, at most 254 characters, stored and returned trimmed and lowercased. Empty is the same as null.",
+            "title": "Student Email"
           },
           "student_phone": {
             "anyOf": [
@@ -10029,7 +10155,7 @@
         "type": "object"
       },
       "StudentResponse": {
-        "description": "One of this teacher's students, with every seat.\n\n:ivar student_id: The student\n:ivar display_name: The teacher-typed name\n:ivar student_phone: The student's number as the teacher typed it\n:ivar guardian_phone: The guardian's number as the teacher typed it\n:ivar student_state: ``pending``, ``accepted`` or ``declined``\n:ivar guardian_state: The same, or ``absent`` with no guardian\n:ivar enrollments: The seats, by batch name; possibly none\n:ivar total_outstanding: What the student owes across every seat\n:ivar is_removable: Whether removing the student would succeed [D4]",
+        "description": "One of this teacher's students, with every seat.\n\n:ivar student_id: The student\n:ivar display_name: The teacher-typed name\n:ivar student_phone: The student's number as the teacher typed it\n:ivar guardian_phone: The guardian's number as the teacher typed it\n:ivar student_email: The student's address as the teacher typed it,\n    lowercased. Teacher-written, never an account's own [U2: BR1.4]\n:ivar guardian_email: The guardian's address, likewise\n:ivar student_state: ``pending``, ``accepted`` or ``declined``\n:ivar guardian_state: The same, or ``absent`` with no guardian\n:ivar enrollments: The seats, by batch name; possibly none\n:ivar total_outstanding: What the student owes across every seat\n:ivar is_removable: Whether removing the student would succeed [D4]",
         "properties": {
           "display_name": {
             "title": "Display Name",
@@ -10041,6 +10167,17 @@
             },
             "title": "Enrollments",
             "type": "array"
+          },
+          "guardian_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Email"
           },
           "guardian_phone": {
             "anyOf": [
@@ -10060,6 +10197,17 @@
           "is_removable": {
             "title": "Is Removable",
             "type": "boolean"
+          },
+          "student_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Email"
           },
           "student_id": {
             "format": "uuid",
@@ -10088,9 +10236,11 @@
         "required": [
           "display_name",
           "enrollments",
+          "guardian_email",
           "guardian_phone",
           "guardian_state",
           "is_removable",
+          "student_email",
           "student_id",
           "student_phone",
           "student_state",
@@ -10191,7 +10341,7 @@
       },
       "StudentUpdateRequest": {
         "additionalProperties": false,
-        "description": "Edit a student's name or numbers. Omitted fields are unchanged.\n\nA number can be changed only while nobody holding it has accepted\nand it was never erased; the name can always change.\n\n:ivar display_name: The new name\n:ivar student_phone: The new student number, or null to clear it\n:ivar guardian_phone: The new guardian number, or null to clear it",
+        "description": "Edit a student's name or contacts. Omitted fields are unchanged.\n\nA number or an address can be changed only while nobody holding that\nlink has accepted it and it was never erased; the name can always\nchange.\n\n:ivar display_name: The new name\n:ivar student_phone: The new student number, or null to clear it\n:ivar guardian_phone: The new guardian number, or null to clear it\n:ivar student_email: The new student address, or null to clear it\n:ivar guardian_email: The new guardian address, or null to clear it",
         "properties": {
           "display_name": {
             "anyOf": [
@@ -10206,6 +10356,19 @@
             ],
             "title": "Display Name"
           },
+          "guardian_email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An email address, at most 254 characters, stored and returned trimmed and lowercased. Empty is the same as null.",
+            "title": "Guardian Email"
+          },
           "guardian_phone": {
             "anyOf": [
               {
@@ -10217,6 +10380,19 @@
               }
             ],
             "title": "Guardian Phone"
+          },
+          "student_email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An email address, at most 254 characters, stored and returned trimmed and lowercased. Empty is the same as null.",
+            "title": "Student Email"
           },
           "student_phone": {
             "anyOf": [
@@ -11507,18 +11683,44 @@
     },
     "/v1/accounts/already-added": {
       "get": {
-        "description": "Report whether a teacher recorded this number, and nothing more.\n\n**This route discloses that a seat exists, deliberately**\n[BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's\nbyte-identical requirement applies to the OTP endpoint and not to\nthis one. What is bounded is the WIDTH -- never the teacher, never\nthe batch, never the name [C-06] -- and the rate, through the\nlookup's own ceilings. **Never signup's** [SEC-4]: three anonymous\nlookups used to spend a number's whole daily signup allowance.\n\nPublic, and in ``PUBLIC_ROUTES``: it is called while the signup\nform renders, before any account exists.\n\n:param phone: The number typed into the form, canonicalised on the\n    way in like every other number, so the ceiling and the lookup\n    both see one spelling\n:param request: The incoming request\n:param session: The request-scoped session\n:return: Existence and the role to lock; never a name\n:raises CeilingBreach: A lookup ceiling refused this request",
+        "description": "Report whether a teacher recorded this contact, and nothing more.\n\n**This route discloses that a seat exists, deliberately**\n[BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's\nbyte-identical requirement applies to the OTP endpoint and not to\nthis one. What is bounded is the WIDTH -- never the teacher, never\nthe batch, never the name [C-06] -- and the rate, through the\nlookup's own ceilings. **Never signup's** [SEC-4]: three anonymous\nlookups used to spend a number's whole daily signup allowance.\n\nPublic, and in ``PUBLIC_ROUTES``: it is called while the signup\nform renders, before any account exists.\n\n**The email form** [U2: BR4.1 to BR4.4] reports only a seat a teacher\nrecorded with that address and no phone, never whether an account\nholds the address, so its answer is the same whether or not one does.\nBoth forms share the lookup ceilings, keyed on the contact's counter\nkey, and are refused with 429 before anything is read.\n\n:param request: The incoming request\n:param session: The request-scoped session\n:param phone: The number typed into the form, canonicalised on the\n    way in like every other number, so the ceiling and the lookup\n    both see one spelling\n:param email: Or the address, trimmed and lowercased on the way in\n:return: Existence and the role to lock; never a name\n:raises RequestValidationError: Neither or both were given\n:raises CeilingBreach: A lookup ceiling refused this request",
         "operationId": "lookup_already_added_v1_accounts_already_added_get",
         "parameters": [
           {
-            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
             "in": "query",
             "name": "phone",
-            "required": true,
+            "required": false,
             "schema": {
-              "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
-              "title": "Phone",
-              "type": "string"
+              "anyOf": [
+                {
+                  "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Phone"
+            }
+          },
+          {
+            "description": "Exactly one of phone or email [U2: FR6.7].",
+            "in": "query",
+            "name": "email",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "description": "An email address, at most 254 characters. It is stored and returned trimmed and lowercased.",
+                  "maxLength": 254,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exactly one of phone or email [U2: FR6.7].",
+              "title": "Email"
             }
           }
         ],
@@ -14802,7 +15004,7 @@
         ]
       },
       "post": {
-        "description": "Invite a number to the centre; nothing is granted until they accept.\n\n:param body: The number, name and role\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: The new, pending membership",
+        "description": "Invite a number, an address or both; nothing is granted until accepted.\n\nRe-run on a deadlock or serialization failure [U2: NFR4.3]: it sends\nnothing before its commit.\n\n:param body: The number or address, name and role\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: The new, pending membership",
         "operationId": "invite_centre_member_v1_centre_members_post",
         "requestBody": {
           "content": {
@@ -20836,7 +21038,7 @@
     },
     "/v1/me/contact": {
       "post": {
-        "description": "Send a code to a phone number or an address the account lacks.\n\nSent whether or not another account holds it (see\n:mod:`app.accounts.contact`), within sign-in's per-destination and\nper-network ceilings and the daily send budgets.\n\n:param body: The number or address\n:param request: The incoming request\n:param background: Runs the send after the response is written\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:param email_gateway: The configured email gateway\n:return: The contentless acknowledgement\n:raises ConflictError: The account already has one of this kind\n:raises CeilingBreach: A ceiling refused the send",
+        "description": "Send a code to a phone number or an address, to add or replace one.\n\nSent whether or not another account holds it (see\n:mod:`app.accounts.contact`), within sign-in's per-destination and\nper-network ceilings and the daily send budgets. A kind the account\nalready holds is a replacement: the password is checked and the code\nis bound to this account [BR5.2, BR5.3]. Not retried on a deadlock:\nit hands a code to a channel before its commit [NFR4.3].\n\n:param body: The number or address, and the password for a replacement\n:param request: The incoming request\n:param background: Runs the send after the response is written\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:param email_gateway: The configured email gateway\n:return: The contentless acknowledgement\n:raises ValidationError: A replacement without the right password\n:raises ConflictError: The same value, an allowlisted value, or the\n    daily change limit\n:raises CeilingBreach: A ceiling refused the send",
         "operationId": "request_contact_code_v1_me_contact_post",
         "requestBody": {
           "content": {
@@ -20896,9 +21098,71 @@
         ]
       }
     },
+    "/v1/me/contact/remove": {
+      "post": {
+        "description": "Remove the account's phone number or email address [U2: FR8.4].\n\nNeeds the password; the last contact cannot go; nothing it linked is\nunlinked; the removed value is told after the commit [BR5.2, BR5.5,\nBR5.7, BR5.9]. Removing a kind the account does not hold changes\nnothing [BR5.12].\n\n:param body: Which kind, and the password\n:param request: The incoming request\n:param background: Sends the notice after the response is written\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:param email_gateway: The configured email gateway\n:return: The account, as ``GET /v1/me`` describes it\n:raises ValidationError: The password is missing or wrong\n:raises ConflictError: The last contact, an allowlisted value, or the\n    daily change limit",
+        "operationId": "remove_contact_v1_me_contact_remove_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactRemoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Remove Contact",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/v1/me/contact/verify": {
       "post": {
-        "description": "Add the phone number or address the code proves.\n\nAdding a phone number links the seats and centre invitations recorded\nagainst it, so the response's lenses may have changed.\n\n:param body: The number or address, and the code\n:param request: The incoming request\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The account, as ``GET /v1/me`` describes it\n:raises CodeRefused: The code was refused\n:raises ConflictError: Already set, or held by another account",
+        "description": "Add, or replace with, the phone number or address the code proves.\n\nThe verified contact links the seats and centre invitations recorded\nagainst it, phone or email [BR3.1], so the response's lenses may have\nchanged. A replacement removes the old value in the same transaction\nand tells it after the commit [BR5.4, BR5.9].\n\n:param body: The number or address, and the code\n:param request: The incoming request\n:param background: Sends the notice after the response is written\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:param email_gateway: The configured email gateway\n:return: The account, as ``GET /v1/me`` describes it\n:raises CodeRefused: The code was refused\n:raises ConflictError: Already set, held by another account,\n    allowlisted, or over the daily change limit",
         "operationId": "verify_contact_v1_me_contact_verify_post",
         "requestBody": {
           "content": {
@@ -25630,7 +25894,7 @@
         ]
       },
       "post": {
-        "description": "Record a student, optionally seating them in batches [D3].\n\n:param body: The student and their batches\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: The new student",
+        "description": "Record a student, optionally seating them in batches [D3].\n\nRe-run once or twice on a deadlock or serialization failure [U2:\nNFR4.3]; it sends nothing before its commit.\n\n:param body: The student and their batches\n:param request: The incoming request\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: The new student",
         "operationId": "create_student_v1_students_post",
         "requestBody": {
           "content": {
@@ -25809,7 +26073,7 @@
         ]
       },
       "patch": {
-        "description": "Edit a student's name or numbers, on every seat at once.\n\n:param student_id: The student\n:param body: What to change; omitted fields are unchanged\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: The student, as edited",
+        "description": "Edit a student's name or contacts, on every seat at once.\n\n:param student_id: The student\n:param body: What to change; omitted fields are unchanged\n:param request: The incoming request\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: The student, as edited",
         "operationId": "update_student_v1_students__student_id__patch",
         "parameters": [
           {

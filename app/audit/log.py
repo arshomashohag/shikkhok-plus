@@ -108,6 +108,11 @@ class AuthEvent(enum.Enum):
     PASSWORD_SIGN_IN_FAILED = "PASSWORD_SIGN_IN_FAILED"  # noqa: S105 -- a name, not a password
     PASSWORD_CEILING_BREACHED = "PASSWORD_CEILING_BREACHED"  # noqa: S105 -- a name, not a password
     CONTACT_ADDED = "CONTACT_ADDED"
+    # A contact replaced or removed [U2: BR5.11]. The row carries the
+    # account and the correlation id only: never the contact, its kind, a
+    # code or a username.
+    CONTACT_REPLACED = "CONTACT_REPLACED"
+    CONTACT_REMOVED = "CONTACT_REMOVED"
 
 
 def write_audit(

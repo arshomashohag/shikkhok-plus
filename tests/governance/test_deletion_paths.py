@@ -743,3 +743,246 @@ def test_the_retained_tables_are_non_empty_before_the_comparison(
         if governance.disposition is Disposition.RETAIN_WITH_BASIS and counts.get(table)
     }
     assert len(retained) >= 7, sorted(retained)
+
+
+# ---------------------------------------------------------------------------
+# Erasure blocks relinking [U2: NFR3.1, NFR3.2, NFR3.8]. Written BEFORE the
+# markers were set at deletion: whose seat a later sign-up may take is
+# knowable from the erasure alone, and a wrong answer reattaches a child's
+# records to whoever holds the contact next. Until U2 nothing set a marker
+# when an account was erased, so the phone link statements relinked an
+# erased seat on the next sign-up.
+# ---------------------------------------------------------------------------
+
+
+def _marker_case(session: Session) -> dict[str, object]:
+    """Arrange an account holding a phone and an email, linked both ways.
+
+    :param session: An arranging session
+    :return: The account, its contacts and the seats around it
+    """
+    from tests.accounts.contact_support import account, address, number, seat
+    from tests.batches.conftest import make_teacher
+
+    teacher = make_teacher(session, name="Physics")
+    other = make_teacher(session, name="Chemistry")
+    phone, email = number(), address()
+    holder = account(session, phone=phone, email=email)
+    return {
+        "holder": holder,
+        "phone": phone,
+        "email": email,
+        "as_student": seat(
+            session,
+            teacher.batch_id,
+            student_phone=phone,
+            student_account_id=holder,
+            student_decision="accepted",
+        ),
+        "as_guardian": seat(
+            session,
+            other.batch_id,
+            guardian_email=email,
+            guardian_account_id=holder,
+        ),
+        "never_held": seat(session, teacher.batch_id, student_phone=number()),
+        "unlinked_same_phone": seat(session, other.batch_id, student_phone=phone),
+    }
+
+
+def _markers(session: Session, seat_id: object) -> tuple[object, ...]:
+    """Read a seat's links and both erasure markers fresh.
+
+    :param session: An arranging session
+    :param seat_id: The seat
+    :return: ``(student link, student marker, guardian link, guardian marker)``
+    """
+    session.expire_all()
+    row = session.execute(
+        sa.text(
+            "SELECT student_account_id, student_relink_blocked_at, "
+            "guardian_account_id, guardian_relink_blocked_at "
+            "FROM enrollment WHERE id = :e"
+        ),
+        {"e": seat_id},
+    ).one()
+    session.commit()
+    return tuple(row)
+
+
+@pytest.mark.parametrize("path", ["in_app", "external"])
+def test_erasure_blocks_every_link_the_account_held_from_relinking(
+    client: TestClient, owner_session: Session, path: str
+) -> None:
+    """Both routes set each role's marker; a new holder of either contact
+    takes none of the erased links, and the block is per link.
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param path: Which deletion route
+    :return: None
+    """
+    from app.accounts.identifier import Identifier
+    from tests.accounts.contact_support import account, seat_links, signup_form
+    from tests.accounts.signup_support import sign_up
+
+    case = _marker_case(owner_session)
+    if path == "in_app":
+        _delete_in_app(client, owner_session, case["holder"])  # type: ignore[arg-type]
+    else:
+        _delete_externally(client, owner_session, case["phone"])  # type: ignore[arg-type]
+
+    student_link, student_mark, _, guardian_mark = _markers(
+        owner_session, case["as_student"]
+    )
+    assert (student_link, student_mark is not None) == (None, True)
+    assert guardian_mark is None
+    _, student_mark, guardian_link, guardian_mark = _markers(
+        owner_session, case["as_guardian"]
+    )
+    assert (guardian_link, guardian_mark is not None) == (None, True)
+    assert student_mark is None
+    assert _markers(owner_session, case["never_held"]) == (None, None, None, None)
+
+    newcomer = sign_up(client, signup_form(phone=case["phone"]))  # type: ignore[arg-type]
+    assert seat_links(owner_session, case["as_student"]).student is None
+    assert seat_links(owner_session, case["unlinked_same_phone"]).student == newcomer
+
+    from app.accounts.matching import match_contact
+
+    email_holder = account(owner_session, email=case["email"])  # type: ignore[arg-type]
+    match_contact(
+        owner_session,
+        account_id=email_holder,
+        contact=Identifier.email(case["email"]),  # type: ignore[arg-type]
+    )
+    owner_session.commit()
+    assert seat_links(owner_session, case["as_guardian"]).guardian is None
+
+    looked_up = client.get(
+        "/v1/accounts/already-added", params={"email": case["email"]}
+    )
+    assert looked_up.json()["already_added"] is False
+
+
+def test_the_deletion_records_how_many_links_it_blocked(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """The deletion's own record shows the marker step ran [NFR3.8].
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application's role
+    :return: None
+    """
+    from app.accounts.identifier import Identifier
+    from app.governance.deletion import delete_account
+
+    case = _marker_case(owner_session)
+
+    result = delete_account(
+        restricted_session,
+        Identifier.phone(case["phone"]),  # type: ignore[arg-type]
+    )
+
+    assert result.existed is True
+    assert result.rows_deleted["enrollment_relink_blocked"] == 2
+
+
+def test_a_pending_replacement_code_goes_with_its_requester(
+    client: TestClient, owner_session: Session
+) -> None:
+    """A destination the account typed must not outlive it beside a code
+    [NFR3.2].
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :return: None
+    """
+    import datetime as dt
+
+    from tests.accounts.contact_support import account, address, number
+
+    holder = account(owner_session, phone=number())
+    destination = address()
+    now = dt.datetime.now(tz=dt.UTC)
+    owner_session.execute(
+        sa.text(
+            "INSERT INTO otp_request (id, email, otp_hash, purpose, issued_at, "
+            "expires_at, requested_by_account_id) VALUES (:id, :e, :h, "
+            "'contact_replace', :now, :later, :a)"
+        ),
+        {
+            "id": uuid.uuid4(),
+            "e": destination,
+            "h": "0" * 64,
+            "now": now,
+            "later": now + dt.timedelta(minutes=5),
+            "a": holder,
+        },
+    )
+    owner_session.commit()
+
+    _delete_in_app(client, owner_session, holder)
+
+    owner_session.expire_all()
+    left = owner_session.execute(
+        sa.text("SELECT count(*) FROM otp_request WHERE email = :e"),
+        {"e": destination},
+    ).scalar_one()
+    assert left == 0
+
+
+def test_a_deletion_that_finds_the_account_gone_under_its_key_succeeds(
+    owner_session: Session, restricted_engine: Engine
+) -> None:
+    """Two deletions interleave; the second waits, then reports it absent.
+
+    The first holds the account's key; the second read the account before
+    the key and finds it gone once it has the key, and takes the absent
+    branch with no error [U2: NFR3.1].
+
+    :param owner_session: An arranging session
+    :param restricted_engine: The application's role
+    :return: None
+    """
+    import threading
+
+    from app.accounts.identifier import Identifier
+    from app.governance.deletion import DeletionResult, delete_account
+
+    case = _marker_case(owner_session)
+    destination = Identifier.phone(case["phone"])  # type: ignore[arg-type]
+    first = Session(bind=restricted_engine)
+    release = threading.Event()
+    real_commit = first.commit
+
+    def held_commit() -> None:
+        """Hold the first deletion's commit until the second is waiting.
+
+        :return: None
+        """
+        release.wait(timeout=10.0)
+        real_commit()
+
+    first.commit = held_commit  # type: ignore[method-assign]
+    outcomes: list[DeletionResult] = []
+    holder = threading.Thread(
+        target=lambda: outcomes.append(delete_account(first, destination))
+    )
+    holder.start()
+    threading.Event().wait(0.5)
+
+    second = threading.Thread(
+        target=lambda: outcomes.append(
+            delete_account(Session(bind=restricted_engine), destination)
+        )
+    )
+    second.start()
+    second.join(timeout=1.0)
+    assert second.is_alive(), "the second deletion must wait for the account key"
+    release.set()
+    holder.join(timeout=10.0)
+    second.join(timeout=10.0)
+    first.close()
+
+    assert [result.existed for result in outcomes] == [True, False]

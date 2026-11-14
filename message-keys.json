@@ -1,8 +1,13 @@
 {
   "_comment": "Every message_key the backend can emit. The server names which string to show and never sends the string itself, so each key needs a string resource on every client. Generated and asserted by tests/contract/test_message_keys.py.",
   "keys": [
+    "account.contact.admin_locked",
     "account.contact.already_set",
+    "account.contact.change_limit",
+    "account.contact.last_one",
+    "account.contact.password_required",
     "account.contact.taken",
+    "auth.lookup.too_many",
     "auth.otp.expired",
     "auth.otp.no_tries_left",
     "auth.otp.not_valid",
@@ -132,6 +137,7 @@
     "staff.pay.rate_not_allowed",
     "staff.pay.rate_required",
     "staging.outbox.empty",
+    "student.email.taken",
     "student.not_found",
     "student.number_accepted",
     "student.number_erased",

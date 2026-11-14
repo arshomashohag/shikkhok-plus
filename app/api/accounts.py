@@ -26,9 +26,11 @@ import uuid
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import Session
 
 from app.accounts import decisions, service
+from app.accounts.identifier import EMAIL_MAX_LENGTH, Channel, Identifier
 from app.api.auth import (
     coarse_prefix_of,
     correlation_of,
@@ -59,6 +61,7 @@ from app.schemas.accounts import (
     SignupRequest,
     SignupResponse,
 )
+from app.schemas.identifier import EmailField
 from app.schemas.money import Money as WireMoney
 from app.schemas.phone import PhoneField
 
@@ -251,11 +254,18 @@ def sign_up(
 
 @router.get("/accounts/already-added", response_model=AlreadyAddedResponse)
 def lookup_already_added(
-    phone: Annotated[PhoneField, Query()],
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    phone: Annotated[PhoneField | None, Query()] = None,
+    email: Annotated[
+        EmailField | None,
+        Query(
+            max_length=EMAIL_MAX_LENGTH,
+            description="Exactly one of phone or email [U2: FR6.7].",
+        ),
+    ] = None,
 ) -> AlreadyAddedResponse:
-    """Report whether a teacher recorded this number, and nothing more.
+    """Report whether a teacher recorded this contact, and nothing more.
 
     **This route discloses that a seat exists, deliberately**
     [BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's
@@ -268,21 +278,39 @@ def lookup_already_added(
     Public, and in ``PUBLIC_ROUTES``: it is called while the signup
     form renders, before any account exists.
 
+    **The email form** [U2: BR4.1 to BR4.4] reports only a seat a teacher
+    recorded with that address and no phone, never whether an account
+    holds the address, so its answer is the same whether or not one does.
+    Both forms share the lookup ceilings, keyed on the contact's counter
+    key, and are refused with 429 before anything is read.
+
+    :param request: The incoming request
+    :param session: The request-scoped session
     :param phone: The number typed into the form, canonicalised on the
         way in like every other number, so the ceiling and the lookup
         both see one spelling
-    :param request: The incoming request
-    :param session: The request-scoped session
+    :param email: Or the address, trimmed and lowercased on the way in
     :return: Existence and the role to lock; never a name
+    :raises RequestValidationError: Neither or both were given
     :raises CeilingBreach: A lookup ceiling refused this request
     """
+    if (phone is None) == (email is None):
+        # Before any ceiling is counted or anything is read [BR4.1].
+        raise RequestValidationError(
+            [{"loc": ("query", "phone"), "msg": "exactly one of phone or email"}]
+        )
+    contact = (
+        Identifier(Channel.PHONE, phone)
+        if phone is not None
+        else Identifier(Channel.EMAIL, email or "")
+    )
     CeilingChecker(session).check_and_consume_lookup(
-        number=phone,
+        number=contact.rate_key,
         ip_prefix=ip_prefix_of(request),
         coarse_prefix=coarse_prefix_of(request),
     )
 
-    found = service.already_added(session, phone)
+    found = service.already_added(session, contact)
     return AlreadyAddedResponse(
         already_added=found.exists,
         # NEVER the name [C-06]. Empty rather than absent where a seat

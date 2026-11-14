@@ -66,6 +66,7 @@ from app.auth.ceilings import CeilingBreach, CeilingChecker, SendBudget
 from app.auth.delivery import deliver_code
 from app.auth.mfa import APP_DOOR, check_code, load_factor
 from app.auth.totp import DIGITS
+from app.db.retry import run_with_retry
 from app.errors import ConflictError, ValidationError
 from app.gateway.email import EmailGateway
 from app.gateway.sms import SmsGateway
@@ -622,7 +623,13 @@ def _external_deletion(
             APP_DOOR,
             correlation_id,
         )
-    delete_account(session, identifier)
+    # `otp.verify` committed the spent code above, so the retried unit of
+    # work is the deletion alone [U2: NFR4.3]; it sends nothing.
+    run_with_retry(
+        session,
+        lambda: delete_account(session, identifier),
+        correlation_id=correlation_id,
+    )
     return DeletionOutcome(status="deleted")
 
 
@@ -678,11 +685,16 @@ def delete_own_account(
     # the row by its own lifetime. Reporting success is honest -- the
     # account is gone, which is what was asked for.
     if row is not None:
-        delete_account(
-            session,
+        destination = (
             Identifier(Channel.PHONE, row.phone)
             if row.phone
-            else Identifier(Channel.EMAIL, row.email),
+            else Identifier(Channel.EMAIL, row.email)
+        )
+        # Re-run on a deadlock or serialization failure [U2: NFR4.3].
+        run_with_retry(
+            session,
+            lambda: delete_account(session, destination),
+            correlation_id=None,
         )
 
     return DeletionResponse()

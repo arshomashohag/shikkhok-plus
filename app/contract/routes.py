@@ -259,6 +259,10 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         ("POST", "/v1/me/password"),
         ("POST", "/v1/me/contact"),
         ("POST", "/v1/me/contact/verify"),
+        # Removing one of the account's own contacts [U2: FR8.4], on the
+        # same reasoning: it acts on the authenticated account alone, and
+        # asks for the account's password.
+        ("POST", "/v1/me/contact/remove"),
     }
 )
 
