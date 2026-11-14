@@ -2006,3 +2006,425 @@
 **Agent**: aidlc-architect-agent
 
 ---
+
+## Artifact Created
+**Timestamp**: 2026-11-14T04:46:22Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/units-generation-questions.md
+**Context**: inception > units-generation > units-generation-questions.md
+
+---
+
+## Question Answered
+**Timestamp**: 2026-11-14T04:46:24Z
+**Event**: QUESTION_ANSWERED
+**Stage**: units-generation
+**Details**: Q1 A (usernames backend, contacts and email-invites backend, Android, web); Q2 A (parallel where independent); Q3 A (one backend container, own migrations, clients on own cadence); Q4 A (committed OpenAPI contract and shared schema)
+**Answer Source**: chosen by the agent as the person asked
+**Instruction**: don't wait for my approval. Go with your recommendations.
+
+---
+
+## Human Turn
+**Timestamp**: 2026-11-14T04:47:10Z
+**Event**: HUMAN_TURN
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+**Picked**: ["Approve Plan"]
+
+---
+
+## Question Replied
+**Timestamp**: 2026-11-14T04:47:10Z
+**Event**: QUESTION_REPLIED
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+**Question**: Split the work into these four units (two backend services, then Android and web)?
+**Reply**: Approve Plan
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-14T04:47:34Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work.md
+**Context**: inception > units-generation > unit-of-work.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-14T04:47:44Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work-dependency.md
+**Context**: inception > units-generation > unit-of-work-dependency.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-14T04:48:05Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work-story-map.md
+**Context**: inception > units-generation > unit-of-work-story-map.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-14T04:48:10Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work-story-map.md
+**Context**: inception > units-generation > unit-of-work-story-map.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-14T04:48:32Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/traceability.json
+**Context**: inception > units-generation > traceability.json
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-11-14T04:48:32Z
+**Event**: SENSOR_FIRED
+**Fire id**: 74b0b744
+**Sensor ID**: traceability
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/traceability.json
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-11-14T04:48:32Z
+**Event**: SENSOR_PASSED
+**Fire id**: 74b0b744
+**Sensor ID**: traceability
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/traceability.json
+**Duration ms**: 79
+
+---
+
+## Review Requested
+**Timestamp**: 2026-11-14T04:48:35Z
+**Event**: REVIEW_REQUESTED
+**Stage**: units-generation
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Iteration**: 1
+**Artifact Fingerprint**: sha256:bea9277843dfb2d4e0e01185ae1ff037414534652d5b87965717224cf7e5990a
+**Request Id**: review:760d263624e7d01939bfd2c1bf8447e1
+**Review File**: .aidlc-engine/reviews/units-generation/stage/966f92c201604de2/1.760d263624e7d01939bfd2c1bf8447e1.review.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-14T04:49:31Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/.aidlc-engine/reviews/units-generation/stage/966f92c201604de2/1.760d263624e7d01939bfd2c1bf8447e1.review.md
+**Context**: .aidlc-engine > reviews > units-generation > stage > 966f92c201604de2 > 1.760d263624e7d01939bfd2c1bf8447e1.review.md
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-11-14T04:49:37Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: aidlc-architecture-reviewer-agent
+**Agent ID**: a73c08cd8a5b5ae30
+
+---
+
+## Human Turn
+**Timestamp**: 2026-11-14T04:49:37Z
+**Event**: HUMAN_TURN
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+
+---
+
+## Review Completed
+**Timestamp**: 2026-11-14T04:49:40Z
+**Event**: REVIEW_COMPLETED
+**Stage**: units-generation
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Iteration**: 1
+**Verdict**: READY
+**Request Fingerprint**: sha256:bea9277843dfb2d4e0e01185ae1ff037414534652d5b87965717224cf7e5990a
+**Artifact Fingerprint**: sha256:bea9277843dfb2d4e0e01185ae1ff037414534652d5b87965717224cf7e5990a
+**Request Id**: review:760d263624e7d01939bfd2c1bf8447e1
+**Review Record**: .aidlc-engine/reviews/units-generation/stage/966f92c201604de2/1.json
+**Review Record Digest**: sha256:974c52e55957eb841f79834af0ec76257769c7becba6b6035a11850a86f1936f
+
+---
+
+## Decision Recorded
+**Timestamp**: 2026-11-14T04:49:47Z
+**Event**: DECISION_RECORDED
+**Stage**: units-generation
+**Decision**: Anything to add for next time?
+**Options**: Nothing to add,Add a note
+
+---
+
+## Question Answered
+**Timestamp**: 2026-11-14T04:49:47Z
+**Event**: QUESTION_ANSWERED
+**Stage**: units-generation
+**Details**: Nothing to add
+**Answer Source**: chosen by the agent as the person asked
+**Instruction**: don't wait for my approval. Go with your recommendations.
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-11-14T04:49:48Z
+**Event**: SENSOR_FIRED
+**Fire id**: ed7d5e93
+**Sensor ID**: required-sections
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-11-14T04:49:48Z
+**Event**: SENSOR_PASSED
+**Fire id**: ed7d5e93
+**Sensor ID**: required-sections
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work.md
+**Duration ms**: 53
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-11-14T04:49:48Z
+**Event**: SENSOR_FIRED
+**Fire id**: 2a617eca
+**Sensor ID**: required-sections
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work-dependency.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-11-14T04:49:48Z
+**Event**: SENSOR_PASSED
+**Fire id**: 2a617eca
+**Sensor ID**: required-sections
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work-dependency.md
+**Duration ms**: 58
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-11-14T04:49:48Z
+**Event**: SENSOR_FIRED
+**Fire id**: e8e21b0a
+**Sensor ID**: required-sections
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work-story-map.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-11-14T04:49:48Z
+**Event**: SENSOR_PASSED
+**Fire id**: e8e21b0a
+**Sensor ID**: required-sections
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work-story-map.md
+**Duration ms**: 53
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-11-14T04:49:48Z
+**Event**: SENSOR_FIRED
+**Fire id**: 63876350
+**Sensor ID**: required-sections
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/traceability.json
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-11-14T04:49:48Z
+**Event**: SENSOR_PASSED
+**Fire id**: 63876350
+**Sensor ID**: required-sections
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/traceability.json
+**Duration ms**: 50
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-11-14T04:49:49Z
+**Event**: SENSOR_FIRED
+**Fire id**: dd502157
+**Sensor ID**: upstream-coverage
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-11-14T04:49:49Z
+**Event**: SENSOR_PASSED
+**Fire id**: dd502157
+**Sensor ID**: upstream-coverage
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work.md
+**Duration ms**: 84
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-11-14T04:49:49Z
+**Event**: SENSOR_FIRED
+**Fire id**: ef86e3f8
+**Sensor ID**: upstream-coverage
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work-dependency.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-11-14T04:49:49Z
+**Event**: SENSOR_PASSED
+**Fire id**: ef86e3f8
+**Sensor ID**: upstream-coverage
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work-dependency.md
+**Duration ms**: 53
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-11-14T04:49:49Z
+**Event**: SENSOR_FIRED
+**Fire id**: dcd35e90
+**Sensor ID**: upstream-coverage
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work-story-map.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-11-14T04:49:49Z
+**Event**: SENSOR_PASSED
+**Fire id**: dcd35e90
+**Sensor ID**: upstream-coverage
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work-story-map.md
+**Duration ms**: 57
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-11-14T04:49:49Z
+**Event**: SENSOR_FIRED
+**Fire id**: 8f2dcc30
+**Sensor ID**: upstream-coverage
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/traceability.json
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-11-14T04:49:49Z
+**Event**: SENSOR_PASSED
+**Fire id**: 8f2dcc30
+**Sensor ID**: upstream-coverage
+**Stage slug**: units-generation
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/traceability.json
+**Duration ms**: 73
+
+---
+
+## Stage Awaiting Approval
+**Timestamp**: 2026-11-14T04:49:49Z
+**Event**: STAGE_AWAITING_APPROVAL
+**Stage**: units-generation
+
+---
+
+## Session End
+**Timestamp**: 2026-11-14T04:54:11Z
+**Event**: SESSION_ENDED
+**Reason**: other
+
+---
+
+## Session Resume
+**Timestamp**: 2026-11-14T12:21:40Z
+**Event**: SESSION_RESUMED
+**Source**: resume
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+
+---
+
+## Human Turn
+**Timestamp**: 2026-11-14T12:21:44Z
+**Event**: HUMAN_TURN
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+**Picked**: ["Approve"]
+
+---
+
+## Question Replied
+**Timestamp**: 2026-11-14T12:21:45Z
+**Event**: QUESTION_REPLIED
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+**Question**: Units Generation complete. How would you like to proceed?
+**Reply**: Approve
+
+---
+
+## Gate Approved
+**Timestamp**: 2026-11-14T12:21:53Z
+**Event**: GATE_APPROVED
+**Stage**: units-generation
+**User Input**: Approve
+**Person Reply**: Approve
+**Review Finding Dispositions**: {"version":1,"dispositions":[{"artifact":"aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work.md","id":"R-01","fingerprint":"sha256:55d8d4c19dcff8ad5388717a268c8899a58b21b0db6685a5492ca04ad66fb45e","status":"Accepted risk","decided_at_severity":"Minor","reviewed_record":{"path":".aidlc-engine/reviews/units-generation/stage/966f92c201604de2/1.json","digest":"sha256:974c52e55957eb841f79834af0ec76257769c7becba6b6035a11850a86f1936f"}},{"artifact":"aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work.md","id":"R-02","fingerprint":"sha256:ab5afa6b0b38d293cf9a0f98de3c55c600bc8531ab882c9c9cf23122d523eeb3","status":"Accepted risk","decided_at_severity":"Minor","reviewed_record":{"path":".aidlc-engine/reviews/units-generation/stage/966f92c201604de2/1.json","digest":"sha256:974c52e55957eb841f79834af0ec76257769c7becba6b6035a11850a86f1936f"}},{"artifact":"aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work.md","id":"R-03","fingerprint":"sha256:edf839b2832ad5cd965265df5b4c3c89fead58289dd43a283bc2139282f85acd","status":"Accepted risk","decided_at_severity":"Minor","reviewed_record":{"path":".aidlc-engine/reviews/units-generation/stage/966f92c201604de2/1.json","digest":"sha256:974c52e55957eb841f79834af0ec76257769c7becba6b6035a11850a86f1936f"}},{"artifact":"aidlc/spaces/default/intents/261113-unique-usernames/inception/units-generation/unit-of-work.md","id":"R-04","fingerprint":"sha256:a37520f94105907334a681f64bafabd1261cdba6b00f75c726fd91d5ae6c551e","status":"Accepted risk","decided_at_severity":"Minor","reviewed_record":{"path":".aidlc-engine/reviews/units-generation/stage/966f92c201604de2/1.json","digest":"sha256:974c52e55957eb841f79834af0ec76257769c7becba6b6035a11850a86f1936f"}}]}
+
+---
+
+## Stage Completion
+**Timestamp**: 2026-11-14T12:21:53Z
+**Event**: STAGE_COMPLETED
+**Stage**: units-generation
+**Validation Basis**: {"graphContract":"sha256:baf39a0a351356930786ca985bbb7c5893e8db3e93715525a8e909b629765ee7","inputs":[{"artifact":"components","contentHash":"sha256:c1ba99679ae0ca3aca30278996d10fd4e7efc9baf974e532723f3207a52023f4","instanceCount":1,"presentCount":1,"producer":"domain-design","required":true,"structureHash":"sha256:48febafc5614e5e0005683895b77ca73beb4c48d9401beaecdff0a4ca08b9169"},{"artifact":"decisions","contentHash":"sha256:4916aeb9d2d34a5442d050ef509e74d535f6fd6714867776a5c6f3a626551d48","instanceCount":1,"presentCount":1,"producer":"domain-design","required":false,"structureHash":"sha256:51bf1312a954283bf88449a810f203cb7a38c0300e346c79079a97d4ce5e5e94"},{"artifact":"requirements","contentHash":"sha256:d78ee5dbf015e72504d5c56f96a7889cd01a559e9d381be39466886b30354e7a","instanceCount":1,"presentCount":1,"producer":"requirements-analysis","required":true,"structureHash":"sha256:cd1abad0c25b477e458423a4cae484cf2eed7df0fda71899b4b129591b2953f9"}],"outputs":[{"artifact":"traceability","contentHash":"sha256:0d59c01afd415768374fc980e4dca50d721346d1c8f4f55e8ffb31940c26a817","instanceCount":1,"presentCount":1,"producer":"units-generation","required":true,"structureHash":"sha256:5483131a392a17d23b1e77b7cd5ca7bb6eccc4eed12897e3e2c614bf5d112546"},{"artifact":"unit-of-work-dependency","contentHash":"sha256:c7123550b7082748b497cd9a443fa626f5fba08ab71e9abc46e91d78ada5e957","instanceCount":1,"presentCount":1,"producer":"units-generation","required":true,"structureHash":"sha256:b17353efaa8922ba7f68f4246f1c6f1a18714655d764dbd3d4eae1de74ba2712"},{"artifact":"unit-of-work-story-map","contentHash":"sha256:131fd8e1ba767ab2b274b55f9bac6465862de64540ff9f03396be0e71b7e7ee5","instanceCount":1,"presentCount":1,"producer":"units-generation","required":true,"structureHash":"sha256:4d554ce0d033a2a06fcdca920aa21f8905d40822f2f9b8fa46e6553a72d4eb1f"},{"artifact":"unit-of-work","contentHash":"sha256:dec07a015fe028907b8f8fd7bdcab32bcfeba642cad333a3c77f6d1611fc8355","instanceCount":1,"presentCount":1,"producer":"units-generation","required":true,"structureHash":"sha256:da7765e7caa0eb87a19eaf35840309464c58f17fa28d9c5f1a41e71e2cdb5499"}],"projectType":"brownfield","schema":3}
+**Details**: Stage Units Generation approved by gate
+**Tokens In**: 54
+**Tokens Out**: 24490
+**Cache Read**: 10381050
+**Cache Write**: 682982
+**Cost USD**: 6.97
+**By Model**: opus-5-5=6.22; sonnet-5-5=0.75
+**By Agent**: main=6.22; aidlc-architecture-reviewer-agent=0.75
+**Tokens By Model**: opus-5-5=39/18.9k/9.2M/500.3k; sonnet-5-5=15/5.6k/1.2M/182.7k
+**Tokens By Agent**: main=39/18.9k/9.2M/500.3k; aidlc-architecture-reviewer-agent=15/5.6k/1.2M/182.7k
+
+---
+
+## Stage Start
+**Timestamp**: 2026-11-14T12:21:53Z
+**Event**: STAGE_STARTED
+**Stage**: contract-design
+**Agent**: aidlc-architect-agent
+
+---
+
+## Memory Empty
+**Timestamp**: 2026-11-14T12:21:53Z
+**Event**: MEMORY_EMPTY
+**Stage**: units-generation
+
+---
