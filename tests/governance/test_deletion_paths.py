@@ -986,3 +986,83 @@ def test_a_deletion_that_finds_the_account_gone_under_its_key_succeeds(
     first.close()
 
     assert [result.existed for result in outcomes] == [True, False]
+
+
+def test_a_contact_added_while_the_account_is_deleted_is_still_covered(
+    owner_session: Session,
+    restricted_engine: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The add-then-delete race [U2: NFR3.1; review R-03].
+
+    Account A adds email E, and the add is held open past the deletion's
+    first read, which therefore sees A with no email. The deletion waits on
+    A's key, re-reads A once the add commits, and so still purges E's codes
+    and marks the seat E linked to A.
+
+    :param owner_session: An arranging session
+    :param restricted_engine: The application's role
+    :param monkeypatch: The patcher
+    :return: None
+    """
+    import threading
+
+    from app.accounts.contact import attach
+    from app.accounts.identifier import Identifier
+    from app.auth import otp
+    from app.auth.hashing import OTP_HMAC_KEY_ENV
+    from app.governance.deletion import DeletionResult, delete_account
+    from tests.accounts.contact_support import account, address, number, seat
+    from tests.batches.conftest import make_teacher
+
+    monkeypatch.setenv(OTP_HMAC_KEY_ENV, "test-only-hmac-key")
+    phone, email = number(), address()
+    holder = account(owner_session, phone=phone)
+    teacher = make_teacher(owner_session, name="Physics")
+    recorded = seat(owner_session, teacher.batch_id, guardian_email=email)
+    destination = Identifier.email(email)
+    with Session(bind=restricted_engine) as issuing:
+        issued = otp.issue(issuing, destination, "race", purpose=otp.CONTACT_PURPOSE)
+
+    adder = Session(bind=restricted_engine)
+    reached, release = threading.Event(), threading.Event()
+    real_commit = adder.commit
+
+    def held_commit() -> None:
+        """Hold the add's commit until the deletion has read A.
+
+        :return: None
+        """
+        reached.set()
+        release.wait(timeout=10.0)
+        real_commit()
+
+    adder.commit = held_commit  # type: ignore[method-assign]
+    adding = threading.Thread(
+        target=lambda: attach(adder, holder, destination, issued.code, "race")
+    )
+    adding.start()
+    assert reached.wait(timeout=10.0)
+
+    outcomes: list[DeletionResult] = []
+    deleting = threading.Thread(
+        target=lambda: outcomes.append(
+            delete_account(Session(bind=restricted_engine), Identifier.phone(phone))
+        )
+    )
+    deleting.start()
+    deleting.join(timeout=1.0)
+    assert deleting.is_alive(), "the deletion must wait for the add's account key"
+    release.set()
+    adding.join(timeout=10.0)
+    deleting.join(timeout=10.0)
+    adder.close()
+
+    assert [result.existed for result in outcomes] == [True]
+    _, _, guardian_link, guardian_mark = _markers(owner_session, recorded)
+    assert (guardian_link, guardian_mark is not None) == (None, True)
+    owner_session.expire_all()
+    left = owner_session.execute(
+        sa.text("SELECT count(*) FROM otp_request WHERE email = :e"), {"e": email}
+    ).scalar_one()
+    assert left == 0

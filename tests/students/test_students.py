@@ -1303,3 +1303,56 @@ def test_a_save_never_seats_one_account_twice_in_a_batch(
     assert (
         refused.json()["error"]["message_key"] == "enrollment.student_already_in_batch"
     )  # type: ignore[attr-defined]
+
+
+def test_reviving_a_student_cannot_change_an_accepted_link(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """The revive path refuses as the edit path does [BR2.4; review R-06].
+
+    Written BEFORE the fix: a revive that re-pointed an accepted guardian
+    link would hand that person's view of the child to a new address.
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address, seat
+
+    guardian = account(owner_session, email=address())
+    seat_id = seat(
+        owner_session,
+        teacher.batch_id,
+        student_phone=STUDENT_PHONE,
+        guardian_account_id=guardian,
+        guardian_decision="accepted",
+    )
+    owner_session.execute(
+        sa.text(
+            "UPDATE student SET archived_at = now() WHERE id = "
+            "(SELECT student_id FROM enrollment WHERE id = :e)"
+        ),
+        {"e": seat_id},
+    )
+    owner_session.commit()
+
+    refused = _post_student(
+        client,
+        owner_session,
+        teacher,
+        student_phone=STUDENT_PHONE,
+        guardian_email=address(),
+    )
+
+    assert refused.status_code == 409, refused.text  # type: ignore[attr-defined]
+    assert refused.json()["error"]["code"] == "STUDENT_NUMBER_ACCEPTED"  # type: ignore[attr-defined]
+    owner_session.expire_all()
+    kept = owner_session.execute(
+        sa.text(
+            "SELECT guardian_account_id, guardian_decision FROM enrollment "
+            "WHERE id = :e"
+        ),
+        {"e": seat_id},
+    ).one()
+    assert tuple(kept) == (guardian, "accepted")

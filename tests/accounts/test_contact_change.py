@@ -800,3 +800,38 @@ def test_the_notice_templates_carry_nothing_identifying() -> None:
         assert not any(part.isdigit() and len(part) >= 4 for part in body.split())
         assert "{" not in body
     assert "ShikkhokPlus" in email.text
+
+
+def test_a_replacement_refused_as_taken_counts_no_change(
+    api_client: TestClient, owner_session: Session, outbound: list[tuple[str, str]]
+) -> None:
+    """Only a completed change counts [BR5.6; review R-01].
+
+    The destination is taken by another account between the request and
+    the verify; the refusal must leave the day's count at zero.
+
+    :param api_client: The HTTP client
+    :param owner_session: An arranging session
+    :param outbound: The captured sends
+    :return: None
+    """
+    email = address()
+    holder = account(owner_session, phone=number(), email=email, password=PASSWORD)
+    headers = auth(api_client, owner_session, holder)
+    new = address()
+    asked = api_client.post(
+        "/v1/me/contact", json={"email": new, "password": PASSWORD}, headers=headers
+    )
+    assert asked.status_code == 200, asked.text
+    account(owner_session, email=new)
+
+    taken = api_client.post(
+        "/v1/me/contact/verify",
+        json={"email": new, "code": code_for(outbound, new)},
+        headers=headers,
+    )
+
+    assert taken.status_code == 409, taken.text
+    assert _key(taken) == "account.contact.taken"
+    assert _changes(owner_session, holder) == 0
+    assert _contacts(owner_session, holder)[1] == email

@@ -293,6 +293,17 @@ def add_invitation(
     if live is not None:
         raise _already_invited()
     holder = resolve_link_target(session, phone=phone, email=email)
+    # The person the contact resolves to is already a live member here,
+    # invited by their other contact: one live membership per account per
+    # centre [review R-02].
+    if holder is not None and session.scalar(
+        sa.select(OwnerMember.id).where(
+            OwnerMember.owner_id == centre_id,
+            OwnerMember.account_id == holder,
+            OwnerMember.revoked_at.is_(None),
+        )
+    ):
+        raise _already_invited()
     member = OwnerMember(
         owner_id=centre_id,
         account_id=holder,

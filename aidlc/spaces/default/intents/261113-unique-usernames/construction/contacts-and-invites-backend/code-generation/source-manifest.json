@@ -44,6 +44,8 @@
     { "path": "tests/accounts/contact_support.py" },
     { "path": "tests/accounts/test_ceilings.py" },
     { "path": "tests/accounts/test_contact_change.py" },
+    { "path": "tests/accounts/test_contact_indexes.py" },
+    { "path": "tests/accounts/test_contact_sentinels.py" },
     { "path": "tests/accounts/test_contact_concurrency.py" },
     { "path": "tests/accounts/test_contact_matching.py" },
     { "path": "tests/accounts/test_email_and_passwords.py" },

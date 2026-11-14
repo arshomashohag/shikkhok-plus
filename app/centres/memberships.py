@@ -129,6 +129,15 @@ def decide_membership(
 #: centre addressed the other kind by its phone too, and that phone's
 #: holder owns it [BR2.1]. A legacy manager row stored ``""`` for "no
 #: phone" [BR1.9], and is read as absent here as everywhere.
+#:
+#: **One live membership per account per centre** [review R-02]. A phone
+#: invitation and an email invitation can name one person; linking both
+#: would give the account two live rows in one centre, and the class and
+#: examiner lenses resolve a member by account. So, as a seat's student
+#: link skips a second seat in one batch [BR3.7], an invitation in a
+#: centre where the account already holds a live membership is skipped
+#: and waits for the centre. The same NOT EXISTS clause closes both
+#: statements.
 _LINK: Final = {
     "phone": sa.text(
         """
@@ -137,6 +146,12 @@ _LINK: Final = {
         WHERE invited_phone = :value
           AND account_id IS NULL
           AND revoked_at IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM owner_member live
+              WHERE live.owner_id = owner_member.owner_id
+                AND live.account_id = :account_id
+                AND live.revoked_at IS NULL
+          )
         """
     ),
     "email": sa.text(
@@ -147,6 +162,12 @@ _LINK: Final = {
           AND (invited_phone IS NULL OR invited_phone = '')
           AND account_id IS NULL
           AND revoked_at IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM owner_member live
+              WHERE live.owner_id = owner_member.owner_id
+                AND live.account_id = :account_id
+                AND live.revoked_at IS NULL
+          )
         """
     ),
 }

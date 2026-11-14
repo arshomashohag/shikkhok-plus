@@ -918,20 +918,36 @@ def find_or_create_student(
             raise _email_taken_error()
         _refuse_taken(existing)
     if existing is not None:
-        existing.archived_at = None
-        _apply_identity(
-            session,
-            existing,
-            StudentChanges(
-                display_name=display_name,
-                guardian_phone=guardian_phone,
-                guardian_phone_set=True,
-                guardian_email=guardian_email,
-                guardian_email_set=True,
-                student_email=student_email,
-                student_email_set=student_email is not None,
-            ),
+        changes = StudentChanges(
+            display_name=display_name,
+            guardian_phone=guardian_phone,
+            guardian_phone_set=True,
+            guardian_email=guardian_email,
+            guardian_email_set=True,
+            student_email=student_email,
+            student_email_set=student_email is not None,
         )
+        # The revive path refuses exactly as an edit does [BR2.4, BR2.5;
+        # review R-06]: a changed contact on an accepted or erased link,
+        # or a student link that would seat its account twice in a batch.
+        after = _after(existing, changes)
+        links = _changed_links(existing, after)
+        seats = _lock_for_save(
+            session,
+            existing.id,
+            _contacts_of(existing)
+            + [
+                (kind, value)
+                for kind, column in _CONTACT_COLUMNS
+                if (value := after[column]) is not None
+            ],
+        )
+        for link in sorted(links):
+            _refuse_relink(seats, link=link)
+        if "student" in links:
+            _refuse_student_twice(session, existing, seats, after)
+        existing.archived_at = None
+        _apply_identity(session, existing, changes)
         return existing
 
     student = Student(

@@ -394,6 +394,11 @@ def _replace(
         code_id=code_id,
         now=moment,
     )
+    if otp.account_for(session, identifier) is not None:
+        # Taken: refused after the code, as an add is, and BEFORE the day's
+        # count -- only a completed change counts [BR5.6].
+        session.commit()
+        raise _refused(contact_taken(), correlation_id, "contact_replace")
     if _is_admin_contact(leaving):
         # Checked again at verify: the allowlist may have changed since
         # the request. Rolled back, so the code stays unspent.
@@ -404,29 +409,51 @@ def _replace(
     except ConflictError as breach:
         session.rollback()
         raise _refused(breach, correlation_id, "contact_replace") from None
-    _store(session, account_id, identifier)
+    # A destination taken in the instant since the check above reaches the
+    # unique index; the whole change, count included, is rolled back.
+    _store(session, account_id, identifier, keep_spent_code=False)
     write_audit(session, account_id, AuthEvent.CONTACT_REPLACED, correlation_id)
     session.commit()
     return leaving
 
 
-def _store(session: Session, account_id: uuid.UUID, identifier: Identifier) -> None:
+def _store(
+    session: Session,
+    account_id: uuid.UUID,
+    identifier: Identifier,
+    *,
+    keep_spent_code: bool = True,
+) -> None:
     """Make a verified destination the account's, and match it [LO-4].
 
     The destination is checked free, then inside a savepoint the matcher
     links what it names and the account takes it; a unique violation on
-    the account write undoes the links with it, commits the spent code,
-    and answers taken. Sign-up drafts for the destination are moot.
+    the account write undoes the links with it and answers taken. Sign-up
+    drafts for the destination are moot.
 
     :param session: The session to write through
     :param account_id: The account
     :param identifier: The verified destination
+    :param keep_spent_code: On a taken refusal, commit the spent code (an
+        add, as built), or roll the whole transaction back (a replacement,
+        whose day's count must not survive a change that did not happen)
     :return: None
     :raises ConflictError: Another account holds the destination
     """
+
+    def taken() -> ConflictError:
+        """End the transaction as the caller asked and build the refusal.
+
+        :return: The error
+        """
+        if keep_spent_code:
+            session.commit()
+        else:
+            session.rollback()
+        return contact_taken()
+
     if otp.account_for(session, identifier) is not None:
-        session.commit()
-        raise contact_taken()
+        raise taken()
     try:
         with session.begin_nested():
             match_contact(session, account_id=account_id, contact=identifier)
@@ -438,8 +465,7 @@ def _store(session: Session, account_id: uuid.UUID, identifier: Identifier) -> N
             )
     except IntegrityError as error:
         # Another account took it between the read above and this write.
-        session.commit()
-        raise contact_taken() from error
+        raise taken() from error
     # A signup someone started for this destination is moot now.
     pending.discard(session, identifier=identifier)
 

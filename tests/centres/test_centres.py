@@ -771,3 +771,85 @@ def test_a_legacy_empty_phone_is_listed_as_none(
     phones = [row["phone"] for row in listed.json()]
     assert None in phones
     assert "" not in phones
+
+
+# --------------------------------------------------------------------------
+# One account, one live membership per centre [review R-02]. Written BEFORE
+# the fix: two linked rows in one centre let the class and examiner lens
+# joins pick the wrong member, an authorization error.
+# --------------------------------------------------------------------------
+
+
+def _live_memberships(session: Session, centre: uuid.UUID, holder: uuid.UUID) -> int:
+    """Count the account's live memberships in one centre.
+
+    :param session: An arranging session
+    :param centre: The centre
+    :param holder: The account
+    :return: The count
+    """
+    session.expire_all()
+    count = session.execute(
+        sa.select(sa.func.count())
+        .select_from(OwnerMember)
+        .where(
+            OwnerMember.owner_id == centre,
+            OwnerMember.account_id == holder,
+            OwnerMember.revoked_at.is_(None),
+        )
+    ).scalar_one()
+    session.commit()
+    return int(count)
+
+
+def test_matching_never_gives_an_account_a_second_live_membership_in_a_centre(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """The email invitation is skipped when the phone one already links them.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application's role
+    :return: None
+    """
+    from app.accounts.identifier import Identifier
+    from app.accounts.matching import match_contact
+    from tests.accounts.contact_support import account, address, invitation
+
+    phone, email = _phone(), address()
+    holder = account(owner_session, phone=phone, email=email)
+    centre = _centre(owner_session)
+    invitation(owner_session, centre, phone=phone, account_id=holder)
+    by_email = invitation(owner_session, centre, email=email)
+
+    match_contact(
+        restricted_session, account_id=holder, contact=Identifier.email(email)
+    )
+    restricted_session.commit()
+
+    assert _live_memberships(owner_session, centre, holder) == 1
+    owner_session.expire_all()
+    assert owner_session.get(OwnerMember, by_email).account_id is None  # type: ignore[union-attr]
+
+
+def test_inviting_an_account_already_live_in_the_centre_is_refused(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """Invited by phone, then by its email: the second is already invited.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address
+
+    centre, headers = _manager(owner_session)
+    phone, email = _phone(), address()
+    holder = account(owner_session, phone=phone, email=email)
+
+    first = _invite(api_client, headers, phone=phone)
+    second = _invite(api_client, headers, email=email)
+
+    assert first.status_code == 201, first.text  # type: ignore[attr-defined]
+    assert second.status_code == 409, second.text  # type: ignore[attr-defined]
+    assert second.json()["error"]["message_key"] == "centre.member.already_invited"  # type: ignore[attr-defined]
+    assert _live_memberships(owner_session, centre, holder) == 1

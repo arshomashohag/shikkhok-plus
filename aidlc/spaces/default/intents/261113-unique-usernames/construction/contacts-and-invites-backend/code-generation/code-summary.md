@@ -27,9 +27,18 @@ is this file, `source-manifest.json` and `traceability.json`).
 - Unit-scoped command (9 files): 156 passed. Contract gates and schema parity: 160 passed.
 - Test-first evidence (each run before its implementation): Step 4 matcher `6 failed, 2 passed`; Step 5 students `8 failed, 16 passed` (including the edit-versus-accept race resetting an accepted link); Step 6 lookup `5 failed, 11 passed`; Step 7 contact change `8 failed`; Step 8 deletion markers `4 failed`.
 
+## Review round 1 fixes
+
+- A replacement refused because another account holds the destination no longer consumes the daily change count (test-first: `assert 1 == 0` before the fix).
+- One account never holds two live memberships in one centre: matching skips such an invitation and inviting such an account is refused `centre.member.already_invited` (test-first: `assert 2 == 1` and `201 != 409` before the fix).
+- Reviving an archived student refuses a contact change on an accepted or erased link and a second seat in one batch, like an edit (test-first: `201 != 409` before the fix).
+- New verifiers: `tests/accounts/test_contact_sentinels.py` (no sentinel phone, email or code in log records, audit rows or error bodies across teacher save, centre invite, both lookups, replacement, removal and in-app deletion; the test client's own request-URL logger is excluded because the deployed server runs without an access log), `tests/accounts/test_contact_indexes.py` (the partial email indexes are usable by every matcher and lookup statement; the change counters and replacement codes are purged by age), and the add-then-delete race test in `tests/governance/test_deletion_paths.py`. The race test was written after the deletion code it checks, so it has no red line.
+- The creator's own email on their centre manager row is kept, consistent with the existing phone behaviour.
+- After the fixes: `make lint typecheck test` 2931 passed, 0 failed, 0 skipped; backend 96%; matcher and advisory modules 100% branch.
+
 ## Deviations from the plan
 
 - **Client strings outstanding.** The six new message keys are published; the Android `MessageKeyCoverageTest` and the web i18n test will fail until U3 and U4 add their strings. The Android, web, site and infra parts of `make check` were not run in this unit.
-- **Tests not built**: the NFR8.3 `EXPLAIN` index-usability test, the NFR3.1 add-then-delete race test, the deletion-versus-revoke residual-pair test and the NFR8.10 purge test. The NFR3.4 log-sentinel test covers contact changes only.
+- **Tests not built**: the deletion-versus-revoke residual-pair test (that pair is resolved by the bounded retry, which is tested on its own).
 - **Manual only**: the NFR8.1, 8.2, 8.6 and 8.7 latency figures and the NFR7.2 migration duration come from the manual staging run; nothing automated discharges them.
 - **Process slips by the builder**: one edit to `app/db/models.py` was made with a script and one batch of Step 5 tests was appended with a shell heredoc, instead of the file tools; an accidental reformat of four old migrations was reverted.
