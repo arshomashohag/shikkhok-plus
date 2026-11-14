@@ -39,7 +39,8 @@ Anti-goals. Each of these would make the hub a failure even if it works:
 | D6 | Update the site copy, Data Safety form, privacy policy and Families user-content declaration. These block release. |
 | D7 | The owner moderates alone: 48 h for photos and reviews, 24 h for child-safety reports, reviews published weekly. |
 | D8 | A local legal review of the review policy happens before free-text reviews go live. |
-| D9 | Reviews are built only if the directory meets the day-90 demand bar in §9. |
+| D9 | Reviews are built only if the directory meets the day-90 demand bar in §9. Demand is judged from the opt-in rate and an in-app question to teachers. Visitor traffic is never counted. |
+| D11 | Reporting is for signed-in users: a "Report" link on each page opens the app with the item pre-filled. There is no anonymous form and no email route (§10). |
 | D10 | No PDFs in V1. Syllabus and routine are structured text fields. |
 
 ## What the codebase already gives us
@@ -273,15 +274,51 @@ Android and web bundles. Money stays a JSON string.
 
 ### 9. Measures and gates
 
+**Owner decision (builder check):** the hub counts no visitor traffic. There
+are no contact-click counts, no search counts and no CDN access logs. Demand
+is judged from two numbers the product already owns:
+
+1. **Opt-in rate:** published owners ÷ active owners (an owner with at least
+   one active batch).
+2. **Teacher answer:** a one-tap in-app question to each publishing owner at
+   day 60 and day 90 after their first publish: "Did the hub bring you a
+   student?" (Yes / Not yet / Not sure). It arrives through the existing
+   notification inbox. Answers are stored as `hub_feedback (owner_id,
+   asked_on, answer)`, one row per ask. *(The table and the question are my
+   call. They land in H2.)*
+
 At day 90 of R1:
 
 | Gate | Condition |
 |---|---|
-| **Continue** to reviews | Opt-in ≥ 20% of active owners and contact rate ≥ 20% |
-| **Freeze** | Opt-in < 10% or < 150 search sessions a month |
+| **Continue** to reviews | Opt-in ≥ 20% **and** ≥ 15% of answering owners say Yes |
+| **Freeze** | Opt-in < 10% **or** < 5% say Yes. Listings stay up; reviews are not built. |
+| **Hold** | Anything between: re-measure at day 120 with the same bars |
 | **Pull reviews** | > 5% of reviews reported in a quarter |
 
-Counts are server-side only.
+These gates are judgement backed by two small numbers, not traffic analytics.
+That is a deliberate trade for privacy.
+
+### 10. Reporting
+
+**Owner decision (builder check):** reporting is for signed-in users only.
+- **Entry point:** every public page carries a "Report" link that opens the
+  web app at `/ui/hub-report?kind=<listing|media|review|reply>&id=<id>`, or
+  the Android app through an App Link to the same path. The user signs in if
+  needed and lands on a pre-filled report form that calls
+  `POST /v1/hub/reports`. No new API route is needed.
+- **No email route.** A visitor without an account cannot report.
+- **The two apps gain one screen each** (`features/hub` report form); this
+  lands in H2.
+- **Android App Links** need `/.well-known/assetlinks.json` on the apex
+  domain. It is a static file in `site/`.
+- **Effect of a report** *(my call, matching the approved trust rules)*: a
+  report never hides a whole listing. A child-safety or personal-information
+  report on a **photo or review** hides that one item at once, and the admin
+  decides within 24 h. Reports on listing text go to the queue (24 h for
+  child-safety, 48 h otherwise). A listing comes down only by an admin
+  suspension. So one account cannot take a competitor offline, and the
+  10-reports-per-day limit applies.
 
 ## Calls made while writing this up
 
@@ -301,8 +338,8 @@ These are not owner decisions; correct any of them.
   non-cancelled session.
 - **The public fee** is the batch's `default_fee`. A per-seat fee never
   appears.
-- **An opt-in rate between 10% and 20%** at day 90 means "hold": re-measure at
-  day 120 with the same bars.
+- **The day-90 "hold" band** (between continue and freeze) means re-measure
+  at day 120 with the same bars (§9).
 
 ## Left to the builder
 
