@@ -34,11 +34,14 @@ the intent.
 
 ---
 
-## 2. Decisions the owner must make
+## 2. Owner decisions
 
-These are yours, not the team's. Each has a recommended default.
+**Approved 2026-11-14: the owner approved every recommended default below
+(D1–D10).** They are decisions, not open questions. The rule changes in D3 and
+D4 are still written into `project.md` through the learnings ritual, which asks
+for one confirmation each.
 
-| ID | Decision | Recommended | Blocks |
+| ID | Decision | Approved | Blocks |
 |---|---|---|---|
 | **D1** | Opt-in listing instead of "everyone is listed" | Opt-in, with an auto-created draft and in-app nudges | H1 |
 | **D2** | Who may review in V1 | Guardians only. Students later, once the app records age (for example 13+ with guardian approval, or 18+ self-declared at HSC/admission level). | H4 |
