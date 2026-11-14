@@ -2428,3 +2428,261 @@
 **Stage**: units-generation
 
 ---
+
+## Artifact Created
+**Timestamp**: 2026-11-14T12:22:49Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-design-questions.md
+**Context**: inception > contract-design > contract-design-questions.md
+
+---
+
+## Question Answered
+**Timestamp**: 2026-11-14T12:22:51Z
+**Event**: QUESTION_ANSWERED
+**Stage**: contract-design
+**Details**: Q1 A (optional login field on PasswordSignInRequest); Q2 A (username_required on MeResponse only); Q3 A (replace via existing add flow with password, new remove route); Q4 A (additive /v1, committed openapi.json); Q5 A (existing envelope, new account.username.* and account.contact.* keys)
+**Answer Source**: chosen by the agent as the person asked
+**Instruction**: don't wait for my approval. Go with your recommendations.
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-14T12:23:45Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md
+**Context**: inception > contract-design > contract-summary.md
+
+---
+
+## Review Requested
+**Timestamp**: 2026-11-14T12:23:54Z
+**Event**: REVIEW_REQUESTED
+**Stage**: contract-design
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Iteration**: 1
+**Artifact Fingerprint**: sha256:d708ceede8d5d58f9057f4a05db1a6f51cf30afeb3f1d6ca12047f7ef7cf70c2
+**Request Id**: review:2cdf917a9b6847b88ebb3305a24d6de3
+**Review File**: .aidlc-engine/reviews/contract-design/stage/cc00f771b905c501/1.2cdf917a9b6847b88ebb3305a24d6de3.review.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-14T12:25:39Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/.aidlc-engine/reviews/contract-design/stage/cc00f771b905c501/1.2cdf917a9b6847b88ebb3305a24d6de3.review.md
+**Context**: .aidlc-engine > reviews > contract-design > stage > cc00f771b905c501 > 1.2cdf917a9b6847b88ebb3305a24d6de3.review.md
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-11-14T12:25:45Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: aidlc-architecture-reviewer-agent
+**Agent ID**: aa37699646c99bf36
+
+---
+
+## Human Turn
+**Timestamp**: 2026-11-14T12:25:45Z
+**Event**: HUMAN_TURN
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+
+---
+
+## Review Completed
+**Timestamp**: 2026-11-14T12:25:52Z
+**Event**: REVIEW_COMPLETED
+**Stage**: contract-design
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Iteration**: 1
+**Verdict**: READY
+**Request Fingerprint**: sha256:d708ceede8d5d58f9057f4a05db1a6f51cf30afeb3f1d6ca12047f7ef7cf70c2
+**Artifact Fingerprint**: sha256:d708ceede8d5d58f9057f4a05db1a6f51cf30afeb3f1d6ca12047f7ef7cf70c2
+**Request Id**: review:2cdf917a9b6847b88ebb3305a24d6de3
+**Review Record**: .aidlc-engine/reviews/contract-design/stage/cc00f771b905c501/1.json
+**Review Record Digest**: sha256:221e355baf72308a9cab8a8d6b9bff4697128f279066a1918fd6792afc7013f7
+
+---
+
+## Decision Recorded
+**Timestamp**: 2026-11-14T12:25:54Z
+**Event**: DECISION_RECORDED
+**Stage**: contract-design
+**Decision**: Anything to add for next time?
+**Options**: Nothing to add,Add a note
+
+---
+
+## Question Answered
+**Timestamp**: 2026-11-14T12:25:55Z
+**Event**: QUESTION_ANSWERED
+**Stage**: contract-design
+**Details**: Nothing to add
+**Answer Source**: chosen by the agent as the person asked
+**Instruction**: don't wait for my approval. Go with your recommendations.
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-11-14T12:25:55Z
+**Event**: SENSOR_FIRED
+**Fire id**: 1ed6d335
+**Sensor ID**: required-sections
+**Stage slug**: contract-design
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-11-14T12:25:55Z
+**Event**: SENSOR_PASSED
+**Fire id**: 1ed6d335
+**Sensor ID**: required-sections
+**Stage slug**: contract-design
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md
+**Duration ms**: 61
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-11-14T12:25:55Z
+**Event**: SENSOR_FIRED
+**Fire id**: 2f987e11
+**Sensor ID**: upstream-coverage
+**Stage slug**: contract-design
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-11-14T12:25:55Z
+**Event**: SENSOR_PASSED
+**Fire id**: 2f987e11
+**Sensor ID**: upstream-coverage
+**Stage slug**: contract-design
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md
+**Duration ms**: 58
+
+---
+
+## Stage Awaiting Approval
+**Timestamp**: 2026-11-14T12:25:55Z
+**Event**: STAGE_AWAITING_APPROVAL
+**Stage**: contract-design
+
+---
+
+## Human Turn
+**Timestamp**: 2026-11-14T12:28:22Z
+**Event**: HUMAN_TURN
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+**Picked**: ["Currently hardly anyone using this application. So, don't worry much about old user."]
+
+---
+
+## Question Replied
+**Timestamp**: 2026-11-14T12:28:22Z
+**Event**: QUESTION_REPLIED
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+**Question**: Contract Design complete. How would you like to proceed?
+**Reply**: Currently hardly anyone using this application. So, don't worry much about old user.
+
+---
+
+## Gate Approved
+**Timestamp**: 2026-11-14T12:28:36Z
+**Event**: GATE_APPROVED
+**Stage**: contract-design
+**User Input**: Approve
+**Person Reply**: Currently hardly anyone using this application. So, don't worry much about old user.
+**Review Finding Dispositions**: {"version":1,"dispositions":[{"artifact":"aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md","id":"R-01","fingerprint":"sha256:9f49c0537fb436e514cff0eb39d0394129c6ed47033143e0cad9fb7071b9fda1","status":"Accepted risk","decided_at_severity":"Major","reviewed_record":{"path":".aidlc-engine/reviews/contract-design/stage/cc00f771b905c501/1.json","digest":"sha256:221e355baf72308a9cab8a8d6b9bff4697128f279066a1918fd6792afc7013f7"}},{"artifact":"aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md","id":"R-02","fingerprint":"sha256:400910e8ed081601747145e9f28e3c5aa2a55b1025157c8803e1c1ba4c67763e","status":"Accepted risk","decided_at_severity":"Major","reviewed_record":{"path":".aidlc-engine/reviews/contract-design/stage/cc00f771b905c501/1.json","digest":"sha256:221e355baf72308a9cab8a8d6b9bff4697128f279066a1918fd6792afc7013f7"}},{"artifact":"aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md","id":"R-03","fingerprint":"sha256:3b7c042a8ce03f3b129b99474b2cce05e7879f05c2f7925fb577ae7b851fee0a","status":"Accepted risk","decided_at_severity":"Minor","reviewed_record":{"path":".aidlc-engine/reviews/contract-design/stage/cc00f771b905c501/1.json","digest":"sha256:221e355baf72308a9cab8a8d6b9bff4697128f279066a1918fd6792afc7013f7"}},{"artifact":"aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md","id":"R-04","fingerprint":"sha256:7965a9647a6398a21b23093676ad6b14fc1db726a420cd34586ed1abc7adbe4a","status":"Accepted risk","decided_at_severity":"Minor","reviewed_record":{"path":".aidlc-engine/reviews/contract-design/stage/cc00f771b905c501/1.json","digest":"sha256:221e355baf72308a9cab8a8d6b9bff4697128f279066a1918fd6792afc7013f7"}},{"artifact":"aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md","id":"R-05","fingerprint":"sha256:db52374fc0b58ab8f619858eef87eca42732d9b7101b4eb2f3f1439abc9a8899","status":"Accepted risk","decided_at_severity":"Minor","reviewed_record":{"path":".aidlc-engine/reviews/contract-design/stage/cc00f771b905c501/1.json","digest":"sha256:221e355baf72308a9cab8a8d6b9bff4697128f279066a1918fd6792afc7013f7"}},{"artifact":"aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md","id":"R-06","fingerprint":"sha256:e06709c12fb70010d825f8bcd2b7325088e448ed858ee3547e35eb1ca6230b4e","status":"Accepted risk","decided_at_severity":"Minor","reviewed_record":{"path":".aidlc-engine/reviews/contract-design/stage/cc00f771b905c501/1.json","digest":"sha256:221e355baf72308a9cab8a8d6b9bff4697128f279066a1918fd6792afc7013f7"}},{"artifact":"aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md","id":"R-07","fingerprint":"sha256:af9e0d1b1f7e51064789245d8eebffe68f5982b106d5dad07c70507d340b7517","status":"Accepted risk","decided_at_severity":"Minor","reviewed_record":{"path":".aidlc-engine/reviews/contract-design/stage/cc00f771b905c501/1.json","digest":"sha256:221e355baf72308a9cab8a8d6b9bff4697128f279066a1918fd6792afc7013f7"}}]}
+
+---
+
+## Stage Completion
+**Timestamp**: 2026-11-14T12:28:36Z
+**Event**: STAGE_COMPLETED
+**Stage**: contract-design
+**Validation Basis**: {"graphContract":"sha256:ad5599bf4da38de3dec2bfb4bf705de33d27113e18b6a160549a97c4b694fea3","inputs":[{"artifact":"components","contentHash":"sha256:c1ba99679ae0ca3aca30278996d10fd4e7efc9baf974e532723f3207a52023f4","instanceCount":1,"presentCount":1,"producer":"domain-design","required":false,"structureHash":"sha256:48febafc5614e5e0005683895b77ca73beb4c48d9401beaecdff0a4ca08b9169"},{"artifact":"requirements","contentHash":"sha256:d78ee5dbf015e72504d5c56f96a7889cd01a559e9d381be39466886b30354e7a","instanceCount":1,"presentCount":1,"producer":"requirements-analysis","required":false,"structureHash":"sha256:cd1abad0c25b477e458423a4cae484cf2eed7df0fda71899b4b129591b2953f9"},{"artifact":"unit-of-work-dependency","contentHash":"sha256:c7123550b7082748b497cd9a443fa626f5fba08ab71e9abc46e91d78ada5e957","instanceCount":1,"presentCount":1,"producer":"units-generation","required":true,"structureHash":"sha256:b17353efaa8922ba7f68f4246f1c6f1a18714655d764dbd3d4eae1de74ba2712"},{"artifact":"unit-of-work","contentHash":"sha256:dec07a015fe028907b8f8fd7bdcab32bcfeba642cad333a3c77f6d1611fc8355","instanceCount":1,"presentCount":1,"producer":"units-generation","required":true,"structureHash":"sha256:da7765e7caa0eb87a19eaf35840309464c58f17fa28d9c5f1a41e71e2cdb5499"}],"outputs":[{"artifact":"contract-summary","contentHash":"sha256:99aedc454e58baab2188902658c3c0761260d0a8e7f4f17eee2e9caf62b468d3","instanceCount":1,"presentCount":1,"producer":"contract-design","required":true,"structureHash":"sha256:03a0bd2174a71f9356ace2c04fe3433285fc0f91d749c9a6f7ec49dd930812ff"}],"projectType":"brownfield","schema":3}
+**Details**: Stage Contract Design approved by gate
+**Tokens In**: 41
+**Tokens Out**: 28034
+**Cache Read**: 7836539
+**Cache Write**: 735558
+**Cost USD**: 6.79
+**By Model**: opus-5-5=5.96; sonnet-5-5=0.84
+**By Agent**: main=5.96; aidlc-architecture-reviewer-agent=0.84
+**Tokens By Model**: opus-5-5=28/16.1k/6.8M/535.2k; sonnet-5-5=13/11.9k/1.1M/200.4k
+**Tokens By Agent**: main=28/16.1k/6.8M/535.2k; aidlc-architecture-reviewer-agent=13/11.9k/1.1M/200.4k
+
+---
+
+## Phase Completion
+**Timestamp**: 2026-11-14T12:28:36Z
+**Event**: PHASE_COMPLETED
+**From phase**: inception
+**To phase**: construction
+**Stages completed**: 8
+
+---
+
+## Phase Verification
+**Timestamp**: 2026-11-14T12:28:36Z
+**Event**: PHASE_VERIFIED
+**Phase boundary**: inception → construction
+
+---
+
+## Phase Start
+**Timestamp**: 2026-11-14T12:28:36Z
+**Event**: PHASE_STARTED
+**Phase**: construction
+**Scope**: refactor
+
+---
+
+## Stage Start
+**Timestamp**: 2026-11-14T12:28:36Z
+**Event**: STAGE_STARTED
+**Stage**: functional-design
+**Agent**: aidlc-architect-agent
+
+---
+
+## Memory Empty
+**Timestamp**: 2026-11-14T12:28:37Z
+**Event**: MEMORY_EMPTY
+**Stage**: contract-design
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-14T12:28:43Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md
+**Context**: inception > contract-design > contract-summary.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-14T12:28:45Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md
+**Context**: inception > contract-design > contract-summary.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-14T12:28:47Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md
+**Context**: inception > contract-design > contract-summary.md
+
+---
