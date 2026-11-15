@@ -33,6 +33,7 @@ from app.authz.admin import (
 from app.authz.classes import resolve_class_lens, resolve_examiner_lens
 from app.authz.invitations import available_invitations
 from app.authz.lenses import (
+    CentreMemberLens,
     ClassTeacherLens,
     ExaminerLens,
     GuardianLens,
@@ -44,13 +45,14 @@ from app.authz.lenses import (
     TeacherLens,
 )
 from app.authz.resolve import LensResolver
-from app.centres.memberships import available_memberships
+from app.centres.memberships import available_memberships, centre_member
 from app.errors import AuthorizationError
 from app.errors.codes import NOT_AVAILABLE
 
 __all__ = [
     "WORKSPACE_HEADER",
     "admin_gate",
+    "centre_member_lens",
     "choose_workspace",
     "class_teacher_lens",
     "examiner_lens",
@@ -411,6 +413,34 @@ def membership_lens(
         code="NO_MEMBERSHIP_LENS",
         message_key="authz.lens.not_available",
     )
+
+
+def centre_member_lens(
+    centre_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+) -> CentreMemberLens:
+    """Resolve the lens for the caller's own membership of one centre.
+
+    Resolved by its own statement and never memoized, on
+    :func:`membership_lens`'s reasoning; the centre arrives as a path
+    parameter and the grant is checked against it.
+
+    :param centre_id: The centre, from the route path
+    :param session: The session to query through
+    :param account_id: The authenticated account
+    :return: The lens for that one membership
+    :raises AuthorizationError: The account holds no accepted, unrevoked
+        membership of that centre; absence reads the same as any other
+        refusal
+    """
+    lens = centre_member(session, account_id, centre_id)
+    if lens is None:
+        raise AuthorizationError(
+            code="NO_CENTRE_MEMBER_LENS",
+            message_key="authz.lens.not_available",
+        )
+    return lens
 
 
 def class_teacher_lens(

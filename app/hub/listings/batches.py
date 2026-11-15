@@ -39,6 +39,7 @@ from app.hub.listings.shared import (
     refuse_suspended,
     require_slug_shape,
 )
+from app.money import Money
 
 __all__ = [
     "BatchListingUpdate",
@@ -48,6 +49,7 @@ __all__ = [
     "publish",
     "unpublish",
     "upsert",
+    "view_one",
 ]
 
 #: Nullable text columns, where an empty string clears the value.
@@ -99,6 +101,8 @@ class BatchListingView:
     :ivar subjects: Its subject names
     :ivar listing: Its listing, or None before one is drafted
     :ivar checklist: What the listing still needs
+    :ivar default_fee: The batch's fee, which the page shows only when the
+        listing's ``show_fee`` is set
     """
 
     batch_id: uuid.UUID
@@ -106,6 +110,7 @@ class BatchListingView:
     subjects: list[str]
     listing: BatchListing | None
     checklist: list[ChecklistItem]
+    default_fee: Money | None = None
 
 
 def _subjects(session: Session, batch_id: uuid.UUID) -> list[str]:
@@ -137,19 +142,52 @@ def list_for_owner(session: Session, lens: TeacherLens) -> list[BatchListingView
         .where(Batch.owner_id == lens.owner_id, Batch.active.is_(True))
         .order_by(Batch.created_at, Batch.id)
     ).all()
-    views = []
-    for batch, listing in rows:
-        subjects = _subjects(session, batch.id)
-        views.append(
-            BatchListingView(
-                batch_id=batch.id,
-                batch_name=batch.name,
-                subjects=subjects,
-                listing=listing,
-                checklist=batch_checklist(listing, len(subjects)),
-            )
-        )
-    return views
+    return [_view(session, batch, listing) for batch, listing in rows]
+
+
+def _view(
+    session: Session, batch: Batch, listing: BatchListing | None
+) -> BatchListingView:
+    """Build one batch's view.
+
+    :param session: The session
+    :param batch: The batch
+    :param listing: Its listing, or None
+    :return: The view
+    """
+    subjects = _subjects(session, batch.id)
+    return BatchListingView(
+        batch_id=batch.id,
+        batch_name=batch.name,
+        subjects=subjects,
+        listing=listing,
+        checklist=batch_checklist(listing, len(subjects)),
+        default_fee=batch.default_fee,
+    )
+
+
+def view_one(
+    session: Session, lens: TeacherLens, batch_id: uuid.UUID
+) -> BatchListingView:
+    """Read one of the owner's batches with its listing state.
+
+    Unlike :func:`list_for_owner` this does not require the batch to be
+    active, so the answer to hiding a retired batch's listing can still be
+    shown.
+
+    :param session: The session
+    :param lens: The owner's lens
+    :param batch_id: The batch
+    :return: The view
+    :raises BatchNotFound: No such batch, or another owner's
+    """
+    batch = _owned_batch(session, lens=lens, batch_id=batch_id)
+    listing = session.execute(
+        sa.select(BatchListing)
+        .where(BatchListing.batch_id == batch_id)
+        .execution_options(populate_existing=True)
+    ).scalar_one_or_none()
+    return _view(session, batch, listing)
 
 
 def _locked(session: Session, batch_id: uuid.UUID) -> BatchListing | None:

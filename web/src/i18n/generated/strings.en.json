@@ -670,6 +670,7 @@
   "hub_slug_invalid": "Use 3 to 60 lowercase English letters, digits or hyphens.",
   "hub_slug_taken": "Someone else already uses this web address. Choose another.",
   "hub_text_contains_contact": "Remove the phone number from this text. Put it in the public phone field instead.",
+  "hub_write_ceiling": "You have changed your listing a lot today. Try again tomorrow.",
   "identifier_email_label": "Email address",
   "identifier_kind_email": "Email",
   "identifier_kind_phone": "Phone",

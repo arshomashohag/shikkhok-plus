@@ -123,6 +123,7 @@
   "hub.slug_invalid": "hub_slug_invalid",
   "hub.slug_taken": "hub_slug_taken",
   "hub.text_contains_contact": "hub_text_contains_contact",
+  "hub.write_ceiling": "hub_write_ceiling",
   "inbox.not_available": "inbox_not_available",
   "mark.state.absent": "mark_state_absent",
   "mark.state.joined_after": "mark_state_joined_after",

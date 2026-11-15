@@ -124,6 +124,24 @@ class MembershipLens(Lens):
 
 
 @dataclass(frozen=True, slots=True)
+class CentreMemberLens(Lens):
+    """Reach for the caller's own live membership of one centre [0036].
+
+    Granted only for an **accepted, unrevoked** ``owner_member`` of the
+    centre named in the path, held by this account. It reaches nothing but
+    that one membership row, which is what a member may change about how
+    the centre names them publicly. Not a :class:`TeacherLens`: a member
+    holding it reaches no teacher route.
+
+    :ivar owner_id: The centre
+    :ivar member_id: The caller's membership there
+    """
+
+    owner_id: UUID
+    member_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
 class ClassTeacherLens(Lens):
     """Reach for one class a centre teacher is assigned to [C4, D2].
 

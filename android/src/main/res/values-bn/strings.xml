@@ -1812,6 +1812,7 @@
     <string name="hub_text_contains_contact">এই লেখা থেকে ফোন নম্বর সরিয়ে দিন। নম্বরটি জনসাধারণের ফোন ঘরে দিন।</string>
     <string name="hub_address_centre_only">শুধু কোচিং সেন্টার রাস্তার ঠিকানা দেখাতে পারে।</string>
     <string name="hub_batch_flags_required">এই তালিকা সংরক্ষণের আগে ফি এবং সময়সূচি জনসাধারণের জন্য দেখানো হবে কি না জানান।</string>
+    <string name="hub_write_ceiling">আজ আপনি তালিকায় অনেকবার পরিবর্তন করেছেন। কাল আবার চেষ্টা করুন।</string>
     <string name="hub_batch_inactive">এই ব্যাচটি বন্ধ করা হয়েছে, তাই এর তালিকা প্রকাশ করা যাবে না।</string>
     <string name="hub_owner_not_published">আগে আপনার নিজের তালিকা প্রকাশ করুন, তারপর এই ব্যাচ প্রকাশ করুন।</string>
     <string name="hub_batch_value_invalid">বেছে নেওয়া একটি বিকল্প গ্রহণযোগ্য নয়। তালিকা থেকে বেছে নিন।</string>

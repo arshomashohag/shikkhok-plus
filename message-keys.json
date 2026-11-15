@@ -107,6 +107,7 @@
     "hub.slug_invalid",
     "hub.slug_taken",
     "hub.text_contains_contact",
+    "hub.write_ceiling",
     "inbox.not_available",
     "marks.exam.cancelled",
     "marks.exam.published",

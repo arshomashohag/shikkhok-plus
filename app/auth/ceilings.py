@@ -109,6 +109,7 @@ __all__ = [
     "DEL_PER_NUMBER_DAILY",
     "DEL_PER_NUMBER_HOURLY",
     "GLOBAL_DAILY",
+    "HUB_LISTING_OWNER_DAILY",
     "LOOKUP_GLOBAL_HOURLY",
     "LOOKUP_PER_COARSE_IP_HOURLY",
     "LOOKUP_PER_IP_HOURLY",
@@ -302,6 +303,10 @@ DEAD_CODES_PER_NUMBER_DAILY: Final = 2
 #: deliberate, rare act; a loop opening many is not.
 CENTRES_PER_ACCOUNT_DAILY: Final = 3
 
+#: Public-hub listing edits one owner may make in a day. A listing is
+#: written a handful of times; a loop rewriting it is not an editor.
+HUB_LISTING_OWNER_DAILY: Final = 50
+
 _HOUR = dt.timedelta(hours=1)
 _DAY = dt.timedelta(days=1)
 
@@ -379,6 +384,8 @@ class ScopeKind(enum.Enum):
     VERIFY_FAIL_GLOBAL_HOURLY = "vf_global_hour"
     DEAD_CODE_NUMBER_DAILY = "dead_number_day"
     CENTRE_ACCOUNT_DAILY = "centre_acct_day"
+    # The public hub's listing editor [0036], one counter per owner.
+    HUB_OWNER_DAILY = "hub_owner_day"
     # Email and passwords [0032], inside `String(16)` like the rest.
     EMAIL_GLOBAL_DAILY = "em_global_day"
     PASSWORD_FAIL_ID_HOURLY = "pw_fail_id_hour"  # noqa: S105 -- a name, not a password
@@ -472,8 +479,11 @@ class CeilingBreach(ConflictError):
     and "invalid number" tells a legitimate teacher their account is
     broken while telling an attacker which numbers exist [BR2.6].
 
-    **The message key follows the cascade, the code does not.** Both
-    cascades answer the same contentless ``TEMPORARILY_UNAVAILABLE``,
+    **The message key follows the cascade, the code does not**, with one
+    exception: the public hub's listing editor answers ``HUB_WRITE_CEILING``,
+    a code of its own, because its client is an owner editing a page and
+    not a person waiting for a code. Every other cascade answers the same
+    contentless ``TEMPORARILY_UNAVAILABLE``,
     so a client switching on the code treats them identically; what
     differs is the string the person reads, because a signup refusal
     shown on the signup screen saying "we could not send your code"
@@ -536,6 +546,11 @@ class CeilingBreach(ConflictError):
             super().__init__(
                 code="TEMPORARILY_UNAVAILABLE",
                 message_key="centre.temporarily_unavailable",
+            )
+        elif scope is ScopeKind.HUB_OWNER_DAILY:
+            super().__init__(
+                code="HUB_WRITE_CEILING",
+                message_key="hub.write_ceiling",
             )
         else:
             super().__init__(
@@ -855,6 +870,20 @@ class CeilingChecker:
         """
         scope = _Scope(ScopeKind.CENTRE_ACCOUNT_DAILY, CENTRES_PER_ACCOUNT_DAILY, _DAY)
         self._consume([(scope, str(account_id))], now)
+
+    def check_and_consume_hub_listing(
+        self, owner_id: uuid.UUID, now: dt.datetime | None = None
+    ) -> None:
+        """Consume one listing edit from the owner's daily allowance.
+
+        :param owner_id: The owner whose listing is being edited
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: The owner has made today's allowance of
+            edits; its code is ``HUB_WRITE_CEILING``
+        """
+        scope = _Scope(ScopeKind.HUB_OWNER_DAILY, HUB_LISTING_OWNER_DAILY, _DAY)
+        self._consume([(scope, str(owner_id))], now)
 
     def check_and_consume_deletion(
         self,
