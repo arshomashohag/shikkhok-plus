@@ -33,6 +33,9 @@ A. `'no-console': 'error'` with no allowed methods, in a block scoped to
    configuration for a `src` file and asserts the rule is at `error`, and
    asserts the exact list of files that carry a `no-console` disable line,
    so neither the rule nor a new exemption can disappear or appear unseen.
+   *Amended after review R-01*: the test pins every inline ESLint directive
+   under `src`, not only `no-console` ones, as a multiset of file and
+   directive text (security NFR3.5). The answer is unchanged.
 B. `'no-console': ['error', { allow: ['error'] }]`, keeping the two sites
    unannotated.
 C. `'no-console': 'error'` over every linted file, annotating the Node
