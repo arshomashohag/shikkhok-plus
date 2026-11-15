@@ -67,6 +67,15 @@ object MessageKeys {
         // A malformed email, refused by the server on any route that takes
         // one, as `phone.invalid` is for a number.
         "email.invalid" to R.string.email_invalid,
+        // The public hub's owner listing.
+        "hub.consent_outdated" to R.string.hub_consent_outdated,
+        "hub.listing_incomplete" to R.string.hub_listing_incomplete,
+        "hub.listing_suspended" to R.string.hub_listing_suspended,
+        "hub.slug_taken" to R.string.hub_slug_taken,
+        "hub.slug_invalid" to R.string.hub_slug_invalid,
+        "hub.area_mismatch" to R.string.hub_area_mismatch,
+        "hub.text_contains_contact" to R.string.hub_text_contains_contact,
+        "hub.address_centre_only" to R.string.hub_address_centre_only,
         // Adding a phone or an email to an account.
         "account.contact.already_set" to R.string.account_contact_already_set,
         "account.contact.taken" to R.string.account_contact_taken,

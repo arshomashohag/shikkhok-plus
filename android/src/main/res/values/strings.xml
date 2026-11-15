@@ -1870,4 +1870,12 @@
     <string name="delete_type_email">Type your email to confirm.</string>
     <string name="delete_email_field">Your email</string>
     <string name="email_invalid">That is not a valid email address. Check it and try again.</string>
+    <string name="hub_consent_outdated">The listing terms have changed. Read them again and agree to publish.</string>
+    <string name="hub_listing_incomplete">Finish the missing parts of your listing before publishing it.</string>
+    <string name="hub_listing_suspended">This listing has been suspended, so it cannot be changed or published.</string>
+    <string name="hub_slug_taken">Someone else already uses this web address. Choose another.</string>
+    <string name="hub_slug_invalid">Use 3 to 60 lowercase English letters, digits or hyphens.</string>
+    <string name="hub_area_mismatch">This upazila is not in the district you chose.</string>
+    <string name="hub_text_contains_contact">Remove the phone number from this text. Put it in the public phone field instead.</string>
+    <string name="hub_address_centre_only">Only coaching centres can show a street address.</string>
 </resources>

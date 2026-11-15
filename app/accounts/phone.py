@@ -21,7 +21,7 @@ from typing import Final
 
 from app.errors import ValidationError
 
-__all__ = ["canonical_phone"]
+__all__ = ["canonical_phone", "contains_phone"]
 
 #: A Bangladeshi mobile number once the country code is removed: ``01``,
 #: an operator digit 3-9, then eight more digits. ``012`` and the landline
@@ -62,6 +62,30 @@ def canonical_phone(raw: str) -> str:
         # from it, leaving it unpublished and untested on the client.
         raise ValidationError(code="PHONE_INVALID", message_key="phone.invalid")
     return f"+880{text[1:]}"
+
+
+#: A run of digits with the separators people type between them, long enough
+#: to hold a whole mobile number.
+_DIGIT_RUN: Final = re.compile(r"\+?\d(?:[\s\-().]*\d){9,}")
+
+#: A mobile number inside a bare digit string, with or without the country code.
+_EMBEDDED_MOBILE: Final = re.compile(r"(?:880|0)1[3-9][0-9]{8}")
+
+
+def contains_phone(text: str) -> bool:
+    """Say whether free text holds a Bangladeshi mobile number.
+
+    Uses the same reading of digits and separators as
+    :func:`canonical_phone`, so a number written in Bangla digits, with
+    dashes, or with the country code is found as readily as a plain one.
+
+    :param text: Any free text
+    :return: True when a mobile number appears anywhere in it
+    """
+    return any(
+        _EMBEDDED_MOBILE.search(_SEPARATORS.sub("", run).lstrip("+"))
+        for run in _DIGIT_RUN.findall(_latin_digits(text))
+    )
 
 
 def _latin_digits(text: str) -> str:

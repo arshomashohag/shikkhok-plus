@@ -1803,4 +1803,12 @@
     <string name="delete_type_email">নিশ্চিত করতে আপনার ইমেইল লিখুন।</string>
     <string name="delete_email_field">আপনার ইমেইল</string>
     <string name="email_invalid">এটি সঠিক ইমেইল ঠিকানা নয়। দেখে আবার চেষ্টা করুন।</string>
+    <string name="hub_consent_outdated">তালিকার শর্ত বদলেছে। আবার পড়ে দেখুন এবং প্রকাশ করতে সম্মতি দিন।</string>
+    <string name="hub_listing_incomplete">প্রকাশ করার আগে আপনার তালিকার বাকি অংশগুলো পূরণ করুন।</string>
+    <string name="hub_listing_suspended">এই তালিকা স্থগিত করা হয়েছে, তাই এটি বদলানো বা প্রকাশ করা যাবে না।</string>
+    <string name="hub_slug_taken">এই ওয়েব ঠিকানা আরেকজন ব্যবহার করছেন। অন্য একটি বেছে নিন।</string>
+    <string name="hub_slug_invalid">ছোট হাতের ইংরেজি অক্ষর, সংখ্যা বা হাইফেন দিয়ে 3 থেকে 60টি অক্ষর লিখুন।</string>
+    <string name="hub_area_mismatch">এই উপজেলা আপনার বেছে নেওয়া জেলায় পড়ে না।</string>
+    <string name="hub_text_contains_contact">এই লেখা থেকে ফোন নম্বর সরিয়ে দিন। নম্বরটি জনসাধারণের ফোন ঘরে দিন।</string>
+    <string name="hub_address_centre_only">শুধু কোচিং সেন্টার রাস্তার ঠিকানা দেখাতে পারে।</string>
 </resources>
