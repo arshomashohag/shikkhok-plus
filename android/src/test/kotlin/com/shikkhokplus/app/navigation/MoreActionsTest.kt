@@ -173,4 +173,28 @@ class MoreActionsTest {
             assertEquals(listOf(Destination.TwoStep.route), routes, "$lens")
         }
     }
+
+    @Test
+    fun `every lens, and a person with none, keeps the Username and Phone and email rows`() {
+        // [W5, W6] Both rows are the account's own and need no role.
+        listOf(Lens.TEACHER, Lens.CLASS_TEACHER, Lens.STUDENT, Lens.GUARDIAN, null).forEach { lens ->
+            val routes = mutableListOf<String>()
+            val rows =
+                accountRowsFor(
+                    com.shikkhokplus.app.feature.profile.ProfileSummary(
+                        selfName = null,
+                        address = null,
+                        phone = "+8801711111111",
+                        username = "nadia_k",
+                    ),
+                ) { routes += it }
+            val actions = moreActionsFor(lens, MoreActions().withAccountRows(rows)) { routes += it }
+
+            assertNotNull(actions.onUsername, "$lens").invoke()
+            assertNotNull(actions.onContacts, "$lens").invoke()
+
+            assertEquals(listOf(Destination.Username.route, Destination.Contacts.route), routes, "$lens")
+            assertEquals("nadia_k", actions.username)
+        }
+    }
 }

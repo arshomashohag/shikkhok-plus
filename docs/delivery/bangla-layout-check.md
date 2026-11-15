@@ -127,6 +127,49 @@ rather than editing the old one.
 | Two-step verification | Recovery codes shown once (ten codes, "won't be shown again", Copy all, "I've saved them"; new-codes variant with the old-codes notice) | — | *not yet checked* | `two_step_codes_body` (125) / `two_step_codes_old_stopped` (36) | |
 | Two-step verification | Turn off (app code or recovery code) and New recovery codes | — | *not yet checked* | `two_step_renew_body` (87) / `two_step_off_body` (84) | |
 | Two-step verification | The one-time offer sheet after sign-in (teachers and centre members only) | — | *not yet checked* | `two_step_offer_body` (107) / `two_step_offer_title` (52) | |
+| U3 | Auth: sign-in with one login field (phone, email or username) and the email-shape message under it | `O2` | *not yet checked* | `auth_login_label` (22) | |
+| U3 | Auth: OTP entry, replacement-username state (title, body, field with hint, Continue) | `O3` | *not yet checked* | `auth_replace_username_body` (107) / `account_username_invalid_character` (58) | |
+| U3 | Signup: username field, helper and availability hint in every state (checking, available, taken, could not check) | `O1` | *not yet checked* | `account_username_invalid_character` (58) / `signup_username_help` (50) / `username_could_not_check` (50) | |
+| U3 | Choose username (the gate: title, body, field with hint, Continue, Sign out) | — | *not yet checked* | `choose_username_body` (94) | |
+| U3 | More: Username and Phone and email rows | `T9`, `S4`, `G4` | *not yet checked* | `more_contacts_sub_none` (27) / `more_username_choose` (22) | |
+| U3 | Username (view, change, changed with its date, change-too-soon banner) | — | *not yet checked* | `username_rule_note` (97) / `account_username_change_too_soon` (55) / `username_changed_on` (51) | |
+| U3 | Phone and email (both cards present; one absent; the password note) | — | *not yet checked* | `contacts_password_note` (52) | |
+| U3 | Replace contact (entry step and code step) | — | *not yet checked* | `contacts_replaced_email` (65) / `account_contact_change_limit` (64) | |
+| U3 | Remove contact sheet, including the last-one refusal | — | *not yet checked* | `contacts_remove_body` (110) / `account_contact_last_one` (90) | |
+| U3 | Add student: student email and guardian email fields | `T8` | *not yet checked* | `student_email_taken` (38) / `student_add_student_email` (26) | |
+| U3 | Edit student dialog: student email and guardian email fields | — | *not yet checked* | `student_email_taken` (38) / `student_add_student_email` (26) | |
+| U3 | Student detail and student list: email shown in place of a missing phone | — | *not yet checked* | `student_number_erased` (81) / `student_number_accepted` (72), with a 40-character email as the contact line | |
+| U3 | Roster row: guardian email in place of a missing phone | `T7` | *not yet checked* | no new string; a 40-character guardian email as the contact line beside a full Bangla name | |
+| U3 | Centre members: invite by phone or email, and a member with an email only | — | *not yet checked* | `centre_member_already_invited` (43) / `centre_invite_by_help` (39) | |
+
+**U3's fourteen rows (2026-11-15) are open, and nothing automated discharges
+them.** The Robolectric tests added by U3 assert what each state renders and
+which screen the root routes to; they are correctness tests and measure no
+layout. Lengths above were computed from `values-bn/strings.xml` with the
+snippet under "Longest-string reference", not estimated. The row to check
+first is the remove-contact sheet: `contacts_remove_body` (110) is the
+longest U3 string and sits in a dialog beside a password field and two
+buttons. The verify replacement is second: `auth_replace_username_body`
+(107) sits above a field whose hint grows to two lines when a name is
+refused. Two rows show contact values the
+person typed rather than strings from the bundle; check them with a long
+email, because an email has no break opportunity before its `@` and is the
+likeliest thing in U3 to overflow a row. Usernames and emails are Latin text
+inside a Bangla layout by nature, which is the intended result.
+
+**U3's timed hint check (performance NFR8.4) is also manual, and nothing
+automated discharges it.** No Macrobenchmark harness exists, and the unit
+tests on the availability checker test the client's debounce, timeout and
+cache logic, not the device's latency. On the pilot's low-end device, on a
+mobile network, time from the pause that ends the debounce to the hint
+showing an answer or "could not check"; the target is within 1 second.
+
+| Screen | Device | Network | Observed times (five pauses) | Status |
+|---|---|---|---|---|
+| Signup: username field | *not yet checked* | | | |
+| Choose username (gate) | *not yet checked* | | | |
+| Username: change | *not yet checked* | | | |
+| Auth: OTP entry, replacement username | *not yet checked* | | | |
 
 **The three help-centre rows (2026-11-07) are open on the same terms**:
 nothing automated discharges them; the Robolectric screen tests assert

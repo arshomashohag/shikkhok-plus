@@ -61,6 +61,8 @@ class StudentsTabTest {
         displayLabel = displayLabel,
         isDeclined = isDeclined,
         isRemovable = isRemovable,
+        // As the mapper builds it [U3: W7.7].
+        guardianContactLine = guardianPhone?.let(com.shikkhokplus.app.core.format.Numerals::phone),
     )
 
     private fun render(state: RosterUiState, retries: MutableList<Unit> = mutableListOf()) {

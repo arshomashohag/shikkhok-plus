@@ -147,6 +147,47 @@ class SessionStateMapperTest {
         assertEquals(SessionStateMapper.OFFLINE_KEY, failed.messageKey)
     }
 
+    // --- The choose-username flag [FR5.2, NFR3.12], written first. The
+    // flag travels INSIDE the routed state, so one write carries both
+    // facts and no frame can show the picker or a home before the gate.
+
+    private fun needing(vararg lenses: Pair<String, Int>) =
+        MeDto(lenses = lenses.map { LensEntryDto(it.first, it.second) }, usernameRequired = true)
+
+    @Test
+    fun `a username required with one lens wraps Ready`() {
+        assertEquals(
+            SessionUiState.UsernameRequired(then = SessionUiState.Ready(Lens.TEACHER)),
+            SessionStateMapper.afterLoad(needing("teacher" to 3)),
+        )
+    }
+
+    @Test
+    fun `a username required with several lenses wraps Choosing`() {
+        val state = assertIs<SessionUiState.UsernameRequired>(
+            SessionStateMapper.afterLoad(needing("teacher" to 3, "guardian" to 1)),
+        )
+
+        val choosing = assertIs<SessionUiState.Choosing>(state.then)
+        assertEquals(listOf(Lens.TEACHER, Lens.GUARDIAN), choosing.options.map { it.lens })
+    }
+
+    @Test
+    fun `a username required with no lens wraps NoLens`() {
+        assertEquals(
+            SessionUiState.UsernameRequired(then = SessionUiState.NoLens),
+            SessionStateMapper.afterLoad(needing()),
+        )
+    }
+
+    @Test
+    fun `no username required leaves the state exactly as it was`() {
+        val chosen = MeDto(lenses = listOf(LensEntryDto("teacher", 3)), username = "Nadia_K", usernameRequired = false)
+
+        assertEquals(SessionUiState.Ready(Lens.TEACHER), SessionStateMapper.afterLoad(chosen))
+        assertEquals(SessionUiState.NoLens, SessionStateMapper.afterLoad(MeDto(usernameRequired = false)))
+    }
+
     @Test
     fun `lens parsing accepts the server's casing and rejects nonsense`() {
         assertEquals(Lens.TEACHER, Lens.parse("teacher"))

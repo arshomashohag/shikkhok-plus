@@ -36,7 +36,10 @@ sealed interface ProfileUiState {
         val address: String?,
         val phone: String? = null,
         val offline: Boolean = false,
-    ) : ProfileUiState
+    ) : ProfileUiState {
+        // The owner's own number [NFR3.2]; masked since U3 touched this file.
+        override fun toString(): String = "Viewing(offline=$offline, phone=***)"
+    }
 
     /**
      * The form is open.
@@ -63,7 +66,10 @@ sealed interface ProfileUiState {
         val selfName: String?,
         val address: String?,
         val phone: String? = null,
-    ) : ProfileUiState
+    ) : ProfileUiState {
+        // The owner's own number [NFR3.2].
+        override fun toString(): String = "Saved(phone=***)"
+    }
 
     /**
      * Something failed, and the screen can say what to do about it.
@@ -96,6 +102,7 @@ sealed interface ProfileUiState {
  * @property email The account's email address, or null
  * @property hasPassword Whether the account has a password, as the
  *   server said; true when nothing is known, so nothing nags
+ * @property username The stored username, for More's row, or null [W5]
  */
 data class ProfileSummary(
     val selfName: String?,
@@ -104,4 +111,8 @@ data class ProfileSummary(
     val postal: PostalAddress = PostalAddress(),
     val email: String? = null,
     val hasPassword: Boolean = true,
-)
+    val username: String? = null,
+) {
+    // The owner's own row: name, address, contacts and username [NFR3.2].
+    override fun toString(): String = "ProfileSummary(hasPassword=$hasPassword, username=***, phone=***, email=***)"
+}

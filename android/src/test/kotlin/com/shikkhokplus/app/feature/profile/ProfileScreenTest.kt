@@ -1,7 +1,7 @@
 package com.shikkhokplus.app.feature.profile
 
-import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_ADD_EMAIL
-import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_ADD_PHONE
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_CONTACTS
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_USERNAME
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_PASSWORD
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -342,14 +342,41 @@ class ProfileScreenTest {
         compose.onNodeWithText("Change password").performScrollTo().assertIsDisplayed()
     }
 
-    @Test
-    fun `the add rows appear only when the route supplies them, and lead where they say`() {
-        var opened = 0
-        render(actions = MoreActions(onAddPhone = { opened++ }))
+    // Rewritten for U3 from W5, W6 and Q3: one Phone and email row, and a
+    // Username row, in place of the two add rows.
 
-        compose.onNodeWithTag(TAG_PROFILE_ADD_PHONE).performScrollTo().performClick()
-        compose.onNodeWithText("Teachers find students and guardians by phone").assertExists()
-        compose.onNodeWithTag(TAG_PROFILE_ADD_EMAIL).assertDoesNotExist()
+    @Test
+    fun `the username row shows the stored name and leads to the Username screen`() {
+        var opened = 0
+        render(actions = MoreActions(onUsername = { opened++ }, username = "Nadia_K"))
+
+        compose.onNodeWithTag(TAG_PROFILE_USERNAME).performScrollTo().performClick()
+        compose.onNodeWithText("Nadia_K").assertExists()
         assertEquals(1, opened)
+    }
+
+    @Test
+    fun `with no username the row says to choose one`() {
+        render(actions = MoreActions(onUsername = {}))
+
+        compose.onNodeWithText("Choose a username").performScrollTo().assertExists()
+    }
+
+    @Test
+    fun `one Phone and email row shows the contacts on one line`() {
+        var opened = 0
+        render(actions = MoreActions(onContacts = { opened++ }, contactsLine = "+8801711111111 · rafi@example.com"))
+
+        compose.onNodeWithTag(TAG_PROFILE_CONTACTS).performScrollTo().performClick()
+        compose.onNodeWithText("+8801711111111 · rafi@example.com").assertExists()
+        assertEquals(1, opened)
+    }
+
+    @Test
+    fun `the rows appear only when the route supplies them`() {
+        render(actions = MoreActions())
+
+        compose.onNodeWithTag(TAG_PROFILE_USERNAME).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_PROFILE_CONTACTS).assertDoesNotExist()
     }
 }

@@ -64,6 +64,15 @@ class AccountViewModelsTest {
             codes += identifier to code
             return verifyResult
         }
+
+        // U3's calls are not driven here; FakeAccountRepository covers them.
+        override suspend fun checkUsername(username: String) = AuthResult.TransportFailure
+
+        override suspend fun changeUsername(username: String, password: String?) = AuthResult.TransportFailure
+
+        override suspend fun replaceContact(identifier: Identifier, password: String) = AuthResult.TransportFailure
+
+        override suspend fun removeContact(kind: IdentifierKind, password: String) = AuthResult.TransportFailure
     }
 
     // --- The password ------------------------------------------------------------

@@ -25,8 +25,24 @@ class HttpCentresRepository(
 
     override suspend fun members(): AuthResult<List<MemberDto>> = call { client.get("/v1/centre/members") }
 
-    override suspend fun invite(displayName: String, phone: String, role: String): AuthResult<MemberDto> =
-        call { client.post("/v1/centre/members") { setBody(MemberInviteDto(displayName, phone, role)) } }
+    override suspend fun invite(
+        displayName: String,
+        phone: String?,
+        email: String?,
+        role: String,
+    ): AuthResult<MemberDto> =
+        call {
+            client.post("/v1/centre/members") {
+                setBody(
+                    MemberInviteDto(
+                        displayName = displayName,
+                        phone = phone?.trim()?.ifEmpty { null },
+                        role = role,
+                        email = email?.trim()?.ifEmpty { null },
+                    ),
+                )
+            }
+        }
 
     override suspend fun revoke(memberId: String): AuthResult<Unit> =
         callDiscardingBody { client.post("/v1/centre/members/$memberId/revoke") }

@@ -2,6 +2,9 @@ package com.shikkhokplus.app.feature.centres
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.shikkhokplus.app.core.format.Numerals
+import com.shikkhokplus.app.core.model.EMAIL_MAX
+import com.shikkhokplus.app.core.model.emailIsWellFormed
 import com.shikkhokplus.app.core.network.CentreDto
 import com.shikkhokplus.app.core.network.MemberDto
 import com.shikkhokplus.app.core.network.MembershipDto
@@ -112,9 +115,9 @@ sealed interface MembersBody {
     /**
      * The members, live ones first as the server ordered them.
      *
-     * @property members The server's rows
+     * @property members The server's rows, mapped to what a card shows
      */
-    data class Loaded(val members: List<MemberDto>) : MembersBody
+    data class Loaded(val members: List<MemberLine>) : MembersBody
 
     /**
      * The read failed.
@@ -123,6 +126,57 @@ sealed interface MembersBody {
      * @property retryable Whether to offer a retry
      */
     data class Failed(val messageKey: String, val retryable: Boolean) : MembersBody
+}
+
+/**
+ * One member as a card shows it [W8.5].
+ *
+ * **The contact is chosen here, not in the card**: the phone when one
+ * was invited, otherwise the invited email. A card renders the line and
+ * decides nothing.
+ *
+ * @property memberId The membership
+ * @property displayName The name the manager typed
+ * @property contactLine The phone, or the invited email, or null
+ * @property role `manager` or `teacher`
+ * @property decision `pending`, `accepted` or `declined`
+ * @property revoked Whether a manager removed them
+ * @property isYou Whether this is the signed-in account's own membership
+ */
+data class MemberLine(
+    val memberId: String,
+    val displayName: String,
+    val contactLine: String?,
+    val role: String,
+    val decision: String,
+    val revoked: Boolean,
+    val isYou: Boolean,
+) {
+    // Someone else's contact, typed by a manager [NFR3.2].
+    override fun toString(): String =
+        "MemberLine(memberId=$memberId, role=$role, decision=$decision, revoked=$revoked, isYou=$isYou, " +
+            "contactLine=***)"
+
+    /** Maps the server's rows. */
+    companion object {
+        /**
+         * Map one member.
+         *
+         * @param dto The server's row
+         * @return What its card shows
+         */
+        fun of(dto: MemberDto): MemberLine =
+            MemberLine(
+                memberId = dto.memberId,
+                displayName = dto.displayName,
+                // A number is shown in the app's phone form; an address as stored.
+                contactLine = dto.phone?.let(Numerals::phone) ?: dto.invitedEmail,
+                role = dto.role,
+                decision = dto.decision,
+                revoked = dto.revoked,
+                isYou = dto.isYou,
+            )
+    }
 }
 
 /**
@@ -135,6 +189,8 @@ sealed interface MembersBody {
  * @property inviting Whether an invitation is in flight
  * @property invited The name last invited, for the confirmation, or null
  * @property failureKey Message key for the last refused write, or null
+ * @property inviteEmail The invite form's email [FR6.4]
+ * @property inviteEmailRejected Whether a send found the email malformed
  */
 data class MembersUiState(
     val body: MembersBody = MembersBody.Loading,
@@ -144,9 +200,21 @@ data class MembersUiState(
     val inviting: Boolean = false,
     val invited: String? = null,
     val failureKey: String? = null,
+    val inviteEmail: String = "",
+    val inviteEmailRejected: Boolean = false,
 ) {
-    /** Whether the invite form can be sent: a name and a phone, which the server checks. */
-    val canInvite: Boolean get() = !inviting && inviteName.isNotBlank() && invitePhone.isNotBlank()
+    /**
+     * Whether the invite form can be sent: a name, and a phone or an
+     * email [FR6.4]. A presence check mirroring the request's shape; the
+     * server enforces the at-least-one rule with a 422.
+     */
+    val canInvite: Boolean
+        get() = !inviting && inviteName.isNotBlank() && (invitePhone.isNotBlank() || inviteEmail.isNotBlank())
+
+    // The invitee's contacts are someone else's [NFR3.2].
+    override fun toString(): String =
+        "MembersUiState(body=$body, inviteRole=$inviteRole, inviting=$inviting, failureKey=$failureKey, " +
+            "inviteEmailRejected=$inviteEmailRejected, invitePhone=***, inviteEmail=***)"
 }
 
 /**
@@ -189,19 +257,45 @@ class MembersViewModel(
     fun invitePhone(text: String) = _state.update { it.copy(invitePhone = text, failureKey = null) }
 
     /**
+     * Type the invitee's email [FR6.4].
+     *
+     * @param text Their address
+     */
+    fun inviteEmail(text: String) =
+        _state.update {
+            it.copy(inviteEmail = text.take(EMAIL_MAX), inviteEmailRejected = false, failureKey = null)
+        }
+
+    /**
      * Choose the invitee's role.
      *
      * @param role Manager or teacher
      */
     fun inviteRole(role: MemberRole) = _state.update { it.copy(inviteRole = role, failureKey = null) }
 
-    /** Send the invitation, then read the list as the server now has it. */
+    /**
+     * Send the invitation, then read the list as the server now has it.
+     *
+     * A non-blank email is shape-checked first, with the server's own
+     * shape; a blank phone or email is left out of the body [W8.2, W8.3].
+     */
     fun invite() {
         val form = _state.value
         if (!form.canInvite) return
+        val email = form.inviteEmail.trim()
+        if (email.isNotEmpty() && !emailIsWellFormed(email)) {
+            _state.update { it.copy(inviteEmailRejected = true) }
+            return
+        }
         _state.update { it.copy(inviting = true, failureKey = null, invited = null) }
         viewModelScope.launch {
-            val result = repository.invite(form.inviteName.trim(), form.invitePhone.trim(), form.inviteRole.wire)
+            val result =
+                repository.invite(
+                    displayName = form.inviteName.trim(),
+                    phone = form.invitePhone.trim().ifEmpty { null },
+                    email = email.ifEmpty { null },
+                    role = form.inviteRole.wire,
+                )
             when (result) {
                 is AuthResult.Ok -> {
                     val body = read()
@@ -236,7 +330,7 @@ class MembersViewModel(
 
     private suspend fun read(): MembersBody =
         when (val result = repository.members()) {
-            is AuthResult.Ok -> MembersBody.Loaded(result.value)
+            is AuthResult.Ok -> MembersBody.Loaded(result.value.map(MemberLine::of))
             is AuthResult.Refused ->
                 MembersBody.Failed(result.envelope.error.messageKey, result.envelope.error.retryable)
             AuthResult.TransportFailure -> MembersBody.Failed(OFFLINE_KEY, retryable = true)

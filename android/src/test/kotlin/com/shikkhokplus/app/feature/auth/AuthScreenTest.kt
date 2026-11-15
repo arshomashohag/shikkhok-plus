@@ -38,7 +38,10 @@ import com.shikkhokplus.app.core.model.IdentifierKind
 import com.shikkhokplus.app.core.ui.TAG_KIND_EMAIL
 import com.shikkhokplus.app.core.ui.TAG_KIND_PHONE
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.SemanticsProperties.EditableText
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.junit4.StateRestorationTester
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.assert
 import com.shikkhokplus.app.feature.auth.ui.TAG_REQUEST_CODE
 import com.shikkhokplus.app.feature.auth.ui.TAG_RETRY
@@ -85,20 +88,35 @@ class AuthScreenTest {
 
     // --- The password sign-in ---------------------------------------------
 
+    // Rewritten for U3 from W3's acceptance criteria: one field, "Username,
+    // phone or email", no toggle, nothing judged before sending [FR4.1].
+
     @Test
-    fun `the sign-in form offers phone or email and a password`() {
+    fun `the sign-in form offers one login field and a password, with no toggle`() {
         render(AuthUiState.Idle)
-        compose.onNodeWithTag(TAG_KIND_PHONE).assertIsDisplayed()
-        compose.onNodeWithTag(TAG_KIND_EMAIL).assertIsDisplayed()
         compose.onNodeWithTag(TAG_IDENTIFIER_FIELD).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_KIND_PHONE).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_KIND_EMAIL).assertDoesNotExist()
         compose.onNodeWithTag(TAG_PASSWORD_FIELD).performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag(TAG_SIGN_IN).performScrollTo().assertIsDisplayed()
     }
 
     @Test
-    fun `typing a number and a password signs in with exactly what was typed`() {
-        var signedIn: Pair<Identifier, String>? = null
-        render(AuthUiState.Idle, AuthActions(onSignIn = { id, pw -> signedIn = id to pw }))
+    fun `a username and a password sign in with exactly what was typed`() {
+        var signedIn: Pair<String, String>? = null
+        render(AuthUiState.Idle, AuthActions(onSignIn = { login, pw -> signedIn = login to pw }))
+
+        compose.onNodeWithTag(TAG_IDENTIFIER_FIELD).performTextInput("Rahim.Uddin")
+        compose.onNodeWithTag(TAG_PASSWORD_FIELD).performScrollTo().performTextInput("correct horse")
+        compose.onNodeWithTag(TAG_SIGN_IN).performScrollTo().performClick()
+
+        assertEquals("Rahim.Uddin" to "correct horse", signedIn)
+    }
+
+    @Test
+    fun `a number is sent as typed into the same field`() {
+        var signedIn: Pair<String, String>? = null
+        render(AuthUiState.Idle, AuthActions(onSignIn = { login, pw -> signedIn = login to pw }))
 
         compose.onNodeWithTag(TAG_IDENTIFIER_FIELD).performTextInput("+8801711111111")
         compose.onNodeWithTag(TAG_PASSWORD_FIELD).performScrollTo().performTextInput("correct horse")
@@ -106,20 +124,38 @@ class AuthScreenTest {
 
         // The number reaching the callback is the one TYPED. There is
         // no path by which it could come from the SIM [AC1.1.6].
-        assertEquals(Identifier.phone("+8801711111111") to "correct horse", signedIn)
+        assertEquals("+8801711111111" to "correct horse", signedIn)
     }
 
     @Test
-    fun `switching to email signs in with an email`() {
-        var signedIn: Pair<Identifier, String>? = null
-        render(AuthUiState.Idle, AuthActions(onSignIn = { id, pw -> signedIn = id to pw }))
+    fun `the code flow keeps its phone or email toggle`() {
+        // Recovery stays phone or email [FR10.1].
+        render(AuthUiState.CodeFlowStart)
+        compose.onNodeWithTag(TAG_KIND_PHONE).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_KIND_EMAIL).assertIsDisplayed()
+    }
 
-        compose.onNodeWithTag(TAG_KIND_EMAIL).performClick()
-        compose.onNodeWithTag(TAG_IDENTIFIER_FIELD).performTextInput("rafi@example.com")
+    @Test
+    fun `an email the server refuses at sign-in is named under the login field`() {
+        render(AuthUiState.Failed("email.invalid", retryable = false))
+
+        compose.onNodeWithText("That is not a valid email address. Check it and try again.").assertExists()
+        compose.onNodeWithTag(TAG_ERROR).assertDoesNotExist()
+    }
+
+    @Test
+    fun `after recreation the login survives and the password is empty`() {
+        val restore = StateRestorationTester(compose)
+        restore.setContent { ShikkhokTheme { AuthScreen(state = AuthUiState.Idle, actions = AuthActions()) } }
+        compose.onNodeWithTag(TAG_IDENTIFIER_FIELD).performTextInput("nadia_k")
         compose.onNodeWithTag(TAG_PASSWORD_FIELD).performScrollTo().performTextInput("correct horse")
-        compose.onNodeWithTag(TAG_SIGN_IN).performScrollTo().performClick()
 
-        assertEquals(Identifier.email("rafi@example.com") to "correct horse", signedIn)
+        restore.emulateSavedInstanceStateRestore()
+
+        compose.onNodeWithTag(TAG_IDENTIFIER_FIELD)
+            .assert(SemanticsMatcher.expectValue(EditableText, AnnotatedString("nadia_k")))
+        compose.onNodeWithTag(TAG_PASSWORD_FIELD).performScrollTo()
+            .assert(SemanticsMatcher.expectValue(EditableText, AnnotatedString("")))
     }
 
     @Test
@@ -132,16 +168,17 @@ class AuthScreenTest {
     }
 
     @Test
-    fun `a malformed number is named under the field and not sent`() {
-        var signedIn: Pair<Identifier, String>? = null
-        render(AuthUiState.Idle, AuthActions(onSignIn = { id, pw -> signedIn = id to pw }))
+    fun `a value of any shape is sent, never refused on the phone`() {
+        // The client classifies nothing [FR4.1, NFR3.9]: "0171" may be a
+        // username for all the phone knows, and the server decides.
+        var signedIn: Pair<String, String>? = null
+        render(AuthUiState.Idle, AuthActions(onSignIn = { login, pw -> signedIn = login to pw }))
 
         compose.onNodeWithTag(TAG_IDENTIFIER_FIELD).performTextInput("0171")
         compose.onNodeWithTag(TAG_PASSWORD_FIELD).performScrollTo().performTextInput("correct horse")
         compose.onNodeWithTag(TAG_SIGN_IN).performScrollTo().performClick()
 
-        assertEquals(null, signedIn)
-        compose.onNodeWithText("Bangladeshi mobile numbers have 11 digits, starting 01.").assertExists()
+        assertEquals("0171" to "correct horse", signedIn)
     }
 
     @Test

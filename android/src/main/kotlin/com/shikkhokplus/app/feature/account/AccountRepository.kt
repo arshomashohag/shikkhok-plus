@@ -1,9 +1,12 @@
 package com.shikkhokplus.app.feature.account
 
 import com.shikkhokplus.app.core.model.Identifier
+import com.shikkhokplus.app.core.model.IdentifierKind
 import com.shikkhokplus.app.core.network.IssueResponse
 import com.shikkhokplus.app.core.network.MeDto
 import com.shikkhokplus.app.core.network.TokenResponse
+import com.shikkhokplus.app.core.network.UsernameAvailabilityDto
+import com.shikkhokplus.app.core.network.UsernameChangeDto
 import com.shikkhokplus.app.feature.auth.AuthResult
 
 /**
@@ -44,4 +47,46 @@ interface AccountRepository {
      * @return The updated account, a refusal, or a transport failure
      */
     suspend fun verifyContact(identifier: Identifier, code: String): AuthResult<MeDto>
+
+    /**
+     * Ask the authenticated lookup whether a username could be taken.
+     *
+     * Authenticated so a name this account released and may reclaim reads
+     * available here (ADR-012), and nowhere else.
+     *
+     * @param username The candidate, trimmed
+     * @return The server's answer, a refusal, or a transport failure
+     */
+    suspend fun checkUsername(username: String): AuthResult<UsernameAvailabilityDto>
+
+    /**
+     * Choose the first username, or rename [FR5.4, FR7.1].
+     *
+     * Ends no session and returns no tokens: nothing is written to the
+     * token store [FR7.5].
+     *
+     * @param username The candidate, trimmed
+     * @param password The password for a rename; null for the first choice
+     * @return The stored username and when it may next change, a
+     *   refusal, or a transport failure
+     */
+    suspend fun changeUsername(username: String, password: String?): AuthResult<UsernameChangeDto>
+
+    /**
+     * Ask for a code to replace this account's phone or email [FR8.2].
+     *
+     * @param identifier The new phone or email
+     * @param password The account's password
+     * @return The server's acknowledgement, a refusal, or a transport failure
+     */
+    suspend fun replaceContact(identifier: Identifier, password: String): AuthResult<IssueResponse>
+
+    /**
+     * Remove this account's phone or email [FR8.4].
+     *
+     * @param kind Which one
+     * @param password The account's password
+     * @return The account as it now is, a refusal, or a transport failure
+     */
+    suspend fun removeContact(kind: IdentifierKind, password: String): AuthResult<MeDto>
 }

@@ -56,9 +56,14 @@ import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.model.Identifier
 import com.shikkhokplus.app.core.model.IdentifierKind
 import com.shikkhokplus.app.core.model.SignupRole
+import androidx.compose.ui.focus.onFocusChanged
+import com.shikkhokplus.app.core.ui.AutofillHint
+import com.shikkhokplus.app.core.ui.AvailabilityHint
+import com.shikkhokplus.app.core.ui.AvailabilityState
 import com.shikkhokplus.app.core.ui.IdentifierField
 import com.shikkhokplus.app.core.ui.IdentifierKindToggle
 import com.shikkhokplus.app.core.ui.NewPasswordFields
+import com.shikkhokplus.app.core.ui.UsernameField
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.auth.PasswordRules
 import com.shikkhokplus.app.feature.auth.SignupForm
@@ -70,6 +75,9 @@ const val TAG_SIGNUP_PHONE: String = "signup_phone"
 
 /** Test tag for the name field. */
 const val TAG_SIGNUP_NAME: String = "signup_name"
+
+/** The username field on the sign-up form [W1]. */
+const val TAG_SIGNUP_USERNAME: String = "signup_username"
 
 /** Test tag for the password field. */
 const val TAG_SIGNUP_PASSWORD: String = "signup_password"
@@ -154,11 +162,16 @@ fun SignupScreen(
     onLookup: (String) -> Unit = {},
     onNumberEdited: () -> Unit = {},
     onKindChange: (IdentifierKind) -> Unit = {},
+    availability: AvailabilityState = AvailabilityState.Idle,
+    onUsernameEdited: (String) -> Unit = {},
+    onEmailLeft: (String) -> Unit = {},
 ) {
     // Typed fields survive a rotation or a language change [L-20]; the
-    // passwords deliberately do not.
+    // passwords deliberately do not. The username is not a secret, so it
+    // survives too [NFR3.4].
     var kind by rememberSaveable { mutableStateOf(IdentifierKind.PHONE) }
     var phone by rememberSaveable { mutableStateOf("") }
+    var username by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
@@ -213,6 +226,7 @@ fun SignupScreen(
                                         onNumberEdited()
                                     },
                                     onPhoneLeft = onLookup,
+                                    onEmailLeft = onEmailLeft,
                                 ),
                             passwords =
                                 PasswordInput(
@@ -220,6 +234,15 @@ fun SignupScreen(
                                     onPasswordChange = { password = it },
                                     confirm = confirm,
                                     onConfirmChange = { confirm = it },
+                                ),
+                            username =
+                                UsernameInput(
+                                    value = username,
+                                    onValueChange = {
+                                        username = it
+                                        onUsernameEdited(it)
+                                    },
+                                    availability = availability,
                                 ),
                             name = name,
                             onNameChange = { name = it },
@@ -236,9 +259,12 @@ fun SignupScreen(
                     }
                     Bar(
                         phone = phone,
+                        // **Not gated on the availability hint** [FR3.2,
+                        // FR11.3]: the hint can be stale, and the server's
+                        // answer to the submission is the one that stands.
                         enabled =
                             canSend(state, role, name, phone, address, centreName) &&
-                                password.isNotEmpty() && confirm.isNotEmpty(),
+                                username.isNotBlank() && password.isNotEmpty() && confirm.isNotEmpty(),
                         offerLogin = prefilled == null && !alreadyRegistered,
                         onSubmit = {
                             role?.let {
@@ -251,6 +277,7 @@ fun SignupScreen(
                                         password = password,
                                         confirm = confirm,
                                         centreName = centreName.takeIf { _ -> it == SignupRole.COACHING },
+                                        username = username,
                                     ),
                                 )
                             }
@@ -296,6 +323,7 @@ private fun Header() {
  * @param prefilled The already-added answer, while it applies
  * @param identifier The phone or email, and its kind
  * @param passwords The password and its second copy
+ * @param username The username, its hint, and its edits
  * @param name The name field's value
  * @param onNameChange Called on each edit of the name
  * @param address The address, in its four parts
@@ -312,6 +340,7 @@ private fun Form(
     prefilled: SignupUiState.AlreadyAdded?,
     identifier: IdentifierInput,
     passwords: PasswordInput,
+    username: UsernameInput,
     name: String,
     onNameChange: (String) -> Unit,
     address: PostalAddress,
@@ -333,7 +362,9 @@ private fun Form(
         invalidKeys.firstOrNull { it in PASSWORD_KEYS }?.let { stringResource(MessageKeys.resolve(it)) }
     val nameError =
         invalidKeys.firstOrNull { it == SignupStateMapper.NAME_KEY }?.let { stringResource(MessageKeys.resolve(it)) }
-    val generalFailure = failure?.takeIf { phoneError == null && !alreadyRegistered }
+    // A username refusal is shown under the Username field, not as a banner.
+    val generalFailure =
+        failure?.takeIf { phoneError == null && !alreadyRegistered && SignupStateMapper.usernameKeyOf(state) == null }
 
     Column(
         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
@@ -367,6 +398,7 @@ private fun Form(
                 fieldModifier = Modifier.testTag(TAG_SIGNUP_NAME),
             )
         }
+        var emailFocused by remember { mutableStateOf(false) }
         val phoneField: @Composable () -> Unit = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 // A number a teacher added fixes the kind: the seat is on it.
@@ -390,7 +422,17 @@ private fun Form(
                         ).takeIf { identifier.value.isEmpty() },
                     error = phoneError,
                     onLeftWithValidNumber = identifier.onPhoneLeft,
-                    fieldModifier = Modifier.testTag(TAG_SIGNUP_PHONE),
+                    fieldModifier =
+                        Modifier
+                            .testTag(TAG_SIGNUP_PHONE)
+                            .onFocusChanged { focus ->
+                                // Leaving an email field runs the same
+                                // already-added lookup a number does [W9].
+                                if (emailFocused && !focus.isFocused && identifier.kind == IdentifierKind.EMAIL) {
+                                    identifier.onEmailLeft(identifier.value)
+                                }
+                                emailFocused = focus.isFocused
+                            },
                 )
                 // The taken number is named under the number, with the
                 // way to log in beside it (O1's error board).
@@ -424,6 +466,10 @@ private fun Form(
             showMissing = SignupStateMapper.ADDRESS_KEY in invalidKeys,
         )
 
+        // **The sign-in credentials together** (W1 step 1): the username
+        // directly above the two passwords.
+        UsernameBlock(state, username)
+
         NewPasswordFields(
             password = passwords.password,
             onPasswordChange = passwords.onPasswordChange,
@@ -434,6 +480,36 @@ private fun Form(
             passwordTag = TAG_SIGNUP_PASSWORD,
             confirmTag = TAG_SIGNUP_CONFIRM,
         )
+    }
+}
+
+/**
+ * The Username field with its availability hint [W1].
+ *
+ * A refusal from the submission (the mapper's key) replaces the hint;
+ * otherwise the hint, or the help line while nothing has been checked.
+ *
+ * @param state What the form shows, for a username refusal
+ * @param username The username, its hint, and its edits
+ */
+@Composable
+private fun UsernameBlock(state: SignupUiState, username: UsernameInput) {
+    val usernameKey = SignupStateMapper.usernameKeyOf(state)
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        UsernameField(
+            value = username.value,
+            onValueChange = username.onValueChange,
+            label = stringResource(R.string.signup_username_label),
+            autofill = AutofillHint.NEW_USERNAME,
+            error = usernameKey?.let { stringResource(MessageKeys.resolve(it)) },
+            fieldModifier = Modifier.testTag(TAG_SIGNUP_USERNAME),
+        )
+        if (usernameKey == null) {
+            AvailabilityHint(
+                state = username.availability,
+                help = stringResource(R.string.signup_username_help).takeIf { username.value.isEmpty() },
+            )
+        }
     }
 }
 
@@ -468,13 +544,29 @@ private fun identifierErrorOf(
  * @property onValueChange Called on each edit
  * @property onPhoneLeft Called when a phone field is left holding a
  *   well-formed number, for the already-added lookup
+ * @property onEmailLeft Called when an email field is left, for the same
+ *   lookup by email; the ViewModel judges the shape [W9]
  */
-private data class IdentifierInput(
+private class IdentifierInput(
     val kind: IdentifierKind,
     val value: String,
     val onKindChange: (IdentifierKind) -> Unit,
     val onValueChange: (String) -> Unit,
     val onPhoneLeft: (String) -> Unit,
+    val onEmailLeft: (String) -> Unit,
+)
+
+/**
+ * The username half of the sign-up form.
+ *
+ * @property value What is typed
+ * @property onValueChange Called on each accepted edit
+ * @property availability What the live check says
+ */
+private class UsernameInput(
+    val value: String,
+    val onValueChange: (String) -> Unit,
+    val availability: AvailabilityState,
 )
 
 /**

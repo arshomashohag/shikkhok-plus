@@ -101,6 +101,9 @@ enum class RemovalRemedy {
  *   Declined is marked per row because it is abnormal; pending is not,
  *   because it is the normal state of a new seat and decorating most
  *   rows would flag normality as a problem.
+ * @property guardianContactLine How the row names the guardian's contact
+ *   [W7.7]: the phone, or the guardian's email when no phone is recorded;
+ *   chosen by the mapper, never by the screen
  * @property isRemovable Whether to offer removal [BR3.1, NFR14.31].
  *
  *   **The server's decision, read and never derived.** It could be
@@ -120,7 +123,14 @@ data class RosterRow(
     val displayLabel: String?,
     val isDeclined: Boolean,
     val isRemovable: Boolean,
-)
+    val guardianContactLine: String? = null,
+) {
+    // Someone else's contacts, typed by a teacher [NFR3.2].
+    override fun toString(): String =
+        "RosterRow(enrollmentId=$enrollmentId, statusLabel=$statusLabel, studentState=$studentState, " +
+            "guardianState=$guardianState, isDeclined=$isDeclined, isRemovable=$isRemovable, " +
+            "guardianPhone=***, guardianContactLine=***)"
+}
 
 /**
  * Everything the roster screen renders.

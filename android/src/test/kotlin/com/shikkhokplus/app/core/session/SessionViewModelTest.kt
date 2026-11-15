@@ -7,7 +7,11 @@ import com.shikkhokplus.app.feature.auth.AuthResult
 import com.shikkhokplus.app.feature.profile.ProfileRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -366,6 +370,177 @@ class SessionViewModelTest {
         model.refreshLenses()
         dispatcher.scheduler.advanceUntilIdle()
         assertEquals(false, model.passwordMissing.value)
+    }
+
+    // --- The choose-username flag [FR5.2, FR5.3; NFR3.12, NFR3.13,
+    // NFR8.5, NFR8.6], written first. What the client can get wrong is
+    // which screen it shows; each of these pins one transition.
+
+    private fun needing(vararg lenses: Pair<String, Int>) =
+        AuthResult.Ok(MeDto(lenses = lenses.map { LensEntryDto(it.first, it.second) }, usernameRequired = true))
+
+    /** Every state the model publishes from now on, in order. */
+    private fun TestScope.record(model: SessionViewModel): MutableList<SessionUiState> {
+        val seen = mutableListOf<SessionUiState>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.state.toList(seen) }
+        return seen
+    }
+
+    @Test
+    fun `resolve publishes Resolving then UsernameRequired in one write when the read says true`() =
+        runTest(dispatcher) {
+            val model = SessionViewModel(FakeProfile(mutableListOf(needing("teacher" to 1))))
+            val seen = record(model)
+
+            model.resolve()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                listOf(
+                    SessionUiState.Resolving,
+                    SessionUiState.UsernameRequired(then = SessionUiState.Ready(Lens.TEACHER)),
+                ),
+                seen,
+            )
+        }
+
+    @Test
+    fun `resolve resets a previous UsernameRequired to Resolving`() = runTest(dispatcher) {
+        val model = SessionViewModel(FakeProfile(mutableListOf(needing("teacher" to 1), me("teacher" to 1))))
+        model.resolve()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertIs<SessionUiState.UsernameRequired>(model.state.value)
+
+        model.resolve()
+
+        assertEquals(SessionUiState.Resolving, model.state.value)
+    }
+
+    @Test
+    fun `failed read leaves the flag unknown as Failed, never UsernameRequired and never Ready`() =
+        runTest(dispatcher) {
+            val model = SessionViewModel(FakeProfile(mutableListOf(AuthResult.TransportFailure)))
+            val seen = record(model)
+
+            model.resolve()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertIs<SessionUiState.Failed>(model.state.value)
+            assertTrue(
+                seen.none { it is SessionUiState.UsernameRequired || it is SessionUiState.Ready },
+                "$seen",
+            )
+        }
+
+    @Test
+    fun `usernameChosen publishes the held then state`() = runTest(dispatcher) {
+        val model = SessionViewModel(FakeProfile(mutableListOf(needing("teacher" to 1, "guardian" to 1))))
+        model.resolve()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        model.usernameChosen()
+
+        val choosing = assertIs<SessionUiState.Choosing>(model.state.value)
+        assertEquals(listOf(Lens.TEACHER, Lens.GUARDIAN), choosing.options.map { it.lens })
+    }
+
+    @Test
+    fun `usernameChosen outside UsernameRequired changes nothing`() = runTest(dispatcher) {
+        val model = SessionViewModel(FakeProfile(mutableListOf(me("teacher" to 1))))
+        model.resolve()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        model.usernameChosen()
+
+        assertEquals(SessionUiState.Ready(Lens.TEACHER), model.state.value)
+    }
+
+    @Test
+    fun `refreshLenses wraps the current state when a read newly says true`() = runTest(dispatcher) {
+        val model = SessionViewModel(FakeProfile(mutableListOf(me("teacher" to 1), needing("teacher" to 1))))
+        model.resolve()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        model.refreshLenses()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            SessionUiState.UsernameRequired(then = SessionUiState.Ready(Lens.TEACHER)),
+            model.state.value,
+        )
+    }
+
+    @Test
+    fun `refreshLenses unwraps when a read says false`() = runTest(dispatcher) {
+        val model = SessionViewModel(FakeProfile(mutableListOf(needing("teacher" to 1), me("teacher" to 1))))
+        model.resolve()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        model.refreshLenses()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(SessionUiState.Ready(Lens.TEACHER), model.state.value)
+    }
+
+    @Test
+    fun `recheck from Failed publishes UsernameRequired when the read says true`() = runTest(dispatcher) {
+        val model =
+            SessionViewModel(FakeProfile(mutableListOf(AuthResult.TransportFailure, needing("student" to 1))))
+        model.resolve()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        model.recheck()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            SessionUiState.UsernameRequired(then = SessionUiState.Ready(Lens.STUDENT)),
+            model.state.value,
+        )
+    }
+
+    @Test
+    fun `recheck from Failed publishes the lens state when the read says false`() = runTest(dispatcher) {
+        val model = SessionViewModel(FakeProfile(mutableListOf(AuthResult.TransportFailure, me("student" to 1))))
+        model.resolve()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        model.recheck()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(SessionUiState.Ready(Lens.STUDENT), model.state.value)
+    }
+
+    @Test
+    fun `recheck that fails again leaves Failed`() = runTest(dispatcher) {
+        val repository = FakeProfile(mutableListOf(AuthResult.TransportFailure, AuthResult.TransportFailure))
+        val model = SessionViewModel(repository)
+        model.resolve()
+        dispatcher.scheduler.advanceUntilIdle()
+        val failed = model.state.value
+
+        model.recheck()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(2, repository.reads)
+        assertIs<SessionUiState.Failed>(failed)
+        assertEquals(failed, model.state.value)
+    }
+
+    @Test
+    fun `recheck never publishes Resolving`() = runTest(dispatcher) {
+        val model =
+            SessionViewModel(FakeProfile(mutableListOf(AuthResult.TransportFailure, needing("teacher" to 1))))
+        model.resolve()
+        dispatcher.scheduler.advanceUntilIdle()
+        val seen = record(model)
+
+        model.recheck()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(2, seen.size, "$seen")
+        assertIs<SessionUiState.Failed>(seen.first())
+        assertIs<SessionUiState.UsernameRequired>(seen.last())
+        assertTrue(seen.none { it is SessionUiState.Resolving }, "$seen")
     }
 
     @Test

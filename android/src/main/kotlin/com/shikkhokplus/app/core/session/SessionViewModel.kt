@@ -132,35 +132,55 @@ class SessionViewModel(
             if (result !is AuthResult.Ok) return@launch
             workspaces?.reconcile(result.value.workspaces)
             _passwordMissing.value = !result.value.hasPassword
-            val resolved = SessionStateMapper.afterLoad(result.value)
             val current = _state.value
+            // Nothing routed yet, or the last read failed: there is no
+            // screen to keep, and `recheck` owns the failed case.
+            if (current is SessionUiState.Resolving || current is SessionUiState.Failed) return@launch
 
-            _state.value =
-                when {
-                    // A lens-free session that now holds exactly one:
-                    // take it, because there is nothing to choose and
-                    // the person is waiting on those tabs.
-                    current is SessionUiState.NoLens &&
-                        resolved is SessionUiState.Ready -> resolved
-
-                    // A lens-free session that now holds several:
-                    // take the first rather than interrupt with a
-                    // picker. The switcher is one tap away in More,
-                    // and `fromPicker` makes it visible.
-                    current is SessionUiState.NoLens &&
-                        resolved is SessionUiState.Choosing ->
-                        SessionUiState.Ready(
-                            resolved.options.first().lens,
-                            fromPicker = true,
-                        )
-
-                    // Already using a lens: leave it alone. Switching
-                    // under someone mid-screen is never what they
-                    // asked for.
-                    else -> current
-                }
+            // **The username flag is applied around the lens rule, not
+            // inside it** [FR5.2]. A read newly saying `true` wraps the
+            // state the person is in; one saying `false` unwraps it; the
+            // lens rule below decides the inner state either way.
+            val loaded = SessionStateMapper.afterLoad(result.value)
+            val resolved = (loaded as? SessionUiState.UsernameRequired)?.then ?: loaded
+            val inner = (current as? SessionUiState.UsernameRequired)?.then ?: current
+            val kept = keepOrUpgrade(inner, resolved)
+            _state.value = if (result.value.usernameRequired) SessionUiState.UsernameRequired(kept) else kept
         }
     }
+
+    /**
+     * The quiet refresh's lens rule: upgrade a lens-free session, leave
+     * any other alone.
+     *
+     * @param current The lens state the person is in
+     * @param resolved The lens state the new read implies
+     * @return The lens state to keep
+     */
+    private fun keepOrUpgrade(current: SessionUiState, resolved: SessionUiState): SessionUiState =
+        when {
+            // A lens-free session that now holds exactly one:
+            // take it, because there is nothing to choose and
+            // the person is waiting on those tabs.
+            current is SessionUiState.NoLens &&
+                resolved is SessionUiState.Ready -> resolved
+
+            // A lens-free session that now holds several:
+            // take the first rather than interrupt with a
+            // picker. The switcher is one tap away in More,
+            // and `fromPicker` makes it visible.
+            current is SessionUiState.NoLens &&
+                resolved is SessionUiState.Choosing ->
+                SessionUiState.Ready(
+                    resolved.options.first().lens,
+                    fromPicker = true,
+                )
+
+            // Already using a lens: leave it alone. Switching
+            // under someone mid-screen is never what they
+            // asked for.
+            else -> current
+        }
 
     /** Try the lens list again after a failure. */
     fun retry() {
@@ -174,5 +194,57 @@ class SessionViewModel(
      */
     fun passwordSet() {
         _passwordMissing.value = false
+    }
+
+    /**
+     * The account now has a username: the server confirmed it by
+     * answering `PUT /v1/me/username` with a 200 [FR5.2, FR5.4].
+     *
+     * The gate goes in the same write that publishes the state it was
+     * holding, so the picker or the home replaces it at once, as
+     * [passwordSet] does for the password prompt. Outside the gate this
+     * does nothing.
+     */
+    fun usernameChosen() {
+        val gate = _state.value as? SessionUiState.UsernameRequired ?: return
+        _state.value = gate.then
+    }
+
+    /**
+     * Re-read the account quietly, without publishing `Resolving`
+     * [NFR3.13, NFR8.6].
+     *
+     * **Why it exists.** A failed account read routes to the lens-free
+     * graph, so the username flag is unknown; left alone, an account
+     * needing a username could use the app until the next cold start.
+     * The root calls this while the state is [SessionUiState.Failed] (on
+     * coming to the front and every 30 seconds), and the gate calls it
+     * when the server says another device chose a name first.
+     *
+     * A successful read publishes exactly what [resolve] would have; a
+     * failed one changes nothing, so the screen in use is never torn
+     * down by a re-check. Only a failed state or the gate is replaced:
+     * a session already routed is left to [refreshLenses].
+     */
+    fun recheck() {
+        viewModelScope.launch { recheckNow() }
+    }
+
+    /**
+     * [recheck], awaited: the choose-username gate needs to know whether
+     * the read arrived, to offer a retry when it did not.
+     *
+     * @return True when the account was read, false when the read failed
+     */
+    suspend fun recheckNow(): Boolean {
+        val result = repository.profile()
+        if (result !is AuthResult.Ok) return false
+        val current = _state.value
+        if (current is SessionUiState.Failed || current is SessionUiState.UsernameRequired) {
+            workspaces?.reconcile(result.value.workspaces)
+            _passwordMissing.value = !result.value.hasPassword
+            _state.value = SessionStateMapper.afterLoad(result.value)
+        }
+        return true
     }
 }

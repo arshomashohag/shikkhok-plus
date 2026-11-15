@@ -13,6 +13,7 @@ import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -104,6 +105,9 @@ class HttpRosterRepository(
             } else {
                 AuthResult.Refused(decodeEnvelope(response))
             }
+        } catch (cancelled: CancellationException) {
+            // A cancelled caller is not a lost connection [NFR8.3].
+            throw cancelled
         } catch (_: Exception) {
             AuthResult.TransportFailure
         }
@@ -139,6 +143,9 @@ class HttpRosterRepository(
             } else {
                 AuthResult.Refused(decodeEnvelope(response))
             }
+        } catch (cancelled: CancellationException) {
+            // A cancelled caller is not a lost connection [NFR8.3].
+            throw cancelled
         } catch (_: Exception) {
             AuthResult.TransportFailure
         }
@@ -163,6 +170,9 @@ class HttpRosterRepository(
             } else {
                 AuthResult.Refused(decodeEnvelope(response))
             }
+        } catch (cancelled: CancellationException) {
+            // A cancelled caller is not a lost connection [NFR8.3].
+            throw cancelled
         } catch (_: Exception) {
             AuthResult.TransportFailure
         }
@@ -202,6 +212,9 @@ class HttpBatchesRepository(
             } else {
                 AuthResult.Refused(decodeEnvelope(response))
             }
+        } catch (cancelled: CancellationException) {
+            // A cancelled caller is not a lost connection [NFR8.3].
+            throw cancelled
         } catch (_: Exception) {
             AuthResult.TransportFailure
         }
@@ -214,6 +227,9 @@ class HttpBatchesRepository(
             } else {
                 AuthResult.Refused(decodeEnvelope(response))
             }
+        } catch (cancelled: CancellationException) {
+            // A cancelled caller is not a lost connection [NFR8.3].
+            throw cancelled
         } catch (_: Exception) {
             AuthResult.TransportFailure
         }

@@ -7,7 +7,9 @@ import com.shikkhokplus.app.core.model.IdentifierKind
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.IssueResponse
 import com.shikkhokplus.app.core.network.TokenResponse
+import com.shikkhokplus.app.core.network.UsernameAvailabilityDto
 import com.shikkhokplus.app.core.network.VerifyResponse
+import com.shikkhokplus.app.core.ui.UsernameAvailabilityChecker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,20 +36,24 @@ interface AuthRepository {
      *
      * @param identifier The phone or email the code was issued for
      * @param code The code the user entered
+     * @param username A replacement username, sent only after the
+     *   sign-up's own name was answered `account.username.unavailable`
+     *   [FR2.2]; null otherwise
      * @return The password-setup token, or an error envelope, or a
      *   transport failure
      */
-    suspend fun verify(identifier: Identifier, code: String): AuthResult<VerifyResponse>
+    suspend fun verify(identifier: Identifier, code: String, username: String? = null): AuthResult<VerifyResponse>
 
     /**
-     * Sign in with an identifier and a password.
+     * Sign in with one typed value and a password [FR4.1].
      *
-     * @param identifier The phone or email the user typed
+     * @param login A username, phone or email as typed; the server
+     *   decides which, and the client never classifies it [NFR1.2]
      * @param password What the user typed; never stored or logged
      * @return The token pair or the authenticator challenge, or an error
      *   envelope, or a transport failure
      */
-    suspend fun signIn(identifier: Identifier, password: String): AuthResult<VerifyResponse>
+    suspend fun signIn(login: String, password: String): AuthResult<VerifyResponse>
 
     /**
      * Finish the code flow by choosing a password.
@@ -168,7 +174,15 @@ enum class SessionResume {
  */
 class AuthViewModel(
     private val repository: AuthRepository,
+    lookupUsername: suspend (String) -> AuthResult<UsernameAvailabilityDto> = { AuthResult.TransportFailure },
 ) : ViewModel() {
+
+    /**
+     * The availability check on the replacement step, on the public
+     * lookup [W2 step 3]; it never blocks Continue [FR3.2].
+     */
+    val replacementAvailability: UsernameAvailabilityChecker =
+        UsernameAvailabilityChecker(viewModelScope, lookupUsername)
 
     private val _state = MutableStateFlow<AuthUiState>(AuthUiState.Restoring)
 
@@ -199,6 +213,16 @@ class AuthViewModel(
     // code being sent and being verified, then sent and dropped.
     private var pendingPassword: String? = null
 
+    // The username the sign-up form carried, for the replacement step's
+    // copy. The person's own typed value [NFR1.4]; memory only.
+    private var pendingUsername: String? = null
+
+    // **The six digits a verify accepted, kept only while the
+    // replacement step needs them** [W2 step 3, NFR3.4]: the retry must
+    // present the same code. Never in a state class or saved state, and
+    // forgotten on Change, Back, sign-out and when this is cleared.
+    private var heldCode: String? = null
+
     /**
      * Try a stored session before showing the sign-in screen.
      *
@@ -224,21 +248,24 @@ class AuthViewModel(
     }
 
     /**
-     * Sign in with an identifier and a password.
+     * Sign in with one typed value and a password [FR4.1, W3].
      *
-     * The shape of the identifier is the screen's to check before this
-     * is called; whether the password is right is the server's.
+     * **Nothing about the login is judged here** [NFR1.2, FR11.3]: not
+     * its kind and not its shape. It is sent trimmed, and the server
+     * classifies it as a username, a phone or an email; whether the
+     * password is right is the server's too.
      *
-     * @param identifier The phone or email typed, never read from the SIM
+     * @param login What was typed into "Username, phone or email"
      * @param password What was typed; held only in the retry closure,
      *   which is dropped once the sign-in resolves or is left
      */
-    fun signIn(identifier: Identifier, password: String) {
-        lastIdentifier = identifier
-        lastAction = { signIn(identifier, password) }
+    fun signIn(login: String, password: String) {
+        val typed = login.trim()
+        if (typed.isEmpty()) return
+        lastAction = { signIn(typed, password) }
         _state.value = AuthUiState.SigningIn
         viewModelScope.launch {
-            val result = repository.signIn(identifier, password)
+            val result = repository.signIn(typed, password)
             if (result is AuthResult.Ok) challenge = result.value.mfaChallenge
             _state.value = AuthStateMapper.afterSignIn(result)
             // Only a lost connection keeps the closure, for its retry.
@@ -297,11 +324,14 @@ class AuthViewModel(
      * @param identifier The phone or email the code was sent to
      * @param password The password chosen on the sign-up form, or null
      *   to ask for one after the code
+     * @param username The username the sign-up form carried, or null; the
+     *   replacement step names it if another account took it meanwhile
      */
-    fun adoptPendingCode(identifier: Identifier, password: String? = null) {
+    fun adoptPendingCode(identifier: Identifier, password: String? = null, username: String? = null) {
         forgetSecrets()
         lastIdentifier = identifier
         pendingPassword = password
+        pendingUsername = username
         _codeDestination.value = identifier.kind
         _state.value = AuthUiState.AwaitingCode
     }
@@ -321,26 +351,78 @@ class AuthViewModel(
         _state.value = AuthUiState.CheckingCode
         viewModelScope.launch {
             when (val result = repository.verify(identifier, code)) {
-                is AuthResult.Ok -> {
-                    lastAction = null
-                    setupToken = result.value.passwordSetupToken
-                    val next = PasswordStateMapper.afterCodeVerified(result.value)
-                    val chosen = pendingPassword
-                    if (next is AuthUiState.ChoosePassword && chosen != null && !next.mfaRequired) {
-                        sendPassword(next, chosen, secondCode = null)
-                    } else {
-                        pendingPassword = null
-                        _state.value = next
+                is AuthResult.Ok -> continueAfterVerify(result.value)
+                is AuthResult.Refused -> {
+                    val next = ReplacementStateMapper.afterVerifyRefused(result.envelope, pendingUsername.orEmpty())
+                    // The code was right and is unspent: keep it for the
+                    // replacement, in memory only [W2 step 3].
+                    if (next is AuthUiState.ReplaceUsername) {
+                        heldCode = code
+                        lastAction = null
                     }
+                    _state.value = next
                 }
-                is AuthResult.Refused ->
-                    _state.value =
-                        AuthStateMapper.codeRejected(
-                            AuthStateMapper.afterError(result.envelope),
-                            result.envelope.error.details?.get(ATTEMPTS_LEFT),
-                        )
                 AuthResult.TransportFailure ->
                     _state.value = AuthStateMapper.codeRejected(AuthStateMapper.afterTransportFailure())
+            }
+        }
+    }
+
+    /**
+     * A verified code's continuation, shared by a first verify and a
+     * replacement: send the password chosen on the form, or ask for one.
+     *
+     * @param response What the verify returned
+     */
+    private suspend fun continueAfterVerify(response: VerifyResponse) {
+        lastAction = null
+        heldCode = null
+        setupToken = response.passwordSetupToken
+        val next = PasswordStateMapper.afterCodeVerified(response)
+        val chosen = pendingPassword
+        if (next is AuthUiState.ChoosePassword && chosen != null && !next.mfaRequired) {
+            sendPassword(next, chosen, secondCode = null)
+        } else {
+            pendingPassword = null
+            _state.value = next
+        }
+    }
+
+    /**
+     * The replacement step's field changed: check the new name.
+     *
+     * @param text What the field holds
+     */
+    fun replacementEdited(text: String) {
+        replacementAvailability.edited(text)
+    }
+
+    /**
+     * Send the held code again with another username [FR2.2, W2 step 4];
+     * also the explicit retry after a lost connection.
+     *
+     * Ignored while one is with the server, and when no code is held --
+     * after Change, Back or sign-out nothing is sent [NFR3.4].
+     *
+     * @param username The replacement, as typed
+     */
+    fun submitReplacement(username: String) {
+        val step = _state.value as? AuthUiState.ReplaceUsername ?: return
+        if (step.checking) return
+        val code = heldCode ?: return
+        val identifier = lastIdentifier ?: return
+        val name = username.trim()
+        if (name.isEmpty()) return
+        _state.value = step.copy(checking = true, messageKey = null, retryable = false)
+        viewModelScope.launch {
+            when (val result = repository.verify(identifier, code, name)) {
+                is AuthResult.Ok -> continueAfterVerify(result.value)
+                else -> {
+                    val next = ReplacementStateMapper.afterReplacement(result, step.previous)
+                    // A spent code is gone; the code step asks for a new one.
+                    if (next !is AuthUiState.ReplaceUsername) heldCode = null
+                    _state.value = next
+                }
             }
         }
     }
@@ -500,14 +582,16 @@ class AuthViewModel(
         super.onCleared()
     }
 
-    /** Drop everything secret this flow held: retry closure, challenge, token, password. */
+    /**
+     * Drop everything secret this flow held: retry closure, challenge,
+     * token, password, the held code and the sign-up's username.
+     */
     private fun forgetSecrets() {
         lastAction = null
         challenge = null
         setupToken = null
         pendingPassword = null
+        pendingUsername = null
+        heldCode = null
     }
 }
-
-/** The detail a wrong sign-in code carries: how many tries are left. */
-private const val ATTEMPTS_LEFT = "attempts_left"

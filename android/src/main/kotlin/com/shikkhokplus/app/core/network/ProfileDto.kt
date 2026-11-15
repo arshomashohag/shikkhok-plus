@@ -45,6 +45,13 @@ data class LensEntryDto(
  *   never makes every account look unprotected
  * @property workspaces The workspaces this account manages, solo first;
  *   the server's own answer to which a teacher may act on
+ * @property username The username as stored (display casing), or null.
+ *   Owner-only [FR9]: it reaches this client on this route and on a
+ *   rename's answer, and nowhere else [NFR3.5]
+ * @property usernameRequired True while the account has no username, so
+ *   the choose-username gate comes first [FR5.1, FR5.2]. **Defaults to
+ *   false when absent**, so a server from before usernames never locks
+ *   every account behind the gate [NFR6.3]
  */
 @Serializable
 data class MeDto(
@@ -59,6 +66,8 @@ data class MeDto(
     val email: String? = null,
     @SerialName("has_password") val hasPassword: Boolean = true,
     val workspaces: List<WorkspaceDto> = emptyList(),
+    val username: String? = null,
+    @SerialName("username_required") val usernameRequired: Boolean = false,
 ) {
     /** The address in its four parts, empty where none is stored. */
     val postal: PostalAddress
@@ -73,6 +82,11 @@ data class MeDto(
     /** The address to read back: the four parts, or the older free text. */
     val shownAddress: String?
         get() = postal.oneLine() ?: address
+
+    // The owner's own name, contacts and address are never printed [NFR3.2].
+    override fun toString(): String =
+        "MeDto(lenses=$lenses, hasPassword=$hasPassword, usernameRequired=$usernameRequired, " +
+            "workspaces=${workspaces.size}, username=***, phone=***, email=***, address=***)"
 }
 
 /**

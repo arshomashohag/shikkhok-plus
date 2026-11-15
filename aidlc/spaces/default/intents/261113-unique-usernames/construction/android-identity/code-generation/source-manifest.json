@@ -1,0 +1,397 @@
+{
+  "stage": "code-generation",
+  "unit": "android-identity",
+  "version": 1,
+  "writes": [
+    {
+      "path": "android/detekt.yml"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/MainActivity.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/model/EmailEdit.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/model/Identifier.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/AccountsDto.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/AuthDto.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/CentreDto.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpAccountRepository.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpAuthRepository.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpCentresRepository.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpRosterRepository.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpSignupRepository.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpTeacherStudentsRepository.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/ProfileDto.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/RosterDto.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/TeacherStudentDto.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/UsernameDto.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/session/SessionStateMapper.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/session/SessionUiState.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/session/SessionViewModel.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/AutofillHint.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/AvailabilityHint.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/LoginField.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/UsernameAvailability.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/UsernameField.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/AccountRepository.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/ChooseUsername.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/Contacts.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/RemoveContact.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/ReplaceContact.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/Username.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/ui/ChooseUsernameGate.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/ui/ContactsScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/ui/RemoveContactSheet.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/ui/ReplaceContactScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/ui/UsernameScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/AuthUiState.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/AuthViewModel.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/MessageKeys.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/ReplacementStateMapper.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/SignupStateMapper.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/SignupViewModel.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/ui/AuthActions.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/ui/AuthScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/ui/ReplaceUsernameStep.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/ui/SignupScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/batchdetail/ui/StudentsTab.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/centres/CentresRepository.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/centres/CentresViewModels.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/centres/ui/CentresScreens.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/profile/ProfileUiState.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/profile/ProfileViewModel.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/profile/ui/ProfileScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterStateMapper.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterUiState.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/students/StudentDetailViewModel.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/students/StudentsStateMapper.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/students/StudentsUiState.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/students/StudentsViewModel.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/students/ui/AddStudentForm.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/students/ui/StudentDetailScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/students/ui/StudentsScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/navigation/AccountRoutes.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/navigation/CentresRoutes.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/navigation/Destination.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/navigation/RootRoute.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/navigation/ShikkhokNavHost.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/navigation/TeacherStudentsRoutes.kt"
+    },
+    {
+      "path": "android/src/main/res/values-bn/strings.xml"
+    },
+    {
+      "path": "android/src/main/res/values/strings.xml"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/IdentifierToStringTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/NoLoggingTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/NoSavedSecretsTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/UsernameDeclarationScanTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/designsystem/StringPlaceholderTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/model/EmailShapeTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/CallCancellationTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/CentreDtoTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/HttpAccountRepositoryTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/HttpAuthLoginTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/HttpAuthSecondStepTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/HttpCentresRepositoryTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/HttpRepositoryTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/HttpSignupRepositoryTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/HttpTeacherStudentsRepositoryTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/ProfileDtoTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/RosterDtoTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/TeacherStudentDtoTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/UsernameDtoTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/WriteContractTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/session/SessionStateMapperTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/session/SessionViewModelTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/ui/AutofillHintTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/ui/AvailabilityMapperTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/ui/UsernameAvailabilityCheckerTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/ui/UsernameFieldTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/account/AccountViewModelsTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/account/ChooseUsernameGateTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/account/ChooseUsernameViewModelTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/account/ContactsScreensTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/account/ContactsViewModelTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/account/FakeAccountRepository.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/account/RemoveContactViewModelTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/account/ReplaceContactViewModelTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/account/UsernameScreenTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/account/UsernameStateMapperTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/account/UsernameViewModelTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/auth/AuthScreenTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/auth/AuthSecondStepTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/auth/AuthStateMapperTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/auth/AuthViewModelTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/auth/PasswordFlowMapperTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/auth/ReplaceUsernameStepTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/auth/SignupScreenTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/auth/SignupStateMapperTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/auth/SignupViewModelTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/batchdetail/BatchDetailScreenTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/batchdetail/StudentsTabTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/centres/CentresScreensTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/centres/CentresViewModelsTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/profile/ProfileScreenTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/roster/RosterStateMapperTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/students/StudentDetailViewModelTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/students/StudentsStateMapperTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/students/StudentsViewModelTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/navigation/AccountRowsTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/navigation/DestinationTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/navigation/MoreActionsTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/navigation/UsernameGateRoutingTest.kt"
+    },
+    {
+      "path": "docs/delivery/bangla-layout-check.md"
+    }
+  ]
+}

@@ -957,6 +957,33 @@ sealed interface Destination {
         fun of(kind: com.shikkhokplus.app.core.model.IdentifierKind): String = "me/contact/${kind.name.lowercase()}"
     }
 
+    /** The account's username: view it and change it [W5], pushed over More. */
+    data object Username : Destination {
+        override val route: String = "me/username"
+    }
+
+    /** The account's phone and email: view, add, replace, remove [W6]. */
+    data object Contacts : Destination {
+        override val route: String = "me/contacts"
+    }
+
+    /** Replace the account's phone or email [W6 step 4], pushed over Contacts. */
+    data object ReplaceContact : Destination {
+        override val route: String = "me/contacts/replace?kind={kind}"
+
+        /** The kind argument's name: `phone` or `email`. */
+        const val ARG_KIND: String = "kind"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param kind Which kind of contact is being replaced
+         * @return The route to navigate to
+         */
+        fun of(kind: com.shikkhokplus.app.core.model.IdentifierKind): String =
+            "me/contacts/replace?kind=${kind.name.lowercase()}"
+    }
+
     /** Edit profile (S4), pushed over More. */
     data object EditProfile : Destination {
         override val route: String = "profile/edit"

@@ -2,6 +2,7 @@ package com.shikkhokplus.app.feature.students
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.shikkhokplus.app.core.model.EmailEdit
 import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -96,14 +97,25 @@ class StudentDetailViewModel(
     fun removeSeat(enrollmentId: String) = act({ repository.removeSeat(enrollmentId) })
 
     /**
-     * Change the name, and either number while it is still changeable.
+     * Change the name, either number, or either email while it is still
+     * changeable.
+     *
+     * The phones keep their rule (null keeps them); an email can also be
+     * cleared, which is sent as JSON `null` [W7.5].
      *
      * @param name The new name, or null to keep it
      * @param studentPhone The new student number, or null to keep it
      * @param guardianPhone The new guardian number, or null to keep it
+     * @param studentEmail Left, changed, or cleared
+     * @param guardianEmail Left, changed, or cleared
      */
-    fun edit(name: String?, studentPhone: String?, guardianPhone: String?) =
-        act({ repository.rename(studentId, name, studentPhone, guardianPhone) })
+    fun edit(
+        name: String?,
+        studentPhone: String?,
+        guardianPhone: String?,
+        studentEmail: EmailEdit = EmailEdit.Unchanged,
+        guardianEmail: EmailEdit = EmailEdit.Unchanged,
+    ) = act({ repository.rename(studentId, name, studentPhone, guardianPhone, studentEmail, guardianEmail) })
 
     /** Remove the student; the screen closes once the server agrees. */
     fun removeStudent() =

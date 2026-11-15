@@ -38,7 +38,7 @@ class HttpAuthSecondStepTest {
         val ok =
             assertIs<AuthResult.Ok<VerifyResponse>>(
                 HttpAuthRepository(ApiClient.build(BASE, engine, tokens), tokens)
-                    .signIn(Identifier.phone("01711234567"), "correct horse"),
+                    .signIn("01711234567", "correct horse"),
             )
 
         assertEquals(false, ok.value.mfaRequired)
@@ -58,7 +58,7 @@ class HttpAuthSecondStepTest {
         val ok =
             assertIs<AuthResult.Ok<VerifyResponse>>(
                 HttpAuthRepository(ApiClient.build(BASE, engine, tokens), tokens)
-                    .signIn(Identifier.phone("01711234567"), "correct horse"),
+                    .signIn("01711234567", "correct horse"),
             )
 
         assertEquals("chal", ok.value.mfaChallenge)

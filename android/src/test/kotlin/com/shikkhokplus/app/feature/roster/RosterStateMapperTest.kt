@@ -11,6 +11,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * The mapping decisions, which is where the screen's behaviour lives.
@@ -41,6 +42,46 @@ class RosterStateMapperTest {
             guardianState = guardianState,
             isRemovable = isRemovable,
         )
+
+    // --- U3: the guardian's email where the phone would be [W7.7] -----------
+
+    private fun loadedRow(dto: RosterRowDto): RosterRow =
+        assertIs<RosterUiState.Loaded>(RosterStateMapper.afterLoad("Physics", listOf(dto))).rows.single()
+
+    @Test
+    fun `the guardian's email is the contact when no phone is recorded`() {
+        val row = loadedRow(row("active", guardianState = "pending").copy(guardianEmail = "parent@example.com"))
+
+        assertEquals("parent@example.com", row.guardianContactLine)
+    }
+
+    @Test
+    fun `the guardian's phone stays the contact when both are recorded`() {
+        val row =
+            loadedRow(
+                row("active", guardianState = "pending", guardianPhone = "+8801819552041")
+                    .copy(guardianEmail = "parent@example.com"),
+            )
+
+        assertEquals("01819-552041", row.guardianContactLine)
+    }
+
+    @Test
+    fun `no guardian contact at all is null`() {
+        assertEquals(null, loadedRow(row("active")).guardianContactLine)
+    }
+
+    @Test
+    fun `a roster row never prints a contact`() {
+        val printed =
+            loadedRow(
+                row("active", guardianPhone = "+8801999999999").copy(guardianEmail = "sentinel@example.invalid"),
+            ).toString()
+
+        listOf("+8801999999999", "01999-999999", "sentinel@example.invalid").forEach {
+            assertTrue(it !in printed, printed)
+        }
+    }
 
     @Test
     fun `the status label comes from the server's enum, not from a date`() {

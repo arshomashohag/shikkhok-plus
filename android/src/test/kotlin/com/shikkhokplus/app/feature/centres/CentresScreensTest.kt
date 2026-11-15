@@ -6,6 +6,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
+import com.shikkhokplus.app.feature.centres.ui.TAG_INVITE_EMAIL
 import com.shikkhokplus.app.core.network.MemberDto
 import com.shikkhokplus.app.core.network.MembershipDto
 import com.shikkhokplus.app.core.network.WorkspaceDto
@@ -39,7 +41,7 @@ class CentresScreensTest {
     val compose = createComposeRule()
 
     private fun member(id: String, name: String, isYou: Boolean = false, revoked: Boolean = false) =
-        MemberDto(id, name, "+8801711000000", "teacher", "accepted", revoked = revoked, isYou = isYou)
+        MemberLine.of(MemberDto(id, name, "+8801711000000", "teacher", "accepted", revoked = revoked, isYou = isYou))
 
     @Test
     fun `a member can be removed once confirmed, but not yourself or someone already removed`() {
@@ -147,5 +149,53 @@ class CentresScreensTest {
 
         compose.onNodeWithTag(TAG_PROFILE_CENTRE_MEMBERS).performScrollTo().performClick()
         assertEquals(1, opened)
+    }
+
+    // --- U3 [FR6.4, W8] ---------------------------------------------------------
+
+    @Test
+    fun `a member invited by email alone renders with the email`() {
+        compose.setContent {
+            MembersScreen(
+                state =
+                    MembersUiState(
+                        body =
+                            MembersBody.Loaded(
+                                listOf(
+                                    MemberLine.of(
+                                        MemberDto(
+                                            "m-1",
+                                            "Rina",
+                                            null,
+                                            "teacher",
+                                            "pending",
+                                            invitedEmail = "rina@example.com",
+                                        ),
+                                    ),
+                                ),
+                            ),
+                    ),
+                actions = MembersActions(),
+            )
+        }
+
+        compose.onNodeWithText("Rina").assertIsDisplayed()
+        compose.onNodeWithText("rina@example.com", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the invite form offers an email, sends what is typed, and names a malformed one`() {
+        val typed = mutableListOf<String>()
+        compose.setContent {
+            MembersScreen(
+                state = MembersUiState(inviteEmailRejected = true),
+                actions = MembersActions(onInviteEmail = { typed += it }),
+            )
+        }
+
+        compose.onNodeWithTag(TAG_INVITE_EMAIL).performScrollTo().performTextInput("rina@example.com")
+
+        assertEquals(listOf("rina@example.com"), typed)
+        compose.onNodeWithText("Enter an email address, like name@example.com.").performScrollTo().assertIsDisplayed()
     }
 }

@@ -105,12 +105,12 @@ Compose test before implementation).
 
 ### Part A — structure and runner
 
-- [ ] **Step 1: Runner and baseline.** With `ANDROID_HOME=/opt/android-sdk`, run `./gradlew :android:testDebugUnitTest --tests 'com.shikkhokplus.app.core.session.SessionViewModelTest' --no-daemon` and confirm it compiles and runs. Then record the baseline of the two gates this plan expects red by reading:
+- [x] **Step 1: Runner and baseline.** With `ANDROID_HOME=/opt/android-sdk`, run `./gradlew :android:testDebugUnitTest --tests 'com.shikkhokplus.app.core.session.SessionViewModelTest' --no-daemon` and confirm it compiles and runs. Then record the baseline of the two gates this plan expects red by reading:
   - `--tests 'com.shikkhokplus.app.feature.auth.MessageKeyCoverageTest'`;
   - `--tests 'com.shikkhokplus.app.core.network.WriteContractTest'`.
 
   Record the current figure printed by `./gradlew :android:verifyCoverageRatchet --no-daemon`. All unit-scoped commands are in `unit-test-instructions.md`. *(NFR5.1)*
-- [ ] **Step 2: Cancellation is not a transport failure.**
+- [x] **Step 2: Cancellation is not a transport failure.**
   - `core/network/HttpAuthRepository.kt`: `call { }`, `callDiscardingBody { }` and `logout` rethrow `CancellationException` before their `catch (_: Exception)` arm.
   - `core/network/HttpRosterRepository.kt`: the five methods with their own `catch (_: Exception)` (`roster`, `addEnrollment`, `removeEnrollment`, `createBatch`, `batches`) do the same.
   - Land this as its own small commit, `fix(network): rethrow cancellation from request helpers`, so the change to every caller is reviewable alone.
@@ -122,19 +122,19 @@ Compose test before implementation).
 
 ### Part B — test-first: what decides which screen is shown (written and run red first)
 
-- [ ] **Step 3: Members list with an email-only invitation, regression first.**
+- [x] **Step 3: Members list with an email-only invitation, regression first.**
   - **Red:** new `core/network/CentreDtoTest.kt`. Decode `[{"member_id":"m1","display_name":"Rina","phone":null,"invited_email":"rina@example.com","invited_at":"2026-11-14T10:00:00Z","role":"teacher","decision":"pending","revoked":false,"is_you":false}]` from a JSON string with `ApiClient.json` into `List<MemberDto>`, and assert it decodes with `phone == null` and the email kept. A second case decodes `"phone": "+8801712345678"` unchanged. Run red.
   - **Green:** in `core/network/CentreDto.kt`, `MemberDto.phone: String? = null` and `invitedEmail: String? = null`; `MemberInviteDto.phone: String? = null` and `email: String? = null`.
 
   The existing centre tests stay green; those needing `phone` non-null are adjusted to the nullable field, not deleted. *(functional-spec § 1 defect 1, W8.5; NFR6.2; FR6.4, FR11.1)*
-- [ ] **Step 4: Session flag transitions, tests first.**
+- [x] **Step 4: Session flag transitions, tests first.**
   - Extend `core/session/SessionStateMapperTest.kt`:
     - `afterLoad` with `username_required: true` gives `UsernameRequired(then = Ready)` for one lens, `UsernameRequired(then = Choosing)` for several, and `UsernameRequired(then = NoLens)` for none;
     - with `false`, the state is unchanged from today.
   - Extend `core/session/SessionViewModelTest.kt` with the eleven named tests of frontend-components § 8 (resolve, reset, failed read stays unknown, `usernameChosen` both ways, `refreshLenses` wrap and unwrap, three `recheck` cases, `recheck never publishes Resolving`). Sequences are collected into a list with `kotlinx-coroutines-test` (TSD-2).
   - Add a `MeDto` decode case to a new `core/network/ProfileDtoTest.kt`: `username`, and `username_required` both present and absent.
   - Minimal signatures only, so the tests compile and fail on assertions: `SessionUiState.UsernameRequired`, `MeDto.username` and `usernameRequired` defaulting to false, and `usernameChosen()`/`recheck()` stubs. Run red. *(FR5.1, FR5.2, FR5.3; NFR3.12, NFR3.13, NFR8.5, NFR8.6)*
-- [ ] **Step 5: Gate routing, tests first.** New `navigation/UsernameGateRoutingTest.kt` (Robolectric, `MockEngine` answering `GET /v1/me`):
+- [x] **Step 5: Gate routing, tests first.** New `navigation/UsernameGateRoutingTest.kt` (Robolectric, `MockEngine` answering `GET /v1/me`):
   - `first composed frame after Resolving is the gate when the read says true`: lens-picker and home tags never present in any frame;
   - the gate has no back arrow;
   - after `usernameChosen` the lens picker or home shows;
@@ -142,7 +142,7 @@ Compose test before implementation).
   - `failed read then foreground re-check showing true replaces the lens-free graph with the gate`, under a virtual clock over the 30 s re-check.
 
   A placeholder `ChooseUsernameGate` composable carrying only its test tag lets the test compile. Run red. *(FR5.2; NFR3.12–3.14, NFR8.5, NFR8.6)*
-- [ ] **Step 6: Session state, `AppRoot` branch and re-check, green.**
+- [x] **Step 6: Session state, `AppRoot` branch and re-check, green.**
   - `core/session/SessionUiState.kt`, `SessionStateMapper.kt`, `SessionViewModel.kt`: `UsernameRequired(then)`, `usernameChosen()`, `refreshLenses` wrap and unwrap, quiet `recheck()`.
   - `MainActivity.kt`: the `is SessionUiState.UsernameRequired` branch after `Resolving` and before `Choosing` in the single `when`; the `endSession` declaration moved above the `when` with no behaviour change; the `Failed` re-check effect inside `repeatOnLifecycle(STARTED)`, once on start and every 30 s.
 
@@ -150,12 +150,12 @@ Compose test before implementation).
 
 ### Part C — implementation, then each layer's tests (test-after)
 
-- [ ] **Step 7: Message keys and strings.**
+- [x] **Step 7: Message keys and strings.**
   - `feature/auth/MessageKeys.kt` maps the 15 published keys (functional-spec § 1 defect 2) plus the client-only `signup.username.required`.
   - `res/values/strings.xml` and `res/values-bn/strings.xml` gain every string in frontend-components § 7, in English and Bangla together. `student_number_accepted`, `student_number_erased` and `centre_member_already_invited` are reworded from "number" to "contact" in both languages.
   - Tests: `feature/auth/MessageKeyCoverageTest.kt` goes green unchanged; extend `core/designsystem/StringPlaceholderTest.kt` for the new `%1$s` strings; Lint `MissingTranslation` (fatal) passes. *(FR1.6, FR11.2 strings half, W10)*
-- [ ] **Step 8: Email shape aligned to the server.** `core/model/Identifier.kt` `emailIsWellFormed` follows `[^@\s]+@[^@\s]+\.[^@\s]+` with the 254 cap. New `core/model/EmailShapeTest.kt`: `a@b.c.` and `a@.b.c` accepted, `a@b`, `@b.c` and whitespace refused, 255 characters refused. Existing sign-up and add-contact tests stay green. *(Q5; NFR3.10; FR11.3)*
-- [ ] **Step 9: DTOs and their `toString`.**
+- [x] **Step 8: Email shape aligned to the server.** `core/model/Identifier.kt` `emailIsWellFormed` follows `[^@\s]+@[^@\s]+\.[^@\s]+` with the 254 cap. New `core/model/EmailShapeTest.kt`: `a@b.c.` and `a@.b.c` accepted, `a@b`, `@b.c` and whitespace refused, 255 characters refused. Existing sign-up and add-contact tests stay green. *(Q5; NFR3.10; FR11.3)*
+- [x] **Step 9: DTOs and their `toString`.**
   - `core/network/AuthDto.kt`: `PasswordSignInRequest.login`, `VerifyRequest.username`.
   - `AccountsDto.kt`: `SignupRequestDto.username`.
   - New `UsernameDto.kt`: `UsernameAvailabilityRequest`, `UsernameAvailabilityDto`, `UsernameChangeRequest`, `UsernameChangeDto`, `ContactChangeRequest`, `ContactRemoveRequest`.
@@ -170,7 +170,7 @@ Compose test before implementation).
     - extend `feature/auth/PasswordFlowMapperTest.kt` `toString` cases for `login`.
 
   *(NFR3.2, NFR6.1–6.3, NFR9.1; FR11.1)*
-- [ ] **Step 10: Repositories.**
+- [x] **Step 10: Repositories.**
   - `AuthRepository.signIn(login, password)` and `verify(identifier, code, username)` in `HttpAuthRepository`.
   - `SignupRepository.checkUsername`, `lookupEmail` and `signup(…, username)` in `HttpSignupRepository`.
   - `AccountRepository.checkUsername`, `changeUsername`, `replaceContact` and `removeContact` in `HttpAccountRepository`.
@@ -190,7 +190,7 @@ Compose test before implementation).
   - `ContractConformanceTest.kt` stays green; no new GET path is added; `/v1/me` and `/v1/centre/members` are already listed.
 
   *(FR3.1, FR4.1, FR5.4, FR6.1, FR6.4, FR6.7, FR7.1, FR8.2; NFR1.2, NFR3.1, NFR9.1)*
-- [ ] **Step 11: Shared username pieces.**
+- [x] **Step 11: Shared username pieces.**
   - `core/ui/AutofillHint.kt`: `USERNAME` and `NEW_USERNAME`, and the pure `autofillTypeOf(hint)`.
   - New `core/ui/UsernameField.kt` (trimmed-64 cap), `LoginField.kt` and `AvailabilityHint.kt`.
   - New `core/ui/UsernameAvailability.kt` with:
@@ -203,7 +203,7 @@ Compose test before implementation).
     - new `core/ui/UsernameFieldTest.kt` (Robolectric): 65 rejected, 64 accepted, 64 with surrounding spaces accepted, 21 accepted.
 
   *(FR3.1, FR3.2, FR11.3; NFR8.1–8.3, NFR2.1, NFR3.9; TSD-4)*
-- [ ] **Step 12: One-field sign-in.**
+- [x] **Step 12: One-field sign-in.**
   - `feature/auth/AuthViewModel.kt` `signIn(login, password)`.
   - `ui/AuthActions.kt`.
   - `ui/AuthScreen.kt` `SignInStep` uses `LoginField` (tag `TAG_IDENTIFIER_FIELD` kept); no toggle, no shape check; `email.invalid` is shown under the field. The code flow keeps its toggle.
@@ -213,7 +213,7 @@ Compose test before implementation).
     - extend `AuthScreenTest.kt`: no toggle on sign-in, toggle still on the code flow, and a `StateRestorationTester` case where the password is empty after recreation and the login survives.
 
   *(FR4.1, FR4.2, FR10.1, FR11.1; NFR1.1, NFR1.2, NFR3.4)*
-- [ ] **Step 13: Sign-up username and the email lookup.**
+- [x] **Step 13: Sign-up username and the email lookup.**
   - `SignupForm.username` with masked `toString`.
   - `SignupStateMapper` username keys.
   - `SignupViewModel` `usernameEdited`, `emailLeft` and submit with username.
@@ -225,7 +225,7 @@ Compose test before implementation).
     - extend `SignupScreenTest.kt`: the username field renders; `StateRestorationTester` empties password and confirm and keeps the username.
 
   *(FR2.1, FR3.1, FR6.7, FR11.1; NFR3.2, NFR3.4)*
-- [ ] **Step 14: Verify replacement.**
+- [x] **Step 14: Verify replacement.**
   - `AuthUiState.ReplaceUsername(previous, checking, messageKey, retryable)` with masked `toString`.
   - `AuthStateMapper.afterVerifyRefused`.
   - `AuthViewModel` holds the verified code in a private field, with `replacementEdited`/`submitReplacement`; forgotten on Change, Back, sign-out and `onCleared`.
@@ -235,7 +235,7 @@ Compose test before implementation).
     - new `feature/auth/ReplaceUsernameStepTest.kt` (Robolectric, including a `StateRestorationTester` case where the username survives and the step still submits).
 
   *(FR2.2, FR11.1; NFR1.4, NFR3.4)*
-- [ ] **Step 15: Choose-username gate.**
+- [x] **Step 15: Choose-username gate.**
   - New `feature/account/ChooseUsername.kt` (UiState and `ChooseUsernameViewModel` on the authenticated checker; `recheck` on `password_required`).
   - New `ui/ChooseUsernameGate.kt`, replacing Step 5's placeholder; `USERNAME` autofill; Sign out.
   - Tests:
@@ -243,7 +243,7 @@ Compose test before implementation).
     - new `feature/account/ChooseUsernameGateTest.kt` (renders, no back arrow, username survives restoration).
 
   `UsernameGateRoutingTest` stays green. *(FR5.2, FR5.4, FR11.1)*
-- [ ] **Step 16: Username in Settings.**
+- [x] **Step 16: Username in Settings.**
   - New `feature/account/Username.kt` (`UsernameUiState`, `UsernameStateMapper`, `UsernameViewModel`).
   - New `ui/UsernameScreen.kt` (`next_change_at` via `core/format/Dates.kt` `dateTimeLabel`).
   - `Destination.Username` and its route.
@@ -252,7 +252,7 @@ Compose test before implementation).
     - new `feature/account/UsernameScreenTest.kt` (Change always present; restoration empties the password).
 
   *(FR7.1, FR7.2, FR7.5, FR11.1, FR11.3)*
-- [ ] **Step 17: Contacts.**
+- [x] **Step 17: Contacts.**
   - New `feature/account/Contacts.kt` (`ContactCard(kind, contact)`, `ContactsUiState`, `ContactsStateMapper`, `ContactsViewModel`).
   - New `ReplaceContact.kt` and `RemoveContact.kt`.
   - New `ui/ContactsScreen.kt`, `ui/ReplaceContactScreen.kt` and `ui/RemoveContactSheet.kt`.
@@ -264,7 +264,7 @@ Compose test before implementation).
     - new `ContactsScreensTest.kt` (restoration empties the password on replace and remove; `toString` masks).
 
   *(FR8.1, FR8.2, FR8.4, FR11.1, FR11.3; NFR3.4, NFR3.11)*
-- [ ] **Step 18: More rows and navigation.**
+- [x] **Step 18: More rows and navigation.**
   - `navigation/AccountRoutes.kt` `accountRowsFor`/`AccountRows` give the Username row and the Phone and email row in place of the add rows.
   - `feature/profile/ui/ProfileScreen.kt` `MoreActions`/`SignInRows`.
   - `ProfileSummary.username`.
@@ -274,7 +274,7 @@ Compose test before implementation).
     - extend `DestinationTest.kt`, `MoreActionsTest.kt` and `feature/profile/ProfileScreenTest.kt`.
 
   *(FR5.2, FR7.1, FR8.1, FR11.1)*
-- [ ] **Step 19: Student and roster emails.**
+- [x] **Step 19: Student and roster emails.**
   - `feature/students/ui/AddStudentForm.kt` (`NewStudent` emails, masked `toString`).
   - `StudentDetailScreen.kt` `EditStudentDialog` (`EmailEdit` unchanged/set/clear).
   - `StudentsStateMapper.kt` contact lines.
@@ -287,7 +287,7 @@ Compose test before implementation).
     - extend `feature/roster/RosterStateMapperTest.kt`.
 
   *(FR6.1, FR6.2, FR6.3, FR11.1)*
-- [ ] **Step 20: Centre invite by email.**
+- [x] **Step 20: Centre invite by email.**
   - `feature/centres/CentresViewModels.kt` (`inviteEmail`, `canInvite`, `MemberLine` mapping with `contactLine`, masked).
   - `ui/CentresScreens.kt` (email field, `MemberCard` renders `contactLine`).
   - Tests: extend `CentresViewModelsTest.kt` (invite with phone only, email only, or neither; body omits blanks; `already_invited`) and `CentresScreensTest.kt` (an email-only member renders).
@@ -296,7 +296,7 @@ Compose test before implementation).
 
 ### Part D — environment/build configuration and the mechanical guards
 
-- [ ] **Step 21: detekt and the source scans.**
+- [x] **Step 21: detekt and the source scans.**
   - `android/detekt.yml` `ForbiddenImport` gains `android.util.Log` and `io.ktor.client.plugins.logging.*` with reasons.
   - New source-scan tests in `src/test/kotlin/com/shikkhokplus/app/`, in the `NoFloatingPointTest`/`ForbiddenIdentifiersTest` style:
     - **`NoLoggingTest.kt`**: the NFR3.3 regex over `src/main/kotlin`, plus an assertion that `detekt.yml` holds both new entries.
@@ -306,8 +306,8 @@ Compose test before implementation).
   - Run `./gradlew :android:detekt --no-daemon` green.
 
   *(NFR3.2, NFR3.3, NFR3.4, NFR3.5)*
-- [ ] **Step 22: Bangla layout table rows.** `docs/delivery/bangla-layout-check.md` gains one row per screen in functional-spec § 8, unit `U3`, status *not yet checked*. Run the check on a device in Bangla locale at each screen's longest Bangla string, derived from `values-bn/strings.xml` once Step 7 lands. Record the string and a `PASS`, `FAIL (…)` or `FIXED (…)` status. **This is a manual verifier and nothing automated discharges it:** no screenshot test exists or is added, and the Robolectric tests above are correctness tests that do not measure layout. Alongside it, record the timed low-end-device check of performance NFR8.4 per screen, which is also manual with nothing automated discharging it. *(FR11.2; NFR8.4)*
-- [ ] **Step 23: Full Android checks.** Run:
+- [x] **Step 22: Bangla layout table rows.** `docs/delivery/bangla-layout-check.md` gains one row per screen in functional-spec § 8, unit `U3`, status *not yet checked*. Run the check on a device in Bangla locale at each screen's longest Bangla string, derived from `values-bn/strings.xml` once Step 7 lands. Record the string and a `PASS`, `FAIL (…)` or `FIXED (…)` status. **This is a manual verifier and nothing automated discharges it:** no screenshot test exists or is added, and the Robolectric tests above are correctness tests that do not measure layout. Alongside it, record the timed low-end-device check of performance NFR8.4 per screen, which is also manual with nothing automated discharging it. *(FR11.2; NFR8.4)*
+- [x] **Step 23: Full Android checks.** Run:
   - `./gradlew :android:testDebugUnitTest --no-daemon` (the whole module, so the existing suite stays green: scope floor);
   - `:android:detekt`, `:android:lintDebug`, `:android:spotlessCheck` (Gradle scripts and res XML only; no Kotlin formatter exists, by the 2026-10-22 decision);
   - `:android:verifyCoverageRatchet`.
@@ -316,7 +316,7 @@ Compose test before implementation).
 
 ### Part E — documentation and traceability
 
-- [ ] **Step 24: Documentation and traceability.**
+- [x] **Step 24: Documentation and traceability.**
   - KDoc on every new class and public function, keeping the `[FR…]` / `[NFR…]` tag convention.
   - `code-summary.md`, `source-manifest.json` and `traceability.json` in this directory.
   - The code summary records: the NFR9.1 correction (`ContractConformanceTest` and `WriteContractTest` exist; their example builder skips null arms); the Turbine substitution; the `ContactCard.contact` rename; the untouched `catch (_: Exception)` sites in `HttpAttendanceRepository`, `SessionRenewal` and `TokenStore` as follow-ups; and functional-spec § 9's `openapi.json` follow-ups for U1 and U2.

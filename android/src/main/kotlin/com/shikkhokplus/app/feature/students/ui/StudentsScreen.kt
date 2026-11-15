@@ -255,6 +255,15 @@ private fun StudentRowView(row: StudentListRow, onOpen: (String) -> Unit) {
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
         )
+        // The phone, or the email when no phone is recorded: the
+        // mapper's choice [W7.7].
+        row.studentContactLine?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Text(
             text =
                 if (row.batchNames.isEmpty()) {

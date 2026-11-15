@@ -126,6 +126,32 @@ sealed interface AuthUiState {
         val retryable: Boolean = false,
     ) : AuthUiState
 
+    /**
+     * The code was right, but the username the sign-up chose was taken
+     * or came under a hold while the person was confirming [FR2.2,
+     * ADR-011]. The code was **not** consumed, so the same code is sent
+     * again with another name.
+     *
+     * **The code is not here.** It is held in the ViewModel's memory
+     * only, never in a state class or saved state [NFR3.4].
+     *
+     * @property previous The name the sign-up form carried, for the
+     *   body copy: the person's own typed value, never server data [NFR1.4]
+     * @property checking The replacement is with the server
+     * @property messageKey Why the last replacement was refused, or null
+     * @property retryable True only when sending the same replacement
+     *   again could succeed (no answer arrived, or the server said so)
+     */
+    data class ReplaceUsername(
+        val previous: String,
+        val checking: Boolean = false,
+        val messageKey: String? = null,
+        val retryable: Boolean = false,
+    ) : AuthUiState {
+        override fun toString(): String =
+            "ReplaceUsername(checking=$checking, messageKey=$messageKey, retryable=$retryable, previous=***)"
+    }
+
     /** The code was accepted and a session exists. */
     data object SignedIn : AuthUiState
 

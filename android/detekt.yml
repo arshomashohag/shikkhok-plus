@@ -82,6 +82,10 @@ style:
         reason: 'Hosts ANDROID_ID, a forbidden device identifier [TC-3, D-37].'
       - value: 'android.provider.Settings.Secure.*'
         reason: 'Hosts ANDROID_ID, a forbidden device identifier [TC-3, D-37].'
+      - value: 'android.util.Log'
+        reason: 'No log lines: a username, a phone, an email, a password or a code must never reach logcat [U3: NFR3.3]. NoLoggingTest also catches a fully qualified call.'
+      - value: 'io.ktor.client.plugins.logging.*'
+        reason: 'The Ktor logging plugin prints request bodies, which carry passwords, codes and usernames [U3: NFR3.3].'
   # `Double` and `Float` are not imports -- they are kotlin builtins -- so
   # the ban is expressed as a forbidden type usage rather than a forbidden
   # import. ForbiddenMethodCall and ForbiddenImport cannot express it;

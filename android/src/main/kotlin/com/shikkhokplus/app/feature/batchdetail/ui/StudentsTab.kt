@@ -275,12 +275,14 @@ private fun subline(row: RosterRow): String {
     if (row.isDeclined) return stringResource(R.string.batch_declined_by_number)
     val parts = mutableListOf<String>()
     row.fee?.let { parts += stringResource(R.string.batch_custom_fee, Numerals.money(it)) }
-    val phone = row.guardianPhone
+    // The guardian's phone, or their email when no phone is recorded:
+    // the mapper's choice [W7.7].
+    val contact = row.guardianContactLine
     parts +=
         when {
-            phone == null -> stringResource(R.string.batch_no_guardian)
+            contact == null -> stringResource(R.string.batch_no_guardian)
             row.guardianState == LinkState.DECLINED -> stringResource(R.string.batch_guardian_declined)
-            else -> stringResource(R.string.batch_guardian, Numerals.phone(phone))
+            else -> stringResource(R.string.batch_guardian, contact)
         }
     if (row.studentState == LinkState.PENDING) parts += stringResource(R.string.batch_not_answered)
     return parts.joinToString(" · ")

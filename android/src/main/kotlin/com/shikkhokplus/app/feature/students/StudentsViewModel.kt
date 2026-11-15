@@ -131,12 +131,16 @@ class StudentsViewModel(
      * @param studentPhone The typed student number, or null
      * @param guardianPhone The typed guardian number, or null
      * @param seats The batches chosen, each with its fee or null
+     * @param studentEmail The typed student address, or null [FR6.1]
+     * @param guardianEmail The typed guardian address, or null
      */
     fun create(
         name: String,
         studentPhone: String?,
         guardianPhone: String?,
         seats: List<StudentSeatBody>,
+        studentEmail: String? = null,
+        guardianEmail: String? = null,
     ) {
         if (_writeState.value == WriteState.Saving) return
         _writeState.value = WriteState.Saving
@@ -145,7 +149,16 @@ class StudentsViewModel(
         // than a duplicate [audit C-25].
         val key = createKey ?: UUID.randomUUID().toString().also { createKey = it }
         viewModelScope.launch {
-            val result = repository.create(name, studentPhone, guardianPhone, seats, key)
+            val result =
+                repository.create(
+                    name,
+                    studentPhone,
+                    guardianPhone,
+                    seats,
+                    key,
+                    studentEmail?.trim()?.ifEmpty { null },
+                    guardianEmail?.trim()?.ifEmpty { null },
+                )
             _writeState.value = StudentsStateMapper.written(result)
             if (result is AuthResult.Ok) {
                 createKey = null

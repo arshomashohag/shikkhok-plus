@@ -25,7 +25,10 @@ import kotlinx.serialization.Serializable
 data class IssueRequest(
     @SerialName("phone") val phone: String? = null,
     @SerialName("email") val email: String? = null,
-)
+) {
+    // The person's own number or address is never printed [NFR3.2].
+    override fun toString(): String = "IssueRequest(phone=***, email=***)"
+}
 
 /**
  * The server's reply to an issue request.
@@ -44,34 +47,51 @@ data class IssueResponse(
  * Present a code for verification, for the phone or the email it was
  * sent to. Used by sign-in's code flow and by adding a contact.
  *
+ * **[username] only on a replacement** [FR2.2]: after the sign-up's own
+ * name was answered `account.username.unavailable`, the same code is sent
+ * again with another name. Left out of the body otherwise, because the
+ * client's JSON omits nulls.
+ *
  * @property phone The number the code went to, or null
  * @property email The address the code went to, or null
  * @property code The six digits
+ * @property username A replacement username, or null
  */
 @Serializable
 data class VerifyRequest(
     @SerialName("phone") val phone: String? = null,
     @SerialName("email") val email: String? = null,
     @SerialName("code") val code: String,
-)
+    @SerialName("username") val username: String? = null,
+) {
+    // The code, the destination and the name are all secret or owner-private [NFR3.2].
+    override fun toString(): String = "VerifyRequest(phone=***, email=***, code=***, username=***)"
+}
 
 /**
- * Sign in with an identifier and a password.
+ * Sign in with one typed value and a password.
+ *
+ * **[login] is what the person typed, sent as typed** [FR4.1, NFR1.2]:
+ * a username, a phone number or an email, classified on the server. The
+ * client sets only [login]; [phone] and [email] stay in the shape
+ * because the contract keeps them, and the client's JSON omits them.
  *
  * **The password is in this body and nowhere else**: it is never
  * logged, never stored, and the request object is dropped once sent.
  *
- * @property phone The number, or null
- * @property email The address, or null
+ * @property phone The number, or null; not set by this client
+ * @property email The address, or null; not set by this client
  * @property password What the person typed
+ * @property login The username, number or address, as typed and trimmed
  */
 @Serializable
 data class PasswordSignInRequest(
     @SerialName("phone") val phone: String? = null,
     @SerialName("email") val email: String? = null,
     @SerialName("password") val password: String,
+    @SerialName("login") val login: String? = null,
 ) {
-    override fun toString(): String = "PasswordSignInRequest(phone=$phone, email=$email, password=***)"
+    override fun toString(): String = "PasswordSignInRequest(login=***, phone=***, email=***, password=***)"
 }
 
 /**

@@ -47,6 +47,9 @@ class AuthViewModelTest {
 
     private val phone = Identifier.phone("+8801711111111")
 
+    /** What a person types into the one sign-in field. */
+    private val login = "+8801711111111"
+
     private val pair = TokenResponse("a.b.c", "opaque", 900)
 
     private fun refused(key: String, retryable: Boolean = false) =
@@ -68,19 +71,34 @@ class AuthViewModelTest {
         val issued = mutableListOf<Identifier>()
         val setups = mutableListOf<Setup>()
 
+        /** Each verify: the code and the replacement username, if any. */
+        val verified = mutableListOf<Pair<String, String?>>()
+
+        /** Each sign-in's login, as the repository received it. */
+        val logins = mutableListOf<String>()
+
+        /** Answers for the next verifies, in order, before [verifyResult]. */
+        val verifyQueue = ArrayDeque<AuthResult<VerifyResponse>>()
+
         override suspend fun issue(identifier: Identifier): AuthResult<IssueResponse> {
             issueCalls++
             issued += identifier
             return issueResult
         }
 
-        override suspend fun verify(identifier: Identifier, code: String): AuthResult<VerifyResponse> {
+        override suspend fun verify(
+            identifier: Identifier,
+            code: String,
+            username: String?,
+        ): AuthResult<VerifyResponse> {
             verifyCalls++
-            return verifyResult
+            verified += code to username
+            return verifyQueue.removeFirstOrNull() ?: verifyResult
         }
 
-        override suspend fun signIn(identifier: Identifier, password: String): AuthResult<VerifyResponse> {
+        override suspend fun signIn(login: String, password: String): AuthResult<VerifyResponse> {
             signInCalls++
+            logins += login
             return signInResult
         }
 
@@ -150,7 +168,7 @@ class AuthViewModelTest {
     fun `a password sign-in shows the loading state, then signs in`() = runTest(dispatcher) {
         val model = AuthViewModel(FakeRepository())
 
-        model.signIn(phone, "correct horse")
+        model.signIn(login,"correct horse")
         assertEquals(AuthUiState.SigningIn, model.state.value)
 
         advanceUntilIdle()
@@ -162,7 +180,7 @@ class AuthViewModelTest {
         val repository = FakeRepository(signInResult = refused("auth.password.wrong"))
         val model = AuthViewModel(repository)
 
-        model.signIn(Identifier.email("rafi@example.com"), "wrong one")
+        model.signIn("rafi@example.com", "wrong one")
         advanceUntilIdle()
 
         assertEquals(
@@ -176,7 +194,7 @@ class AuthViewModelTest {
         val repository = FakeRepository(signInResult = AuthResult.TransportFailure)
         val model = AuthViewModel(repository)
 
-        model.signIn(phone, "correct horse")
+        model.signIn(login,"correct horse")
         advanceUntilIdle()
         val failed = assertIs<AuthUiState.Failed>(model.state.value)
         assertTrue(failed.retryable)
@@ -195,7 +213,7 @@ class AuthViewModelTest {
         val repository = FakeRepository(signInResult = refused("auth.password.too_many_attempts"))
         val model = AuthViewModel(repository)
 
-        model.signIn(phone, "correct horse")
+        model.signIn(login,"correct horse")
         advanceUntilIdle()
         model.retry()
         advanceUntilIdle()
@@ -210,7 +228,7 @@ class AuthViewModelTest {
                 FakeRepository(signInResult = AuthResult.Ok(VerifyResponse(mfaRequired = true, mfaChallenge = "chal")))
             val model = AuthViewModel(repository)
 
-            model.signIn(phone, "correct horse")
+            model.signIn(login,"correct horse")
             advanceUntilIdle()
 
             assertEquals(AuthUiState.SecondStep(), model.state.value)
@@ -553,12 +571,202 @@ class AuthViewModelTest {
     @Test
     fun `signing out returns to the sign-in form`() = runTest(dispatcher) {
         val model = AuthViewModel(FakeRepository())
-        model.signIn(phone, "correct horse")
+        model.signIn(login,"correct horse")
         advanceUntilIdle()
 
         model.signOut()
 
         assertEquals(AuthUiState.Idle, model.state.value)
+    }
+
+    // --- U3: one-field sign-in [FR4.1, NFR1.2] ---------------------------------
+
+    @Test
+    fun `the login is sent as typed, trimmed, and never classified`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = AuthViewModel(repository)
+
+        model.signIn("  Rahim.Uddin ", "correct horse")
+        advanceUntilIdle()
+
+        assertEquals(listOf("Rahim.Uddin"), repository.logins)
+        assertEquals(AuthUiState.SignedIn, model.state.value)
+    }
+
+    @Test
+    fun `a blank login sends nothing`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = AuthViewModel(repository)
+        model.resumeSession { SessionResume.ENDED }
+        advanceUntilIdle()
+
+        model.signIn("   ", "correct horse")
+        advanceUntilIdle()
+
+        assertEquals(0, repository.signInCalls)
+        assertEquals(AuthUiState.Idle, model.state.value)
+    }
+
+    @Test
+    fun `an unknown username is refused exactly as a wrong password`() = runTest(dispatcher) {
+        // NFR1.1: one answer for every reason, rendered the same way.
+        val model = AuthViewModel(FakeRepository(signInResult = refused("auth.password.wrong")))
+
+        model.signIn("nobody_here", "correct horse")
+        advanceUntilIdle()
+
+        assertEquals(
+            AuthUiState.Failed("auth.password.wrong", retryable = false, offerCodeFlow = true),
+            model.state.value,
+        )
+    }
+
+    // --- U3: the verify replacement [FR2.2, W2] -------------------------------
+
+    private val unavailable = refused("account.username.unavailable")
+
+    /** A model whose sign-up code was right but whose name was taken meanwhile. */
+    private fun kotlinx.coroutines.test.TestScope.atReplacement(repository: FakeRepository): AuthViewModel {
+        repository.verifyQueue += unavailable
+        val model = AuthViewModel(repository)
+        model.adoptPendingCode(phone, "correct horse", "nadia_k")
+        model.submitCode("123456")
+        advanceUntilIdle()
+        return model
+    }
+
+    @Test
+    fun `a taken username at verify opens the replacement with the code retained`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = atReplacement(repository)
+
+        assertEquals(AuthUiState.ReplaceUsername(previous = "nadia_k"), model.state.value)
+
+        model.submitReplacement("nadia_k2")
+        advanceUntilIdle()
+
+        // The SAME code, with the replacement name.
+        assertEquals(listOf("123456" to null, "123456" to "nadia_k2"), repository.verified)
+    }
+
+    @Test
+    fun `a replacement accepted continues as a first verify, sending the password from memory`() =
+        runTest(dispatcher) {
+            val repository = FakeRepository()
+            val model = atReplacement(repository)
+
+            model.submitReplacement("nadia_k2")
+            assertEquals(AuthUiState.ReplaceUsername("nadia_k", checking = true), model.state.value)
+            advanceUntilIdle()
+
+            assertEquals(AuthUiState.SignedIn, model.state.value)
+            assertEquals(listOf(Setup("setup", "correct horse", null, null)), repository.setups)
+        }
+
+    @Test
+    fun `a replacement refused for its name stays on the replacement with the key`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = atReplacement(repository)
+        repository.verifyQueue += refused("account.username.too_short")
+
+        model.submitReplacement("ab")
+        advanceUntilIdle()
+
+        assertEquals(
+            AuthUiState.ReplaceUsername("nadia_k", messageKey = "account.username.too_short"),
+            model.state.value,
+        )
+    }
+
+    @Test
+    fun `a lookup ceiling on the replacement stays there, and Continue still sends`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = atReplacement(repository)
+        repository.verifyQueue += refused("auth.lookup.too_many")
+
+        model.submitReplacement("nadia_k2")
+        advanceUntilIdle()
+        assertEquals(
+            AuthUiState.ReplaceUsername("nadia_k", messageKey = "auth.lookup.too_many"),
+            model.state.value,
+        )
+
+        model.submitReplacement("nadia_k2")
+        advanceUntilIdle()
+        assertEquals(AuthUiState.SignedIn, model.state.value)
+    }
+
+    @Test
+    fun `an expired code on the replacement goes back to the code step`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = atReplacement(repository)
+        repository.verifyQueue += refused("auth.otp.expired")
+
+        model.submitReplacement("nadia_k2")
+        advanceUntilIdle()
+
+        assertEquals(AuthUiState.CodeRejected("auth.otp.expired", retryable = false), model.state.value)
+        // The code is spent: nothing more is sent with it.
+        model.submitReplacement("nadia_k3")
+        advanceUntilIdle()
+        assertEquals(2, repository.verifyCalls)
+    }
+
+    @Test
+    fun `a lost connection on the replacement offers a retry that resends the same code and name`() =
+        runTest(dispatcher) {
+            val repository = FakeRepository()
+            val model = atReplacement(repository)
+            repository.verifyQueue += AuthResult.TransportFailure
+
+            model.submitReplacement("nadia_k2")
+            advanceUntilIdle()
+            assertEquals(
+                AuthUiState.ReplaceUsername(
+                    "nadia_k",
+                    messageKey = AuthStateMapper.OFFLINE_KEY,
+                    retryable = true,
+                ),
+                model.state.value,
+            )
+
+            model.submitReplacement("nadia_k2")
+            advanceUntilIdle()
+
+            assertEquals(listOf("123456" to "nadia_k2", "123456" to "nadia_k2"), repository.verified.drop(1))
+            assertEquals(AuthUiState.SignedIn, model.state.value)
+        }
+
+    @Test
+    fun `Change forgets the held code, so a later replacement sends nothing`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = atReplacement(repository)
+
+        model.changeNumber()
+        model.submitReplacement("nadia_k2")
+        advanceUntilIdle()
+
+        assertEquals(AuthUiState.CodeFlowStart, model.state.value)
+        assertEquals(1, repository.verifyCalls)
+    }
+
+    @Test
+    fun `a double Continue sends one replacement`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = atReplacement(repository)
+
+        model.submitReplacement("nadia_k2")
+        model.submitReplacement("nadia_k2")
+        advanceUntilIdle()
+
+        assertEquals(2, repository.verifyCalls)
+    }
+
+    @Test
+    fun `the replacement state never prints the name`() {
+        val text = AuthUiState.ReplaceUsername("sentinel_user_7").toString()
+
+        assertTrue("sentinel_user_7" !in text, text)
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.IssueResponse
 import com.shikkhokplus.app.core.network.TokenResponse
+import com.shikkhokplus.app.core.network.VerifyResponse
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -137,6 +138,90 @@ class AuthStateMapperTest {
             ),
         )
         assertFalse(failed.retryable)
+    }
+
+    // --- U3 [FR2.2, FR4.1, NFR1.1, NFR1.4] -------------------------------------
+
+    private fun envelope(key: String, retryable: Boolean = false, details: Map<String, String>? = null) =
+        ErrorEnvelope(ErrorBody(code = "X", retryable = retryable, messageKey = key, details = details))
+
+    @Test
+    fun `a one-field sign-in maps a wrong password exactly as before`() {
+        assertEquals(
+            AuthUiState.Failed("auth.password.wrong", retryable = false, offerCodeFlow = true),
+            AuthStateMapper.afterSignIn(AuthResult.Refused(envelope("auth.password.wrong"))),
+        )
+    }
+
+    @Test
+    fun `an unavailable username at verify opens the replacement naming the typed name`() {
+        // `previous` is the person's own typed value, never from the
+        // response, which carries nothing but the key [NFR1.4].
+        assertEquals(
+            AuthUiState.ReplaceUsername(previous = "nadia_k"),
+            ReplacementStateMapper.afterVerifyRefused(envelope("account.username.unavailable"), "nadia_k"),
+        )
+    }
+
+    @Test
+    fun `any other verify refusal stays on the code step with its tries left`() {
+        assertEquals(
+            AuthUiState.CodeRejected("auth.otp.wrong", retryable = false, attemptsLeft = "2"),
+            ReplacementStateMapper.afterVerifyRefused(
+                envelope("auth.otp.wrong", details = mapOf("attempts_left" to "2")),
+                "nadia_k",
+            ),
+        )
+    }
+
+    @Test
+    fun `a replacement refused for its name or the lookup ceiling stays on the replacement`() {
+        listOf("account.username.unavailable", "account.username.bad_dot", "auth.lookup.too_many").forEach { key ->
+            assertEquals(
+                AuthUiState.ReplaceUsername("nadia_k", messageKey = key),
+                ReplacementStateMapper.afterReplacement(AuthResult.Refused(envelope(key)), "nadia_k"),
+            )
+        }
+    }
+
+    @Test
+    fun `a spent or expired code on the replacement goes back to the code step`() {
+        listOf("auth.otp.expired", "auth.otp.no_tries_left", "auth.otp.not_valid").forEach { key ->
+            assertEquals(
+                AuthUiState.CodeRejected(key, retryable = false),
+                ReplacementStateMapper.afterReplacement(AuthResult.Refused(envelope(key)), "nadia_k"),
+            )
+        }
+    }
+
+    @Test
+    fun `a wrong code on the replacement is the ordinary wrong code`() {
+        assertEquals(
+            AuthUiState.CodeRejected("auth.otp.wrong", retryable = false, attemptsLeft = "1"),
+            ReplacementStateMapper.afterReplacement(
+                AuthResult.Refused(envelope("auth.otp.wrong", details = mapOf("attempts_left" to "1"))),
+                "nadia_k",
+            ),
+        )
+    }
+
+    @Test
+    fun `no answer to a replacement is retryable on the replacement`() {
+        assertEquals(
+            AuthUiState.ReplaceUsername("nadia_k", messageKey = AuthStateMapper.OFFLINE_KEY, retryable = true),
+            ReplacementStateMapper.afterReplacement(AuthResult.TransportFailure, "nadia_k"),
+        )
+    }
+
+    @Test
+    fun `an accepted replacement continues to choosing a password`() {
+        assertEquals(
+            AuthUiState.ChoosePassword(),
+            ReplacementStateMapper.afterReplacement(
+                AuthResult.Ok(VerifyResponse(passwordSetupToken = "setup", passwordSetupExpiresIn = 600)),
+                "nadia_k",
+            ),
+        )
     }
 
     @Test

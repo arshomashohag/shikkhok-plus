@@ -36,7 +36,7 @@ import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.designsystem.asHeading
 import com.shikkhokplus.app.core.format.Numerals
-import com.shikkhokplus.app.core.network.MemberDto
+import com.shikkhokplus.app.feature.centres.MemberLine
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.centres.MemberRole
 import com.shikkhokplus.app.feature.centres.MembersBody
@@ -58,6 +58,9 @@ const val TAG_INVITE_NAME: String = "centre_invite_name"
 
 /** The invite form's phone field. */
 const val TAG_INVITE_PHONE: String = "centre_invite_phone"
+
+/** The invite form's email field [FR6.4]. */
+const val TAG_INVITE_EMAIL: String = "centre_invite_email"
 
 /** The confirm button of the remove dialog. */
 const val TAG_MEMBER_REMOVE_CONFIRM: String = "centre_member_remove_confirm"
@@ -160,10 +163,12 @@ fun OpenCentreScreen(
  * @property onRemove Removes a member, once confirmed
  * @property onRetry Reads the list again
  * @property onBack Leaves the screen
+ * @property onInviteEmail Edits the invitee's email [FR6.4]
  */
 data class MembersActions(
     val onInviteName: (String) -> Unit = {},
     val onInvitePhone: (String) -> Unit = {},
+    val onInviteEmail: (String) -> Unit = {},
     val onInviteRole: (MemberRole) -> Unit = {},
     val onInvite: () -> Unit = {},
     val onRemove: (String) -> Unit = {},
@@ -187,7 +192,7 @@ fun MembersScreen(
     actions: MembersActions,
     modifier: Modifier = Modifier,
 ) {
-    var removing by remember { mutableStateOf<MemberDto?>(null) }
+    var removing by remember { mutableStateOf<MemberLine?>(null) }
     ScreenScaffold(
         title = stringResource(R.string.centre_members_title),
         modifier = modifier,
@@ -233,12 +238,27 @@ fun MembersScreen(
             label = stringResource(R.string.centre_invite_name_label),
             fieldModifier = Modifier.testTag(TAG_INVITE_NAME),
         )
+        Text(
+            stringResource(R.string.centre_invite_by_help),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         ShikkhokTextField(
             value = state.invitePhone,
             onValueChange = actions.onInvitePhone,
             label = stringResource(R.string.centre_invite_phone_label),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             fieldModifier = Modifier.testTag(TAG_INVITE_PHONE),
+        )
+        // Someone else's address: no autofill, so the device's own
+        // accounts are not offered [NFR3.6].
+        ShikkhokTextField(
+            value = state.inviteEmail,
+            onValueChange = actions.onInviteEmail,
+            label = stringResource(R.string.centre_invite_email_label),
+            error = stringResource(R.string.signup_email_invalid).takeIf { state.inviteEmailRejected },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, autoCorrectEnabled = false),
+            fieldModifier = Modifier.testTag(TAG_INVITE_EMAIL),
         )
         Text(stringResource(R.string.centre_invite_role_label), style = MaterialTheme.typography.labelLarge)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -280,16 +300,18 @@ fun MembersScreen(
 }
 
 @Composable
-private fun MemberCard(member: MemberDto, onRemove: () -> Unit) {
+private fun MemberCard(member: MemberLine, onRemove: () -> Unit) {
     ShikkhokCard {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(Numerals.freeText(member.displayName), style = MaterialTheme.typography.titleMedium)
                 Text(
+                    // The contact line is the mapper's choice: the phone,
+                    // or the invited email for an email-only invitation.
                     text =
-                        listOf(
+                        listOfNotNull(
                             stringResource(roleLabel(MemberRole.fromWire(member.role))),
-                            Numerals.phone(member.phone),
+                            member.contactLine,
                             stringResource(statusLabel(member)),
                         ).joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium,
@@ -307,7 +329,7 @@ private fun MemberCard(member: MemberDto, onRemove: () -> Unit) {
     }
 }
 
-private fun statusLabel(member: MemberDto): Int =
+private fun statusLabel(member: MemberLine): Int =
     when {
         member.isYou -> R.string.centre_member_you
         member.revoked -> R.string.centre_member_revoked

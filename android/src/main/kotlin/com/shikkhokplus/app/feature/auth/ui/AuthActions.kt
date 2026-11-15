@@ -10,7 +10,7 @@ import com.shikkhokplus.app.core.model.Identifier
  * argument list, and every one has a harmless default so a test supplies
  * only the ones it drives.
  *
- * @property onSignIn Sign in with an identifier and a password
+ * @property onSignIn Sign in with the login as typed and a password [FR4.1]
  * @property onStartCodeFlow Open the code flow ("Forgot password?",
  *   "First time with a password? Get a code")
  * @property onBackToSignIn Leave the code flow for the password sign-in
@@ -27,9 +27,11 @@ import com.shikkhokplus.app.core.model.Identifier
  * @property onToggleRecoveryCode Switch that step's kind of code
  * @property onRetry Repeat a failure the server marked retryable
  * @property onGoToSignup Open sign-up
+ * @property onReplacementEdited The replacement step's field changed [FR2.2]
+ * @property onSubmitReplacement Send the held code with another username
  */
 data class AuthActions(
-    val onSignIn: (Identifier, String) -> Unit = { _, _ -> },
+    val onSignIn: (String, String) -> Unit = { _, _ -> },
     val onStartCodeFlow: () -> Unit = {},
     val onBackToSignIn: () -> Unit = {},
     val onRequestCode: (Identifier) -> Unit = {},
@@ -42,4 +44,6 @@ data class AuthActions(
     val onToggleRecoveryCode: () -> Unit = {},
     val onRetry: () -> Unit = {},
     val onGoToSignup: () -> Unit = {},
+    val onReplacementEdited: (String) -> Unit = {},
+    val onSubmitReplacement: (String) -> Unit = {},
 )

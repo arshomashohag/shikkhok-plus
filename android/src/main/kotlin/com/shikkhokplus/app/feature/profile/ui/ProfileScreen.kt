@@ -105,11 +105,12 @@ const val TAG_PROFILE_TWO_STEP: String = "profile_two_step"
 /** The password row: "Set a password" or "Change password". */
 const val TAG_PROFILE_PASSWORD: String = "profile_password"
 
-/** The add-phone row, for an account with no number. */
-const val TAG_PROFILE_ADD_PHONE: String = "profile_add_phone"
+/** The Username row [W5]. */
+const val TAG_PROFILE_USERNAME: String = "profile_username"
 
-/** The add-email row, for an account with no email. */
-const val TAG_PROFILE_ADD_EMAIL: String = "profile_add_email"
+/** The Phone and email row [W6]. */
+const val TAG_PROFILE_CONTACTS: String = "profile_contacts"
+
 
 /** The switch-role row. Absent for a person with one lens. */
 const val TAG_PROFILE_SWITCH_LENS: String = "profile_switch_lens"
@@ -166,9 +167,11 @@ const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
  * @property onPassword Opens the password screen, or null
  * @property hasPassword Whether that row reads "Change password" (true)
  *   or "Set a password" (false), as the server said
- * @property onAddPhone Opens "Add phone number", or null when the account
- *   has a number (or nothing is known yet)
- * @property onAddEmail Opens "Add email", or null likewise
+ * @property onUsername Opens the Username screen, or null [W5]
+ * @property username The stored username for that row's subtitle, or null
+ *   (the row then reads "Choose a username")
+ * @property onContacts Opens Phone and email, or null [W6]
+ * @property contactsLine The present contacts on one line, or null
  */
 data class MoreActions(
     val onEdit: () -> Unit = {},
@@ -198,9 +201,14 @@ data class MoreActions(
     val twoStepRecommended: Boolean = false,
     val onPassword: (() -> Unit)? = null,
     val hasPassword: Boolean = true,
-    val onAddPhone: (() -> Unit)? = null,
-    val onAddEmail: (() -> Unit)? = null,
-)
+    val onUsername: (() -> Unit)? = null,
+    val username: String? = null,
+    val onContacts: (() -> Unit)? = null,
+    val contactsLine: String? = null,
+) {
+    // The owner's own name and contacts [NFR3.2].
+    override fun toString(): String = "MoreActions(hasPassword=$hasPassword, username=***, contactsLine=***)"
+}
 
 /**
  * More (T9 teacher, S4 student, G4 guardian), the account half of `O5`.
@@ -673,12 +681,11 @@ private fun AccountRows(actions: MoreActions, offline: Boolean) {
 }
 
 /**
- * The sign-in rows: the password, and adding a phone or an email.
+ * The sign-in rows: the password, the username, and the phone and email.
  *
- * **Add phone carries why it matters**: teachers find students and
- * guardians by phone number, so an account without one sees no seat a
- * teacher recorded until it adds one. Every row needs the server, so
- * offline they wait, greyed.
+ * **Adding, replacing and removing a contact live behind one row** [W6,
+ * Q3], whose screen says why a phone matters. Every row needs the
+ * server, so offline they wait, greyed.
  *
  * @param actions Where each row leads
  * @param offline Whether the rows wait for a connection
@@ -713,25 +720,35 @@ private fun SignInRows(actions: MoreActions, offline: Boolean) {
         )
         MenuDivider()
     }
-    actions.onAddPhone?.let { open ->
+    // The username row: the stored name, as the server stored it [W5].
+    actions.onUsername?.let { open ->
         MenuRow(
-            title = stringResource(R.string.more_add_phone),
-            subtitle = if (offline) needs else stringResource(R.string.more_add_phone_sub),
-            icon = MenuIcons.Phone,
+            title = stringResource(R.string.more_username),
+            subtitle =
+                when {
+                    offline -> needs
+                    else -> actions.username ?: stringResource(R.string.more_username_choose)
+                },
+            icon = MenuIcons.Lock,
             onClick = open,
             enabled = !offline,
-            modifier = Modifier.testTag(TAG_PROFILE_ADD_PHONE),
+            modifier = Modifier.testTag(TAG_PROFILE_USERNAME),
         )
         MenuDivider()
     }
-    actions.onAddEmail?.let { open ->
+    // One row for both contacts, phone first [W6, Q3].
+    actions.onContacts?.let { open ->
         MenuRow(
-            title = stringResource(R.string.more_add_email),
-            subtitle = if (offline) needs else stringResource(R.string.more_add_email_sub),
-            icon = MenuIcons.Envelope,
+            title = stringResource(R.string.more_contacts),
+            subtitle =
+                when {
+                    offline -> needs
+                    else -> actions.contactsLine ?: stringResource(R.string.more_contacts_sub_none)
+                },
+            icon = MenuIcons.Phone,
             onClick = open,
             enabled = !offline,
-            modifier = Modifier.testTag(TAG_PROFILE_ADD_EMAIL),
+            modifier = Modifier.testTag(TAG_PROFILE_CONTACTS),
         )
         MenuDivider()
     }

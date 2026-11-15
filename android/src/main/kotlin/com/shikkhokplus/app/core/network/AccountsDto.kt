@@ -54,6 +54,8 @@ data class AlreadyAddedDto(
  * @property addressPostcode Four digits
  * @property centreName The coaching centre to open, with the `coaching`
  *   role only; omitted otherwise
+ * @property username The username, trimmed; required [FR2.1]. Judged
+ *   only on the server, which refuses with an `account.username.*` key
  */
 @Serializable
 data class SignupRequestDto(
@@ -66,7 +68,11 @@ data class SignupRequestDto(
     @SerialName("address_city") val addressCity: String,
     @SerialName("address_postcode") val addressPostcode: String,
     @SerialName("centre_name") val centreName: String? = null,
-)
+    @SerialName("username") val username: String,
+) {
+    // Owner-private: the name, the contact and the address [NFR3.2, FR9.3].
+    override fun toString(): String = "SignupRequestDto(role=$role, username=***, phone=***, email=***, address=***)"
+}
 
 /**
  * The account exists and a code is on its way.
