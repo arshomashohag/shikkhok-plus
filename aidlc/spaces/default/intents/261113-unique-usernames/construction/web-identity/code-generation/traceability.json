@@ -159,7 +159,7 @@
     },
     {
       "id": "FR11.2",
-      "status": "OK",
+      "status": "Deferred",
       "target": "web/src/i18n (regenerated and web-only strings); docs/delivery/bangla-layout-check.md layout rows (manual, not yet checked; nothing automated discharges them)"
     },
     {
@@ -239,7 +239,7 @@
     },
     {
       "id": "NFR8.4",
-      "status": "OK",
+      "status": "Deferred",
       "target": "docs/delivery/bangla-layout-check.md timing rows (manual, not yet checked; nothing automated discharges them)"
     },
     {

@@ -187,7 +187,7 @@
     },
     {
       "id": "FR11.2",
-      "status": "OK",
+      "status": "Deferred",
       "target": "docs/delivery/bangla-layout-check.md (manual rows, not yet checked; nothing automated discharges them)"
     },
     {
@@ -322,7 +322,7 @@
     },
     {
       "id": "NFR8.4",
-      "status": "OK",
+      "status": "Deferred",
       "target": "docs/delivery/bangla-layout-check.md timing table (manual, not yet checked; nothing automated discharges it)"
     },
     {

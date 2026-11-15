@@ -80,8 +80,9 @@ function Only({
  */
 export function App() {
   const { pathname } = useLocation()
+  const { signOut } = useSession()
   return (
-    <RouteErrorBoundary pathname={pathname}>
+    <RouteErrorBoundary pathname={pathname} onSignOut={signOut}>
       <AppRoutes />
     </RouteErrorBoundary>
   )

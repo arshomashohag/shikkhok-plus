@@ -43,12 +43,14 @@ function Go() {
   )
 }
 
+const signOut = vi.fn()
+
 function Harness() {
   const { pathname } = useLocation()
   return (
     <>
       <Go />
-      <RouteErrorBoundary pathname={pathname}>
+      <RouteErrorBoundary pathname={pathname} onSignOut={signOut}>
         <Routes>
           <Route path="/boom" element={<Boom />} />
           <Route path="/fine" element={<Healthy />} />
@@ -71,6 +73,7 @@ function renderAt(path: string) {
 beforeEach(() => {
   failing = true
   healthyMounts = 0
+  signOut.mockClear()
   // React reports a caught render error itself; keep the run's output clean.
   vi.spyOn(console, 'error').mockImplementation(() => undefined)
 })
@@ -115,6 +118,12 @@ describe('RouteErrorBoundary', () => {
     await userEvent.click(screen.getByRole('button', { name: 'to fine with a search' }))
     expect(screen.getByText('healthy page')).toBeInTheDocument()
     expect(healthyMounts).toBe(1)
+  })
+
+  it('the card offers Log out, which ends the session', async () => {
+    renderAt('/boom')
+    await userEvent.click(screen.getByRole('button', { name: en('more_log_out') }))
+    expect(signOut).toHaveBeenCalledTimes(1)
   })
 
   it('a healthy page renders its children untouched', () => {

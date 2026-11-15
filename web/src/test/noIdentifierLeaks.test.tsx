@@ -107,7 +107,7 @@ function snapshot(): Record<string, string> {
     historyState: JSON.stringify(window.history.state),
     title: document.title,
     href: window.location.href,
-    console: logged.map((args) => args.map((a) => String(a)).join(' ')).join('\n'),
+    console: logged.map((args) => args.map(serialised).join(' ')).join('\n'),
   }
 }
 
@@ -154,6 +154,22 @@ function renderApp() {
       </PwaProvider>
     </I18nProvider>,
   )
+}
+
+/**
+ * One console argument as text a sentinel can be found in. `String()`
+ * alone renders an object as "[object Object]", so `console.log({ username })`
+ * would hide the value; JSON shows it. Both are kept, since an `Error`
+ * serialises to `{}` and needs its `String()` form.
+ */
+function serialised(arg: unknown): string {
+  let json = ''
+  try {
+    json = JSON.stringify(arg) ?? ''
+  } catch {
+    json = ''
+  }
+  return `${String(arg)} ${json}`
 }
 
 describe('no identifier leaks [NFR3.2–3.4] [NFR3.6]', () => {

@@ -76,7 +76,7 @@ type Step =
     }
 
 function asApiError(e: unknown): ApiError {
-  // eslint-disable-next-line no-console -- a client bug, not a server answer: kept visible to the developer; it carries a thrown error, never a typed value
+  // eslint-disable-next-line no-console -- a client bug, not a server answer: kept visible to the developer; it logs the thrown error only
   if (!(e instanceof ApiError)) console.error(e)
   return e instanceof ApiError ? e : new ApiError(0, 'UNEXPECTED', UNEXPECTED_KEY, true)
 }

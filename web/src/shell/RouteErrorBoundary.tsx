@@ -5,8 +5,11 @@
  * Without it, any error thrown while rendering unmounts the root and the
  * page goes blank — which is how one email-only invitation once blanked
  * the whole app for a centre's managers. With it, the failing page shows
- * the ordinary error card (`error_unexpected`, Retry) and the rest of the
- * app is reachable.
+ * the ordinary error card (`error_unexpected`, Retry) with Log out beside
+ * it. The boundary wraps the whole shell, so the shell's own navigation is
+ * hidden while the card shows; the ways out are Retry, Log out, and the
+ * browser's own navigation (Back, or another address), which clears the
+ * error on the pathname change.
  *
  * **It resets on a pathname change, and is deliberately not keyed on the
  * path.** A `key` would remount the shell, its open sheets and its loaded
@@ -25,12 +28,17 @@ import { ErrorCard } from '../ui/components'
 /** What the card is given: retryable, so it offers Retry. */
 const RENDER_FAILED = new ApiError(500, 'UNEXPECTED', UNEXPECTED_KEY, true)
 
-function Failed({ onRetry }: { onRetry: () => void }) {
+function Failed({ onRetry, onSignOut }: { onRetry: () => void; onSignOut?: () => void }) {
   const { t } = useT()
   return (
     <div className="auth-page">
       <div className="auth-card">
         <ErrorCard title={t('error_unexpected')} error={RENDER_FAILED} onRetry={onRetry} />
+        {onSignOut && (
+          <button type="button" className="btn btn-text" onClick={onSignOut}>
+            {t('more_log_out')}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -39,6 +47,8 @@ function Failed({ onRetry }: { onRetry: () => void }) {
 interface Props {
   /** The current location's pathname; a change clears the error. */
   pathname: string
+  /** Ends the session from the card; absent where there is none to end. */
+  onSignOut?: () => void
   children: ReactNode
 }
 
@@ -61,6 +71,10 @@ export class RouteErrorBoundary extends Component<Props, State> {
   private readonly retry = () => this.setState({ failed: false })
 
   override render(): ReactNode {
-    return this.state.failed ? <Failed onRetry={this.retry} /> : this.props.children
+    return this.state.failed ? (
+      <Failed onRetry={this.retry} onSignOut={this.props.onSignOut} />
+    ) : (
+      this.props.children
+    )
   }
 }

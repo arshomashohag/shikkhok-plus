@@ -34,7 +34,7 @@ const GENERATED = ['src/api/schema.d.ts', 'src/i18n/generated']
  * a change review sees in the same diff.
  */
 const NO_CONSOLE_REASON =
-  'a client bug, not a server answer: kept visible to the developer; it carries a thrown error, never a typed value'
+  'a client bug, not a server answer: kept visible to the developer; it logs the thrown error only'
 const ALLOWED: [string, string][] = [
   ['src/core/useResource.ts', `// eslint-disable-next-line no-console -- ${NO_CONSOLE_REASON}`],
   ['src/core/useResource.ts', '// eslint-disable-next-line react-hooks/exhaustive-deps'],
@@ -77,8 +77,12 @@ function severity(rule: unknown): unknown {
 describe('no-console [NFR3.5]', () => {
   const eslint = new ESLint({ cwd: ROOT })
 
-  it('is an error, with no allowed method, on shipped source', async () => {
-    for (const file of ['src/App.tsx', 'src/features/auth/SignUp.tsx', 'src/api/client.ts']) {
+  it('is an error, with no allowed method, on every shipped source file', async () => {
+    // Every file, not a sample: a directory-scoped override switching the
+    // rule off would pass a sampled check.
+    const shipped = sourceFiles(join(ROOT, 'src')).filter((file) => !file.startsWith('src/test/'))
+    expect(shipped.length).toBeGreaterThan(0)
+    for (const file of shipped) {
       const config = (await eslint.calculateConfigForFile(file)) as {
         rules: Record<string, unknown>
       }

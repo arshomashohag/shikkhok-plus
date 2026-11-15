@@ -101,6 +101,21 @@ Builder decisions:
 - **Routing test without `StrictMode`**: StrictMode reads `/v1/me` twice, and the test counts reads exactly.
 - **Step 2 was not a separate commit**: the builder was not allowed to commit. The generated diff is limited to `schema.d.ts` and `i18n/generated/*`.
 
+## Review round 1 fixes
+
+The reviewer's verdict was READY, with 0 Critical, 0 Major and 5 Minor findings. All five were fixed by the orchestrator.
+
+1. **`noIdentifierLeaks.test.tsx`**: console arguments are serialised as JSON alongside `String()`. Before, `console.log({ username })` read as "[object Object]" and passed.
+2. **`lintConfig.test.ts`**: `no-console` is now checked as an error on every shipped source file under `src` (all except `src/test/`), not on three samples. A directory-scoped override can no longer pass.
+3. **`RouteErrorBoundary`**:
+   - The card gains Log out. `App` passes the session's `signOut`, so the boundary does not depend on the session itself.
+   - The comment no longer claims the rest of the app is reachable. The boundary wraps the shell, and the ways out are Retry, Log out and the browser's own navigation.
+   - New test: "the card offers Log out, which ends the session".
+4. **`traceability.json`**: FR11.2 (Bangla layout) and NFR8.4 (device latency) are **Deferred**, not OK, because their manual checks are open. U3's file was corrected the same way.
+5. **The two `no-console` exemption comments** now say "it logs the thrown error only". Each guarded call passes only the caught value `e`, which can be confirmed by reading the line beneath it.
+
+After the fixes, `npm run check` passes with exit 0: 75 files and **1148 tests**, all gates green.
+
 ## Not discharged (manual, stated plainly)
 
 - **Bangla layout (FR11.2)**: 20 U4 web rows in `docs/delivery/bangla-layout-check.md`, all *not yet checked*. Nothing automated checks Bangla layout.

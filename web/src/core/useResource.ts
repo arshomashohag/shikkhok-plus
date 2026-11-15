@@ -101,7 +101,7 @@ export function useResource<T>(
       },
       (e: unknown) => {
         if (controller.signal.aborted || isAbort(e)) return
-        // eslint-disable-next-line no-console -- a client bug, not a server answer: kept visible to the developer; it carries a thrown error, never a typed value
+        // eslint-disable-next-line no-console -- a client bug, not a server answer: kept visible to the developer; it logs the thrown error only
         if (!(e instanceof ApiError)) console.error(e)
         status.current = { ...status.current, inFlight: false, failed: true }
         const error = asApiError(e)
