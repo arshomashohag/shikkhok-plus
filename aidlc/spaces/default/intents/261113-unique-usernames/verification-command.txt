@@ -1,0 +1,1 @@
+make PY=.venv/bin/python lint typecheck test
