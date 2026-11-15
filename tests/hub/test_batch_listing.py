@@ -114,7 +114,7 @@ def test_publish_requires_description_class_level_subject_and_both_flags(
     with pytest.raises(ValidationError) as raised:
         batches.publish(restricted_session, lens, teacher.batch_id, NOW)
     assert raised.value.code == "HUB_LISTING_INCOMPLETE"
-    assert raised.value.details["missing"] == "description,class_levels,subjects"
+    assert raised.value.details["missing"] == "description,class_levels,subjects,mode"
 
     owner_session.add(BatchSubject(batch_id=teacher.batch_id, name="Maths"))
     owner_session.commit()
@@ -122,7 +122,9 @@ def test_publish_requires_description_class_level_subject_and_both_flags(
         restricted_session,
         lens,
         teacher.batch_id,
-        BatchListingUpdate(description_bn="গণিত", class_levels=["class_9"]),
+        BatchListingUpdate(
+            description_bn="গণিত", class_levels=["class_9"], mode="online"
+        ),
     )
     published = batches.publish(restricted_session, lens, teacher.batch_id, NOW)
     assert published.status == "published"
@@ -134,7 +136,7 @@ def test_publish_requires_description_class_level_subject_and_both_flags(
         "description": True,
         "class_levels": True,
         "subjects": True,
-        "mode": False,
+        "mode": True,
     }
 
 
@@ -397,3 +399,66 @@ def test_update_batch_calls_the_hide_in_its_own_transaction() -> None:
 
     source = inspect.getsource(service.update_batch)
     assert source.index("hide_for_inactive_batch") < source.index("session.commit()")
+
+
+def test_unpublish_without_a_listing_is_not_found(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A batch never listed reads as missing, like another owner's.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens, batch_id = _teacher(owner_session)
+    with pytest.raises(BatchNotFound) as raised:
+        batches.unpublish(restricted_session, lens, batch_id, NOW)
+    assert raised.value.code == "BATCH_NOT_FOUND"
+    assert raised.value.message_key == "batch.not_found"
+
+
+def test_publish_rereads_active_after_a_concurrent_retirement(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A batch retired after this session loaded it is still refused.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens, batch_id = _teacher(owner_session)
+    _publish_owner(restricted_session, lens)
+    batches.upsert(restricted_session, lens, batch_id, _full())
+    assert restricted_session.get(Batch, batch_id).active is True
+    owner_session.execute(
+        sa.text("UPDATE batch SET active = false WHERE id = :b"), {"b": batch_id}
+    )
+    owner_session.commit()
+    with pytest.raises(ConflictError) as raised:
+        batches.publish(restricted_session, lens, batch_id, NOW)
+    assert raised.value.code == "HUB_BATCH_INACTIVE"
+
+
+def test_subject_tags_are_scanned_for_phone_numbers(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A phone number hidden in a public tag is refused.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens, batch_id = _teacher(owner_session)
+    with pytest.raises(ValidationError) as raised:
+        batches.upsert(
+            restricted_session,
+            lens,
+            batch_id,
+            BatchListingUpdate(
+                subject_tags=["maths", "01712345678"],
+                show_fee=True,
+                show_schedule=True,
+            ),
+        )
+    assert raised.value.code == "HUB_TEXT_CONTAINS_CONTACT"
+    assert raised.value.details["field"] == "subject_tags"

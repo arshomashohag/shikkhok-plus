@@ -68,9 +68,14 @@ def owner_publishable(items: Iterable[ChecklistItem]) -> bool:
     return all(item.done for item in items)
 
 
-#: The batch checklist keys that block publishing, in order. ``mode`` is shown
-#: to the owner but is optional, because a batch may leave it unstated.
-BATCH_REQUIRED: tuple[str, ...] = ("slug", "description", "class_levels", "subjects")
+#: The batch checklist keys that block publishing, in order: every item.
+BATCH_REQUIRED: tuple[str, ...] = (
+    "slug",
+    "description",
+    "class_levels",
+    "subjects",
+    "mode",
+)
 
 
 def batch_checklist(

@@ -15,7 +15,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import TeacherLens
-from app.batches.service import _owned_batch
+from app.batches.service import BatchNotFound, _owned_batch
 from app.db.models import (
     HUB_ADMISSIONS_VALUES,
     HUB_CLASS_LEVELS,
@@ -216,7 +216,10 @@ def upsert(
             code="HUB_BATCH_FLAGS_REQUIRED", message_key="hub.batch_flags_required"
         )
 
-    refuse_phone_in((n, getattr(changes, n)) for n in (*_CLEARABLE, "slug"))
+    refuse_phone_in(
+        [(n, getattr(changes, n)) for n in (*_CLEARABLE, "slug")]
+        + [("subject_tags", tag) for tag in changes.subject_tags or []]
+    )
     if changes.slug is not None:
         require_slug_shape(changes.slug)
     _check_vocabulary(changes)
@@ -299,7 +302,15 @@ def publish(
     :raises ValidationError: The listing is missing or incomplete
         (``details["missing"]`` lists the keys)
     """
-    batch = _owned_batch(session, lens=lens, batch_id=batch_id)
+    _owned_batch(session, lens=lens, batch_id=batch_id)
+    # Share-lock the batch row, freshly read, so a concurrent retirement
+    # cannot commit between the active check and the publish.
+    batch = session.execute(
+        sa.select(Batch)
+        .where(Batch.id == batch_id)
+        .with_for_update(read=True)
+        .execution_options(populate_existing=True)
+    ).scalar_one()
     listing = _locked(session, batch_id)
     if listing is None:
         raise ValidationError(
@@ -317,7 +328,10 @@ def publish(
         raise ConflictError(
             code="HUB_OWNER_NOT_PUBLISHED", message_key="hub.owner_not_published"
         )
-    refuse_phone_in((n, getattr(listing, n)) for n in (*_CLEARABLE, "slug"))
+    refuse_phone_in(
+        [(n, getattr(listing, n)) for n in (*_CLEARABLE, "slug")]
+        + [("subject_tags", tag) for tag in listing.subject_tags]
+    )
     _require_complete(session, listing)
     listing.status = "published"
     listing.published_at = now
@@ -336,18 +350,13 @@ def unpublish(
     :param batch_id: The batch
     :param now: The moment of the change
     :return: The listing
-    :raises BatchNotFound: No such batch, or another owner's
+    :raises BatchNotFound: No such batch, another owner's, or no listing yet
     :raises ConflictError: The listing is suspended
-    :raises ValidationError: The batch has no listing
     """
     _owned_batch(session, lens=lens, batch_id=batch_id)
     listing = _locked(session, batch_id)
     if listing is None:
-        raise ValidationError(
-            code="HUB_LISTING_INCOMPLETE",
-            message_key="hub.listing_incomplete",
-            details={"missing": ",".join(BATCH_REQUIRED)},
-        )
+        raise BatchNotFound(code="BATCH_NOT_FOUND", message_key="batch.not_found")
     refuse_suspended(listing)
     if listing.status == "published":
         listing.status = "hidden"
