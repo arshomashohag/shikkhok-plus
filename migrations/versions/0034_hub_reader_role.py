@@ -66,17 +66,43 @@ def downgrade() -> None:
     op.execute(sa.text(f"REVOKE USAGE ON SCHEMA public FROM {HUB_READER_ROLE}"))
     op.execute(sa.text(f"REVOKE {HUB_READER_ROLE} FROM {APP_ROLE}"))
     # Roles are cluster-wide: another database in the cluster may still
-    # hold a grant to this one, and PostgreSQL then refuses the drop. This
-    # database is already clean, so leaving the role for that database's
-    # own downgrade is correct, not a failure.
+    # hold a grant to this one, and PostgreSQL then refuses the drop. That
+    # is tolerated and only that. A dependency in THIS database means a
+    # later revision's grant failed to revert, so fail loudly rather than
+    # leave a privileged role behind under a successful downgrade.
     op.execute(
         sa.text(
-            f"""
+            f"""  # noqa: S608  fixed module constants
             DO $$
+            DECLARE
+                role_oid oid;
+                here integer;
             BEGIN
-                DROP ROLE IF EXISTS {HUB_READER_ROLE};
-            EXCEPTION WHEN dependent_objects_still_exist THEN
-                NULL;
+                SELECT oid INTO role_oid FROM pg_catalog.pg_roles
+                WHERE rolname = '{HUB_READER_ROLE}';
+                IF role_oid IS NULL THEN
+                    RETURN;
+                END IF;
+                SELECT count(*) INTO here FROM pg_catalog.pg_shdepend
+                WHERE refclassid = 'pg_catalog.pg_authid'::regclass
+                  AND refobjid = role_oid
+                  AND dbid = (
+                      SELECT oid FROM pg_catalog.pg_database
+                      WHERE datname = current_database()
+                  );
+                IF here > 0 THEN
+                    RAISE EXCEPTION
+                        '{HUB_READER_ROLE} still holds % object(s) in %; '
+                        'revert their grants before downgrading 0034',
+                        here, current_database();
+                END IF;
+                BEGIN
+                    DROP ROLE {HUB_READER_ROLE};
+                EXCEPTION WHEN dependent_objects_still_exist THEN
+                    RAISE NOTICE
+                        '{HUB_READER_ROLE} kept: another database still '
+                        'depends on it';
+                END;
             END
             $$;
             """
