@@ -1,12 +1,18 @@
 {
   "stage": "functional-design",
   "unit": "web-identity",
-  "upstream_ids": ["FR5.2", "FR11", "FR11.1", "FR11.2", "FR11.3"],
+  "upstream_ids": [
+    "FR5.2",
+    "FR11",
+    "FR11.1",
+    "FR11.2",
+    "FR11.3"
+  ],
   "coverage": [
     {
       "id": "FR5.2",
       "status": "OK",
-      "target": "functional-spec.md W4 (gate as a session state returned before LensPicker and Routes; lifts only on a read that says false; fail-closed on a failed read, step 9) and § 3.3, § 3.4; frontend-components.md § 2.3 sessionFromMe and the username-required state, § 2.4 ChooseUsernameGate, § 5 App branch, § 8 session and gate tests"
+      "target": "functional-spec.md W4 (gate as a session state returned before LensPicker and Routes; lifts only on a reread() that says false; a read landing during Saving is ignored, step 9; fail-closed failed card with Sign out, step 10; admin bundle outside the gate, step 11) and § 3.3, § 3.4; frontend-components.md § 2.3 sessionFromMe, reread() and the username-required state, § 2.4 ChooseUsernameGate, § 5 App branch, § 8 session and gate tests"
     },
     {
       "id": "FR11",
@@ -16,17 +22,17 @@
     {
       "id": "FR11.1",
       "status": "OK",
-      "target": "functional-spec.md W1 sign-up username with live availability, W2 shared replacement step, W3 one-field sign-in, W4 choose-username gate, W5 username in Settings, W6 contacts add/replace/remove, W7 student emails on create and the new Edit sheet (Q4) plus the quick-add link (Q6), W8 centre invite by email, W9 email already-added lookup (Q5); frontend-components.md §§ 2–5"
+      "target": "functional-spec.md W1 sign-up username with live availability, W2 shared replacement step (owner-held code, CodeEntry initialError and resendAvailableAt seam), W3 one-field sign-in, W4 choose-username gate, W5 username in Settings, W6 contacts add/replace/remove, W7 student emails on create and the new Edit sheet (Q4) plus the quick-add link (Q6), W8 centre invite by email, W9 email already-added lookup (Q5); frontend-components.md §§ 2–5 including § 2.2a code step seam"
     },
     {
       "id": "FR11.2",
       "status": "OK",
-      "target": "functional-spec.md § 5 Strings (regenerated from U3's reviewed Android bundles; web-only strings in both languages) and § 8 Bangla layout obligations (manual table is the verifier; nothing automated discharges it); frontend-components.md § 7 strings and § 8 bundle-parity and server-message-key tests"
+      "target": "functional-spec.md § 5 Strings (regenerated from U3's reviewed Android bundles; swept list of web-only strings reworded or removed, English and Bangla) and § 8 Bangla layout obligations (manual table is the verifier, with rows for every screen showing a reworded string; nothing automated discharges it); frontend-components.md § 7 strings and § 8 bundle-parity and server-message-key tests"
     },
     {
       "id": "FR11.3",
       "status": "OK",
-      "target": "functional-spec.md § 4 error handling by server message key, W1 steps 2 and 6 (64 code-point cap on trimmed text, not FR1's 20; submission never gated on the hint), W3 (no client classification), W6 step 2 (Remove always offered), W8 step 2 (presence check only), § 1 defect 4 (email length counted in code points so the client never refuses what the server accepts); frontend-components.md § 6 form validation rules"
+      "target": "functional-spec.md § 4 error handling by server message key, W1 steps 2 and 6 (64 code-point cap on trimmed text, not FR1's 20; submission never gated on the hint), W3 (no client classification), W6 step 2 (Remove always offered), W7 step 5 (an emptied contact sends null; the server's refusal is shown), W8 step 2 (presence check only), § 1 defect 4 (email length counted in code points so the client never refuses what the server accepts); frontend-components.md § 6 form validation rules"
     }
   ]
 }

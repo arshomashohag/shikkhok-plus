@@ -106,8 +106,10 @@ A. Add an "Edit" sheet on the student detail screen
    (`features/teacher/people/StudentDetail.tsx`) with the fields U3's dialog
    has: name, student phone, guardian phone, student email, guardian email.
    It uses U3's patch semantics: an unchanged field is omitted; a changed
-   value is sent; an emptied email sends `null` to clear it; an emptied phone
-   is treated as unchanged, as on Android. The refusals
+   value is sent; an emptied email sends `null` to clear it. An emptied phone
+   also sends `null` to clear it, which the schema documents. *Amended after
+   review R-04*: the first draft treated an emptied phone as unchanged, as
+   Android does, but the web has no existing behaviour to keep. The refusals
    `student.email.taken`, `student.number_accepted` and
    `student.number_erased` are shown in the sheet.
 B. Add the email fields to the create form only, and record editing as a gap

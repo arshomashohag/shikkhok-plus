@@ -176,29 +176,53 @@ As U3 W2. The web adds one thing: the step is shared by both places that call
    screen sent the code. So both can receive
    `409 account.username.unavailable`, and both hand it to the same
    replacement step.
-2. A 200 continues as today.
-3. On `account.username.unavailable`, the six digits just tried are kept in a
-   ref (memory only, never state that a reload or route restores). The step
-   changes to **Replace**. It shows `auth_replace_username_title`, and
-   `auth_replace_username_body` filled with the username the person typed in
-   W1. In the code flow, where no username was typed, it fills the body with
-   the title's wording alone (frontend-components § 7). The step has a
-   Username field with the W1 hint on the **public** lookup, and Continue
-   and Back. Nothing from the response is shown beyond the key (U3 NFR1.4).
-4. Continue sends `verifyCode(identifier, code, username)`, with the same
+2. **Who owns what** (review R-02). The screen that owns the code step
+   (`SignUp` or `PasswordCode`) owns three things: the step switch between
+   `code` and `replace`, the held code (a `useRef`, local to that screen), and
+   the moment the current code was sent (`sentAt`, in its step state).
+   `CodeEntry` and `ReplaceUsernameStep` are **siblings** rendered by that
+   screen. Neither renders the other. `CodeEntry` keeps owning its typed
+   digits and its in-flight state. It gains two optional props:
+   - `initialError: string | null` is shown on mount;
+   - `resendAvailableAt: number`, an epoch ms, seeds the countdown, replacing
+     the fixed 60 s from mount.
+   The owning screen passes `sentAt + RESEND_AFTER_S * 1000`. A remounted
+   `CodeEntry` therefore shows why it is back and keeps the original pacing.
+   It does not restart a fresh 60 s. When the code was sent more than a
+   minute ago, which is the usual case after a Replace round, Resend is
+   available at once.
+3. The owning screen's `verify(code)` is what `CodeEntry` calls. A 200
+   continues as today.
+4. On `account.username.unavailable`, `verify` stores the code in the held
+   ref, switches the step to `replace` and **resolves** rather than throwing.
+   `CodeEntry` is unmounted by the switch, so it never shows the 409. The
+   held code is memory only: never state, never route state, never storage.
+   Replace shows `auth_replace_username_title` and a body. In sign-up the
+   body is `auth_replace_username_body`, filled with the username typed in
+   W1. In the code flow no name was typed, so the body is
+   `web_auth_replace_username_body_plain`. The step has a Username field
+   with the W1 hint on the **public** lookup, plus Continue and Back.
+   Nothing from the response is shown beyond the key (U3 NFR1.4).
+5. Continue sends `verifyCode(identifier, heldCode, username)`, with the held
    code and the trimmed replacement.
-5. Outcomes, as U3 W2 step 5:
-   - 200 → step 2.
+6. Outcomes, as U3 W2 step 5:
+   - 200 → as step 3.
    - `account.username.*` or `.unavailable` again → stays on Replace, under
      the field.
    - `auth.lookup.too_many` → stays on Replace, with that message in the
      banner. Continue stays available.
-   - `auth.otp.expired`, `.no_tries_left` or `.not_valid` → back to the code
-     step's existing handling, with the held code forgotten.
+   - `auth.otp.expired`, `.no_tries_left` or `.not_valid` → the owning
+     screen clears the held code and switches back to `code`. It remounts
+     `CodeEntry` with `initialError` set to that key's message and with
+     `resendAvailableAt` from the original `sentAt`. The person sees why the
+     code no longer works and a Resend they can use. A successful Resend
+     sets a new `sentAt`.
    - Transport → stays on Replace with the offline message and Retry, which
      resends the same request.
-6. Back forgets the held code (and, in sign-up, the held password) and
-   returns to the form, as `backToForm` does today.
+7. Back forgets the held code (and, in sign-up, the held password) and
+   returns to the form, as `backToForm` does today. Unmounting the owning
+   screen discards the ref with it. Both flows run signed out, so there is
+   no sign-out path while a code is held.
 
 ### W3. Sign in with one field
 
@@ -236,7 +260,7 @@ Q2. The web differs from U3 in how the gate is reached and how it lifts.
    lens picker are mounted. A typed URL, browser Back and Forward, and a deep
    link all render the gate, because the gate is not a route. The URL is left
    as it was, so the person lands where they were going once the gate lifts.
-3. The provider's refresh keeps the gate on screen while it re-reads. Today
+3. The provider's re-read keeps the gate on screen while it reads. Today
    the effect keeps `ready` and otherwise publishes `resolving`. It must keep
    `username-required` the same way, so a re-read never flashes the loader.
 4. The gate shows `choose_username_title`, `choose_username_body`, the
@@ -246,17 +270,20 @@ Q2. The web differs from U3 in how the gate is reached and how it lifts.
 5. Continue sends `PUT /v1/me/username` with `{"username": …}` and no
    password (FR5.4).
 6. Outcomes:
-   - 200 → the gate stays in `Saving` and calls the session's `refresh()`.
-     The gate lifts **only** when that read says `username_required: false`
-     (Q2, U3 review-round finding). If the read still says `true`, the gate
-     returns to Editing with `error_unexpected` and Retry, which re-reads
-     rather than resending the choice. If the read fails, the session goes
-     to the existing blocking error card. That is fail-closed, and its Retry
-     re-reads.
+   - 200 → the gate moves to `Rereading` and calls the session's new
+     `reread()`. Unlike `refresh()`, which returns nothing, `reread()`
+     returns a promise that settles when the read it started settles. The
+     gate lifts **only** when that read says `username_required: false`
+     (Q2, U3 review-round finding).
+     - If the read still says `true`, the gate returns to Editing with
+       `error_unexpected` and Retry. Retry re-reads; it does not resend the
+       choice.
+     - If the read fails, the session goes to the blocking error card (step
+       10). That is fail-closed.
    - `account.username.*` or `.unavailable` → under the field.
    - `account.username.password_required` → another tab or device chose
-     first (U1 W7 step 3). The gate re-reads at once and lifts when the read
-     says false. No password is asked for.
+     first (U1 W7 step 3). The gate moves to Rereading, calls `reread()`, and
+     lifts when the read says false. No password is asked for.
    - `auth.lookup.too_many` → banner; Continue stays available.
    - `error.temporarily_unavailable` (retryable) and transport → banner with
      Retry, which resends the same choice.
@@ -264,14 +291,40 @@ Q2. The web differs from U3 in how the gate is reached and how it lifts.
    revokes the family best-effort, forgets the lens and the workspace, and
    (through `onTokensChanged`) resets the two-step status store. The app
    returns to `/signin`.
-8. While the gate shows, a `visibilitychange` to `visible` triggers one quiet
-   re-read. So a name chosen in another tab, or on Android, lifts this tab's
-   gate when the person returns to it.
-9. **No unknown-flag window.** U3 had to bound a window in which a failed
-   read routed into the app (its W4 step 8). On the web a failed read already
-   renders only the error card, and its `online` listener retries. No screen
-   of the app is reachable while the flag is unknown. U4 therefore adds no
-   periodic re-check (§ 9, item 2).
+8. While the gate is in **Editing**, a `visibilitychange` to `visible`
+   triggers one quiet re-read. A name chosen in another tab, or on Android,
+   then lifts this tab's gate when the person returns to it. The listener
+   belongs to the gate and is attached only in Editing, so it never starts a
+   read while a choice is being saved.
+9. **A read that lands while Saving** (review R-05). A visibility read
+   started in Editing can still settle after the person pressed Continue.
+   The rule: the gate acts on a changed account read **only in Rereading**.
+   - If such a read says `true`, the provider publishes a new
+     `username-required` value. The gate keeps its own step (`saving`) and
+     waits for the `PUT`'s answer.
+   - If it says `false` (another tab chose), the provider publishes `ready`
+     and the gate unmounts. The `PUT`'s late answer has no component to
+     render into and is dropped. Nothing is lost: a first choice on an
+     account that already has a username is refused with
+     `password_required` (U1 W7 step 3) and changes nothing.
+10. **No unknown-flag window, and the failed card keeps a way out.** U3 had
+    to bound a window in which a failed read routed into the app (its W4
+    step 8). On the web a failed read renders only the error card, and its
+    `online` listener retries, so no screen of the app is reachable while
+    the flag is unknown. U4 therefore adds no periodic re-check (§ 9, item
+    2). `ErrorCard` offers Retry only for a retryable error. So that the
+    gate's second exit is not lost when a re-read fails, `App`'s `failed`
+    branch gains a Sign out text button under the card, using the existing
+    `more_log_out`. It calls the same `signOut()`. This applies to every
+    failed start, not only the gate's, because a non-retryable failure
+    (a 403, say) otherwise leaves the person with no action at all.
+11. **The admin app is outside the gate** (review R-07). `web/src/admin` is a
+    separate build with its own session (`admin/session.ts`) and client
+    (`admin/client.ts`). It never calls `/v1/me` and imports nothing from
+    `session/session.tsx`. Platform administrators have no usernames (out of
+    scope in requirements.md). `scripts/check-bundles.mjs` fails the build if
+    either app's code or strings leak into the other. The gate and this
+    unit's screens are main-app only.
 
 ### W5. View and change the username in Settings
 
@@ -378,8 +431,16 @@ As U3 W7, plus the Edit sheet the web lacks (Q4) and the quick-add link (Q6).
    - unchanged → omitted;
    - changed → sent;
    - an emptied email → `null`, which clears it;
-   - an emptied phone → treated as unchanged, as on Android.
+   - an emptied phone → `null`, which clears it (review R-04).
    An edit with nothing changed sends nothing and closes the sheet.
+   `StudentUpdateRequest` documents `null` as "clear it" for all four
+   contacts. The server refuses clearing a contact that was accepted or
+   erased (`student.number_accepted`, `student.number_erased`), and the sheet
+   shows that refusal (step 6). **This deliberately differs from U3**: there,
+   an emptied phone stayed "unchanged" only because that was the existing
+   dialog's behaviour, kept out of scope. The web has no existing edit
+   behaviour to keep, and treating an emptied field as unchanged would make
+   the number reappear after Save with no explanation.
 6. Edit outcomes:
    - 200 → the detail re-reads.
    - `student.email.taken` → under the student email.
@@ -442,9 +503,9 @@ As U3 W9.
 
 `student_number_accepted`, `student_number_erased` and
 `centre_member_already_invited` now cover an email as well. Their reworded
-strings arrive by regeneration from U3's bundles (§ 5). Four web-only strings
-also say "number" or "phone" where an email is now possible. They are
-reworded in `i18n/web/*.json` (§ 5).
+strings arrive by regeneration from U3's bundles (§ 5). The web-only strings
+that the change makes false are listed in § 5, from a sweep of every web-only
+key, not from memory.
 
 ## 3. Screen state machines
 
@@ -494,7 +555,7 @@ stateDiagram-v2
     Replace --> Retrying: Continue
     Retrying --> Signed: 200
     Retrying --> Replace: username refusal, 429 or transport
-    Retrying --> Code: auth.otp expired, no_tries_left, not_valid
+    Retrying --> Code: auth.otp expired, no_tries_left, not_valid (message shown, original resend pacing)
     Replace --> Form: Back
     Code --> Form: Back
 ```
@@ -506,7 +567,9 @@ password is gone or two-step is required. An OTP refusal returns to Code. A
 409 `account.username.unavailable` moves to Replace, with the code held in
 memory. Continue retries with the replacement. A 200 ends signed in. A
 username refusal, a 429 or no answer returns to Replace. A spent or expired
-code returns to Code with the held code forgotten. Back from Replace or Code
+code returns to Code with the held code forgotten. The code step then shows
+that refusal's message, and Resend follows the original send's pacing rather
+than a fresh minute. Back from Replace or Code
 returns to the form and forgets the held code and password. The code flow
 (`PasswordCode.tsx`) uses the same Code → Replace → Retrying segment, without
 the form states.
@@ -534,8 +597,9 @@ publishes Ready. A failed read publishes Failed, which shows only the blocking
 error card. From UsernameRequired, a re-read keeps the gate while the flag is
 true, publishes Ready when it is false, and publishes Failed when the read
 fails. A re-read is triggered by the gate after a choice, by a
-`password_required` answer, or by the tab becoming visible. Sign out returns
-to SignedOut from any signed-in state.
+`password_required` answer, or by the tab becoming visible while the gate is
+in Editing. Failed offers Retry for a retryable error, and Sign out always
+(W4 step 10). Sign out returns to SignedOut from any signed-in state.
 
 ### 3.4 Choose-username gate
 
@@ -556,8 +620,10 @@ Text fallback: Continue moves Editing to Saving. A 200 or a
 Editing with its message, and Retry is offered only for retryable answers and
 transport. Rereading lifts the gate when the read says false. It returns to
 Editing with a re-read Retry when the read still says true. A failed read
-leaves the gate for the session's blocking error card. Sign out ends the
-session from Editing.
+leaves the gate for the session's blocking error card, which offers Sign
+out. Sign out ends the session from Editing. A changed account read is acted
+on only in Rereading. In Saving the gate waits for the `PUT`'s answer, and
+if a read meanwhile lifts the gate, that answer is dropped (W4 step 9).
 
 ### 3.5 Username screen
 
@@ -644,13 +710,54 @@ test asserts that.
   them. The new keys are `web_students_add_by_email` and
   `web_student_edit_title`, plus the edit sheet's save and saved strings.
   The exact list is in frontend-components § 7.
-- **Web-only strings reworded.** Four strings say "number" or "phone" where
-  a username or an email now applies:
-  - `web_auth_signin_body`;
-  - `web_auth_signup_phone_help`;
-  - `web_students_no_phone`, which becomes "No contact";
-  - `web_students_col_phone`, which becomes "Student's contact".
-  Each is reworded in both languages. The keys do not change.
+- **Web-only strings: the sweep** (review R-01). Every key in
+  `web/src/i18n/web/*.en.json` whose key or English text names a phone, a
+  number, a mobile, an email or an address was listed with its Bangla and
+  its uses under `web/src/`. The sweep is a script over the committed files,
+  not a reading. Each listed key is decided below. Keys the sweep did not
+  list say nothing about how a person signs in or is found.
+
+  **Reworded** (the keys do not change; English and Bangla change together):
+
+  | Key | Used in | Why it is now false | New English | New Bangla |
+  |---|---|---|---|---|
+  | `web_auth_signin_body` | `SignIn.tsx` | sign-in also takes a username | With your username, mobile number or email address, and your password. | আপনার ইউজারনেম, মোবাইল নম্বর বা ইমেইল ঠিকানা এবং পাসওয়ার্ড দিয়ে। |
+  | `web_auth_point_login` | `AuthFrame.tsx` (every auth page) | as above | Log in with your username, mobile number or email address and a password. | ইউজারনেম, মোবাইল নম্বর বা ইমেইল ঠিকানা আর পাসওয়ার্ড দিয়ে লগ ইন করুন। |
+  | `web_password_set_body` | `security/Password.tsx` | as above | From now on you'll log in with your username, mobile number or email address and this password. | এখন থেকে ইউজারনেম, মোবাইল নম্বর বা ইমেইল ঠিকানা আর এই পাসওয়ার্ড দিয়ে লগ ইন করবেন। |
+  | `web_auth_signup_phone_help` | `SignUp.tsx` | "You'll log in with this number" is no longer the whole story, and teachers now find people by email too | We'll send a code to this number. Teachers find students and guardians by phone number or email. | এই নম্বরে একটি কোড পাঠানো হবে। শিক্ষকরা শিক্ষার্থী ও অভিভাবকদের ফোন নম্বর বা ইমেইল দিয়ে খুঁজে পান। |
+  | `web_auth_signup_email_help` | `SignUp.tsx` | says teachers find people "by phone", false since U2 | We'll send a code to this address. Teachers find students and guardians by phone number or email. | এই ঠিকানায় একটি কোড পাঠানো হবে। শিক্ষকরা শিক্ষার্থী ও অভিভাবকদের ফোন নম্বর বা ইমেইল দিয়ে খুঁজে পান। |
+  | `web_contact_add_phone_why` | `AddContact.tsx`, `AccountEntries.tsx`, `EditProfile.tsx` | says teachers find people by mobile number only | Teachers find students and guardians by phone number or email. Add your number to see the batches they added you to by it. | শিক্ষকরা শিক্ষার্থী ও অভিভাবকদের ফোন নম্বর বা ইমেইল দিয়ে খুঁজে পান। এই নম্বরে তাঁরা আপনাকে যে ব্যাচে যোগ করেছেন তা দেখতে আপনার নম্বর যোগ করুন। |
+  | `web_contact_add_email_why` | `AddContact.tsx`, `AccountEntries.tsx` | omits that an email now links recorded seats (FR6.5) | Log in with it too, get codes by email, and see the batches teachers added you to by this address. | এটি দিয়েও লগ ইন করুন, ইমেইলে কোড পান, আর এই ঠিকানায় শিক্ষকরা আপনাকে যে ব্যাচে যোগ করেছেন তা দেখুন। |
+  | `web_students_col_phone` | `people/StudentsList.tsx` | the cell now shows an email when there is no phone | Student's contact | শিক্ষার্থীর যোগাযোগ |
+  | `web_students_no_phone` | `people/StudentsList.tsx` | as above | No contact | যোগাযোগ নেই |
+  | `web_roster_col_contact` | `students/StudentsTab.tsx` | "Phones and invitation"; the roster now shows guardian emails | Contact and invitation | যোগাযোগ ও আমন্ত্রণ |
+
+  **Removed**: `web_auth_password_wrong`, in both languages. No file under
+  `web/src/` uses it (the server's `auth.password.wrong` string is what the
+  screen shows), and its text describes the old sign-in.
+
+  **Kept unchanged, with the reason:**
+  - **Recovery and codes stay phone or email (FR10.1).**
+    `web_auth_code_flow_body`, `web_auth_code_sent_phone`,
+    `web_auth_code_sent_email`, `web_auth_signup_subhead`,
+    `web_auth_signup_sent_phone`, `web_auth_signup_sent_email`,
+    `web_contact_code_sent_phone`, `web_contact_code_sent_email`.
+  - **Labels for a phone or email field, still accurate.**
+    `web_auth_kind_phone`, `web_auth_kind_email`, `web_auth_email_label`,
+    `web_auth_email_invalid`, `web_contact_add_phone`,
+    `web_contact_add_email`, `web_contact_phone_added`,
+    `web_contact_email_added`, `web_students_phone_prefix`.
+  - **Account deletion keeps asking for the email (FR10.1).**
+    `web_account_delete_type_email`, `web_account_delete_email_field`.
+  - **"Address" means the postal address.** `web_account_done_body`.
+  - **"Phone" means the device with the authenticator app.**
+    `web_mfa_intro`, `web_mfa_codes_low`, `web_mfa_codes_warning`,
+    `web_mfa_codes_where`.
+
+  The Bangla text of each reworded string is checked in § 8 with the screen
+  that shows it. Where § 8 had no row for that screen, one is added: the
+  auth side panel, the password screen, the add-contact screen and the edit
+  profile screen.
 - A date in a string is formatted by `formatDateTime`. Nothing is computed
   from the server's instant.
 
@@ -692,11 +799,20 @@ account, networked; children's data; no offline writes. Each condition:
 - **Client rules re-checked by the server**: the client holds no username
   rule, no last-contact rule and no rename window. The email check is the
   server's pattern, now with code-point length (defect 4).
-- **Keyboard, screen reader and contrast**: the hint is text, never colour
-  alone, in a `role="status"` live region that is always present, so
-  "Available" or a refusal is announced. The gate's Sign out is a focusable
-  button. Focus moves to the first field when the gate, Replace step or a
-  sheet opens.
+- **Keyboard, screen reader and contrast** (verifiers named, review R-03):
+  - **The hint is text and a live region.** It is text, never colour alone,
+    in a `role="status"` element that is present from Idle, so the region
+    exists before its text changes. *Verifier:* the `AvailabilityHint`
+    test asserts the `status` role in Idle and the text `username_available`
+    after an `available` answer.
+  - **Whether a real screen reader speaks the change is not verified**, and
+    it is not claimed. jsdom has no screen reader. The automated check covers
+    the obligation as written: the region exists and its text updates.
+  - **The gate's Sign out is a `<button>`.** *Verifier:* the gate test finds
+    it by role `button`.
+  - **Focus moves to the first field** when the gate, the Replace step, the
+    Remove sheet or the Edit sheet opens. *Verifier:* tests assert
+    `document.activeElement` on each open (frontend-components § 8).
 - **Older response arrives last**: latest-wins, plus abort (§ 3.1).
 - **Same user in two tabs or devices**:
   - First choice in both → the second gets `password_required` and re-reads
@@ -722,14 +838,48 @@ account, networked; children's data; no offline writes. Each condition:
   carries `me.username ?? me.phone ?? me.email`. The browser files the
   credential under the name the person now signs in with. Teacher-recorded
   emails use `autocomplete="off"`.
-- **Sensitive data**:
-  - No username, login, phone, email, password or code is written to
-    `console`, `localStorage`, `sessionStorage`, IndexedDB, route state or a
-    URL. The one URL exception is U2's already-added query (W9 step 3).
-  - The PWA caches no API response (`runtimeCaching: []`, unchanged).
-  - The username never appears in `document.title`.
-  - The six digits held for Replace are in a ref, cleared on Back, on
-    sign-out and on unmount.
+- **Sensitive data** (each with its verifier, review R-03):
+  - **Nothing typed is persisted, titled or logged.** No username, login,
+    phone, email, password or code is written to `localStorage`,
+    `sessionStorage`, route state (`history.state`) or `document.title`, or
+    passed to `console`.
+    *Verifier:* `noIdentifierLeaks.test.tsx` (frontend-components § 8)
+    drives the sign-in, sign-up with Replace, gate and rename flows with
+    distinctive sentinel values. After every step it snapshots:
+    - every `localStorage` and `sessionStorage` value;
+    - `JSON.stringify(window.history.state)`;
+    - `document.title`;
+    - every argument passed to a spied `console.*`.
+    It fails if any sentinel appears in any of them. The tokens the session
+    stores under `sp.session` are server-issued and contain none of the
+    sentinels, so the test needs no exception for them.
+  - **IndexedDB.** The web client opens none, and the PWA caches no API
+    response (`runtimeCaching: []`, unchanged).
+    *Verifier:* the existing `vite.config.ts` setting, plus the same test's
+    assertion that `indexedDB.open` is never called (spied).
+  - **`no-console` is a mechanical control and it is U4's.** The rule is an
+    ESLint `no-console: error` with the two existing sites annotated
+    (`core/useResource.ts:104`, `family/pay/PayScreen.tsx:79`). Its
+    configuration is decided at **U4's NFR Requirements stage** and
+    installed in **U4's code generation**. U4 is not complete without it
+    (project Mandated, a control names the unit that installs it). Until
+    then the console spy in the test above is the verifier for the flows
+    this unit adds.
+  - **URLs.** The one URL exception is U2's already-added query (W9 step 3).
+    *Verifier:* the fetch-layer tests assert no query string on every new
+    write and lookup.
+  - **The held digits.** The six digits held for Replace live in a ref owned
+    by the signed-out screen (W2 step 2). They are cleared on Back and on an
+    OTP refusal, and they go with the component on unmount. Sign-out does
+    not apply, because both flows run signed out; the earlier wording that
+    named sign-out was wrong.
+    *Verifier:* `SignUp.test.tsx`. After Back and a fresh code entry, a
+    second 409 and Replace retry sends the newly typed digits, never the old
+    ones. After an OTP refusal on the retry, the next verify sends only what
+    is typed into the remounted `CodeEntry`.
+  - **Teacher-recorded emails carry `autocomplete="off"`.** This covers New
+    student, the Edit sheet and the centre invite email.
+    *Verifier:* a test per form asserting the attribute.
 
 ## 8. Bangla layout obligations (FR11.2)
 
@@ -761,7 +911,13 @@ text size. Each row's Artboard column records `web`.
 | U4 (web) | New student: two email fields | changed |
 | U4 (web) | Student Edit sheet | new |
 | U4 (web) | Student detail and list: email in place of a phone | changed |
-| U4 (web) | Batch roster: guardian email; quick-add link | changed |
+| U4 (web) | Batch roster: guardian email; contact column header; quick-add link | changed |
+| U4 (web) | Auth side panel (`AuthFrame`): reworded `web_auth_point_login` | changed |
+| U4 (web) | Password (set and change): reworded `web_password_set_body` | changed |
+| U4 (web) | Add phone or email: reworded `web_contact_add_*_why` | changed |
+| U4 (web) | Edit profile: reworded `web_contact_add_phone_why` | changed |
+| U4 (web) | Failed start card with Sign out | changed |
+| U4 (web) | Root error card | new |
 | U4 (web) | Centre members: invite by phone or email; member with email only | changed |
 
 ## 9. Where the web deliberately differs from U3
@@ -782,6 +938,8 @@ text size. Each row's Artboard column records `web`.
 4. **Placement in Settings.** The web keeps sign-in settings in Settings →
    Account, not in More. The rows go where the web's equivalents already are.
 5. **Edit student is new on the web** (Q4). U3 extended an existing dialog.
+   On the web an emptied phone sends `null` to clear it, where U3 kept "an
+   emptied phone is unchanged" (W7 step 5, review R-04).
 6. **Cancellation.** U3 had to stop its `call {}` helpers swallowing
    `CancellationException`, and to make its renewal non-cancellable. On the
    web the renewal is already independent of callers (§ 1 defect 5). The one
@@ -816,11 +974,16 @@ Raised here as the team's practice requires (structural, not naming).
    is the owner's call; U4 does not change CI.
 2. **The web has no error boundary.** Defect 2 blanks the whole app because
    any render-time throw unmounts the root. U4 fixes the null phone. It also
-   recommends, and frontend-components § 5 includes, one root boundary in
-   `App`. The boundary renders `ErrorCard` with a reload action, so a future
-   null in some other field fails one page and not the app. It is small, but
-   it is a structural guard, not a feature, so it is named here rather than
-   absorbed quietly.
+   recommends, and frontend-components § 5 includes, one boundary in `App`.
+   It is keyed on `location.pathname`, so navigating to another route mounts
+   a fresh boundary. It renders the existing `ErrorCard`, given a fabricated
+   `ApiError(500, 'UNEXPECTED', 'error.unexpected', true)`. That shows
+   `error_unexpected` and `auth_retry`; Retry resets the boundary and renders
+   the route again. A render error therefore fails the page it is on, and
+   both the person's navigation and Retry recover without a reload. No new
+   string is needed, and the earlier `web_root_error_reload` is dropped
+   (review R-06). The boundary is small, but it is a structural guard, not a
+   feature, so it is named here rather than absorbed quietly.
 3. **The contract has no email on the batch quick-add** (Q6).
    `EnrollmentCreateRequest` carries `student_phone` and `guardian_phone`
    only. Teachers who add from a roster cannot record an email there on
@@ -835,10 +998,12 @@ Raised here as the team's practice requires (structural, not naming).
    does not claim it.
 6. **`console.error` is not linted.** Two sites log non-`ApiError`
    exceptions (`core/useResource.ts:104`, `family/pay/PayScreen.tsx:79`).
-   Neither logs an identifier today, and nothing would stop a later one. A
-   mechanical guard, such as an ESLint `no-console` rule with those two
-   sites annotated, belongs to this unit's NFR stage. It is named here so it
-   is decided there rather than forgotten.
+   Neither logs an identifier today, and nothing would stop a later one. The
+   mechanical guard, an ESLint `no-console` rule with those two sites
+   annotated, is **assigned to U4**:
+   - its configuration is decided at U4's NFR Requirements stage;
+   - it is installed in U4's code generation;
+   - U4 is not complete without it (§ 7, Sensitive data).
 
 ## Assumptions & Open Questions
 

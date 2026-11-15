@@ -13,14 +13,16 @@ differences.
 main.tsx
 └─ SessionProvider                     (changed: 'username-required' state, visibility re-read)
    └─ App                              (changed)
-      ├─ RootErrorBoundary             (new, functional-spec § 10 item 2)
+      ├─ RouteErrorBoundary            (new, keyed on pathname; functional-spec § 10 item 2)
       ├─ signed-out routes
       │  ├─ SignIn                     (changed: LoginField, no KindToggle, no route state)
-      │  ├─ SignUp                     (changed: UsernameField + hint, email already-added lookup)
-      │  │  └─ code step → CodeEntry → ReplaceUsernameStep (new, shared)
-      │  └─ PasswordCode               (changed: no entry state; CodeEntry → ReplaceUsernameStep)
+      │  ├─ SignUp                     (changed: UsernameField + hint, email already-added lookup;
+      │  │  │                           owns step 'code' | 'replace', heldCode ref, sentAt)
+      │  │  ├─ CodeEntry               (changed: initialError, resendAvailableAt)   ┐ siblings: the owner
+      │  │  └─ ReplaceUsernameStep     (new, shared)                                ┘ renders one or the other
+      │  └─ PasswordCode               (changed: no entry state; same owner pattern, same two siblings)
       ├─ 'resolving' loader            (unchanged)
-      ├─ 'failed' ErrorCard            (unchanged: fail-closed)
+      ├─ 'failed' ErrorCard            (unchanged card, fail-closed) + Sign out button (new)
       ├─ ChooseUsernameGate            (new; returned before LensPicker and Routes)
       ├─ LensPicker                    (unchanged)
       └─ Routes → AppShell
@@ -78,6 +80,38 @@ held from taken, because the server never says (U3 NFR1.3).
   (functional-spec Q1 and § 9 item 6).
 - Unmounting aborts and clears both timers.
 
+### 2.2a The code step seam (changed `CodeEntry`, new `ReplaceUsernameStep`; review R-02)
+
+```text
+CodeEntry props (changed):
+  verify: (code) => Promise<void>        unchanged; resolving keeps it busy (the owner moves on)
+  resend: () => Promise<void>            unchanged; the owner records a new sentAt on success
+  initialError?: string | null           new: shown on mount
+  resendAvailableAt?: number             new: epoch ms; countdown = max(0, ceil((at - now) / 1000));
+                                         default now + RESEND_AFTER_S * 1000, today's behaviour
+ReplaceUsernameStep props:
+  name: string | null                    the W1 name, or null in the code flow (plain body)
+  submit: (username) => Promise<void>    owner calls verifyCode(identifier, heldCode, username)
+  onBack: () => void
+```
+
+- **The owner** is `SignUp` or `PasswordCode`. It holds the step
+  (`code | replace`), `heldCode` (a `useRef<string | null>`) and `sentAt`.
+- On a 409 `account.username.unavailable`, the owner's `verify` sets
+  `heldCode`, switches the step to `replace` and resolves.
+- On an OTP refusal from `submit`, the owner clears `heldCode`, switches to
+  `code` with a new `round` key (a remount), and passes:
+  - `initialError = message(key)`;
+  - `resendAvailableAt = sentAt + RESEND_AFTER_S * 1000`.
+- Every other refusal is thrown back to `ReplaceUsernameStep`, which renders
+  it under its field or in its banner.
+
+**Remedy adjusted.** The review proposed starting with Resend available
+whenever the refusal is an expiry. The adjustment keeps the original send's
+pacing instead. After a Replace round the minute has almost always passed,
+so Resend is available at once in the case the finding describes. The
+adjustment also never offers an earlier resend than the existing step would.
+
 ### 2.3 Session (changed, `session/session.tsx`)
 
 ```text
@@ -97,8 +131,14 @@ sessionFromMe(me: Me, remembered: Lens | null, workspaces): Session   // new, pu
 - The resolve effect's interim publication changes. Today it keeps `ready`
   and otherwise publishes `resolving`. It must keep `ready` **and**
   `username-required`.
-- New effect: while the state is `username-required`, a `visibilitychange`
-  to `visible` calls `refresh()` (W4 step 8).
+- New `reread(): Promise<void>`. It starts the same read as `refresh()` and
+  settles when that read settles, whatever it published. `refresh()` is kept
+  for its existing callers. The gate uses `reread()`, so it never infers a
+  read's completion from a changed `me` object (review R-05).
+- The visibility re-read (W4 step 8) lives in the gate, not the provider,
+  and is attached only while the gate is in Editing.
+- New `signOut` use: `App`'s `failed` branch renders a Sign out button
+  (`more_log_out`) under `ErrorCard` (W4 step 10).
 - `useReadySession()` keeps throwing outside `ready`. The gate is rendered
   outside every screen that calls it.
 
@@ -113,11 +153,17 @@ type GateState =
 
 - Props: `{ me: Me }`. Callbacks come from `useSession()`: `refresh` and
   `signOut`.
-- Lift: the gate does not lift itself. It calls `refresh()` and waits. The
-  provider replaces it with `ready` when the read says false. If the read
-  says true again, the provider publishes a new `username-required` value
-  whose `me` differs, and the gate returns to `editing` with
-  `retry: 'reread'`.
+- The step is `saving`, then `rereading`, then the gate awaits `reread()`:
+  - if the provider published `ready`, the gate is already unmounted and
+    nothing remains to do;
+  - if the gate is still mounted, the read said true, and the gate returns
+    to `editing` with `retry: 'reread'`;
+  - if the read failed, the provider published `failed` and the gate is
+    unmounted.
+- **A changed `me` prop is ignored in every step but `rereading`.** In
+  particular, a visibility read started in Editing that lands while
+  `saving` changes nothing. The gate waits for the `PUT`'s answer (W4 step
+  9).
 
 ### 2.5 Username screen (`features/account/username/UsernameScreen.tsx`)
 
@@ -155,8 +201,9 @@ Remove is offered for every present card; nothing reads a count (U3 NFR3.11).
   two pure line functions: `studentContactLine(s)` and
   `guardianContactLine(s)` (functional-spec W7 step 7).
 - New `studentEdit(original, typed) → StudentUpdateRequest | null`. It is
-  pure. It returns `null` when nothing changed, and it emits explicit `null`
-  only for an emptied email.
+  pure. It returns `null` when nothing changed, and it emits an explicit
+  `null` for any emptied contact, phone or email. That clears it, as
+  `StudentUpdateRequest` documents (review R-04).
 - `students/mappers.ts` `Seat` gains `guardianEmail`. The declined label
   uses the phone, then the email, then `roster_declined_no_number`.
 - `centre/Members.tsx`:
@@ -208,11 +255,16 @@ JSON body, except U2's already-added query.
 
 - `App`: after the `failed` branch, `if (session.state === 'username-required')
   return <ChooseUsernameGate me={session.me} />`, before `session.choosing`.
-- `RootErrorBoundary`, a class component (React has no hook form), wraps the
-  routed content. It renders `ErrorCard` with `error_unexpected` and a
-  reload action. It logs nothing that came from data: it does not log the
-  error, it only renders. It is one component, added because of
-  functional-spec § 10 item 2.
+- `RouteErrorBoundary` is a class component (React has no hook form). It
+  wraps everything `App` returns and is rendered with
+  `key={location.pathname}`, so navigation mounts a fresh boundary. On a
+  render error it shows `ErrorCard` with
+  `new ApiError(500, 'UNEXPECTED', UNEXPECTED_KEY, true)`, which renders
+  `error_unexpected` and `auth_retry`. Retry clears the boundary's error
+  state and renders the children again. It does not log the error; it only
+  renders. No new string is needed (review R-06).
+- `App`'s `failed` branch: `ErrorCard` as today, then a text button
+  `more_log_out` calling `signOut()`.
 - `securityPaths` gains `username()` → `/settings/username`, `contacts()` →
   `/settings/contacts` and `replaceContact(kind)` →
   `/settings/contact/${kind}/replace`. `securityRoutes` registers the three
@@ -246,10 +298,9 @@ JSON body, except U2's already-added query.
   - `web_students_add_by_email` (`students.*.json`);
   - `web_student_edit_title`, `web_student_edit_save`,
     `web_student_edit_saved` (`students.*.json`);
-  - `web_root_error_reload`, for the boundary (`core.*.json`).
-- **Reworded web-only strings**: `web_auth_signin_body`,
-  `web_auth_signup_phone_help`, `web_students_no_phone`,
-  `web_students_col_phone` (functional-spec § 5).
+- **Reworded and removed web-only strings**: the swept list in
+  functional-spec § 5, with English and Bangla. That section is the one copy,
+  so this file does not repeat it.
 
 ## 8. Test obligations
 
@@ -295,8 +346,19 @@ figure exists, and none is claimed (functional-spec § 10 item 5).
   URL such as `/settings`, and again after `history.back()`.
 - On a 200 the gate re-reads, and lifts only when the read says false. A
   read that still says true returns it to editing with a re-read Retry.
+- **A visibility read landing during Saving** (review R-05). The read is
+  started in Editing and held open by the mock. Continue is pressed, then
+  the read is released.
+  - If it says true, the gate stays in Saving, and the `PUT`'s 200 then
+    leads to Rereading.
+  - If it says false, the app renders `ready`, and the `PUT`'s late answer
+    renders nothing and throws nothing.
+- The visibility listener is not attached in Saving or Rereading: a
+  `visibilitychange` there sends no read.
 - `password_required` re-reads with no password asked.
-- A failed re-read shows the session's error card, not the app.
+- A failed re-read shows the session's error card, not the app, and that
+  card's Sign out (`more_log_out`) clears the tokens. This holds for a
+  non-retryable failure too, where the card has no Retry.
 - `visibilitychange` to visible re-reads while the gate shows, and does
   nothing otherwise.
 - Sign out clears tokens and calls the logout route.
@@ -311,18 +373,48 @@ figure exists, and none is claimed (functional-spec § 10 item 5).
 - Each `account.username.*` refusal lands under Username, with other fields
   kept.
 - Submission works while the hint says unavailable or could-not-check.
-- A 409 on verify opens Replace. The retry sends the same code with the
-  replacement. An OTP refusal on the retry returns to the code step.
-- Back forgets the code.
-- The same Replace path is tested from the code flow.
+- A 409 on verify opens Replace, and `CodeEntry` never shows the 409. The
+  retry sends the same code with the replacement.
+- **An expired code on the Replace retry** (review R-02). Fake timers; the
+  original send is 90 s earlier. The test asserts:
+  - the code step shows the `auth.otp.expired` message;
+  - the code field is empty;
+  - Resend is enabled at once.
+  - The same case with the send 20 s earlier shows Resend counting down
+    from 40.
+- After an OTP refusal, the next verify sends only the newly typed digits.
+- Back forgets the code: a later Replace retry after a fresh 409 sends the
+  new digits.
+- The same Replace path is tested from the code flow, with the plain body.
+- Focus is on the Replace step's Username field when it opens.
 - The email already-added lookup runs once per value, and locks the role on
   a seat.
 - Autofill: the real username field carries `autocomplete="username"`, and
   the phone or email field no longer does.
 
+**No identifier leaks** (`noIdentifierLeaks.test.tsx`, review R-03):
+
+- Flows driven: sign-in, sign-up through a 409 and Replace, the gate, and
+  rename, each with distinctive sentinel values for the username, login,
+  phone, email, password and code.
+- After every step, the test collects:
+  - every `localStorage` and `sessionStorage` value;
+  - `JSON.stringify(history.state)`;
+  - `document.title`;
+  - every argument to `console.log`, `info`, `warn`, `error` and `debug`
+    (spied).
+- It fails if any sentinel appears in any of them.
+- It fails if `indexedDB.open` is called.
+- It first asserts that its own sentinels did reach the request bodies. A
+  run that never typed them cannot pass vacuously.
+
 **Username, contacts** (`username.test.tsx`, `contacts.test.tsx`):
 
 - rename: each outcome in W5 step 5 renders as specified;
+- focus: on the gate's field when the gate mounts, and on the password when
+  the Remove sheet opens;
+- `AvailabilityHint`: an element with role `status` exists in Idle, and its
+  text becomes `username_available` after an `available` answer;
 - the date comes from `next_change_at` or `details.next_change_at`, and a
   missing detail shows the plain string;
 - Change is always present;
@@ -337,7 +429,12 @@ figure exists, and none is claimed (functional-spec § 10 item 5).
 - `studentEdit`:
   - an unchanged form gives `null`;
   - an emptied email gives `null` in the body;
-  - an emptied phone is omitted.
+  - an emptied phone gives `null` in the body (review R-04);
+  - a 409 `student.number_accepted` on clearing a phone renders in the sheet
+    banner.
+- `autocomplete="off"` is on the New student email fields, the Edit sheet
+  email fields and the centre invite email field.
+- Focus is on the Edit sheet's first field when it opens.
 - The line functions prefer phone, then email.
 - `mapSeats` reads `guardian_email`.
 - `inviteBody`:
@@ -365,11 +462,21 @@ figure exists, and none is claimed (functional-spec § 10 item 5).
   `username` or `login` key. It is written in the style of the existing
   `check-bundles.mjs` "absent and present" pairs, so an empty scan fails.
 
-**Root boundary**: a child that throws during render shows the boundary's
-card, not a blank root.
+**Route boundary**:
+- A child that throws during render shows `error_unexpected` with Retry, not
+  a blank root.
+- Navigating to another route renders that route normally.
+- Retry renders the children again.
 
-**Manual, not automated**: the Bangla layout rows (functional-spec § 8).
-Nothing above discharges them.
+**Lint (mechanical, U4)**: `no-console` in `eslint.config.js`, configured at
+U4's NFR Requirements stage and installed in U4's code generation
+(functional-spec § 10 item 6). `npm run lint` in `make web` is its verifier.
+
+**Manual, not automated**:
+- The Bangla layout rows (functional-spec § 8).
+- Whether a real screen reader announces the hint (functional-spec § 7).
+  This one is not verified and not claimed.
+Nothing above discharges either.
 
 ## 9. Dependencies
 
