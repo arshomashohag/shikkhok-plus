@@ -5242,3 +5242,295 @@
 **Autonomous**: true
 
 ---
+
+## Artifact Created
+**Timestamp**: 2026-11-15T03:56:04Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-design-questions.md
+**Context**: construction > usernames-backend > functional-design > functional-design-questions.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-15T03:56:47Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/entities.md
+**Context**: construction > usernames-backend > functional-design > entities.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-15T03:59:26Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/rules.md
+**Context**: construction > usernames-backend > functional-design > rules.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T03:59:31Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/rules.md
+**Context**: construction > usernames-backend > functional-design > rules.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-15T04:02:02Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T04:02:11Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T04:02:13Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T04:02:22Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T04:02:25Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T04:02:29Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-15T04:02:43Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/traceability.json
+**Context**: construction > usernames-backend > functional-design > traceability.json
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-11-15T04:02:43Z
+**Event**: SENSOR_FIRED
+**Fire id**: 8dc36cad
+**Sensor ID**: traceability
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/traceability.json
+
+---
+
+## Sensor Failed
+**Timestamp**: 2026-11-15T04:02:43Z
+**Event**: SENSOR_FAILED
+**Fire id**: 8dc36cad
+**Sensor ID**: traceability
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/traceability.json
+**Detail path**: aidlc/spaces/default/intents/261113-unique-usernames/.aidlc-engine/sensors/functional-design/traceability-8dc36cad.md
+**Findings count**: 19
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-11-15T04:03:10Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: aidlc-architect-agent
+**Agent ID**: a56ea0aa8af3334c9
+
+---
+
+## Human Turn
+**Timestamp**: 2026-11-15T04:03:58Z
+**Event**: HUMAN_TURN
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+
+---
+
+## Question Answered
+**Timestamp**: 2026-11-15T04:04:04Z
+**Event**: QUESTION_ANSWERED
+**Stage**: functional-design
+**Details**: Q1-Q5: recommended option A for each (see functional-design-questions.md)
+**Unit**: usernames-backend
+**Answer Source**: chosen by the agent as the person asked
+**Instruction**: don't wait for my approval. Go with your recommendations.
+
+---
+
+## Review Requested
+**Timestamp**: 2026-11-15T04:04:04Z
+**Event**: REVIEW_REQUESTED
+**Stage**: functional-design
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Unit**: usernames-backend
+**Iteration**: 1
+**Artifact Fingerprint**: sha256:9162403818629971feda2947f0e40c645b26c56d2f8e1c7a8e8e6656b120c3b2
+**Request Id**: review:1854b7b1d457c27706eb5be4776df57d
+**Review File**: .aidlc-engine/reviews/functional-design/units/usernames-backend/4130bf148b203dc8/1.1854b7b1d457c27706eb5be4776df57d.review.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-15T04:04:09Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/.aidlc-engine/reviewer-dispatch.json
+**Context**: .aidlc-engine > reviewer-dispatch.json
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T04:04:28Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: reviewer-scope
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Glob
+**Details**: . (unit usernames-backend)
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T04:04:29Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: reviewer-scope
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Glob
+**Details**: . (unit usernames-backend)
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T04:05:42Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: reviewer-scope
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Grep
+**Details**: <project-dir> (unit usernames-backend)
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T04:05:42Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: reviewer-scope
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Glob
+**Details**: . (unit usernames-backend)
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T04:06:03Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: reviewer-scope
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Grep
+**Details**: <project-dir> (unit usernames-backend)
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-15T04:13:31Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/.aidlc-engine/reviews/functional-design/units/usernames-backend/4130bf148b203dc8/1.1854b7b1d457c27706eb5be4776df57d.review.md
+**Context**: .aidlc-engine > reviews > functional-design > units > usernames-backend > 4130bf148b203dc8 > 1.1854b7b1d457c27706eb5be4776df57d.review.md
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-11-15T04:13:40Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: aidlc-architecture-reviewer-agent
+**Agent ID**: afdc51ffee12842ed
+
+---
+
+## Human Turn
+**Timestamp**: 2026-11-15T04:14:17Z
+**Event**: HUMAN_TURN
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+
+---
+
+## Review Completed
+**Timestamp**: 2026-11-15T04:14:29Z
+**Event**: REVIEW_COMPLETED
+**Stage**: functional-design
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Unit**: usernames-backend
+**Iteration**: 1
+**Verdict**: READY
+**Request Fingerprint**: sha256:9162403818629971feda2947f0e40c645b26c56d2f8e1c7a8e8e6656b120c3b2
+**Artifact Fingerprint**: sha256:9162403818629971feda2947f0e40c645b26c56d2f8e1c7a8e8e6656b120c3b2
+**Request Id**: review:1854b7b1d457c27706eb5be4776df57d
+**Review Record**: .aidlc-engine/reviews/functional-design/units/usernames-backend/4130bf148b203dc8/1.json
+**Review Record Digest**: sha256:a01f35c83a8de2d2fdcdbae9f73c59631d61114d6d4c46b4e34319943ed16425
+
+---
+
+## Unit Started
+**Timestamp**: 2026-11-15T04:14:30Z
+**Event**: UNIT_STARTED
+**Stage**: functional-design
+**Unit**: usernames-backend
+**Run floor**: WORKFLOW_STARTED:2026-11-13T04:15:10Z#1
+
+---
+
+## Unit Completed
+**Timestamp**: 2026-11-15T04:14:30Z
+**Event**: UNIT_COMPLETED
+**Stage**: functional-design
+**Unit**: usernames-backend
+**Run floor**: WORKFLOW_STARTED:2026-11-13T04:15:10Z#1
+
+---
