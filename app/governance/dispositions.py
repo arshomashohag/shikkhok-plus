@@ -641,6 +641,14 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "only as salted hashes. Credentials, removed with the account."
         ),
     ),
+    "bd_area": TableGovernance(
+        disposition=Disposition.NOT_PERSONAL,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A fixed list of Bangladesh's divisions, districts and "
+            "upazilas; about no person."
+        ),
+    ),
 }
 
 #: The retention half, derived so the two can never disagree.

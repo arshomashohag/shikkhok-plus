@@ -199,13 +199,14 @@ These records are about how the service itself is running, not about any person.
 |---|---|
 | A coaching centre's names for the places its classes meet | no time limit |
 | Counters that limit sign-in attempts | 48 hours |
+| The fixed list of Bangladesh divisions, districts and upazilas | no time limit |
 | When our scheduled jobs last ran; it names nobody | no time limit |
 
 **The name a teacher typed for you stays in that teacher's record.** When a teacher invites someone to a class they enter a name for that place themselves. That name belongs to the teacher's own record of the class, so it remains after you delete your account -- and it remains even if you declined the invitation and never used the app. It is not shown to anyone but that teacher. If you want it removed, contact us at the address at the top of this page and we will raise it with the teacher concerned.
 
 **A teacher's classes stay with their students.** If you are a teacher and delete your account, your sign-in, your own name and address are removed, and so are your name and payment number on each of your classes. The classes themselves stay as read-only history for your students and their guardians: their record of who came to each class, their results and fee records are theirs too. No new fees fall due on those classes, and amounts already recorded as owed stay on the records, where nobody can collect them.
 
-<!-- governance manifest digest: 2626a2fb4a76b5680b4958f915eab2de181c4496fee5743db879fa899f1a789d
+<!-- governance manifest digest: 4d3573eb8da00c1309dbb0f9537291aa007bac6bcdb0edb4ac34e4e4795b5b9d
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

@@ -3313,3 +3313,38 @@ class MfaRecoveryCode(Base):
     )
 
     __table_args__ = (Index("ix_mfa_recovery_code_account", "account_id"),)
+
+
+#: The three levels of the Bangladesh area vocabulary [0035].
+BD_AREA_KIND_VALUES: tuple[str, ...] = ("division", "district", "upazila")
+
+_BD_AREA_KIND = PgEnum(
+    *BD_AREA_KIND_VALUES,
+    name="bd_area_kind",
+    create_type=False,
+)
+
+
+class BdArea(Base):
+    """One division, district or upazila of Bangladesh [0035].
+
+    A fixed vocabulary seeded from the BBS geocodes; it is about no person.
+
+    :ivar code: The BBS geocode, the key
+    :ivar kind: ``division``, ``district`` or ``upazila``
+    :ivar parent_code: The enclosing area's code; NULL for a division
+    :ivar name_en: The English name
+    :ivar name_bn: The Bangla name
+    """
+
+    __tablename__ = "bd_area"
+
+    code: Mapped[str] = mapped_column(String(12), primary_key=True)
+    kind: Mapped[str] = mapped_column(_BD_AREA_KIND, nullable=False)
+    parent_code: Mapped[str | None] = mapped_column(
+        String(12), ForeignKey("bd_area.code"), nullable=True
+    )
+    name_en: Mapped[str] = mapped_column(Text, nullable=False)
+    name_bn: Mapped[str] = mapped_column(Text, nullable=False)
+
+    __table_args__ = (Index("ix_bd_area_parent_code", "parent_code"),)

@@ -246,6 +246,15 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
             "own 48-hour window instead [DESIGN-7]."
         ),
     ),
+    "bd_area": _Target(
+        scope=Scope.NOT_PERSONAL,
+        column=None,
+        note=(
+            "A fixed list of Bangladesh's divisions, districts and "
+            "upazilas. It names no person, so a person's deletion has "
+            "nothing in it to remove."
+        ),
+    ),
     "room": _Target(
         scope=Scope.NOT_PERSONAL,
         column=None,
