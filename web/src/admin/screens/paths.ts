@@ -6,6 +6,7 @@ const id = encodeURIComponent
 export const adminPaths = {
   overview: () => '/',
   teachers: () => '/teachers',
+  hub: () => '/hub',
   people: () => '/help',
   tickets: (filter: { status?: HelpStatus | null; ref?: string | null } = {}) => {
     const q = new URLSearchParams()

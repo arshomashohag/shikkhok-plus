@@ -464,6 +464,13 @@ describe('class changes (PO-1, PO-10)', () => {
     )
   })
 
+  it('draws a suspended hub listing with its own Bangla title and opens the editor', () => {
+    expect(INBOX_KINDS).toContain('hub_listing_suspended')
+    const key = TITLE_KEY.hub_listing_suspended
+    expect(translate('en', key, 'Sumi')).toBe('Listing suspended · Sumi')
+    expect(BUNDLES.bn[key]).toMatch(/[ঀ-৿]/)
+  })
+
   it('announces every kind it can draw, so the badge counts only those', () => {
     expect(INBOX_KINDS).toContain('class_cancelled')
     expect(INBOX_KINDS).toContain('class_rescheduled')

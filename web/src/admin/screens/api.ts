@@ -44,3 +44,21 @@ export const setTicketStatus = (ticketId: string, status: 'open' | 'closed') =>
     `/v1/admin/help/tickets/${enc(ticketId)}/status`,
     { body: { status } },
   )
+
+/** The moderation queue, oldest first: open reports or suspended listings. */
+export const readHubQueue = (kind: 'report' | 'listing') =>
+  request<Schemas['AdminHubQueueResponse']>('GET', '/v1/admin/hub/queue', { query: { kind } })
+
+export const decideHubReport = (reportId: string, decision: 'upheld' | 'dismissed') =>
+  request<Schemas['AdminHubReportDecided']>(
+    'POST',
+    `/v1/admin/hub/reports/${enc(reportId)}/decision`,
+    { body: { decision } },
+  )
+
+export const setHubSuspension = (ownerId: string, body: Schemas['AdminHubSuspensionRequest']) =>
+  request<Schemas['AdminHubSuspensionState']>(
+    'PUT',
+    `/v1/admin/hub/owners/${enc(ownerId)}/suspension`,
+    { body },
+  )

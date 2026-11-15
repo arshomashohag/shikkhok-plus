@@ -19,6 +19,7 @@ const load = () => import('./screens/AdminArea')
 const SCREENS = [
   { path: '/', element: lazyScreen(load, 'AdminOverview') },
   { path: '/teachers', element: lazyScreen(load, 'AdminTeachers') },
+  { path: '/hub', element: lazyScreen(load, 'AdminHubQueue') },
   { path: '/help', element: lazyScreen(load, 'AdminRequesters') },
   { path: '/help/tickets', element: lazyScreen(load, 'AdminTickets') },
   { path: '/help/tickets/:ticketId', element: lazyScreen(load, 'AdminTicketView') },

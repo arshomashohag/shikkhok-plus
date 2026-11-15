@@ -205,6 +205,24 @@ export function More() {
               />
             </ul>
           </Section>
+          <Section title={t('web_hub_more_title')}>
+            <ul className="card flush list">
+              <Row
+                to={paths.hub()}
+                icon={<LayersIcon />}
+                title={t('web_hub_more_title')}
+                sub={needsConnection ?? t('web_hub_more_sub')}
+                disabled={!online}
+              />
+              <Row
+                to={paths.hubBatches()}
+                icon={<LayersIcon />}
+                title={t('web_hub_batches_row')}
+                sub={needsConnection ?? t('web_hub_batches_sub')}
+                disabled={!online}
+              />
+            </ul>
+          </Section>
           <Section title={t('more_section_records')}>
             <ul className="card flush list">
               <Row
