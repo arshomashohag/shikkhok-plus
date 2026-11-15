@@ -527,6 +527,31 @@ class SessionViewModelTest {
     }
 
     @Test
+    fun `recheckNow reports the gate lifted only when the read no longer requires a username`() =
+        runTest(dispatcher) {
+            // The gate leaves only on a read that lifts it. A read that
+            // arrives still flagged must not be taken as done: the gate
+            // would sit on a finished screen that accepts nothing.
+            val model =
+                SessionViewModel(
+                    FakeProfile(
+                        mutableListOf(
+                            needing("student" to 1),
+                            needing("student" to 1),
+                            me("student" to 1),
+                        ),
+                    ),
+                )
+            model.resolve()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(false, model.recheckNow())
+            assertIs<SessionUiState.UsernameRequired>(model.state.value)
+            assertEquals(true, model.recheckNow())
+            assertEquals(SessionUiState.Ready(Lens.STUDENT), model.state.value)
+        }
+
+    @Test
     fun `recheck never publishes Resolving`() = runTest(dispatcher) {
         val model =
             SessionViewModel(FakeProfile(mutableListOf(AuthResult.TransportFailure, needing("teacher" to 1))))

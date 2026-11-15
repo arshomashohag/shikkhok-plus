@@ -15,8 +15,10 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.isSuccess
 import io.ktor.http.takeFrom
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -113,17 +115,28 @@ class SessionRenewal(
             if (current != expired) return@withLock current
 
             val refreshToken = tokens.refreshToken() ?: return@withLock null
-            when (val result = redeem(refreshToken)) {
-                is Redeemed.Pair -> {
-                    tokens.save(result.access, result.refresh)
-                    result.access
+
+            // Once the refresh is sent, it finishes and its pair is saved
+            // even if the caller is cancelled. The server rotates the
+            // token as it answers; dropping that answer leaves the
+            // rotated-out token in the store, and presenting it next time
+            // reads as theft and ends the session. Callers are cancelled
+            // routinely -- a username lookup superseded by the next
+            // keystroke, or cut off by its bound -- and the caller still
+            // sees its cancellation on the repeat that follows.
+            withContext(NonCancellable) {
+                when (val result = redeem(refreshToken)) {
+                    is Redeemed.Pair -> {
+                        tokens.save(result.access, result.refresh)
+                        result.access
+                    }
+                    Redeemed.Refused -> {
+                        tokens.clear()
+                        onSessionEnded()
+                        null
+                    }
+                    Redeemed.Unreachable -> null
                 }
-                Redeemed.Refused -> {
-                    tokens.clear()
-                    onSessionEnded()
-                    null
-                }
-                Redeemed.Unreachable -> null
             }
         }
 

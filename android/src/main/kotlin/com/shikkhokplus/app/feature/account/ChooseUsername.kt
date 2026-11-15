@@ -76,7 +76,8 @@ object ChooseUsernameStateMapper {
     /**
      * Map what the re-read came to.
      *
-     * @param read Whether the account was read
+     * @param read Whether the re-read lifted the gate; false when it
+     *   failed or the account still requires a username
      * @return Done, or the form with a retry
      */
     fun afterReread(read: Boolean): ChooseUsernameUiState =
@@ -97,7 +98,7 @@ object ChooseUsernameStateMapper {
  *
  * @property repository The authenticated account calls
  * @property onChosen Lifts the gate after a 200 (`SessionViewModel.usernameChosen`)
- * @property reread Reads the account again, quietly; true when it was read
+ * @property reread Reads the account again, quietly; true when the read lifted the gate
  */
 class ChooseUsernameViewModel(
     private val repository: AccountRepository,

@@ -3,7 +3,7 @@
 Built against the approved plan (`code-generation-plan.md`, Steps 1–23; Step 24
 is this file, `source-manifest.json` and `traceability.json`). Android only: no
 backend file, dependency, lockfile, verification metadata, Gradle build script
-or coverage floor changed. `source-manifest.json` lists all 130 paths.
+or coverage floor changed. `source-manifest.json` lists all 132 paths.
 
 ## Files
 
@@ -54,6 +54,20 @@ Command: `./gradlew :android:testDebugUnitTest :android:detekt :android:lintDebu
 - **Rename.** `ContactCard.value` and `RemoveContactUiState.Confirming.value` are now `contact`. The design calls the class `ContactCard(kind, contact)`.
 - **Follow-ups, out of this unit's files.** The `catch (_: Exception)` sites in `HttpAttendanceRepository`, `SessionRenewal` and `TokenStore` still swallow `CancellationException`. This unit fixed the shared `call {}` and `callDiscardingBody {}` helpers, `HttpAuthRepository.logout` and the five `HttpRosterRepository` sites.
 - **Follow-ups for U1/U2** (functional-spec § 9). `openapi.json` under-declares status codes for `/v1/me/contact`, `/v1/me/contact/remove`, `/v1/auth/verify` and `/v1/auth/password`.
+
+## Review round 1 fixes
+
+The reviewer's verdict was READY, with 1 Major and 3 Minor findings. All four were acted on.
+
+- **Major. A renewal cut short by a cancelled caller lost the rotated pair.** `SessionRenewal.redeem` caught every `Exception`, `CancellationException` included. This unit's lookups are cancelled on every keystroke and by their 3 s bound, so one cancelled mid-refresh left the rotated-out refresh token in the store. The next renewal would present that token, which the server reads as theft, and the person would be signed out.
+  - **Fix**: the redemption and the save run under `withContext(NonCancellable)`, inside the renewal lock. The caller still sees its cancellation, on the repeat that follows.
+  - **Why not the remedy the plan first suggested**: rethrowing the cancellation would not help, because the server has already rotated the token by then.
+  - **Test-first**: the new test, "a caller cancelled mid-renewal still keeps the rotated pair", failed with `expected:<fresh> but was:<stale>`. It passes after the fix.
+  - **After the fixes**: the full Android check set passes, with 2099 tests, 0 failed and 0 skipped. Coverage is 90.39% against the unchanged 90.05% floor.
+  - **Follow-up**: the cold-start redeemer `HttpAuthRepository.refresh` has the same shape. It is cancelled only when the app closes during start-up, and it is left as a follow-up.
+- **Minor. A re-read could leave the gate on a dead Done screen.** `SessionViewModel.recheckNow()` now returns whether the gate was lifted, not whether the read arrived. A read that still requires a username maps to the form with a retry. New test: "recheckNow reports the gate lifted only when the read no longer requires a username". It failed before the fix and passes after.
+- **Minor. `NoSavedSecretsTest` matches only by name.** The pattern gains `pass`, `passwd`, `pwd` and `pin`. A comment now states the limit: a secret held under a name outside the list passes this scan. The `StateRestorationTester` tests are the behavioural half.
+- **Minor. The root wiring is covered by review only.** `UsernameGateRoutingTest` drives the shared `rootRouteFor` decision and `FailedRecheckEffect` with the real `ChooseUsernameGate`, but in a test harness. The wiring in `MainActivity` (`OutsideGraphRoot` and `UsernameGateRoot`) has no automated test. That covers the ViewModel key, `onChosen`, `reread`, `endSession`, and the early return before the queue and unread effects. A change there passes every test.
 
 ## Deviations from the plan
 

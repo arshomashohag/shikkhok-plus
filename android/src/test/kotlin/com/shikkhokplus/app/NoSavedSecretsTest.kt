@@ -19,7 +19,10 @@ class NoSavedSecretsTest {
 
     private val sources = File("src/main/kotlin/com/shikkhokplus/app")
 
-    private val secretName = Regex("""(?i)password|confirm|current|code|otp|secret""")
+    // Name-based, so a secret held under a name outside this list passes
+    // the scan; the StateRestorationTester tests on the password and code
+    // screens are the behavioural half that does not depend on names.
+    private val secretName = Regex("""(?i)password|passwd|pass|pwd|pin|confirm|current|code|otp|secret""")
 
     private fun kotlinIn(vararg dirs: String): List<File> =
         dirs.flatMap { dir -> File(sources, dir).walkTopDown().filter { it.extension == "kt" }.toList() }

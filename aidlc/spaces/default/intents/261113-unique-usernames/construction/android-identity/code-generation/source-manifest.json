@@ -49,6 +49,9 @@
       "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/RosterDto.kt"
     },
     {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/SessionRenewal.kt"
+    },
+    {
       "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/TeacherStudentDto.kt"
     },
     {
@@ -263,6 +266,9 @@
     },
     {
       "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/RosterDtoTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/SessionRenewalTest.kt"
     },
     {
       "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/TeacherStudentDtoTest.kt"

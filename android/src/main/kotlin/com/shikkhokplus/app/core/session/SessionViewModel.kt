@@ -232,9 +232,10 @@ class SessionViewModel(
 
     /**
      * [recheck], awaited: the choose-username gate needs to know whether
-     * the read arrived, to offer a retry when it did not.
+     * it was lifted, to offer a retry when it was not.
      *
-     * @return True when the account was read, false when the read failed
+     * @return True when the account was read and no longer requires a
+     *   username; false when the read failed or still requires one
      */
     suspend fun recheckNow(): Boolean {
         val result = repository.profile()
@@ -245,6 +246,6 @@ class SessionViewModel(
             _passwordMissing.value = !result.value.hasPassword
             _state.value = SessionStateMapper.afterLoad(result.value)
         }
-        return true
+        return _state.value !is SessionUiState.UsernameRequired
     }
 }
