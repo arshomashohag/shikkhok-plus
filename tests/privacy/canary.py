@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
+import secrets
 import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -61,12 +62,13 @@ def _canary(label: str) -> str:
     return f"canary-{label}-{uuid.uuid4().hex}"
 
 
-def _digits() -> str:
-    """Build a unique eight-digit run for a phone number.
+def _digits(width: int) -> str:
+    """Build a run of random digits, every position random.
 
-    :return: Eight digits derived from a fresh UUID
+    :param width: How many digit positions the target format allows
+    :return: Exactly ``width`` digits from the system CSPRNG
     """
-    return f"{uuid.uuid4().int % 10**8:08d}"
+    return f"{secrets.randbelow(10**width):0{width}d}"
 
 
 def seed_canaries(session: Session) -> CanaryWorld:
@@ -79,10 +81,10 @@ def seed_canaries(session: Session) -> CanaryWorld:
     :return: The seeded world
     """
     now = dt.datetime.now(tz=dt.UTC)
-    phone = "+88017" + _digits()
-    guardian_phone = "+88018" + _digits()
+    phone = "+8801" + _digits(9)
+    guardian_phone = "+8801" + _digits(9)
     self_name = _canary("self-name")
-    collection_number = "01" + _digits() + _digits()[:1]
+    collection_number = "01" + _digits(9)
     enrollment_name = _canary("enrollment-name")
     student_name = _canary("student-name")
 
@@ -134,6 +136,7 @@ def seed_canaries(session: Session) -> CanaryWorld:
                 guardian_phone,
                 student_name,
                 str(enrollment.id),
+                enrollment.id.hex,
             }
         ),
         owner_id=owner.id,
@@ -169,22 +172,56 @@ def rendered_public_bodies(client: TestClient, paths: Iterable[str]) -> dict[str
     :param paths: Concrete paths to fetch
     :return: The body text keyed by path
     """
-    return {path: client.get(path).text for path in paths}
+    bodies: dict[str, str] = {}
+    for path in paths:
+        response = client.get(path)
+        if response.status_code != 200:
+            msg = f"public path {path!r} returned {response.status_code}, not 200"
+            raise AssertionError(msg)
+        bodies[path] = response.text
+    return bodies
+
+
+def _forms(canary: str) -> set[str]:
+    """Expand a canary into every form a page might render it in.
+
+    A numeric canary (a phone or collection number) is also matched as its
+    digits alone, its national ``0``-prefixed form without the ``880``
+    country code, and with the ``+`` percent-encoded. Everything is
+    lower-cased, so ids and names match whatever case a page renders.
+
+    :param canary: A seeded private string
+    :return: The lower-cased forms to look for
+    """
+    forms = {canary.lower()}
+    if re.fullmatch(r"\+?\d+", canary):
+        digits = canary.lstrip("+")
+        forms |= {digits, f"%2b{digits}"}
+        if digits.startswith("880"):
+            forms.add("0" + digits[3:])
+    return forms
 
 
 def canary_leaks(bodies: dict[str, str], world: CanaryWorld) -> list[tuple[str, str]]:
-    """Find every canary string present in any body.
+    """Find every canary string present in any body, in any rendered form.
+
+    Each body is checked as-is and again with spaces and hyphens removed,
+    so ``017-1234 5678`` is not a way past the probe.
 
     :param bodies: Body text keyed by path
     :param world: The seeded world
     :return: ``(path, canary)`` pairs, sorted, empty when nothing leaked
     """
-    return sorted(
-        (path, canary)
-        for path, body in bodies.items()
-        for canary in world.strings
-        if canary in body
-    )
+    found: list[tuple[str, str]] = []
+    for path, body in bodies.items():
+        lowered = body.lower()
+        squeezed = re.sub(r"[ \-]", "", lowered)
+        found.extend(
+            (path, canary)
+            for canary in world.strings
+            if any(f in lowered or f in squeezed for f in _forms(canary))
+        )
+    return sorted(found)
 
 
 def walk_cacheable_routes(

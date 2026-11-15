@@ -8,6 +8,8 @@ probe over real routes later is not a green probe over nothing.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 import sqlalchemy as sa
 from fastapi import FastAPI
@@ -91,3 +93,73 @@ def test_resolve_expands_both_locales(owner_session: Session) -> None:
     world: CanaryWorld = seed_canaries(owner_session)
 
     assert _resolve("/hub/{locale}", world) == ["/hub/en", "/hub/bn"]
+
+
+def _planted(render: str) -> FastAPI:
+    """Build an app whose ``/hub/en`` renders the given text.
+
+    :param render: The page body
+    :return: The application
+    """
+    app = FastAPI()
+
+    @app.get("/hub/en")
+    def _hub() -> dict[str, str]:
+        """Render the planted text.
+
+        :return: The payload
+        """
+        return {"body": render}
+
+    return app
+
+
+def _phone(world: CanaryWorld) -> str:
+    """Pick the seeded ``+880`` number out of the world.
+
+    :param world: The seeded world
+    :return: A canonical phone canary
+    """
+    return next(s for s in sorted(world.strings) if s.startswith("+880"))
+
+
+@pytest.mark.parametrize(
+    "render",
+    [
+        lambda p, _e: "call " + "0" + p[4:],
+        lambda p, _e: "call %2B" + p[1:],
+        lambda p, _e: "call " + p[1:5] + " " + p[5:9] + "-" + p[9:],
+        lambda _p, e: e.replace("-", "").upper(),
+    ],
+    ids=["national", "percent-encoded", "spaced", "uppercase-hex-id"],
+)
+def test_probe_catches_normalised_forms(
+    owner_session: Session, render: Callable[[str, str], str]
+) -> None:
+    """A phone or id in a disguised form is still caught.
+
+    :param owner_session: A session able to arrange the seeded world
+    :param render: Builds the page text from a phone and an enrollment id
+    :return: None
+    """
+    world = seed_canaries(owner_session)
+    phone = _phone(world)
+    enrollment_id = next(s for s in world.strings if len(s) == 36)
+
+    bodies = rendered_public_bodies(
+        TestClient(_planted(render(phone, enrollment_id))), ["/hub/en"]
+    )
+
+    assert canary_leaks(bodies, world) != []
+
+
+def test_non_200_public_page_is_refused(owner_session: Session) -> None:
+    """A 404 page cannot read as 'no leak'.
+
+    :param owner_session: A session able to arrange the seeded world
+    :return: None
+    """
+    seed_canaries(owner_session)
+
+    with pytest.raises(AssertionError, match=r"/hub/xx.*404"):
+        rendered_public_bodies(TestClient(_planted("x")), ["/hub/xx"])
