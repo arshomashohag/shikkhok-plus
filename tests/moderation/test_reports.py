@@ -281,3 +281,34 @@ def test_decide_sets_status_and_second_decision_conflicts(
     with pytest.raises(ConflictError) as caught:
         reports.decide(restricted_session, admin, report_id, "dismissed", NOW)
     assert caught.value.code == "REPORT_ALREADY_DECIDED"
+
+
+def test_decide_unknown_report_uses_the_admin_code(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """An unknown report id is the admin-facing not-found."""
+    admin = PlatformAdminLens(account_id=_reporter(owner_session))
+    with pytest.raises(AuthorizationError) as caught:
+        reports.decide(restricted_session, admin, uuid.uuid4(), "upheld", NOW)
+    assert caught.value.code == "HUB_ADMIN_TARGET_NOT_FOUND"
+    assert caught.value.message_key == "hub.admin_target_not_found"
+
+
+def test_batch_listing_under_a_hidden_owner_listing_is_not_reportable(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A published batch is reportable only while its owner is published."""
+    target = make_teacher(owner_session)
+    publish_owner(owner_session, target.owner_id, status="hidden")
+    publish_batch(owner_session, target.owner_id, target.batch_id)
+    with pytest.raises(AuthorizationError) as caught:
+        reports.file(
+            restricted_session,
+            _reporter(owner_session),
+            "listing",
+            target.batch_id,
+            "fake",
+            None,
+            NOW,
+        )
+    assert caught.value.code == "REPORT_TARGET_NOT_FOUND"

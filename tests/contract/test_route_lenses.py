@@ -196,11 +196,11 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             ("POST", "/v1/me/help/tickets"),
             ("GET", "/v1/me/help/tickets/{ticket_id}"),
             ("POST", "/v1/me/help/tickets/{ticket_id}/messages"),
-            # The caller's own two-step verification settings [0028].
             # Reporting a published hub listing [0036]: acts as the caller
             # alone; only a published listing is reportable and every other
             # target refuses identically.
             ("POST", "/v1/hub/reports"),
+            # The caller's own two-step verification settings [0028].
             ("GET", "/v1/me/mfa"),
             ("POST", "/v1/me/mfa/setup"),
             ("POST", "/v1/me/mfa/confirm"),

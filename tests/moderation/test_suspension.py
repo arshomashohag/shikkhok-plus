@@ -280,3 +280,41 @@ def test_admin_suspends_decides_and_lists_over_http(
     assert [i["target_id"] for i in listed.json()["items"]] == [str(target.owner_id)]
     assert listed.json()["items"][0]["reason"] == "child_safety"
     assert empty.json()["items"] == []
+
+
+def test_suspending_a_draft_listing_is_refused_cleanly(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A never-published draft cannot be suspended, and is not a 500."""
+    teacher = make_teacher(owner_session)
+    publish_owner(owner_session, teacher.owner_id, status="draft")
+    with pytest.raises(AuthorizationError) as caught:
+        suspension.set(
+            restricted_session,
+            _admin(owner_session),
+            teacher.owner_id,
+            True,
+            "fake",
+            NOW,
+        )
+    assert caught.value.code == "HUB_ADMIN_TARGET_NOT_FOUND"
+    assert caught.value.status == 404
+    assert (
+        status_of(owner_session, "owner_listing", "owner_id", teacher.owner_id)
+        == "draft"
+    )
+
+
+def test_hidden_listing_can_be_suspended(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A hidden listing is still suspendable."""
+    teacher = make_teacher(owner_session)
+    publish_owner(owner_session, teacher.owner_id, status="hidden")
+    suspension.set(
+        restricted_session, _admin(owner_session), teacher.owner_id, True, "fake", NOW
+    )
+    assert (
+        status_of(owner_session, "owner_listing", "owner_id", teacher.owner_id)
+        == "suspended"
+    )

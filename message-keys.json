@@ -96,6 +96,7 @@
     "help.ticket.not_found",
     "help.ticket.too_many",
     "hub.address_centre_only",
+    "hub.admin_target_not_found",
     "hub.area_mismatch",
     "hub.batch_flags_required",
     "hub.batch_inactive",

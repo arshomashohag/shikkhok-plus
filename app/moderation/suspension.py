@@ -28,7 +28,7 @@ from app.db.models import (
     OwnerMember,
 )
 from app.errors import ValidationError
-from app.moderation.reports import not_found
+from app.moderation.reports import admin_not_found
 from app.moderation.vocab import REASONS
 from app.notifications.inbox import HUB_LISTING_SUSPENDED, deliver
 
@@ -89,7 +89,7 @@ def set(
     :param correlation_id: The request that caused it
     :return: None
     :raises ValidationError: The reason is not in the closed set
-    :raises AuthorizationError: The owner has no listing
+    :raises AuthorizationError: The owner has no listing, or only a draft
     """
     if reason_code not in REASONS:
         raise ValidationError(
@@ -101,8 +101,8 @@ def set(
         .where(OwnerListing.owner_id == owner_id)
         .with_for_update()
     )
-    if listing is None:
-        raise not_found()
+    if listing is None or listing.status == "draft":
+        raise admin_not_found()
     if suspended:
         if listing.status == "suspended":
             return

@@ -1816,6 +1816,7 @@
     <string name="hub_report_target_not_found">এই তালিকাটি রিপোর্ট করা যাবে না।</string>
     <string name="hub_report_already_filed">আপনি ইতিমধ্যে এই তালিকাটি রিপোর্ট করেছেন।</string>
     <string name="hub_report_already_decided">এই রিপোর্টের সিদ্ধান্ত আগেই নেওয়া হয়েছে।</string>
+    <string name="hub_admin_target_not_found">কিছু করার নেই: এমন কোনো রিপোর্ট বা তালিকা নেই।</string>
     <string name="hub_report_reason_invalid">তালিকা থেকে একটি কারণ বেছে নিন।</string>
     <string name="hub_batch_inactive">এই ব্যাচটি বন্ধ করা হয়েছে, তাই এর তালিকা প্রকাশ করা যাবে না।</string>
     <string name="hub_owner_not_published">আগে আপনার নিজের তালিকা প্রকাশ করুন, তারপর এই ব্যাচ প্রকাশ করুন।</string>

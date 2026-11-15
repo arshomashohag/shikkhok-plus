@@ -659,6 +659,7 @@
   "history_line_rejected": "{1} by {2} on {3} · rejected",
   "history_note": "Note: {1}",
   "hub_address_centre_only": "Only coaching centres can show a street address.",
+  "hub_admin_target_not_found": "Nothing to act on: no such report or listing.",
   "hub_area_mismatch": "This upazila is not in the district you chose.",
   "hub_batch_flags_required": "Say whether to show the fee and the schedule publicly before saving this listing.",
   "hub_batch_inactive": "This batch is retired, so its listing cannot be published.",

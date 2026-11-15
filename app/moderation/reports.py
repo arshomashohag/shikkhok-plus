@@ -36,7 +36,7 @@ from app.help.identity import requester_ref
 from app.hub.listings.shared import refuse_phone_in
 from app.moderation.vocab import REASONS
 
-__all__ = ["QueueItem", "decide", "file", "not_found", "queue"]
+__all__ = ["QueueItem", "admin_not_found", "decide", "file", "not_found", "queue"]
 
 _SECONDS_PER_HOUR: Final = 3600
 
@@ -83,8 +83,22 @@ def not_found() -> AuthorizationError:
     )
 
 
+def admin_not_found() -> AuthorizationError:
+    """Build the refusal an administrator gets for nothing to act on.
+
+    :return: A 404-equivalent authorization error
+    """
+    return AuthorizationError(
+        code="HUB_ADMIN_TARGET_NOT_FOUND",
+        message_key="hub.admin_target_not_found",
+        status=404,
+    )
+
+
 def _reportable(session: Session, target_kind: str, target_id: uuid.UUID) -> bool:
     """Say whether a target is a published listing.
+
+    A batch listing counts only while its owner listing is published too.
 
     An owner listing is tried first by owner id, then a batch listing by batch
     id; the ids are globally unique, so at most one matches.
@@ -101,10 +115,17 @@ def _reportable(session: Session, target_kind: str, target_id: uuid.UUID) -> boo
     )
     if owner_status is not None:
         return owner_status == "published"
-    batch_status = session.scalar(
-        sa.select(BatchListing.status).where(BatchListing.batch_id == target_id)
+    batch = session.execute(
+        sa.select(BatchListing.status, BatchListing.owner_id).where(
+            BatchListing.batch_id == target_id
+        )
+    ).one_or_none()
+    if batch is None or batch.status != "published":
+        return False
+    parent = session.scalar(
+        sa.select(OwnerListing.status).where(OwnerListing.owner_id == batch.owner_id)
     )
-    return batch_status == "published"
+    return parent == "published"
 
 
 def file(
@@ -157,6 +178,8 @@ def file(
             session.flush()
     except IntegrityError as exc:
         session.rollback()
+        if "uq_hub_report_target_reporter" not in str(exc.orig):
+            raise
         raise ConflictError(
             code="REPORT_ALREADY_FILED", message_key="hub.report_already_filed"
         ) from exc
@@ -305,7 +328,7 @@ def decide(
         sa.select(HubReport).where(HubReport.id == report_id).with_for_update()
     )
     if report is None:
-        raise not_found()
+        raise admin_not_found()
     if report.status != "open":
         raise ConflictError(
             code="REPORT_ALREADY_DECIDED", message_key="hub.report_already_decided"
