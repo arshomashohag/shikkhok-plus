@@ -120,7 +120,7 @@ class HttpHubApiTest {
                 } else {
                     respond(
                         """[{"member_id":"m-1","centre_id":"c-1","centre_name":"Udayan","role":"teacher",
-                        "public_name_consent":true}]""",
+                        "public_name_consent":true,"name_shown":"Karim Sir"}]""",
                         HttpStatusCode.OK,
                         json,
                     )
@@ -130,6 +130,7 @@ class HttpHubApiTest {
 
         val memberships = assertIs<AuthResult.Ok<List<CentreMembership>>>(api.centreMemberships())
         assertEquals(true, memberships.value.single().publicNameConsent)
+        assertEquals("Karim Sir", memberships.value.single().nameShown)
         assertIs<AuthResult.Ok<Unit>>(api.setNameConsent("c-1", false))
 
         val put = engine.requestHistory.last()

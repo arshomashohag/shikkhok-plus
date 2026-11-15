@@ -103,6 +103,12 @@ private fun ConsentCard(row: ConsentRow, onSet: (String, Boolean) -> Unit, onRet
             )
             Text(stringResource(R.string.hub_consent_toggle), style = MaterialTheme.typography.bodyLarge)
         }
+        // The exact name the centre's page would publish, so nobody agrees to a name unseen.
+        Text(
+            stringResource(R.string.hub_consent_shown_as, row.membership.nameShown),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         row.failureKey?.let { key ->
             Banner(
                 title = stringResource(R.string.hub_consent_failed) + " " + stringResource(MessageKeys.resolve(key)),

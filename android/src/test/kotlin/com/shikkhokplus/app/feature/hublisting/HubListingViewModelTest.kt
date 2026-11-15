@@ -441,4 +441,53 @@ class HubListingViewModelTest {
         assertFalse(vm.state.value.canSave)
         assertEquals(ListingStatus.UNKNOWN, ListingStatus.fromWire("archived"))
     }
+
+    @Test
+    fun an_outdated_consent_reloads_the_listing_and_keeps_what_was_typed() = runTest(dispatcher) {
+        val fake = FakeHubApi()
+        fake.listing = AuthResult.Ok(owner(publishable = true, consentVersionCurrent = "2026-11-14"))
+        val vm = model(fake)
+        vm.load()
+        advanceUntilIdle()
+        vm.openPublish()
+        vm.agree(true)
+        fake.listing = AuthResult.Ok(owner(publishable = true, consentVersionCurrent = "2027-01-01"))
+        fake.publishResult = refusal("hub.consent_outdated")
+
+        vm.publish()
+        advanceUntilIdle()
+
+        assertEquals(2, fake.listingReads, "the refusal reads the listing again, past the re-entry guard")
+        val editing = assertIs<HubListingUiState.Editing>(vm.state.value.body)
+        assertEquals("2027-01-01", editing.listing.consentVersionCurrent)
+        assertEquals("hub.consent_outdated", vm.state.value.failure?.messageKey)
+        assertTrue(vm.state.value.publishing, "the sheet stays open on the new terms")
+        assertFalse(vm.state.value.agreed, "new terms need a new agreement")
+
+        fake.publishResult = null
+        vm.agree(true)
+        vm.publish()
+        advanceUntilIdle()
+        assertEquals(listOf("2026-11-14", "2027-01-01"), fake.published)
+    }
+
+    @Test
+    fun an_outdated_consent_reload_never_overwrites_unsaved_edits() = runTest(dispatcher) {
+        val fake = FakeHubApi()
+        fake.listing = AuthResult.Ok(owner(publishable = true))
+        val vm = model(fake)
+        vm.load()
+        advanceUntilIdle()
+        vm.openPublish()
+        vm.agree(true)
+        vm.edit { it.copy(headlineEn = "typed, not saved") }
+        fake.listing = AuthResult.Ok(owner(publishable = true, consentVersionCurrent = "2027-01-01"))
+        fake.publishResult = refusal("hub.consent_outdated")
+
+        vm.publish()
+        advanceUntilIdle()
+
+        assertEquals(2, fake.listingReads)
+        assertEquals("typed, not saved", vm.state.value.draft.headlineEn)
+    }
 }

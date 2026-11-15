@@ -12,6 +12,9 @@ import kotlinx.coroutines.launch
 /** The message key for a request that never got an answer. */
 internal const val HUB_OFFLINE_KEY: String = "error.network.unreachable"
 
+/** The refusal that means the consent terms changed since the listing was read. */
+internal const val HUB_CONSENT_OUTDATED_KEY: String = "hub.consent_outdated"
+
 /**
  * A failed call, as the screen shows it.
  *
@@ -399,7 +402,23 @@ class HubListingViewModel(
                 // A failure repeating cannot fix leaves nothing to retry.
                 if (failure?.canRetry != true) lastWrite = null
                 _state.update { it.copy(saving = false, failure = failure) }
+                if (failure?.messageKey == HUB_CONSENT_OUTDATED_KEY) reloadTerms()
             }
+        }
+    }
+
+    /**
+     * Read the listing again for the consent version the server now names.
+     *
+     * An explicit refresh, past [load]'s re-entry guard: only the server's
+     * listing is replaced, so whatever the owner typed is kept, and the box
+     * is unticked because new terms need a new agreement. The sheet stays
+     * open with the refusal showing.
+     */
+    private fun reloadTerms() {
+        viewModelScope.launch {
+            val fresh = (api.listing() as? AuthResult.Ok)?.value ?: return@launch
+            _state.update { it.copy(body = fresh.toUiState(), agreed = false) }
         }
     }
 

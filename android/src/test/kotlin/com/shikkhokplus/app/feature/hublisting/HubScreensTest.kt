@@ -215,7 +215,16 @@ class HubScreensTest {
                 NameConsentState(
                     NameConsentBody.Loaded(
                         listOf(
-                            ConsentRow(CentreMembership("m-1", "c-1", "Udayan", "teacher", publicNameConsent = false)),
+                            ConsentRow(
+                                CentreMembership(
+                                    "m-1",
+                                    "c-1",
+                                    "Udayan",
+                                    "teacher",
+                                    publicNameConsent = false,
+                                    nameShown = "Karim Sir",
+                                ),
+                            ),
                         ),
                     ),
                 ),
@@ -225,7 +234,22 @@ class HubScreensTest {
                 onBack = {},
             )
         }
+        compose.onNodeWithText("Shown as: Karim Sir").assertIsDisplayed()
         compose.onNodeWithTag(nameConsentTag("c-1")).performClick()
         assertEquals(listOf("c-1" to true), asked)
+    }
+
+    @Test
+    fun `a batch row names its saved levels and curriculum in words`() {
+        val state =
+            BatchListingsState(
+                BatchListingsBody.Loaded(
+                    listOf(batchListing(classLevels = listOf("class_9", "hsc"), curriculum = "madrasah")),
+                ),
+            )
+        compose.setContent { BatchListingsScreen(state, BatchListingsActions()) }
+
+        compose.onNodeWithText("Class 9, HSC · Madrasah").assertIsDisplayed()
+        compose.onNodeWithText("class_9", substring = true).assertDoesNotExist()
     }
 }

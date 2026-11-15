@@ -79,7 +79,14 @@ class BatchListingsViewModelTest {
 
         vm.edit("b-1")
         vm.change {
-            it.copy(descriptionEn = "Weekly physics", levels = "9, 10 ,", tags = "mechanics،optics", mode = "online")
+            it.copy(
+                publicTitle = "Class 9 Physics",
+                descriptionEn = "Weekly physics",
+                levels = listOf("class_10", "class_9"),
+                curriculum = "national_bangla",
+                tags = "mechanics،optics",
+                mode = "online",
+            )
         }
         vm.save()
         advanceUntilIdle()
@@ -88,7 +95,10 @@ class BatchListingsViewModelTest {
         assertEquals("b-1", id)
         assertEquals(false, body.showFee)
         assertEquals(false, body.showSchedule)
-        assertEquals(listOf("9", "10"), body.classLevels)
+        assertEquals("Class 9 Physics", body.publicTitle)
+        // Vocabulary values in vocabulary order, never typed text.
+        assertEquals(listOf("class_9", "class_10"), body.classLevels)
+        assertEquals("national_bangla", body.curriculum)
         assertEquals(listOf("mechanics", "optics"), body.subjectTags)
         assertEquals("online", body.mode)
         assertEquals("open", body.admissions)

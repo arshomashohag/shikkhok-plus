@@ -46,6 +46,7 @@ import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.hublisting.HubChecklistItem
 import com.shikkhokplus.app.feature.hublisting.HubDraft
 import com.shikkhokplus.app.feature.hublisting.HubFailure
+import com.shikkhokplus.app.feature.hublisting.HubLimits
 import com.shikkhokplus.app.feature.hublisting.HubListingState
 import com.shikkhokplus.app.feature.hublisting.HubListingUiState
 import com.shikkhokplus.app.feature.hublisting.HubNotice
@@ -215,14 +216,14 @@ private fun ListingFields(state: HubListingState, readOnly: Boolean, actions: Hu
     val enabled = !readOnly
     ShikkhokTextField(
         value = draft.publicName,
-        onValueChange = { v -> actions.onEdit { it.copy(publicName = v.take(PUBLIC_NAME_MAX)) } },
+        onValueChange = { v -> actions.onEdit { it.copy(publicName = v.take(HubLimits.PUBLIC_NAME)) } },
         label = stringResource(R.string.hub_field_public_name),
         enabled = enabled,
         singleLine = false,
     )
     ShikkhokTextField(
         value = draft.slug,
-        onValueChange = { v -> actions.onEdit { it.copy(slug = v.take(SLUG_MAX)) } },
+        onValueChange = { v -> actions.onEdit { it.copy(slug = v.take(HubLimits.SLUG)) } },
         label = stringResource(R.string.hub_field_slug),
         help = stringResource(R.string.hub_slug_help),
         error = if (state.slugNote == SlugNote.TAKEN) stringResource(R.string.hub_slug_taken_ui) else null,
@@ -239,7 +240,7 @@ private fun ListingFields(state: HubListingState, readOnly: Boolean, actions: Hu
     LanguageFields(draft, enabled, actions.onEdit)
     ShikkhokTextField(
         value = draft.qualifications,
-        onValueChange = { v -> actions.onEdit { it.copy(qualifications = v.take(QUALIFICATIONS_MAX)) } },
+        onValueChange = { v -> actions.onEdit { it.copy(qualifications = v.take(HubLimits.QUALIFICATIONS)) } },
         label = stringResource(R.string.hub_field_qualifications),
         enabled = enabled,
         singleLine = false,
@@ -261,7 +262,7 @@ private fun ListingFields(state: HubListingState, readOnly: Boolean, actions: Hu
     if (state.showStreet) {
         ShikkhokTextField(
             value = draft.streetAddress,
-            onValueChange = { v -> actions.onEdit { it.copy(streetAddress = v.take(STREET_MAX)) } },
+            onValueChange = { v -> actions.onEdit { it.copy(streetAddress = v.take(HubLimits.STREET)) } },
             label = stringResource(R.string.hub_field_street),
             enabled = enabled,
             singleLine = false,
@@ -270,7 +271,7 @@ private fun ListingFields(state: HubListingState, readOnly: Boolean, actions: Hu
     }
     ShikkhokTextField(
         value = draft.phone,
-        onValueChange = { v -> actions.onEdit { it.copy(phone = v.take(PHONE_MAX)) } },
+        onValueChange = { v -> actions.onEdit { it.copy(phone = v.take(HubLimits.PHONE)) } },
         label = stringResource(R.string.hub_field_phone),
         help = stringResource(R.string.hub_phone_help),
         enabled = enabled,
@@ -297,14 +298,14 @@ private fun LanguageFields(draft: HubDraft, enabled: Boolean, onEdit: ((HubDraft
     if (bangla) {
         ShikkhokTextField(
             value = draft.headlineBn,
-            onValueChange = { v -> onEdit { it.copy(headlineBn = v.take(HEADLINE_MAX)) } },
+            onValueChange = { v -> onEdit { it.copy(headlineBn = v.take(HubLimits.HEADLINE)) } },
             label = stringResource(R.string.hub_field_headline_bn),
             enabled = enabled,
             singleLine = false,
         )
         ShikkhokTextField(
             value = draft.bioBn,
-            onValueChange = { v -> onEdit { it.copy(bioBn = v.take(BIO_MAX)) } },
+            onValueChange = { v -> onEdit { it.copy(bioBn = v.take(HubLimits.BIO)) } },
             label = stringResource(R.string.hub_field_bio_bn),
             enabled = enabled,
             singleLine = false,
@@ -313,14 +314,14 @@ private fun LanguageFields(draft: HubDraft, enabled: Boolean, onEdit: ((HubDraft
     } else {
         ShikkhokTextField(
             value = draft.headlineEn,
-            onValueChange = { v -> onEdit { it.copy(headlineEn = v.take(HEADLINE_MAX)) } },
+            onValueChange = { v -> onEdit { it.copy(headlineEn = v.take(HubLimits.HEADLINE)) } },
             label = stringResource(R.string.hub_field_headline_en),
             enabled = enabled,
             singleLine = false,
         )
         ShikkhokTextField(
             value = draft.bioEn,
-            onValueChange = { v -> onEdit { it.copy(bioEn = v.take(BIO_MAX)) } },
+            onValueChange = { v -> onEdit { it.copy(bioEn = v.take(HubLimits.BIO)) } },
             label = stringResource(R.string.hub_field_bio_en),
             enabled = enabled,
             singleLine = false,
@@ -495,11 +496,3 @@ private fun noticeText(notice: HubNotice): Int =
         HubNotice.PUBLISHED -> R.string.hub_published_snack
         HubNotice.UNPUBLISHED -> R.string.hub_unpublished
     }
-
-private const val PUBLIC_NAME_MAX = 120
-private const val SLUG_MAX = 60
-private const val HEADLINE_MAX = 200
-private const val BIO_MAX = 5000
-private const val QUALIFICATIONS_MAX = 1000
-private const val STREET_MAX = 300
-private const val PHONE_MAX = 40

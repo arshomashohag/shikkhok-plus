@@ -37,6 +37,8 @@ internal fun batchListing(
     id: String = "b-1",
     name: String = "Physics 9",
     status: String = "draft",
+    classLevels: List<String> = emptyList(),
+    curriculum: String? = null,
     fee: Money? = null,
     teacherNames: List<String> = emptyList(),
     checklist: List<HubChecklistItem> = emptyList(),
@@ -47,6 +49,8 @@ internal fun batchListing(
     batchName = name,
     subjects = listOf("Physics"),
     status = status,
+    classLevels = classLevels,
+    curriculum = curriculum,
     showFee = showFee,
     fee = fee,
     teacherNames = teacherNames,
@@ -69,6 +73,7 @@ internal class FakeHubApi : HubApi {
     var memberships: AuthResult<List<CentreMembership>> = AuthResult.Ok(emptyList())
     var consentResult: AuthResult<Unit> = AuthResult.Ok(Unit)
 
+    var listingReads = 0
     val saved = mutableListOf<OwnerListingUpdateRequest>()
     val published = mutableListOf<String>()
     var unpublished = 0
@@ -87,7 +92,10 @@ internal class FakeHubApi : HubApi {
             "BD1001" to listOf("BD100101" to "upazila"),
         )
 
-    override suspend fun listing(): AuthResult<OwnerListingResponse> = listing
+    override suspend fun listing(): AuthResult<OwnerListingResponse> {
+        listingReads++
+        return listing
+    }
 
     override suspend fun save(body: OwnerListingUpdateRequest): AuthResult<OwnerListingResponse> {
         saved += body

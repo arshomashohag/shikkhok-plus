@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.Spacing
 import com.shikkhokplus.app.feature.hublisting.AreaOption
+import com.shikkhokplus.app.feature.hublisting.ClassLevel
+import com.shikkhokplus.app.feature.hublisting.Curriculum
 import com.shikkhokplus.app.feature.hublisting.ListingStatus
 
 /** What a status chip is called, by its status. */
@@ -54,10 +56,66 @@ internal fun admissionsLabel(wire: String): Int =
         else -> R.string.hub_batch_admissions_open
     }
 
+/** Each class level's words; every [ClassLevel] has an entry, which a test asserts. */
+private val LEVEL_LABELS: Map<ClassLevel, Int> =
+    mapOf(
+        ClassLevel.CLASS_1 to R.string.hub_level_class_1,
+        ClassLevel.CLASS_2 to R.string.hub_level_class_2,
+        ClassLevel.CLASS_3 to R.string.hub_level_class_3,
+        ClassLevel.CLASS_4 to R.string.hub_level_class_4,
+        ClassLevel.CLASS_5 to R.string.hub_level_class_5,
+        ClassLevel.CLASS_6 to R.string.hub_level_class_6,
+        ClassLevel.CLASS_7 to R.string.hub_level_class_7,
+        ClassLevel.CLASS_8 to R.string.hub_level_class_8,
+        ClassLevel.CLASS_9 to R.string.hub_level_class_9,
+        ClassLevel.CLASS_10 to R.string.hub_level_class_10,
+        ClassLevel.CLASS_11 to R.string.hub_level_class_11,
+        ClassLevel.CLASS_12 to R.string.hub_level_class_12,
+        ClassLevel.SSC to R.string.hub_level_ssc,
+        ClassLevel.HSC to R.string.hub_level_hsc,
+        ClassLevel.ADMISSION to R.string.hub_level_admission,
+        ClassLevel.O_LEVEL to R.string.hub_level_o_level,
+        ClassLevel.A_LEVEL to R.string.hub_level_a_level,
+        ClassLevel.OTHER to R.string.hub_level_other,
+    )
+
+/** What a class level is called, by its vocabulary entry. */
+internal fun levelLabel(level: ClassLevel): Int = LEVEL_LABELS.getValue(level)
+
+/** What a curriculum is called, by its vocabulary entry. */
+internal fun curriculumLabel(curriculum: Curriculum): Int =
+    when (curriculum) {
+        Curriculum.NATIONAL_BANGLA -> R.string.hub_curriculum_national_bangla
+        Curriculum.NATIONAL_ENGLISH -> R.string.hub_curriculum_national_english
+        Curriculum.ENGLISH_MEDIUM -> R.string.hub_curriculum_english_medium
+        Curriculum.MADRASAH -> R.string.hub_curriculum_madrasah
+        Curriculum.OTHER -> R.string.hub_curriculum_other
+    }
+
+/**
+ * A batch's saved class levels and curriculum in the reader's words, never
+ * the raw values. A value this version does not know is left out.
+ *
+ * @param levels The server's `class_levels`
+ * @param curriculum The server's `curriculum`
+ * @return "Class 9, HSC · Madrasah", or an empty string for neither
+ */
+@Composable
+internal fun levelsLine(levels: List<String>, curriculum: String?): String {
+    val names =
+        levels.mapNotNull { wire -> ClassLevel.entries.firstOrNull { it.wire == wire } }
+            .map { stringResource(levelLabel(it)) }
+            .joinToString(", ")
+    val course =
+        Curriculum.entries.firstOrNull { it.wire == curriculum }?.let { stringResource(curriculumLabel(it)) }.orEmpty()
+    return listOf(names, course).filter { it.isNotEmpty() }.joinToString(" · ")
+}
+
 /** The words for a checklist key, or null for a key this client has no words for. */
 internal fun checklistLabel(key: String): Int? =
     when (key) {
         "public_name" -> R.string.hub_check_public_name
+        "public_title" -> R.string.hub_check_public_title
         "slug" -> R.string.hub_check_slug
         "area" -> R.string.hub_check_area
         "headline" -> R.string.hub_check_headline

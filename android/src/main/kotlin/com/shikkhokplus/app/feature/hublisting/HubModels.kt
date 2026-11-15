@@ -145,12 +145,13 @@ data class AreaOption(
  * @property subjects Its subject names
  * @property status `draft` before any listing row exists
  * @property slug The public path segment
+ * @property publicTitle The batch's public name; [batchName] is the owner's own
  * @property descriptionEn The English description
  * @property descriptionBn The Bangla description
  * @property syllabusEn The English syllabus
  * @property syllabusBn The Bangla syllabus
- * @property classLevels The class levels taught
- * @property curriculum The curriculum
+ * @property classLevels The class levels taught, as [ClassLevel] wire values
+ * @property curriculum The curriculum, as a [Curriculum] wire value
  * @property subjectTags Public subject tags
  * @property mode How the batch is taught
  * @property admissions `open`, `waitlist` or `closed`
@@ -169,6 +170,7 @@ data class BatchListingResponse(
     @SerialName("subjects") val subjects: List<String> = emptyList(),
     @SerialName("status") val status: String,
     @SerialName("slug") val slug: String? = null,
+    @SerialName("public_title") val publicTitle: String? = null,
     @SerialName("description_en") val descriptionEn: String? = null,
     @SerialName("description_bn") val descriptionBn: String? = null,
     @SerialName("syllabus_en") val syllabusEn: String? = null,
@@ -190,12 +192,13 @@ data class BatchListingResponse(
  * The body of `PUT /v1/batches/{id}/listing`.
  *
  * @property slug The public path segment
+ * @property publicTitle The batch's public name; empty clears it
  * @property descriptionEn The English description
  * @property descriptionBn The Bangla description
  * @property syllabusEn The English syllabus
  * @property syllabusBn The Bangla syllabus
- * @property classLevels The class levels taught
- * @property curriculum The curriculum; empty clears it
+ * @property classLevels The class levels taught, as [ClassLevel] wire values
+ * @property curriculum The curriculum's [Curriculum] wire value; empty clears it
  * @property subjectTags Public subject tags
  * @property mode How the batch is taught; empty clears it
  * @property admissions `open`, `waitlist` or `closed`
@@ -205,6 +208,7 @@ data class BatchListingResponse(
 @Serializable
 data class BatchListingUpdateRequest(
     @SerialName("slug") val slug: String? = null,
+    @SerialName("public_title") val publicTitle: String? = null,
     @SerialName("description_en") val descriptionEn: String? = null,
     @SerialName("description_bn") val descriptionBn: String? = null,
     @SerialName("syllabus_en") val syllabusEn: String? = null,
@@ -236,6 +240,7 @@ data class ConsentRequest(
  * @property centreName The centre's name
  * @property role `manager` or `teacher`
  * @property publicNameConsent Whether the member agreed to be named publicly
+ * @property nameShown The exact name the centre's page shows once they agree
  */
 @Serializable
 data class CentreMembership(
@@ -244,6 +249,7 @@ data class CentreMembership(
     @SerialName("centre_name") val centreName: String,
     @SerialName("role") val role: String,
     @SerialName("public_name_consent") val publicNameConsent: Boolean,
+    @SerialName("name_shown") val nameShown: String,
 )
 
 /** A listing's status, as the server names it. */
@@ -298,6 +304,59 @@ enum class Admissions(val wire: String) {
 
     /** Not taking students. */
     CLOSED("closed"),
+}
+
+/**
+ * The class levels a batch may teach: the server's closed vocabulary, in
+ * the order a teacher reads it. A value outside it is refused, so the
+ * editor offers these and nothing typed.
+ */
+enum class ClassLevel(val wire: String) {
+    CLASS_1("class_1"),
+    CLASS_2("class_2"),
+    CLASS_3("class_3"),
+    CLASS_4("class_4"),
+    CLASS_5("class_5"),
+    CLASS_6("class_6"),
+    CLASS_7("class_7"),
+    CLASS_8("class_8"),
+    CLASS_9("class_9"),
+    CLASS_10("class_10"),
+    CLASS_11("class_11"),
+    CLASS_12("class_12"),
+    SSC("ssc"),
+    HSC("hsc"),
+    ADMISSION("admission"),
+    O_LEVEL("o_level"),
+    A_LEVEL("a_level"),
+    OTHER("other"),
+}
+
+/** The curricula a batch may follow: the server's closed vocabulary. */
+enum class Curriculum(val wire: String) {
+    NATIONAL_BANGLA("national_bangla"),
+    NATIONAL_ENGLISH("national_english"),
+    ENGLISH_MEDIUM("english_medium"),
+    MADRASAH("madrasah"),
+    OTHER("other"),
+}
+
+/**
+ * The longest text each editor field takes: the server's request bounds,
+ * which equal its columns. `HubVocabularyContractTest` reads them from
+ * `openapi.json`, so a drift fails there and not as a refusal.
+ */
+object HubLimits {
+    const val PUBLIC_NAME: Int = 120
+    const val SLUG: Int = 60
+    const val HEADLINE: Int = 140
+    const val BIO: Int = 4000
+    const val QUALIFICATIONS: Int = 1000
+    const val STREET: Int = 200
+    const val PHONE: Int = 40
+    const val PUBLIC_TITLE: Int = 120
+    const val DESCRIPTION: Int = 4000
+    const val SYLLABUS: Int = 4000
 }
 
 /** The exact fallback label the server sends for a member who has not agreed to be named. */
@@ -413,15 +472,16 @@ fun divisionOf(districtCode: String, divisionCodes: List<String>): String =
     divisionCodes.firstOrNull { districtCode.startsWith(it) && districtCode != it }.orEmpty()
 
 /**
- * What the batch editor has typed.
+ * What the batch editor has typed or picked.
  *
  * @property slug The public path segment
+ * @property publicTitle The batch's public name
  * @property descriptionEn The English description
  * @property descriptionBn The Bangla description
  * @property syllabusEn The English syllabus
  * @property syllabusBn The Bangla syllabus
- * @property levels Class levels, comma separated
- * @property curriculum The curriculum
+ * @property levels The picked class levels, as [ClassLevel] wire values
+ * @property curriculum The picked [Curriculum]'s wire value, or empty for none
  * @property tags Subject tags, comma separated
  * @property mode The teaching mode's wire value, or empty for none
  * @property admissions The admissions state's wire value
@@ -430,11 +490,12 @@ fun divisionOf(districtCode: String, divisionCodes: List<String>): String =
  */
 data class BatchDraft(
     val slug: String = "",
+    val publicTitle: String = "",
     val descriptionEn: String = "",
     val descriptionBn: String = "",
     val syllabusEn: String = "",
     val syllabusBn: String = "",
-    val levels: String = "",
+    val levels: List<String> = emptyList(),
     val curriculum: String = "",
     val tags: String = "",
     val mode: String = "",
@@ -452,11 +513,12 @@ data class BatchDraft(
 fun batchDraftOf(b: BatchListingResponse): BatchDraft =
     BatchDraft(
         slug = b.slug.orEmpty(),
+        publicTitle = b.publicTitle.orEmpty(),
         descriptionEn = b.descriptionEn.orEmpty(),
         descriptionBn = b.descriptionBn.orEmpty(),
         syllabusEn = b.syllabusEn.orEmpty(),
         syllabusBn = b.syllabusBn.orEmpty(),
-        levels = b.classLevels.joinToString(", "),
+        levels = b.classLevels,
         curriculum = b.curriculum.orEmpty(),
         tags = b.subjectTags.joinToString(", "),
         mode = b.mode.orEmpty(),
@@ -484,12 +546,14 @@ fun splitList(text: String): List<String> = text.split(',', '،').map { it.trim(
 fun batchBody(d: BatchDraft): BatchListingUpdateRequest =
     BatchListingUpdateRequest(
         slug = d.slug.trim().ifEmpty { null },
+        publicTitle = d.publicTitle.trim(),
         descriptionEn = d.descriptionEn,
         descriptionBn = d.descriptionBn,
         syllabusEn = d.syllabusEn,
         syllabusBn = d.syllabusBn,
-        classLevels = splitList(d.levels),
-        curriculum = d.curriculum.trim(),
+        // In vocabulary order, whatever order they were picked in.
+        classLevels = ClassLevel.entries.map { it.wire }.filter { it in d.levels },
+        curriculum = d.curriculum,
         subjectTags = splitList(d.tags),
         mode = d.mode,
         admissions = d.admissions,

@@ -30,7 +30,14 @@ class NameConsentViewModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     private fun membership(consent: Boolean = false) =
-        CentreMembership("m-1", "c-1", "Udayan", role = "teacher", publicNameConsent = consent)
+        CentreMembership(
+            "m-1",
+            "c-1",
+            "Udayan",
+            role = "teacher",
+            publicNameConsent = consent,
+            nameShown = "Karim Sir",
+        )
 
     private suspend fun loaded(fake: FakeHubApi): NameConsentViewModel {
         val vm = NameConsentViewModel(fake)

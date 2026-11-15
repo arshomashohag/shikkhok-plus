@@ -43,6 +43,9 @@ import com.shikkhokplus.app.feature.hublisting.BatchEditorState
 import com.shikkhokplus.app.feature.hublisting.BatchListingResponse
 import com.shikkhokplus.app.feature.hublisting.BatchListingsBody
 import com.shikkhokplus.app.feature.hublisting.BatchListingsState
+import com.shikkhokplus.app.feature.hublisting.ClassLevel
+import com.shikkhokplus.app.feature.hublisting.Curriculum
+import com.shikkhokplus.app.feature.hublisting.HubLimits
 import com.shikkhokplus.app.feature.hublisting.ListingStatus
 import com.shikkhokplus.app.feature.hublisting.TeachingMode
 import com.shikkhokplus.app.feature.hublisting.teacherLine
@@ -144,6 +147,14 @@ private fun BatchRow(batch: BatchListingResponse, onEdit: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        val levels = levelsLine(batch.classLevels, batch.curriculum)
+        if (levels.isNotEmpty()) {
+            Text(
+                levels,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Text(
             batch.fee?.let { stringResource(R.string.hub_batch_fee, it.toString()) }
                 ?: stringResource(R.string.hub_batch_fee_hidden),
@@ -223,37 +234,65 @@ private fun BatchFields(editor: BatchEditorState, actions: BatchListingsActions)
     val d = editor.draft
     val on = !editor.readOnly
     ShikkhokTextField(
+        d.publicTitle,
+        { v -> actions.onChange { it.copy(publicTitle = v.take(HubLimits.PUBLIC_TITLE)) } },
+        stringResource(R.string.hub_batch_field_public_title),
+        help = stringResource(R.string.hub_batch_public_title_help),
+        enabled = on,
+    )
+    ShikkhokTextField(
         d.slug,
-        { v -> actions.onChange { it.copy(slug = v.take(SLUG_MAX)) } },
+        { v -> actions.onChange { it.copy(slug = v.take(HubLimits.SLUG)) } },
         stringResource(R.string.hub_field_slug),
         help = stringResource(R.string.hub_slug_help),
         enabled = on,
     )
     LongField(d.descriptionEn, R.string.hub_batch_field_description_en, on) { v ->
-        actions.onChange { it.copy(descriptionEn = v.take(DESCRIPTION_MAX)) }
+        actions.onChange { it.copy(descriptionEn = v.take(HubLimits.DESCRIPTION)) }
     }
     LongField(d.descriptionBn, R.string.hub_batch_field_description_bn, on) { v ->
-        actions.onChange { it.copy(descriptionBn = v.take(DESCRIPTION_MAX)) }
+        actions.onChange { it.copy(descriptionBn = v.take(HubLimits.DESCRIPTION)) }
     }
     LongField(d.syllabusEn, R.string.hub_batch_field_syllabus_en, on) { v ->
-        actions.onChange { it.copy(syllabusEn = v.take(SYLLABUS_MAX)) }
+        actions.onChange { it.copy(syllabusEn = v.take(HubLimits.SYLLABUS)) }
     }
     LongField(d.syllabusBn, R.string.hub_batch_field_syllabus_bn, on) { v ->
-        actions.onChange { it.copy(syllabusBn = v.take(SYLLABUS_MAX)) }
+        actions.onChange { it.copy(syllabusBn = v.take(HubLimits.SYLLABUS)) }
     }
-    ShikkhokTextField(
-        d.levels,
-        { v -> actions.onChange { it.copy(levels = v) } },
-        stringResource(R.string.hub_batch_field_levels),
-        help = stringResource(R.string.hub_batch_levels_help),
-        enabled = on,
-    )
-    ShikkhokTextField(
-        d.curriculum,
-        { v -> actions.onChange { it.copy(curriculum = v.take(CURRICULUM_MAX)) } },
-        stringResource(R.string.hub_batch_field_curriculum),
-        enabled = on,
-    )
+    // The closed vocabularies as chips: nothing typed, nothing the server refuses.
+    Text(stringResource(R.string.hub_batch_field_levels), style = MaterialTheme.typography.labelLarge)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.tight)) {
+        ClassLevel.entries.forEach { level ->
+            val picked = level.wire in d.levels
+            FilterChip(
+                selected = picked,
+                onClick = {
+                    actions.onChange { d ->
+                        d.copy(levels = if (picked) d.levels - level.wire else d.levels + level.wire)
+                    }
+                },
+                enabled = on,
+                label = { Text(stringResource(levelLabel(level))) },
+            )
+        }
+    }
+    Text(stringResource(R.string.hub_batch_field_curriculum), style = MaterialTheme.typography.labelLarge)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.tight)) {
+        FilterChip(
+            selected = d.curriculum.isEmpty(),
+            onClick = { actions.onChange { it.copy(curriculum = "") } },
+            enabled = on,
+            label = { Text(stringResource(R.string.hub_batch_curriculum_none)) },
+        )
+        Curriculum.entries.forEach { course ->
+            FilterChip(
+                selected = d.curriculum == course.wire,
+                onClick = { actions.onChange { it.copy(curriculum = course.wire) } },
+                enabled = on,
+                label = { Text(stringResource(curriculumLabel(course))) },
+            )
+        }
+    }
     ShikkhokTextField(
         d.tags,
         { v -> actions.onChange { it.copy(tags = v) } },
@@ -351,8 +390,3 @@ private fun BatchButtons(editor: BatchEditorState, actions: BatchListingsActions
         )
     }
 }
-
-private const val SLUG_MAX = 60
-private const val DESCRIPTION_MAX = 5000
-private const val SYLLABUS_MAX = 10000
-private const val CURRICULUM_MAX = 30
