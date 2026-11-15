@@ -156,10 +156,16 @@ def keyed_digest(message: str) -> str:
     Rotating the key therefore also releases every live username hold
     early and resets the username failure counters (``deploy/README.md``).
 
+    ``surrogatepass`` so that ANY string digests: a lone surrogate typed
+    into the sign-in field must be counted like any unknown name, not
+    raise [review-01].
+
     :param message: The purpose-prefixed message
     :return: Lowercase hex HMAC-SHA256
     """
-    return hmac.new(_key(), message.encode("utf-8"), sha256).hexdigest()
+    return hmac.new(
+        _key(), message.encode("utf-8", "surrogatepass"), sha256
+    ).hexdigest()
 
 
 def legacy_refresh_token_digest(token: str) -> str:

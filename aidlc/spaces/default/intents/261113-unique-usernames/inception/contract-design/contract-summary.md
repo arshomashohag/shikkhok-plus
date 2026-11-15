@@ -391,8 +391,11 @@ shared-generated-files:
 
 ## Open questions
 
-| Contract | Question | Blocks |
+None open. The three C1 questions this contract raised are settled, and C1
+above records the answers:
+
+| Contract | Question | Settled by |
 |---|---|---|
-| C1 | Exact ceilings for the availability lookup (OQ3); the contract only fixes that a ceiling answers `auth.lookup.too_many` with HTTP 429. | U1 (NFR Requirements) |
-| C1 | How the sign-up retry cap is counted so a rollback cannot undo it (Domain Design review R-09); the contract only fixes `account.username.retry_limit`. | U1 (Functional Design) |
-| C1 | How a repeated reclaim is recorded so it cannot bypass the rename limit (Domain Design review R-10). | U1 (Functional Design) |
+| C1 | Exact ceilings for the availability lookup (OQ3). | U1 NFR Requirements: Family A, 30 per /64 and 100 per /48 per hour, alert-only global at 1000; both lookups `POST` with a body (security-requirements.md NFR2.1, NFR3.5). |
+| C1 | How the sign-up retry cap is counted so a rollback cannot undo it (Domain Design review R-09). | U1 Functional Design Q1 and NFR2.3: replacements are counted on Family C, committed before the code is read. There is no per-draft cap, and `account.username.retry_limit` is not part of the contract. |
+| C1 | How a repeated reclaim is recorded so it cannot bypass the rename limit (Domain Design review R-10). | U1 Functional Design Q2: `account.username_reclaimed_at`; only the first reclaim in a window is exempt (BR6.4, BR6.5). |

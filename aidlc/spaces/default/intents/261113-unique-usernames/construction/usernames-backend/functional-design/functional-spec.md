@@ -36,12 +36,12 @@ Every claim below was checked against the code at commit `108489a`.
 | `app/api/auth.py` `sign_in_with_password` (312) | passes `body.identifier` to `sign_in` | passes the classified subject (BR4.2) |
 | `app/accounts/passwords.py` `sign_in` (170) | `Identifier` only; `check_password_allowed(identifier.rate_key, ...)`, `account_for(session, identifier)` | accepts a `LoginSubject`; a phone or email subject takes today's path unchanged; a username subject uses the username ceilings (BR4.5) and the account lookup by `username_key`, with the same `verify_nothing` / `verify_password` work and the same commit-then-raise (BR4.4) |
 | `app/auth/otp.py` `account_for` (556) | phone or email column | unchanged; the username lookup is AccountDirectory's own function, because `otp.py` must know nothing about accounts beyond its two contact columns |
-| `app/auth/ceilings.py` `ScopeKind` (329) | 26 members, `CONTACT_CHANGE_DAILY` last | five new members (entities.md); new check and record methods for the username failure scopes, and an availability-lookup cascade method mirroring `check_and_consume_lookup` (687) |
-| `app/auth/ceilings.py` `CeilingBreach.__init__` (520) | `_LOOKUP_SCOPES` holds three `lk_*` scopes; only `PASSWORD_FAIL_ID_HOURLY` maps to `auth.password.too_many_attempts`; anything unlisted falls through to `auth.otp.temporarily_unavailable` | `un_lk_ip_hour` and `un_lk_ip48_hour` join `_LOOKUP_SCOPES` (429 `auth.lookup.too_many`); `un_fail_net_hour` and `un_fail_hour` map to `auth.password.too_many_attempts` by a literal key (BR4.6). Without this, the new scopes would answer with the OTP path's text |
+| `app/auth/ceilings.py` `ScopeKind` (329) | 26 members, `CONTACT_CHANGE_DAILY` last | twelve new members in four families (entities.md, as amended by security-requirements.md NFR2); a committing cascade method per Family A, B and C, and peek and record methods for Family D |
+| `app/auth/ceilings.py` `CeilingBreach.__init__` (520) | `_LOOKUP_SCOPES` holds three `lk_*` scopes; only `PASSWORD_FAIL_ID_HOURLY` maps to `auth.password.too_many_attempts`; anything unlisted falls through to `auth.otp.temporarily_unavailable` | every Family A, B and C scope (and `un_lk_global_hr`) joins `_LOOKUP_SCOPES` (429 `auth.lookup.too_many`); the four Family D scopes map to `auth.password.too_many_attempts` by a literal key (BR4.6, NFR2.6). Without this, the new scopes would answer with the OTP path's text |
 | `app/auth/ceilings.py` `_ALERTING_SCOPES` (409) | seven global scopes | gains `un_lk_global_hr` |
 | `app/api/me.py` `MeResponse` (51), `_me` (156) | no username fields | gains `username` and `username_required` (BR5.1); `_me` reads them from the account row it already loads |
-| `app/api/me.py` (new routes) | — | `GET /v1/me/username-availability`, `PUT /v1/me/username` |
-| `app/api/accounts.py` (new route) | — | `GET /v1/accounts/username-availability` |
+| `app/api/me.py` (new routes) | — | `POST /v1/me/username-availability` (candidate in a JSON body, NFR3.5), `PUT /v1/me/username` |
+| `app/api/accounts.py` (new route) | — | `POST /v1/accounts/username-availability` (candidate in a JSON body, NFR3.5) |
 | `app/accounts/usernames.py` (new) | — | the Usernames component: candidate judgement, key, reserved list, hold digest, place/check/clear hold. Lands inside `app.accounts`, which is already a mypy strict island and already in the `make test` coverage list, so no new package and no coverage-list change are needed |
 | `app/db/advisory.py` `_NAMESPACE_ORDER` (31) | `("student", "account", "contact")`; an unknown namespace raises in the sort | `"username"` appended last, plus a `username_key(key)` helper (BR10.1) |
 | `app/governance/deletion.py` `_HELD_CONTACTS` (308), `delete_account` (325) | re-reads `id, phone, email` under the account key; locks contact keys (394); deletes the account row last (470) | the re-read adds `username_key`; the username key joins the contact-key `lock_keys` call; the deletion hold is upserted before the account row is deleted (BR7.5) |
@@ -125,9 +125,9 @@ middleware), so only writes a step says are committed survive.
 1. Check the failed-verify ceilings, as today (read only).
 2. If the body carries `username`: judge it by BR1; refuse with its key (400).
    Nothing has been counted or read yet.
-3. If the body carries `username`: consume `un_lk_ip_hour` and
-   `un_lk_ip48_hour` through the committing cascade and count
-   `un_lk_global_hr` (BR2.6). This MUST precede step 4: the cascade commits,
+3. If the body carries `username`: consume Family C, `un_rp_dest_hour`
+   (5 per destination) and `un_rp_ip_hour` (20 per /64), through the
+   committing cascade and count `un_lk_global_hr` (BR2.6, NFR2.3). This MUST precede step 4: the cascade commits,
    and at this point the session holds nothing else. A breach refuses 429
    `auth.lookup.too_many`; the code is untouched.
 4. `otp.verify`: lock and check the code (`consume_code`). A wrong, expired or
@@ -177,27 +177,35 @@ refused at step 7 (BR2.3, BR2.4).
    ```
 
 3. Phone or email subject: today's path, unchanged (BR4.3).
-4. Username subject: peek `un_fail_net_hour` (key and /64), `un_fail_hour`
-   (key), and the shared per-/64 and per-/48 failure scopes; refuse at the
-   first full one with `auth.password.too_many_attempts`, writing
-   `PASSWORD_CEILING_BREACHED` and committing (BR4.6).
-5. Find the account by `username_key`; read its password hash.
+4. Username subject: peek Family D -- `un_fail_net_hour` (key and /64) ≥ 10,
+   `un_fail_ip_hour` (/64) ≥ 20, `un_fail_ip48_hr` (/48) ≥ 60, and
+   `un_fail_hour` (key) ≥ 20 only when this network has failed the name 3
+   times (NFR2.4 as amended) -- and refuse at the first match with
+   `auth.password.too_many_attempts`, writing `PASSWORD_CEILING_BREACHED`
+   and committing (BR4.6). The `vf_*` scopes and `pw_fail_id_hour` are not
+   read.
+5. Find the account and its password hash by `username_key`, in one
+   statement. A key that is not a valid FR1 username (NUL, a lone surrogate,
+   anything the database cannot store) is looked up as the empty key, which
+   no account holds: an unknown name, never a server error (review-01).
 6. No account, or no password → one no-op scrypt; else verify (BR4.4).
-7. Failure → increment both username scopes, both shared prefix scopes and the
-   alert-only global scope; write `PASSWORD_SIGN_IN_FAILED`; commit; refuse
+7. Failure → increment the four Family D scopes and the alert-only
+   `pwf_global_hour`; write `PASSWORD_SIGN_IN_FAILED`; commit; refuse
    `auth.password.wrong`.
 8. Success → rehash if needed, `PASSWORD_SIGN_IN_SUCCEEDED`, then the MFA
    challenge or the token pair, as today (BR4.8).
 
-### W4. Public availability (`GET /v1/accounts/username-availability?username=`)
+### W4. Public availability (`POST /v1/accounts/username-availability`, body `{"username": ...}`)
 
-1. Schema: `username` required, at most 64 characters (422 otherwise).
-2. Consume the availability ceilings (BR3.3); breach → 429.
+1. Schema: `UsernameAvailabilityRequest`, `username` required, at most 64
+   characters (422 otherwise). In a JSON body, never the URL (NFR3.5).
+2. Consume Family A (`un_lk_ip_hour` 30, `un_lk_ip48_hour` 100), then count
+   `un_lk_global_hr` (BR3.3); breach → 429.
 3. Judge by BR1.1–BR1.5 → `invalid` with the key; BR1.8 → `reserved`.
 4. Key on an account or under a live hold → `unavailable`; else `available`
    (BR3.1). Read-only: no lock, no write besides the counters.
 
-### W5. Authenticated availability (`GET /v1/me/username-availability?username=`)
+### W5. Authenticated availability (`POST /v1/me/username-availability`, body `{"username": ...}`)
 
 As W4, with the caller's account id: a key held live for the caller, or the
 caller's own current key, answers `available` (BR3.2). Counted against the
@@ -215,31 +223,40 @@ same ceilings by network.
 ### W7. First choice (`PUT /v1/me/username`, account has no username)
 
 1. Judge by BR1 (400).
-2. Unit of work (bounded retry): take `account:<id>` and `username:<key>`
-   in one call; re-read the account row for update. If a username appeared
-   meanwhile (another device chose first), continue as W8 instead.
-3. Claim rule (BR6.9) → 409 on failure.
-4. Set `username`, `username_key`; no hold; `username_changed_at` and
+2. Consume Family B (`un_cl_acct_hour` 10, `un_cl_ip_hour` 30,
+   `un_cl_ip48_hr` 100), committed, then count `un_lk_global_hr`; breach →
+   429 (NFR1.6, NFR2.2). Any password sent is ignored.
+3. Unit of work (bounded retry): take `account:<id>`; re-read the account
+   row for update; then take `username:<key>` in a second call (NFR4.2). If
+   a username appeared meanwhile (another device chose first), the request
+   is a rename without a confirmed password and is refused
+   `account.username.password_required`.
+4. Claim rule (BR6.9) → 409 on failure.
+5. Set `username`, `username_key`; no hold; `username_changed_at` and
    `username_reclaimed_at` stay null; delete any (expired) hold row on the
    digest; write `USERNAME_SET`; commit.
-5. Answer `{username, next_change_at: null}` (BR5.3). The password field is
-   ignored.
+6. Answer `{username, next_change_at: null}` (BR5.3).
 
 ### W8. Rename (`PUT /v1/me/username`, account has a username)
 
 1. Judge the candidate by BR1 (400).
-2. Password confirmation (BR6.1), before any lock, committing its own
+2. Consume Family B, committed, as W7 step 2 (NFR1.6 (a)); breach → 429.
+3. Password confirmation (BR6.1), before any lock, committing its own
    failure: no password set or none sent → 400
    `account.username.password_required`; ceiling full → 409; wrong → 400
    `auth.password.current_wrong`.
-3. Unit of work (bounded retry): take `account:<id>`, `username:<new key>` and
-   `username:<old key>` in one call; re-read the account row for update
-   (username, key, `username_changed_at`, `username_reclaimed_at`).
-4. Same key as the current one → W8a (case-only, BR6.7).
-5. Claim rule (BR6.9) → 409 `account.username.unavailable`.
-6. Classify by the decision table below; refuse
-   `account.username.change_too_soon` (409, `details.next_change_at`) where it
-   says so.
+4. Unit of work (bounded retry): take `account:<id>`; re-read the account
+   row for update (username, key, `username_changed_at`,
+   `username_reclaimed_at`); then take `username:<new key>` and
+   `username:<old key>`, the old key from that locked re-read, in a second
+   call (NFR4.2, R-06).
+5. Same key as the current one → W8a (case-only, BR6.7).
+6. **Window before availability** (NFR1.6 (b)): with the window closed, only
+   an exempt reclaim (target held live for this account, allowance unused)
+   proceeds; every other target is refused
+   `account.username.change_too_soon` (409, `details.next_change_at`)
+   without reading whether anyone else has it. With the window open, the
+   claim rule (BR6.9) → 409 `account.username.unavailable`.
 7. Apply the effects in the table; write `USERNAME_CHANGED`; commit.
 8. Answer `{username, next_change_at}`. No session is ended (BR6.8).
 
@@ -396,7 +413,7 @@ erDiagram
     }
     RATE_LIMIT_COUNTER {
         uuid id PK
-        string scope_kind "five new un_ kinds"
+        string scope_kind "twelve new un_ kinds"
         string scope_value "u: hash for usernames"
         timestamptz window_start
         int count
@@ -463,12 +480,13 @@ not added to `message-keys.json` or to either client bundle).
 **Lock order.** `app/db/advisory.py` orders keys by namespace, then by 64-bit
 hash within a namespace; this unit appends `username` after `contact`
 (BR10.1). Every path takes all its username keys in the same `lock_keys`
-call as its other keys, or in a call after all its other keys:
+call as its other keys, or in a call after all its other keys. As built,
+first choice and rename use the second form (reliability NFR4.2):
 
 | Path | Keys, in order taken |
 |---|---|
 | Sign-up completion (W2 step 7) | `contact:*` and `username:<key>`, one call |
-| First choice, rename, reclaim (W7, W8) | `account:<id>`, `username:<new>`, `username:<old>`, one call |
+| First choice, rename, reclaim (W7, W8) | `account:<id>`; re-read `FOR UPDATE`; then `username:<new>` and `username:<old>` (from the re-read), a second call (NFR4.2) |
 | Deletion (W9) | `account:<id>`; then `contact:*` and `username:<key>`, one call |
 | U2 contact add, replace, remove | `account:<id>`, `contact:*` (unchanged) |
 | U2 matching, teacher saves | `student:*`, `contact:*` (unchanged) |
@@ -498,7 +516,7 @@ write that survives it, by design (BR2.6).
 
 **Two devices choosing the first username at once.** Both take the account
 key; the second re-reads and finds a username, and is judged as a rename (W7
-step 2), which needs a password it did not send → `password_required`. That
+step 3), which needs a password it did not send → `password_required`. That
 refusal is correct: the account now has a username, and the client shows it
 on its next `GET /v1/me`.
 

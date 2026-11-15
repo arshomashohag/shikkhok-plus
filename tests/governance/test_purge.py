@@ -4,8 +4,8 @@
 dangerous implementation of a retention purge is the NATURAL one --
 iterate every table, apply a default window to those without an explicit
 one -- and it deletes every attendance row, every mark and the whole fee
-ledger on its first run. Eighteen of twenty-five tables are
-``LIFE_OF_ACCOUNT``, so the blast radius of that mistake is the product's
+ledger on its first run. Most tables are ``LIFE_OF_ACCOUNT``, so the
+blast radius of that mistake is the product's
 entire history.
 
 **Every window test plants rows OLDER than its horizon.** The vacuity
@@ -84,9 +84,9 @@ def _count(session: Session, table: str) -> int:
 def aged_life_of_account_rows(owner_session: Session) -> dict[str, int]:
     """Plant a two-year-old chain in the LIFE_OF_ACCOUNT tables.
 
-    **Not every one of the eighteen can be planted independently**: most
-    hang off an account and an enrollment, so the fixture builds one
-    coherent chain rather than eighteen disconnected rows. What matters
+    **Not every one of them can be planted independently**: most hang
+    off an account and an enrollment, so the fixture builds one coherent
+    chain rather than one disconnected row per table. What matters
     for BR4.2 is that each table HAS an aged row at the moment the purge
     runs, and a chain gives that for every table it reaches.
 
@@ -201,7 +201,7 @@ def test_life_of_account_tables_are_never_purged(
     before = {table: _count(restricted_session, table) for table in life_of_account}
 
     # **The anti-vacuity assertion.** With no aged rows visible to this
-    # session the comparison below is 0 == 0 for all eighteen tables and
+    # session the comparison below is 0 == 0 for every such table and
     # passes against a purge that truncates every one of them.
     assert sum(before.values()) > 0, (
         "no aged LIFE_OF_ACCOUNT rows are visible to the purge's own "
@@ -213,8 +213,8 @@ def test_life_of_account_tables_are_never_purged(
 
     after = {table: _count(restricted_session, table) for table in life_of_account}
     assert after == before, (
-        "a LIFE_OF_ACCOUNT table lost rows to the purge. Eighteen tables "
-        "carry that class, including every attendance, mark and ledger "
+        "a LIFE_OF_ACCOUNT table lost rows to the purge. Those tables "
+        "include every attendance, mark and ledger "
         "row [BR4.2]."
     )
 

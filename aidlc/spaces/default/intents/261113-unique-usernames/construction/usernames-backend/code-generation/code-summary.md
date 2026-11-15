@@ -27,6 +27,14 @@ built on the branch and is reused, not changed in behaviour.
 - Unit-scoped command: 193 passed. Contract and schema gates: 70 passed.
 - Test-first evidence (each before its implementation): Step 4 collection error (module absent); Step 5 `24 failed`; Step 6 collection error; Step 7 collection error; Step 8 `15 failed, 55 passed`; Step 9 collection error.
 
+## Review round 1 fixes
+
+- **Unstorable logins** (Major): a username-classified `login` that is not a valid FR1 name (NUL, control characters) is now looked up as the empty key, so it still runs one statement and one dummy scrypt, counts the Family D failure and gets the uniform `auth.password.wrong`, never a 500; `keyed_digest` encodes any string; `canonical_email` refuses non-printable input with `email.invalid` (a U2-area function, changed so the email fields also stop returning 500). Test-first: `6 failed, 5 passed` before the fix; 11 new tests pass after it.
+- **Unchecked counts** removed from `tests/contract/test_analytics_contract.py` (test renamed), `tests/governance/test_purge.py` and the `app/governance/deletion.py` module docstring.
+- **Record brought in line** with the build: functional-spec § 1.1, W2–W5, W7, W8 and § 7; the C1 "Open questions" table now reads none open.
+- After the fixes: `make lint typecheck test` 3101 passed, 0 failed, 0 skipped; backend 96%; usernames module 100% branch.
+- Left as the stated residual: a stranger who knows a destination can spend its 5-per-hour replacement budget with code-less verifies; the person restarts sign-up.
+
 ## Deviations from the plan
 
 - **The lock line in `create_account_rows`**: the username key was appended to U2's existing `lock_keys` call there (BR10.1 requires one call with the contact keys); the contact keys, their order and the matcher call are unchanged.

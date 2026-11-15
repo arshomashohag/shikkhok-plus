@@ -184,7 +184,14 @@ def canonical_email(raw: str) -> str:
     :raises ValidationError: It is not an email address
     """
     text = raw.strip().lower()
-    if len(text) > EMAIL_MAX_LENGTH or not _EMAIL.fullmatch(text):
+    # `isprintable` refuses NUL, other control characters and lone
+    # surrogates, none of which an address holds and none of which the
+    # database can store: refused here, not as a server error [review-01].
+    if (
+        len(text) > EMAIL_MAX_LENGTH
+        or not text.isprintable()
+        or not _EMAIL.fullmatch(text)
+    ):
         # Literal key, for the message-key contract gate (see phone.py).
         raise ValidationError(code="EMAIL_INVALID", message_key="email.invalid")
     return text

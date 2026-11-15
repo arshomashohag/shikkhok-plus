@@ -6628,3 +6628,453 @@
 **Context**: construction > usernames-backend > code-generation > code-generation-plan.md
 
 ---
+
+## Change Accepted
+**Timestamp**: 2026-11-15T06:08:09Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: code-generation
+**Unit**: contacts-and-invites-backend
+**Checkpoint**: review-receipt
+**Changed**: Makefile, app/accounts/identifier.py, app/accounts/service.py, app/api/accounts.py, app/audit/log.py, app/auth/ceilings.py, app/auth/otp.py, app/contract/routes.py, app/db/advisory.py, app/db/models.py (and 16 more)
+**Recorded**: sha256:52eb9a51e3013ffd0a8f692021b49d3b81ae12c6f987850b82162e608a202892
+**Current**: sha256:8a9031e4776eb3f1e74aacab391a20f50f9b0e161c323160277c73802b77907e
+**Details**: Makefile, app/accounts/identifier.py, app/accounts/service.py, app/api/accounts.py, app/audit/log.py, app/auth/ceilings.py, app/auth/otp.py, app/contract/routes.py, app/db/advisory.py, app/db/models.py (and 16 more) changed after the contacts and invites backend Unit was reviewed; carrying on.
+
+---
+
+## Review Requested
+**Timestamp**: 2026-11-15T06:08:09Z
+**Event**: REVIEW_REQUESTED
+**Stage**: code-generation
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Unit**: usernames-backend
+**Iteration**: 1
+**Artifact Fingerprint**: sha256:9bf1e6d497c4622f4f5c394c0f625c250cd96137784d69590394397027fae6c6
+**Request Id**: review:170f7c31ed8a69c6ddb62fcc3c285155
+**Source Fingerprint**: b83bf2258df8c617b71410fcda5696cc4a1729e48d658f24d679d682270da0f8
+**Unit Source Fingerprint**: sha256:1d190b7acf29dea5f13c6569b826d667b221d5fe4e55e5aa077f0a49fbfb6200
+**Review File**: .aidlc-engine/reviews/code-generation/units/usernames-backend/4130bf148b203dc8/1.170f7c31ed8a69c6ddb62fcc3c285155.review.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-15T06:08:20Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/.aidlc-engine/reviewer-dispatch.json
+**Context**: .aidlc-engine > reviewer-dispatch.json
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:13:38Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: reviewer-scope
+**Authority**: grant
+**Grant**: dispatch-stamp
+**Actor**: subagent
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames (unit usernames-backend)
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-11-15T06:15:56Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/.aidlc-engine/reviews/code-generation/units/usernames-backend/4130bf148b203dc8/1.170f7c31ed8a69c6ddb62fcc3c285155.review.md
+**Context**: .aidlc-engine > reviews > code-generation > units > usernames-backend > 4130bf148b203dc8 > 1.170f7c31ed8a69c6ddb62fcc3c285155.review.md
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-11-15T06:16:05Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: aidlc-architecture-reviewer-agent
+**Agent ID**: a85a6ffbfb64609b0
+
+---
+
+## Human Turn
+**Timestamp**: 2026-11-15T06:16:44Z
+**Event**: HUMAN_TURN
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+
+---
+
+## Review Completed
+**Timestamp**: 2026-11-15T06:16:58Z
+**Event**: REVIEW_COMPLETED
+**Stage**: code-generation
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Unit**: usernames-backend
+**Iteration**: 1
+**Verdict**: READY
+**Request Fingerprint**: sha256:9bf1e6d497c4622f4f5c394c0f625c250cd96137784d69590394397027fae6c6
+**Artifact Fingerprint**: sha256:9bf1e6d497c4622f4f5c394c0f625c250cd96137784d69590394397027fae6c6
+**Request Id**: review:170f7c31ed8a69c6ddb62fcc3c285155
+**Request Source Fingerprint**: b83bf2258df8c617b71410fcda5696cc4a1729e48d658f24d679d682270da0f8
+**Source Fingerprint**: b83bf2258df8c617b71410fcda5696cc4a1729e48d658f24d679d682270da0f8
+**Unit Source Fingerprint**: sha256:1d190b7acf29dea5f13c6569b826d667b221d5fe4e55e5aa077f0a49fbfb6200
+**Review Record**: .aidlc-engine/reviews/code-generation/units/usernames-backend/4130bf148b203dc8/1.json
+**Review Record Digest**: sha256:9600cbe57d60156fd7db671a875ae135ed84ca8401f84b8452ab4c74093c3b1d
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:20:17Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: review-freeze
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Edit
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:20:18Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:20:19Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: review-freeze
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Edit
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:20:20Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:20:21Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: review-freeze
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Edit
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:20:22Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:20:27Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: review-freeze
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Edit
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:20:27Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:20:30Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: review-freeze
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Edit
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:20:30Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:20:31Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: review-freeze
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Edit
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:20:32Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:20:34Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: review-freeze
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Edit
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:20:35Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:20:37Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: review-freeze
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Edit
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:20:37Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:20:43Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: review-freeze
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Edit
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:20:44Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:20:45Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: review-freeze
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Edit
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:20:46Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:20:56Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: review-freeze
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Edit
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:20:57Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:20:57Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: review-freeze
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Edit
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:20:58Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:20:59Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: review-freeze
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Edit
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:21:00Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Context**: construction > usernames-backend > functional-design > functional-spec.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:21:08Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/inception/contract-design/contract-summary.md
+**Context**: inception > contract-design > contract-summary.md
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-11-15T06:39:50Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: aidlc-developer-agent
+**Agent ID**: ad38d2e566dcc297e
+
+---
+
+## Human Turn
+**Timestamp**: 2026-11-15T06:46:43Z
+**Event**: HUMAN_TURN
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+
+---
+
+## Human Turn
+**Timestamp**: 2026-11-15T06:46:43Z
+**Event**: HUMAN_TURN
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-15T06:46:52Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: review-freeze
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Edit
+**Details**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/code-generation/code-summary.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:46:52Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/code-generation/code-summary.md
+**Context**: construction > usernames-backend > code-generation > code-summary.md
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:46:53Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/code-generation/source-manifest.json
+**Context**: construction > usernames-backend > code-generation > source-manifest.json
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-15T06:46:58Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/code-generation/source-manifest.json
+**Context**: construction > usernames-backend > code-generation > source-manifest.json
+
+---

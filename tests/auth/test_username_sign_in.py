@@ -744,3 +744,117 @@ def test_every_username_scope_fits_its_columns(
         _preload(owner_session, kind, value, 1)
 
     assert len(_counts(owner_session)) == len(USERNAME_SCOPE_REFUSALS)
+
+
+# --------------------------------- review-01 (Major), written FIRST
+
+#: Logins the database cannot store or a username cannot be, written as
+#: JSON escapes: a lone surrogate cannot be encoded to UTF-8 by the client.
+_UNSTORABLE: Final = [r"rahim\u0000x", r"\ud800rahim", r"ra\ud83dhim\u0000"]
+
+#: The ones the schema accepts and the route must then handle: NUL is a
+#: valid JSON string character, so it reaches the classifier.
+_NUL: Final = [r"rahim\u0000x", r"\u0000"]
+
+
+def _raw(client: TestClient, path: str, body: str, ip: str) -> httpx.Response:
+    """Post a pre-escaped JSON body, as a hostile client would.
+
+    :param client: The test client
+    :param path: The route
+    :param body: The JSON text
+    :param ip: The caller's address
+    :return: The response
+    """
+    return client.post(
+        path,
+        content=body.encode("ascii"),
+        headers={"Content-Type": "application/json", "X-Client-Address": ip},
+    )
+
+
+@pytest.mark.parametrize("login", _UNSTORABLE)
+def test_an_unstorable_login_is_never_a_server_error(
+    client: TestClient, login: str
+) -> None:
+    """A lone surrogate is a schema 422; NUL a uniform 400 [review-01].
+
+    Either way a 4xx that depends on no account.
+
+    :param client: The test client
+    :param login: The escaped login
+    :return: None
+    """
+    response = _raw(
+        client,
+        "/v1/auth/password",
+        f'{{"login": "{login}", "password": "{WRONG}"}}',
+        "198.51.123.1",
+    )
+
+    assert response.status_code in {400, 422}, response.text
+
+
+@pytest.mark.parametrize("login", _NUL)
+def test_an_unstorable_login_is_an_unknown_name_refused_uniformly(
+    client: TestClient, owner_session: Session, login: str
+) -> None:
+    """NUL or a lone surrogate is a key no account has [review-01, BR4.4].
+
+    Not a 500: the same uniform refusal as an unknown name, after the
+    same scrypt work, counted on Family D.
+
+    :param client: The test client
+    :param owner_session: A session able to read counters back
+    :param login: The escaped login
+    :return: None
+    """
+    from app.auth import passwords as hashing
+
+    original = hashing._derive
+    derived: list[int] = []
+
+    def counting(*args: object) -> bytes:
+        """Count one scrypt evaluation, then run it.
+
+        :param args: The scrypt arguments
+        :return: The derived key
+        """
+        derived.append(1)
+        return original(*args)  # type: ignore[arg-type]
+
+    known = _sign_in(client, _name(), WRONG, "198.51.120.1")
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(hashing, "_derive", counting)
+        refused = _raw(
+            client,
+            "/v1/auth/password",
+            f'{{"login": "{login}", "password": "{WRONG}"}}',
+            "198.51.121.1",
+        )
+
+    assert refused.status_code == 400, refused.text
+    assert refused.content == known.content
+    assert derived == [1]
+    assert _counts(owner_session)["un_fail_hour"] == 2
+
+
+@pytest.mark.parametrize("value", _UNSTORABLE)
+def test_unstorable_contacts_are_a_4xx_on_every_identifier_field(
+    client: TestClient, value: str
+) -> None:
+    """Phone, email and an ``@`` login refuse it, never with a 500.
+
+    :param client: The test client
+    :param value: The escaped value
+    :return: None
+    """
+    for path, body in (
+        ("/v1/auth/password", f'{{"phone": "{value}", "password": "x"}}'),
+        ("/v1/auth/password", f'{{"email": "{value}@x.com", "password": "x"}}'),
+        ("/v1/auth/password", f'{{"login": "{value}@x.com", "password": "x"}}'),
+        ("/v1/auth/otp", f'{{"email": "{value}@x.com"}}'),
+        ("/v1/auth/otp", f'{{"phone": "{value}"}}'),
+    ):
+        response = _raw(client, path, body, "198.51.122.1")
+        assert 400 <= response.status_code < 500, (path, body, response.text)

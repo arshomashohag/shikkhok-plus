@@ -1052,3 +1052,65 @@ def _claims_counted(session: Session) -> int:
             )
         ).scalar_one()
     )
+
+
+# --------------------------------- review-01 (Major), written FIRST
+
+
+@pytest.mark.parametrize(
+    "value", [r"rahim\u0000x", r"\ud800rahim", r"ra\ud83dhim\u0000"]
+)
+def test_an_unstorable_name_is_invalid_on_every_username_route(
+    client: TestClient, owner_session: Session, clock: Clock, value: str
+) -> None:
+    """Both lookups answer invalid; a claim and a sign-up refuse; never 500.
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param clock: The username clock
+    :param value: A JSON-escaped name the database cannot store
+    :return: None
+    """
+    account_id, _ = named_account(owner_session)
+    headers = {
+        **_auth(owner_session, account_id),
+        "Content-Type": "application/json",
+        "X-Client-Address": "10.60.0.1",
+    }
+    body = f'{{"username": "{value}"}}'.encode("ascii")
+
+    public = client.post(
+        "/v1/accounts/username-availability", content=body, headers=headers
+    )
+    private = client.post("/v1/me/username-availability", content=body, headers=headers)
+    claim = client.put("/v1/me/username", content=body, headers=headers)
+    signup = client.post(
+        "/v1/accounts",
+        content=(
+            '{"phone": "+8801711000612", "role": "student", "self_name": "M", '
+            '"address_house": "H", "address_road": "R", "address_city": "C", '
+            f'"address_postcode": "1205", "username": "{value}"}}'
+        ).encode("ascii"),
+        headers=headers,
+    )
+
+    # A lone surrogate is refused by the schema (422) before any route
+    # code runs; NUL reaches the username rules. Both are a 4xx.
+    schema_refused = "\\ud8" in value
+    for response in (public, private):
+        if schema_refused:
+            assert response.status_code == 422, response.text
+            continue
+        assert response.status_code == 200, response.text
+        assert response.json() == {
+            "status": "invalid",
+            "message_key": "account.username.invalid_character",
+        }
+    for response in (claim, signup):
+        if schema_refused:
+            assert response.status_code == 422, response.text
+            continue
+        assert response.status_code == 400, response.text
+        assert response.json()["error"]["message_key"] == (
+            "account.username.invalid_character"
+        )

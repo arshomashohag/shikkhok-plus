@@ -18,20 +18,20 @@ second commit point, on the branch where no account exists):
 2. **Delete the rows this account owns** that the manifest marks
    ``HARD_DELETE``.
 3. **Delete the account row.** Everything else follows from the database
-   constraints: ``SET NULL`` on the three references ``0007`` fixed, so
-   the enrollments, payment claims and queued submissions survive with
-   their links cleared; ``CASCADE`` on the five whose tables are
-   ``HARD_DELETE``.
+   constraints: ``SET NULL`` on the references ``0007`` fixed, so the
+   enrollments, payment claims and queued submissions survive with their
+   links cleared; ``CASCADE`` on those whose tables are ``HARD_DELETE``.
 
-**Step 3 is what makes step 2 look redundant, and it is not.** Five of
-the six account-scoped hard-delete tables would cascade anyway. They are
+**Step 3 is what makes step 2 look redundant, and it is not.** Most of
+the account-scoped hard-delete tables would cascade anyway. They are
 deleted explicitly because the explicit statement is what the absence
 test observes, and because a constraint is one migration away from
 changing while this module would go on reading as though it had not.
-The two phone-scoped tables -- ``otp_request`` and the staging outbox --
-cascade from nothing at all, because they are keyed on the number rather
-than on the account, and they are exactly the rows a deletion must
-remove: a code and a phone number sitting together.
+The destination-scoped tables -- ``otp_request``, the staging outbox
+and ``pending_signup`` -- cascade from nothing at all, because they are
+keyed on the number or the address rather than on the account, and they
+are exactly the rows a deletion must remove: a code and a contact
+sitting together.
 
 **The scoping map is the part that has to be exhaustive.** A disposition
 says WHAT happens to a table's rows; it cannot say WHICH rows belong to

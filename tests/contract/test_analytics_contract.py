@@ -108,7 +108,7 @@ def test_the_generated_document_carries_no_collection_rate_field() -> None:
     assert "collectionRate" not in document
 
 
-def test_public_routes_still_holds_exactly_twelve() -> None:
+def test_d5_adds_no_public_route() -> None:
     """D5 adds nothing unauthenticated [BR4.4].
 
     The count is asserted in ``tests/contract/test_route_lenses.py``

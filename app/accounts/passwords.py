@@ -291,7 +291,13 @@ def _sign_in_by_username(
         session.commit()
         raise
 
-    row = session.execute(_BY_USERNAME, {"key": subject.key}).one_or_none()
+    # A key that is not a valid FR1 username -- one holding NUL, a lone
+    # surrogate or anything else the database cannot store -- is a name no
+    # account can have [review-01]. It is looked up as the empty key, which
+    # the shape CHECK guarantees no account holds, so the same statement
+    # runs and the answer is the unknown-name one, never a server error.
+    lookup = subject.key if usernames.refusal_of(subject.key) is None else ""
+    row = session.execute(_BY_USERNAME, {"key": lookup}).one_or_none()
     account_id: uuid.UUID | None = row.id if row is not None else None
     stored: str | None = row.password_hash if row is not None else None
 
