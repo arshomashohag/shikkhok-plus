@@ -3,7 +3,9 @@
  * centre membership of the signed-in account. The membership list and
  * each current choice are the server's; the toggle asks, and shows the
  * server's answer. A failed write leaves the box as it was and offers
- * Retry (TC-8). Renders nothing for an account with no centre.
+ * Retry (TC-8), and so does a failed load. Each row says the exact name
+ * the centre's page would publish, so nobody agrees to a name unseen.
+ * Renders nothing for an account with no centre.
  */
 import { useState } from 'react'
 import { listCentreMemberships, setPublicNameConsent, type Schemas } from '../../../api/endpoints'
@@ -54,6 +56,10 @@ function Row({ m }: { m: Membership }) {
             />{' '}
             {t('web_hub_consent_toggle')}
           </label>
+          <br />
+          <span className="meta" style={{ overflowWrap: 'anywhere' }}>
+            {t('web_hub_consent_shown_as', m.name_shown)}
+          </span>
         </span>
       </div>
       {failure ? (
@@ -68,7 +74,13 @@ function Row({ m }: { m: Membership }) {
 
 export function NameConsent() {
   const { t } = useT()
-  const { resource } = useResource((signal) => listCentreMemberships(signal), [])
+  const { resource, reload } = useResource((signal) => listCentreMemberships(signal), [])
+  if (resource.state === 'failed')
+    return (
+      <Section title={t('web_hub_consent_title')}>
+        <FailureBanner text={t('web_hub_consent_load_failed')} onRetry={reload} />
+      </Section>
+    )
   if (resource.state !== 'loaded' || resource.data.length === 0) return null
   return (
     <Section title={t('web_hub_consent_title')}>

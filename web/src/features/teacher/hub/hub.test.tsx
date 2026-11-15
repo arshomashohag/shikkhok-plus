@@ -189,6 +189,7 @@ const batch = (over: Record<string, unknown> = {}) => ({
   subjects: ['Physics'],
   status: 'draft',
   slug: null,
+  public_title: null,
   description_en: null,
   description_bn: null,
   syllabus_en: null,
@@ -288,6 +289,7 @@ describe('NameConsent', () => {
       centre_name: 'Udoy Coaching',
       role: 'teacher',
       public_name_consent: consent,
+      name_shown: 'Karim Sir',
     },
   ]
 
@@ -339,6 +341,201 @@ describe('NameConsent', () => {
     const { container } = renderScreen(<NameConsent />)
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     expect(container.querySelector('input')).toBeNull()
+  })
+})
+
+describe('batch vocabulary', () => {
+  it('saves class levels and curriculum as vocabulary values, not free text', async () => {
+    let body: Record<string, unknown> | null = null
+    fetchMock.mockImplementation(async (url: string, init: RequestInit = {}) => {
+      if (url.endsWith('/v1/hub/batch-listings')) return json(200, [batch()])
+      if (url.endsWith('/v1/batches/b1/listing') && init.method === 'PUT') {
+        body = JSON.parse(init.body as string)
+        return json(200, batch({ class_levels: ['class_9', 'class_10'] }))
+      }
+      return json(404, {})
+    })
+    renderScreen(<BatchListings />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).queryByText(/for example 9, 10/)).toBeNull()
+    const levels = within(dialog).getByRole('group', { name: 'Class levels' })
+    await userEvent.click(within(levels).getByRole('button', { name: 'Class 9' }))
+    await userEvent.click(within(levels).getByRole('button', { name: 'Class 10' }))
+    expect(within(levels).getByRole('button', { name: 'Class 9' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await userEvent.selectOptions(
+      within(dialog).getByLabelText('Curriculum'),
+      'National curriculum (Bangla version)',
+    )
+    await userEvent.type(within(dialog).getByLabelText('Public title'), 'SSC Physics')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(body).not.toBeNull())
+    expect(body).toMatchObject({
+      class_levels: ['class_9', 'class_10'],
+      curriculum: 'national_bangla',
+      public_title: 'SSC Physics',
+    })
+  })
+
+  it('shows saved levels and curriculum in words, never raw values', async () => {
+    fetchMock.mockResolvedValue(
+      json(200, [batch({ class_levels: ['class_9', 'hsc'], curriculum: 'madrasah' })]),
+    )
+    renderScreen(<BatchListings />)
+    expect(await screen.findByText('Class 9, HSC · Madrasah')).toBeInTheDocument()
+    expect(screen.queryByText(/class_9/)).toBeNull()
+  })
+
+  it('has a Bangla label for every class level and curriculum', () => {
+    expect(translate('bn', 'web_hub_level_class_9')).toBe('নবম শ্রেণি')
+    expect(translate('bn', 'web_hub_curriculum_madrasah')).toBe('মাদ্রাসা')
+  })
+})
+
+describe('text limits', () => {
+  it('match the server: headline 140, biography 4000, street 200', async () => {
+    serve(listing({ is_centre: true }))
+    renderScreen(<HubListing />)
+    expect(await screen.findByLabelText('Headline (English)')).toHaveAttribute('maxLength', '140')
+    expect(screen.getByLabelText('About you (Bangla)')).toHaveAttribute('maxLength', '4000')
+    expect(screen.getByLabelText('Street address')).toHaveAttribute('maxLength', '200')
+  })
+
+  it('match the server on a batch: title 120, description and syllabus 4000', async () => {
+    fetchMock.mockResolvedValue(json(200, [batch()]))
+    renderScreen(<BatchListings />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByLabelText('Public title')).toHaveAttribute('maxLength', '120')
+    expect(within(dialog).getByLabelText('Description (English)')).toHaveAttribute(
+      'maxLength',
+      '4000',
+    )
+    expect(within(dialog).getByLabelText('Syllabus (Bangla)')).toHaveAttribute('maxLength', '4000')
+  })
+})
+
+describe('outdated consent', () => {
+  it('reloads the listing and publishes with the new consent version', async () => {
+    let gets = 0
+    const posted: unknown[] = []
+    fetchMock.mockImplementation(async (url: string, init: RequestInit = {}) => {
+      if (url.endsWith('/v1/hub/listing') && (init.method ?? 'GET') === 'GET') {
+        gets += 1
+        return json(
+          200,
+          listing({ consent_version_current: gets === 1 ? '2026-11-14' : '2027-01-01' }),
+        )
+      }
+      if (url.endsWith('/v1/hub/listing/publish')) {
+        const sent = JSON.parse(init.body as string)
+        posted.push(sent)
+        if (sent.consent_version !== '2027-01-01')
+          return json(400, {
+            error: {
+              code: 'HUB_CONSENT_OUTDATED',
+              message_key: 'hub.consent_outdated',
+              retryable: false,
+            },
+          })
+        return json(200, listing({ status: 'published' }))
+      }
+      if (url.includes('/v1/hub/areas')) return json(200, [])
+      return json(404, {})
+    })
+    renderScreen(<HubListing />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Publish' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('checkbox'))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Publish listing' }))
+    await waitFor(() => expect(gets).toBe(2))
+    // The terms changed, so they must be agreed to again.
+    expect(within(dialog).getByRole('checkbox')).not.toBeChecked()
+    await userEvent.click(within(dialog).getByRole('checkbox'))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Publish listing' }))
+    await waitFor(() =>
+      expect(posted).toEqual([
+        { consent_version: '2026-11-14' },
+        { consent_version: '2027-01-01' },
+      ]),
+    )
+  })
+
+  it('keeps unsaved edits when it reloads', async () => {
+    let gets = 0
+    fetchMock.mockImplementation(async (url: string, init: RequestInit = {}) => {
+      if (url.endsWith('/v1/hub/listing') && (init.method ?? 'GET') === 'GET') {
+        gets += 1
+        return json(200, listing({ consent_version_current: `2027-01-0${gets}` }))
+      }
+      if (url.endsWith('/v1/hub/listing/publish'))
+        return json(400, {
+          error: {
+            code: 'HUB_CONSENT_OUTDATED',
+            message_key: 'hub.consent_outdated',
+            retryable: false,
+          },
+        })
+      if (url.includes('/v1/hub/areas')) return json(200, [])
+      return json(404, {})
+    })
+    renderScreen(<HubListing />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Publish' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('checkbox'))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Publish listing' }))
+    await waitFor(() => expect(gets).toBe(2))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    const name = screen.getByLabelText('Public name')
+    await userEvent.type(name, ' Apa')
+    expect(name).toHaveValue('Sumi Akter Apa')
+  })
+})
+
+describe('NameConsent extras', () => {
+  it('shows the exact name the centre page will publish', async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      url.endsWith('/v1/me/centre-memberships')
+        ? json(200, [
+            {
+              member_id: 'm1',
+              centre_id: 'c1',
+              centre_name: 'Udoy Coaching',
+              role: 'teacher',
+              public_name_consent: false,
+              name_shown: 'Karim Sir',
+            },
+          ])
+        : json(404, {}),
+    )
+    renderScreen(<NameConsent />)
+    expect(await screen.findByText('Shown as: Karim Sir')).toBeInTheDocument()
+  })
+
+  it('shows a failure with Retry when the memberships cannot load', async () => {
+    let calls = 0
+    fetchMock.mockImplementation(async (url: string) => {
+      if (!url.endsWith('/v1/me/centre-memberships')) return json(404, {})
+      calls += 1
+      if (calls === 1) throw new TypeError('Failed to fetch')
+      return json(200, [
+        {
+          member_id: 'm1',
+          centre_id: 'c1',
+          centre_name: 'Udoy Coaching',
+          role: 'teacher',
+          public_name_consent: false,
+          name_shown: 'Karim Sir',
+        },
+      ])
+    })
+    renderScreen(<NameConsent />)
+    const alert = await screen.findByRole('alert')
+    await userEvent.click(within(alert).getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('Udoy Coaching')).toBeInTheDocument()
   })
 })
 

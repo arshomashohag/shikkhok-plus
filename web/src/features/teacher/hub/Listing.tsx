@@ -19,6 +19,7 @@ import {
   unpublishHubListing,
   type Schemas,
 } from '../../../api/endpoints'
+import { ApiError } from '../../../api/errors'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import { ErrorCard, Loading, Section, Snackbar, StaleBanner, TopBar } from '../../../ui/components'
@@ -261,7 +262,19 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
   }
 
   async function publish(version: string) {
-    const next = await publishHubListing(version)
+    let next: ListingModel
+    try {
+      next = await publishHubListing(version)
+    } catch (e) {
+      // The terms changed since this page loaded. Read the listing again
+      // for the current version, leaving anything typed as it is, and let
+      // the sheet ask for agreement to the new terms.
+      if (e instanceof ApiError && e.messageKey === 'hub.consent_outdated') {
+        const fresh = await readHubListing().catch(() => null)
+        if (fresh) setSaved(fresh)
+      }
+      throw e
+    }
     setSaved(next)
     setDraft(draftOf(next))
     setPublishing(false)
@@ -361,7 +374,7 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
             id="hub-headline-en"
             label={t('web_hub_field_headline_en')}
             value={draft.headlineEn}
-            maxLength={200}
+            maxLength={140}
             disabled={suspended}
             onChange={(v) => set({ headlineEn: v })}
           />
@@ -369,7 +382,7 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
             id="hub-headline-bn"
             label={t('web_hub_field_headline_bn')}
             value={draft.headlineBn}
-            maxLength={200}
+            maxLength={140}
             disabled={suspended}
             onChange={(v) => set({ headlineBn: v })}
           />
@@ -377,7 +390,7 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
             id="hub-bio-en"
             label={t('web_hub_field_bio_en')}
             value={draft.bioEn}
-            maxLength={5000}
+            maxLength={4000}
             multiline
             disabled={suspended}
             onChange={(v) => set({ bioEn: v })}
@@ -386,7 +399,7 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
             id="hub-bio-bn"
             label={t('web_hub_field_bio_bn')}
             value={draft.bioBn}
-            maxLength={5000}
+            maxLength={4000}
             multiline
             disabled={suspended}
             onChange={(v) => set({ bioBn: v })}
@@ -428,7 +441,7 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
               id="hub-street"
               label={t('web_hub_field_street')}
               value={draft.streetAddress}
-              maxLength={300}
+              maxLength={200}
               disabled={suspended}
               onChange={(v) => set({ streetAddress: v })}
             />

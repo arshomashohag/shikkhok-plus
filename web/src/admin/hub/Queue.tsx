@@ -34,6 +34,9 @@ const isReason = (r: string | null): r is Reason => REASONS.some((x) => x === r)
 
 type Act = { kind: 'uphold' | 'dismiss' } | { kind: 'suspend'; reason: Reason } | { kind: 'lift' }
 
+/** The fields the server also sends as the row's `title`. */
+const TITLE_KEYS: ReadonlySet<string> = new Set(['public_name', 'public_title'])
+
 const rowKey = (i: Item) => i.report_id ?? `${i.target_kind}:${i.target_id}`
 
 function reasonLabel(t: (k: string) => string, reason: string | null): string {
@@ -92,10 +95,10 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
     }
   }
 
-  const heading =
-    item.kind === 'report'
-      ? t(`web_admin_hub_kind_${item.target_kind}`)
-      : t('web_admin_hub_kind_listing')
+  // Owner and batch listings are distinct kinds, so the heading says which.
+  const heading = t(`web_admin_hub_kind_${item.target_kind}`)
+  // The public name or title is already the row's title; the rest is listed.
+  const fields = item.fields.filter((f) => !(TITLE_KEYS.has(f.key) && f.value === item.title))
 
   return (
     <li ref={row}>
@@ -107,11 +110,18 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
           <span className="title" style={{ overflowWrap: 'anywhere' }}>
             {item.title ?? ''}
           </span>
-          {item.text ? (
-            <>
-              <br />
-              <span style={{ overflowWrap: 'anywhere' }}>{item.text}</span>
-            </>
+          {/* Everything the owner submitted for display, each under its label. */}
+          {fields.length > 0 ? (
+            <dl style={{ margin: '4px 0' }}>
+              {fields.map((f) => (
+                <div key={f.key}>
+                  <dt className="meta">{t(`web_admin_hub_field_${f.key}`)}</dt>
+                  <dd style={{ margin: 0, overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}>
+                    {f.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
           ) : null}
           <br />
           <span className="meta">{t('web_admin_hub_reason', reasonLabel(t, item.reason))}</span>

@@ -20,7 +20,10 @@ export function PublishSheet({
   onClose: () => void
 }) {
   const { t, message } = useT()
-  const [agreed, setAgreed] = useState(false)
+  // The agreement is to one version of the terms: when the server names a
+  // newer one (an outdated-consent refusal reloads it), the box is unticked.
+  const [agreedTo, setAgreedTo] = useState<string | null>(null)
+  const agreed = agreedTo === consentVersion
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
 
@@ -47,7 +50,11 @@ export function PublishSheet({
       <p>{t('web_hub_publish_never')}</p>
       <p>{t('web_hub_publish_unpublish')}</p>
       <label className="row" style={{ cursor: 'pointer' }}>
-        <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={agreed}
+          onChange={(e) => setAgreedTo(e.target.checked ? consentVersion : null)}
+        />
         <span className="grow">{t('web_hub_publish_agree')}</span>
       </label>
       {failure ? <FailureBanner text={failure} /> : null}

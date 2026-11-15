@@ -29,6 +29,9 @@ import {
 import {
   batchBody,
   batchDraftOf,
+  CLASS_LEVELS,
+  CURRICULA,
+  levelsLine,
   teacherLine,
   type BatchDraft,
   type BatchListing,
@@ -123,32 +126,67 @@ function BatchEditor({
       </div>
       <Checklist items={saved.checklist} />
       <fieldset disabled={suspended} style={{ border: 0, padding: 0, margin: 0 }}>
+        {text('bl-title', t('web_hub_batch_field_public_title'), 'publicTitle', {
+          help: t('web_hub_batch_public_title_help'),
+          maxLength: 120,
+        })}
         {text('bl-slug', t('web_hub_field_slug'), 'slug', {
           help: t('web_hub_slug_help'),
           maxLength: 60,
         })}
         {text('bl-desc-en', t('web_hub_batch_field_description_en'), 'descriptionEn', {
           multiline: true,
-          maxLength: 5000,
+          maxLength: 4000,
         })}
         {text('bl-desc-bn', t('web_hub_batch_field_description_bn'), 'descriptionBn', {
           multiline: true,
-          maxLength: 5000,
+          maxLength: 4000,
         })}
         {text('bl-syl-en', t('web_hub_batch_field_syllabus_en'), 'syllabusEn', {
           multiline: true,
-          maxLength: 10000,
+          maxLength: 4000,
         })}
         {text('bl-syl-bn', t('web_hub_batch_field_syllabus_bn'), 'syllabusBn', {
           multiline: true,
-          maxLength: 10000,
+          maxLength: 4000,
         })}
-        {text('bl-levels', t('web_hub_batch_field_levels'), 'levels', {
-          help: t('web_hub_batch_levels_help'),
-        })}
-        {text('bl-curriculum', t('web_hub_batch_field_curriculum'), 'curriculum', {
-          maxLength: 30,
-        })}
+        <div className="field">
+          <label id="bl-levels-label">{t('web_hub_batch_field_levels')}</label>
+          {/* The closed vocabulary as chips: nothing typed, nothing the server refuses. */}
+          <div className="chips" role="group" aria-labelledby="bl-levels-label">
+            {CLASS_LEVELS.map((l) => {
+              const on = draft.levels.includes(l)
+              return (
+                <button
+                  key={l}
+                  type="button"
+                  className="chip chip-filter"
+                  aria-pressed={on}
+                  onClick={() =>
+                    set({ levels: on ? draft.levels.filter((x) => x !== l) : [...draft.levels, l] })
+                  }
+                >
+                  {t(`web_hub_level_${l}`)}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <div className="field">
+          <label htmlFor="bl-curriculum">{t('web_hub_batch_field_curriculum')}</label>
+          <select
+            id="bl-curriculum"
+            value={draft.curriculum}
+            onChange={(e) => set({ curriculum: e.target.value as BatchDraft['curriculum'] })}
+          >
+            <option value="">{t('web_hub_batch_curriculum_none')}</option>
+            {CURRICULA.map((c) => (
+              <option key={c} value={c}>
+                {t(`web_hub_curriculum_${c}`)}
+              </option>
+            ))}
+          </select>
+        </div>
         {text('bl-tags', t('web_hub_batch_field_tags'), 'tags', {
           help: t('web_hub_batch_tags_help'),
         })}
@@ -273,6 +311,12 @@ export function BatchListings() {
                   </span>
                   <br />
                   <span className="meta">{b.subjects.join(', ')}</span>
+                  {levelsLine(b, t) ? (
+                    <>
+                      <br />
+                      <span className="meta">{levelsLine(b, t)}</span>
+                    </>
+                  ) : null}
                   <br />
                   <span className="meta">
                     {b.fee !== null ? t('web_hub_batch_fee', b.fee) : t('web_hub_batch_fee_hidden')}

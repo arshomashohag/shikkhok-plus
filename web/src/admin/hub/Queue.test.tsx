@@ -19,11 +19,14 @@ afterEach(() => {
 const report = (n: number, hours: number, owner: string | null = `owner-${n}`) => ({
   kind: 'report',
   report_id: `r${n}`,
-  target_kind: 'listing',
+  target_kind: 'owner_listing',
   target_id: `t${n}`,
   owner_id: owner,
   title: `Teacher ${n}`,
-  text: 'Call me on a number',
+  fields: [
+    { key: 'public_name', value: `Teacher ${n}` },
+    { key: 'headline_en', value: 'Call me on a number' },
+  ],
   reason: 'personal_info',
   note: null,
   reporter_ref: `P-${n}`,
@@ -124,6 +127,43 @@ describe('Admin hub queue', () => {
         body: { suspended: false, reason_code: 'fake' },
       }),
     )
+  })
+
+  it('names the target kind and shows every submitted field with its label', async () => {
+    serveAdmin((_m, url) =>
+      url.includes('/v1/admin/hub/queue')
+        ? json(200, {
+            kind: 'report',
+            items: [
+              {
+                ...report(1, 5),
+                target_kind: 'batch_listing',
+                title: 'HSC Physics',
+                fields: [
+                  { key: 'public_title', value: 'HSC Physics' },
+                  { key: 'description_en', value: 'Weekend batch' },
+                  { key: 'syllabus_bn', value: 'সিলেবাস' },
+                  { key: 'subject_tags', value: 'physics, maths' },
+                ],
+              },
+              report(2, 3),
+            ],
+          })
+        : undefined,
+    )
+    renderAdmin('/hub')
+    const rows = await screen.findAllByRole('listitem')
+    expect(within(rows[0]!).getByText('Batch page')).toBeInTheDocument()
+    // The title is the row's heading, not repeated as a field.
+    expect(within(rows[0]!).getAllByText('HSC Physics')).toHaveLength(1)
+    expect(within(rows[0]!).getByText('Description (English)')).toBeInTheDocument()
+    expect(within(rows[0]!).getByText('Weekend batch')).toBeInTheDocument()
+    expect(within(rows[0]!).getByText('Syllabus (Bangla)')).toBeInTheDocument()
+    expect(within(rows[0]!).getByText('সিলেবাস')).toBeInTheDocument()
+    expect(within(rows[0]!).getByText('physics, maths')).toBeInTheDocument()
+    expect(within(rows[1]!).getByText('Teacher or centre page')).toBeInTheDocument()
+    expect(within(rows[1]!).getByText('Headline (English)')).toBeInTheDocument()
+    expect(within(rows[1]!).getByText('Call me on a number')).toBeInTheDocument()
   })
 
   it('moves focus to Confirm, and back to the trigger on Cancel', async () => {

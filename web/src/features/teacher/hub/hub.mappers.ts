@@ -16,6 +16,53 @@ export type ChecklistItem = Schemas['ChecklistItemWire']
 
 export const TEACHING_MODES: readonly TeachingMode[] = ['in_person', 'home_visit', 'online']
 
+export type ClassLevel = BatchListing['class_levels'][number]
+export type Curriculum = NonNullable<BatchListing['curriculum']>
+
+/**
+ * The closed class-level vocabulary, in the order a teacher reads it. The
+ * contract's enum is the authority; `satisfies` makes a value the server
+ * would refuse a compile error here.
+ */
+export const CLASS_LEVELS = [
+  'class_1',
+  'class_2',
+  'class_3',
+  'class_4',
+  'class_5',
+  'class_6',
+  'class_7',
+  'class_8',
+  'class_9',
+  'class_10',
+  'class_11',
+  'class_12',
+  'ssc',
+  'hsc',
+  'admission',
+  'o_level',
+  'a_level',
+  'other',
+] as const satisfies readonly ClassLevel[]
+
+export const CURRICULA = [
+  'national_bangla',
+  'national_english',
+  'english_medium',
+  'madrasah',
+  'other',
+] as const satisfies readonly Curriculum[]
+
+/** Saved class levels and curriculum in the reader's words, never the raw values. */
+export function levelsLine(
+  b: Pick<BatchListing, 'class_levels' | 'curriculum'>,
+  t: (key: string) => string,
+): string {
+  const levels = b.class_levels.map((l) => t(`web_hub_level_${l}`)).join(', ')
+  const curriculum = b.curriculum ? t(`web_hub_curriculum_${b.curriculum}`) : ''
+  return [levels, curriculum].filter(Boolean).join(' · ')
+}
+
 export const STATUS_KEY: Record<ListingStatus, string> = {
   draft: 'web_hub_status_draft',
   published: 'web_hub_status_published',
@@ -38,6 +85,7 @@ export function checklistLabelKey(key: string): string | null {
 
 const KNOWN_CHECKS: ReadonlySet<string> = new Set([
   'public_name',
+  'public_title',
   'slug',
   'area',
   'headline',
@@ -130,12 +178,13 @@ export function divisionOf(districtCode: string, divisionCodes: readonly string[
 
 export interface BatchDraft {
   slug: string
+  publicTitle: string
   descriptionEn: string
   descriptionBn: string
   syllabusEn: string
   syllabusBn: string
-  levels: string
-  curriculum: string
+  levels: ClassLevel[]
+  curriculum: '' | Curriculum
   tags: string
   mode: '' | NonNullable<BatchListing['mode']>
   admissions: NonNullable<BatchListing['admissions']>
@@ -146,11 +195,12 @@ export interface BatchDraft {
 export function batchDraftOf(b: BatchListing): BatchDraft {
   return {
     slug: b.slug ?? '',
+    publicTitle: b.public_title ?? '',
     descriptionEn: b.description_en ?? '',
     descriptionBn: b.description_bn ?? '',
     syllabusEn: b.syllabus_en ?? '',
     syllabusBn: b.syllabus_bn ?? '',
-    levels: b.class_levels.join(', '),
+    levels: [...b.class_levels],
     curriculum: b.curriculum ?? '',
     tags: b.subject_tags.join(', '),
     mode: b.mode ?? '',
@@ -176,12 +226,14 @@ export function splitList(text: string): string[] {
 export function batchBody(d: BatchDraft): Schemas['BatchListingUpdateRequest'] {
   return {
     slug: d.slug.trim() || undefined,
+    public_title: d.publicTitle.trim(),
     description_en: d.descriptionEn,
     description_bn: d.descriptionBn,
     syllabus_en: d.syllabusEn,
     syllabus_bn: d.syllabusBn,
-    class_levels: splitList(d.levels),
-    curriculum: d.curriculum.trim(),
+    // In vocabulary order, whatever order they were tapped in.
+    class_levels: CLASS_LEVELS.filter((l) => d.levels.includes(l)),
+    curriculum: d.curriculum,
     subject_tags: splitList(d.tags),
     mode: d.mode,
     admissions: d.admissions,

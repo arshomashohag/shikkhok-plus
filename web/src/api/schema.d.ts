@@ -4928,6 +4928,38 @@ export interface components {
       decision: 'dismissed' | 'upheld'
     }
     /**
+     * AdminHubField
+     * @description One submitted public field of a moderated target.
+     *
+     *     :ivar key: Which field
+     *     :ivar value: What the owner submitted
+     */
+    AdminHubField: {
+      /**
+       * Key
+       * @enum {string}
+       */
+      key:
+        | 'area_bn'
+        | 'area_en'
+        | 'bio_bn'
+        | 'bio_en'
+        | 'description_bn'
+        | 'description_en'
+        | 'headline_bn'
+        | 'headline_en'
+        | 'public_contact_phone'
+        | 'public_name'
+        | 'public_title'
+        | 'qualifications'
+        | 'street_address'
+        | 'subject_tags'
+        | 'syllabus_bn'
+        | 'syllabus_en'
+      /** Value */
+      value: string
+    }
+    /**
      * AdminHubQueueItem
      * @description One row of the moderation queue.
      *
@@ -4936,14 +4968,17 @@ export interface components {
      *     :ivar target_kind: What was reported or suspended
      *     :ivar target_id: The target's id
      *     :ivar owner_id: The owner the listing belongs to, when known
-     *     :ivar title: The target's public name
-     *     :ivar text: The target's public text
+     *     :ivar title: The target's public name: an owner's public name or a
+     *         batch's public title
+     *     :ivar fields: Everything the owner submitted for display on the target
      *     :ivar reason: The report reason or the suspension reason code
      *     :ivar note: The reporter's note, for a report row
      *     :ivar reporter_ref: The opaque reporter label, for a report row
      *     :ivar waited_hours: Whole hours since the report or the suspension
      */
     AdminHubQueueItem: {
+      /** Fields */
+      fields: components['schemas']['AdminHubField'][]
       /**
        * Kind
        * @enum {string}
@@ -4966,8 +5001,6 @@ export interface components {
       target_id: string
       /** Target Kind */
       target_kind: string
-      /** Text */
-      text: string | null
       /** Title */
       title: string | null
       /** Waited Hours */
@@ -5686,10 +5719,12 @@ export interface components {
      *     ``status`` is ``draft`` before any listing row exists.
      *
      *     :ivar batch_id: The batch
-     *     :ivar batch_name: Its name
+     *     :ivar batch_name: Its name in the owner's own records, shown only to the
+     *         owner; the public page uses ``public_title``
      *     :ivar subjects: Its subject names
      *     :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
      *     :ivar slug: The public path segment
+     *     :ivar public_title: The batch's public name
      *     :ivar description_en: The English description
      *     :ivar description_bn: The Bangla description
      *     :ivar syllabus_en: The English syllabus
@@ -5719,9 +5754,29 @@ export interface components {
       /** Checklist */
       checklist: components['schemas']['ChecklistItemWire'][]
       /** Class Levels */
-      class_levels: string[]
+      class_levels: (
+        | 'a_level'
+        | 'admission'
+        | 'class_1'
+        | 'class_10'
+        | 'class_11'
+        | 'class_12'
+        | 'class_2'
+        | 'class_3'
+        | 'class_4'
+        | 'class_5'
+        | 'class_6'
+        | 'class_7'
+        | 'class_8'
+        | 'class_9'
+        | 'hsc'
+        | 'o_level'
+        | 'other'
+        | 'ssc'
+      )[]
       /** Curriculum */
-      curriculum: string | null
+      curriculum:
+        ('english_medium' | 'madrasah' | 'national_bangla' | 'national_english' | 'other') | null
       /** Description Bn */
       description_bn: string | null
       /** Description En */
@@ -5729,6 +5784,8 @@ export interface components {
       fee: components['schemas']['Money'] | null
       /** Mode */
       mode: ('home_visit' | 'in_person' | 'online') | null
+      /** Public Title */
+      public_title: string | null
       /** Publishable */
       publishable: boolean
       /** Show Fee */
@@ -5760,6 +5817,7 @@ export interface components {
      *     The first save must carry ``show_fee`` and ``show_schedule``.
      *
      *     :ivar slug: The public path segment, unique per owner
+     *     :ivar public_title: The batch's public name; empty clears it
      *     :ivar description_en: The English description
      *     :ivar description_bn: The Bangla description
      *     :ivar syllabus_en: The English syllabus
@@ -5776,15 +5834,41 @@ export interface components {
       /** Admissions */
       admissions?: ('closed' | 'open' | 'waitlist') | null
       /** Class Levels */
-      class_levels?: string[] | null
+      class_levels?:
+        | (
+            | 'a_level'
+            | 'admission'
+            | 'class_1'
+            | 'class_10'
+            | 'class_11'
+            | 'class_12'
+            | 'class_2'
+            | 'class_3'
+            | 'class_4'
+            | 'class_5'
+            | 'class_6'
+            | 'class_7'
+            | 'class_8'
+            | 'class_9'
+            | 'hsc'
+            | 'o_level'
+            | 'other'
+            | 'ssc'
+          )[]
+        | null
       /** Curriculum */
-      curriculum?: string | null
+      curriculum?:
+        | ('english_medium' | 'madrasah' | 'national_bangla' | 'national_english' | 'other')
+        | ''
+        | null
       /** Description Bn */
       description_bn?: string | null
       /** Description En */
       description_en?: string | null
       /** Mode */
       mode?: ('home_visit' | 'in_person' | 'online') | '' | null
+      /** Public Title */
+      public_title?: string | null
       /** Show Fee */
       show_fee?: boolean | null
       /** Show Schedule */
@@ -6008,6 +6092,8 @@ export interface components {
      *     :ivar centre_name: The centre's name
      *     :ivar role: ``manager`` or ``teacher``
      *     :ivar public_name_consent: Whether the member agreed to be named publicly
+     *     :ivar name_shown: The exact name the centre's page shows once they agree:
+     *         the name the centre entered for them, which is theirs to see
      */
     CentreMembershipResponse: {
       /**
@@ -6022,6 +6108,8 @@ export interface components {
        * Format: uuid
        */
       member_id: string
+      /** Name Shown */
+      name_shown: string
       /** Public Name Consent */
       public_name_consent: boolean
       /**
@@ -7797,8 +7885,10 @@ export interface components {
      * HubReportRequest
      * @description A reader's report about one hub target.
      *
-     *     :ivar target_kind: ``listing``, ``media``, ``review`` or ``reply``
-     *     :ivar target_id: The target's id
+     *     :ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,
+     *         ``review`` or ``reply``
+     *     :ivar target_id: The target's id: an owner id for an owner listing, a
+     *         batch id for a batch listing
      *     :ivar reason: A closed reason
      *     :ivar note: An optional note; it may not carry a phone number
      */
@@ -7819,7 +7909,7 @@ export interface components {
        * Target Kind
        * @enum {string}
        */
-      target_kind: 'listing' | 'media' | 'reply' | 'review'
+      target_kind: 'batch_listing' | 'media' | 'owner_listing' | 'reply' | 'review'
     }
     /**
      * InactiveFromRequest
