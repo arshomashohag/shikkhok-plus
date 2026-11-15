@@ -72,7 +72,7 @@ def downgrade() -> None:
     # leave a privileged role behind under a successful downgrade.
     op.execute(
         sa.text(
-            f"""  # noqa: S608  fixed module constants
+            f"""
             DO $$
             DECLARE
                 role_oid oid;
@@ -105,6 +105,6 @@ def downgrade() -> None:
                 END;
             END
             $$;
-            """
+            """  # noqa: S608  fixed module constants
         )
     )
