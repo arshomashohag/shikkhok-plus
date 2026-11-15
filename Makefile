@@ -223,7 +223,7 @@ test:
 		--junitxml=$(PYTEST_JUNIT) \
 		--cov=app.money \
 		--cov=app.accounts --cov=app.admin --cov=app.analytics --cov=app.expenses \
-		--cov=app.guardians --cov=app.help \
+		--cov=app.guardians --cov=app.help --cov=app.hub \
 		--cov=app.api --cov=app.audit --cov=app.auth --cov=app.authz \
 		--cov=app.batches --cov=app.centres --cov=app.payroll --cov=app.staff \
 		--cov=app.config --cov=app.contract --cov=app.db --cov=app.errors \
