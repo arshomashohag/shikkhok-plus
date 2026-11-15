@@ -29,6 +29,8 @@ class MoreActionsTest {
         val (actions, routes) = opened(Lens.TEACHER)
 
         assertNotNull(actions.onPaymentMethods).invoke()
+        assertNotNull(actions.onPublicListing).invoke()
+        assertNotNull(actions.onNameConsent).invoke()
         assertNotNull(actions.onCollections).invoke()
         assertNotNull(actions.onExpenses).invoke()
         assertNotNull(actions.onMoneySummary).invoke()
@@ -43,6 +45,8 @@ class MoreActionsTest {
         assertEquals(
             listOf(
                 Destination.PaymentMethods.route,
+                Destination.HubListing.route,
+                Destination.NameConsent.route,
                 Destination.Collections.route,
                 Destination.Expenses.route,
                 Destination.MoneySummary.route,
@@ -67,6 +71,8 @@ class MoreActionsTest {
         assertNull(actions.onExpenses)
         assertNull(actions.onMoneySummary)
         assertNull(actions.onMyChildren)
+        assertNull(actions.onPublicListing)
+        assertNull(actions.onNameConsent)
     }
 
     @Test
@@ -85,8 +91,10 @@ class MoreActionsTest {
         val (actions, routes) = opened(Lens.CLASS_TEACHER)
 
         assertNotNull(actions.onCentreOffers).invoke()
+        assertNotNull(actions.onNameConsent).invoke()
 
-        assertEquals(listOf(Destination.CentreOffers.route), routes)
+        assertEquals(listOf(Destination.CentreOffers.route, Destination.NameConsent.route), routes)
+        assertNull(actions.onPublicListing, "only an owner edits a listing")
         assertNull(actions.onPaymentMethods)
         assertNull(actions.onCollections)
         assertNull(actions.onExpenses)

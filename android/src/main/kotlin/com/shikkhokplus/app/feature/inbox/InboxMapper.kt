@@ -28,6 +28,7 @@ object InboxMapper {
             "claim_to_verify" to InboxKind.CLAIM_TO_VERIFY,
             "class_cancelled" to InboxKind.CLASS_CANCELLED,
             "class_rescheduled" to InboxKind.CLASS_RESCHEDULED,
+            "hub_listing_suspended" to InboxKind.HUB_LISTING_SUSPENDED,
         )
 
     /**
@@ -156,6 +157,7 @@ object InboxMapper {
             message.kind == InboxKind.FEE_REMINDER && seat != null -> InboxTarget.Fees(seat, guardian)
             message.kind == InboxKind.CLAIM_TO_VERIFY && source != null -> InboxTarget.Payment(source)
             message.kind == InboxKind.CLAIM_TO_VERIFY -> InboxTarget.Verify
+            message.kind == InboxKind.HUB_LISTING_SUSPENDED -> InboxTarget.HubListing
             else -> InboxTarget.Detail(message.id)
         }
     }

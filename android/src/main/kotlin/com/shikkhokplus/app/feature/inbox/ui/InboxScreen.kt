@@ -323,6 +323,7 @@ private fun titleOf(kind: InboxKind): Int =
         InboxKind.CLAIM_TO_VERIFY -> R.string.inbox_claim_to_verify_title
         InboxKind.CLASS_CANCELLED -> R.string.inbox_class_cancelled_title
         InboxKind.CLASS_RESCHEDULED -> R.string.inbox_class_rescheduled_title
+        InboxKind.HUB_LISTING_SUSPENDED -> R.string.inbox_hub_listing_suspended_title
     }
 
 /**

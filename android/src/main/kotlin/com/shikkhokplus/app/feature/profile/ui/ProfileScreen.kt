@@ -64,6 +64,12 @@ const val TAG_PROFILE_SIGN_OUT: String = "profile_sign_out"
 /** The teacher's "Where students pay" row. */
 const val TAG_PROFILE_PAYMENT_METHODS: String = "profile_payment_methods"
 
+/** The public listing row, shown to a teacher. */
+const val TAG_PROFILE_PUBLIC_LISTING: String = "profile_public_listing"
+
+/** The "show my name on the centre's page" row, shown to a teacher in a centre. */
+const val TAG_PROFILE_NAME_CONSENT: String = "profile_name_consent"
+
 /** The money reports row, shown to a teacher. */
 const val TAG_PROFILE_COLLECTIONS: String = "profile_collections"
 
@@ -142,6 +148,8 @@ const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
  * @property onSwitchLens Returns to the lens picker, or null when this
  *   person holds one lens and has nothing to switch to
  * @property onPaymentMethods Opens "Where students pay", or null
+ * @property onPublicListing Opens the public listing editor, or null
+ * @property onNameConsent Opens "show my name on the centre's page", or null
  * @property onCollections Opens the money reports (M1), or null
  * @property onExpenses Opens the expense list, or null
  * @property onMoneySummary Opens the monthly summary, or null
@@ -177,6 +185,8 @@ data class MoreActions(
     val onRetry: () -> Unit = {},
     val onSwitchLens: (() -> Unit)? = null,
     val onPaymentMethods: (() -> Unit)? = null,
+    val onPublicListing: (() -> Unit)? = null,
+    val onNameConsent: (() -> Unit)? = null,
     val onCollections: (() -> Unit)? = null,
     val onExpenses: (() -> Unit)? = null,
     val onMoneySummary: (() -> Unit)? = null,
@@ -349,6 +359,7 @@ private fun MoreMenu(
 
     PeopleRows(lens, actions, offline)
     TeacherRows(actions, offline)
+    PublicPageRows(actions, offline)
     AppRows(actions, offline)
     AccountRows(actions, offline)
 
@@ -521,6 +532,43 @@ private fun CentreRows(actions: MoreActions, offline: Boolean) {
             modifier = Modifier.testTag(TAG_PROFILE_CENTRE_OFFERS),
         )
         MenuDivider()
+    }
+}
+
+/**
+ * PUBLIC PAGE: the owner's listing, and a centre member's choice to be
+ * named on the centre's page. Drawn only when the route supplies them.
+ *
+ * @param actions Where each row leads
+ * @param offline Whether the rows wait for a connection
+ */
+@Composable
+private fun PublicPageRows(actions: MoreActions, offline: Boolean) {
+    if (actions.onPublicListing == null && actions.onNameConsent == null) return
+    MenuSection(stringResource(R.string.hub_more_section)) {
+        actions.onPublicListing?.let { open ->
+            MenuRow(
+                title = stringResource(R.string.hub_more_title),
+                subtitle =
+                    stringResource(if (offline) R.string.more_needs_connection else R.string.hub_more_sub),
+                icon = MenuIcons.Person,
+                onClick = open,
+                enabled = !offline,
+                modifier = Modifier.testTag(TAG_PROFILE_PUBLIC_LISTING),
+            )
+        }
+        actions.onNameConsent?.let { open ->
+            if (actions.onPublicListing != null) MenuDivider()
+            MenuRow(
+                title = stringResource(R.string.hub_consent_title),
+                subtitle =
+                    stringResource(if (offline) R.string.more_needs_connection else R.string.hub_consent_row_sub),
+                icon = MenuIcons.Envelope,
+                onClick = open,
+                enabled = !offline,
+                modifier = Modifier.testTag(TAG_PROFILE_NAME_CONSENT),
+            )
+        }
     }
 }
 
