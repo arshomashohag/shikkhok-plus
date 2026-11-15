@@ -68,8 +68,9 @@ class NameConsentViewModel(
     /** What the screen renders. */
     val state: StateFlow<NameConsentState> = _state.asStateFlow()
 
-    /** Read the memberships. */
+    /** Read the memberships; does nothing once they are showing, so re-entry keeps a failed toggle. */
     fun load() {
+        if (_state.value.body is NameConsentBody.Loaded) return
         viewModelScope.launch {
             val result = api.centreMemberships()
             _state.update {

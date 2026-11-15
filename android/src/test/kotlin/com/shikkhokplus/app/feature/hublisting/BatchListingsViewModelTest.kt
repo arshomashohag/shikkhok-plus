@@ -199,4 +199,33 @@ class BatchListingsViewModelTest {
         assertEquals("সেন্টারের শিক্ষকবৃন্দ", teacherLine(listOf("Centre faculty"), "সেন্টারের শিক্ষকবৃন্দ"))
         assertEquals("Karim", teacherLine(listOf("Karim"), "সেন্টারের শিক্ষকবৃন্দ"))
     }
+
+    @Test
+    fun reentering_the_screen_keeps_the_open_editor_and_its_input() = runTest(dispatcher) {
+        val fake = FakeHubApi()
+        fake.batches = AuthResult.Ok(listOf(batchListing()))
+        val vm = BatchListingsViewModel(fake)
+        vm.load()
+        advanceUntilIdle()
+        vm.edit("b-1")
+        vm.change { it.copy(descriptionEn = "typed") }
+
+        vm.load()
+        advanceUntilIdle()
+
+        assertEquals("typed", vm.state.value.editor?.draft?.descriptionEn)
+    }
+
+    @Test
+    fun an_unknown_batch_status_is_read_only() = runTest(dispatcher) {
+        val fake = FakeHubApi()
+        fake.batches = AuthResult.Ok(listOf(batchListing(status = "archived", publishable = true)))
+        val vm = BatchListingsViewModel(fake)
+        vm.load()
+        advanceUntilIdle()
+        vm.edit("b-1")
+
+        assertTrue(vm.state.value.editor!!.readOnly)
+        assertFalse(vm.state.value.editor!!.canPublish)
+    }
 }

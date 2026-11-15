@@ -97,4 +97,20 @@ class NameConsentViewModelTest {
         advanceUntilIdle()
         assertEquals(emptyList(), assertIs<NameConsentBody.Loaded>(vm.state.value.body).rows)
     }
+
+    @Test
+    fun reentering_the_screen_keeps_a_failed_toggle_and_its_retry() = runTest(dispatcher) {
+        val fake = FakeHubApi()
+        fake.memberships = AuthResult.Ok(listOf(membership(consent = false)))
+        val vm = loaded(fake)
+        fake.consentResult = AuthResult.TransportFailure
+        vm.set("c-1", true)
+        advanceUntilIdle()
+
+        vm.load()
+        advanceUntilIdle()
+
+        val row = assertIs<NameConsentBody.Loaded>(vm.state.value.body).rows.single()
+        assertEquals("error.network.unreachable", row.failureKey)
+    }
 }

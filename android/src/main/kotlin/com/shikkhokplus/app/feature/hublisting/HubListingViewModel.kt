@@ -17,8 +17,9 @@ internal const val HUB_OFFLINE_KEY: String = "error.network.unreachable"
  *
  * @property messageKey Names a string resource; the server's key, or the offline key
  * @property canRetry Whether repeating the same call can help
+ * @property saveFailed Whether this was a save, so the banner can say nothing typed is lost
  */
-data class HubFailure(val messageKey: String, val canRetry: Boolean)
+data class HubFailure(val messageKey: String, val canRetry: Boolean, val saveFailed: Boolean = false)
 
 /**
  * Read a failed [AuthResult] as a [HubFailure].
@@ -76,13 +77,14 @@ sealed interface HubListingUiState {
  * Map the listing response to what the screen renders. Pure: nothing is
  * decided here beyond which state the server's `status` names.
  *
- * @return Suspended for a suspended listing, else the editor
+ * @return Suspended for a suspended listing, an error for an unknown status, else the editor
  */
 fun OwnerListingResponse.toUiState(): HubListingUiState =
-    if (ListingStatus.fromWire(status) == ListingStatus.SUSPENDED) {
-        HubListingUiState.Suspended(this)
-    } else {
-        HubListingUiState.Editing(this, checklist, publishable)
+    when (ListingStatus.fromWire(status)) {
+        ListingStatus.SUSPENDED -> HubListingUiState.Suspended(this)
+        // A status this version cannot read is never edited from here.
+        ListingStatus.UNKNOWN -> HubListingUiState.Error("error.unexpected", retryable = false)
+        else -> HubListingUiState.Editing(this, checklist, publishable)
     }
 
 /** The answer to "is this web address free". */
@@ -198,8 +200,14 @@ class HubListingViewModel(
 
     private var lastWrite: HubWrite? = null
 
-    /** Read the listing, then the areas it needs. */
+    /**
+     * Read the listing, then the areas it needs. Does nothing once a listing
+     * is showing, so re-entering the screen (rotation, coming back from the
+     * batch listings) never overwrites unsaved edits or a Retry banner.
+     */
     fun load() {
+        val body = _state.value.body
+        if (body is HubListingUiState.Editing || body is HubListingUiState.Suspended) return
         viewModelScope.launch {
             when (val result = api.listing()) {
                 is AuthResult.Ok -> {
@@ -221,6 +229,7 @@ class HubListingViewModel(
             load()
             return
         }
+        if (_state.value.failure?.canRetry != true) return
         when (lastWrite) {
             HubWrite.SAVE -> save()
             HubWrite.PUBLISH -> publish()
@@ -259,7 +268,7 @@ class HubListingViewModel(
         if (body == null || current.saving) return
         lastWrite = HubWrite.SAVE
         _state.update { it.copy(saving = true, failure = null) }
-        viewModelScope.launch { finish(api.save(body), HubNotice.SAVED) }
+        viewModelScope.launch { finish(api.save(body), HubNotice.SAVED, saved = true) }
     }
 
     /** Ask whether the typed web address is free. */
@@ -307,7 +316,7 @@ class HubListingViewModel(
 
     /** Take the listing down; the text is kept. */
     fun unpublish() {
-        if (_state.value.saving) return
+        if (_state.value.body !is HubListingUiState.Editing || _state.value.saving) return
         lastWrite = HubWrite.UNPUBLISH
         _state.update { it.copy(saving = true, failure = null) }
         viewModelScope.launch { finish(api.unpublish(), HubNotice.UNPUBLISHED) }
@@ -322,6 +331,7 @@ class HubListingViewModel(
      * @param code The division's code
      */
     fun pickDivision(code: String) {
+        if (_state.value.body !is HubListingUiState.Editing) return
         _state.update {
             it.copy(
                 draft = it.draft.copy(districtCode = "", upazilaCode = ""),
@@ -341,6 +351,7 @@ class HubListingViewModel(
      * @param code The district's code
      */
     fun pickDistrict(code: String) {
+        if (_state.value.body !is HubListingUiState.Editing) return
         _state.update {
             it.copy(
                 draft = it.draft.copy(districtCode = code, upazilaCode = ""),
@@ -380,10 +391,15 @@ class HubListingViewModel(
             )
         }
 
-    private fun finish(result: AuthResult<OwnerListingResponse>, notice: HubNotice) {
+    private fun finish(result: AuthResult<OwnerListingResponse>, notice: HubNotice, saved: Boolean = false) {
         when (result) {
             is AuthResult.Ok -> apply(result.value, notice)
-            else -> _state.update { it.copy(saving = false, failure = result.hubFailure()) }
+            else -> {
+                val failure = result.hubFailure()?.copy(saveFailed = saved)
+                // A failure repeating cannot fix leaves nothing to retry.
+                if (failure?.canRetry != true) lastWrite = null
+                _state.update { it.copy(saving = false, failure = failure) }
+            }
         }
     }
 

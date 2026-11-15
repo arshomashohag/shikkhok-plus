@@ -170,10 +170,11 @@ class HubListingViewModelTest {
         assertFalse(vm.state.value.publishing)
 
         fake.listing = AuthResult.Ok(owner(status = "published", publishable = true))
-        vm.load()
+        val published = model(fake)
+        published.load()
         advanceUntilIdle()
-        assertFalse(vm.state.value.canPublish)
-        assertTrue(vm.state.value.canUnpublish)
+        assertFalse(published.state.value.canPublish)
+        assertTrue(published.state.value.canUnpublish)
     }
 
     @Test
@@ -185,12 +186,12 @@ class HubListingViewModelTest {
         advanceUntilIdle()
         vm.openPublish()
         vm.agree(true)
-        fake.publishResult = refusal("hub.consent_outdated")
+        fake.publishResult = AuthResult.TransportFailure
 
         vm.publish()
         advanceUntilIdle()
         assertTrue(vm.state.value.publishing)
-        assertEquals("hub.consent_outdated", vm.state.value.failure?.messageKey)
+        assertEquals("error.network.unreachable", vm.state.value.failure?.messageKey)
 
         fake.publishResult = AuthResult.Ok(owner(status = "published", publishable = true))
         vm.retry()
@@ -244,9 +245,10 @@ class HubListingViewModelTest {
         assertFalse(vm.state.value.showStreet)
 
         fake.listing = AuthResult.Ok(owner(isCentre = true))
-        vm.load()
+        val centre = model(fake)
+        centre.load()
         advanceUntilIdle()
-        assertTrue(vm.state.value.showStreet)
+        assertTrue(centre.state.value.showStreet)
     }
 
     @Test
@@ -356,5 +358,87 @@ class HubListingViewModelTest {
             "Rahima, সেন্টারের শিক্ষকবৃন্দ",
             teacherLine(listOf("Rahima", "Centre faculty"), centreFaculty = "সেন্টারের শিক্ষকবৃন্দ"),
         )
+    }
+
+    @Test
+    fun reentering_the_screen_keeps_unsaved_edits_and_the_retry_banner() = runTest(dispatcher) {
+        val fake = FakeHubApi()
+        val vm = model(fake)
+        vm.load()
+        advanceUntilIdle()
+        vm.edit { it.copy(headlineEn = "typed") }
+        fake.saveResult = AuthResult.TransportFailure
+        vm.save()
+        advanceUntilIdle()
+        assertNotNull(vm.state.value.failure)
+
+        vm.load()
+        advanceUntilIdle()
+
+        assertEquals("typed", vm.state.value.draft.headlineEn, "a second load does not overwrite the draft")
+        assertNotNull(vm.state.value.failure, "nor clear the Retry banner")
+    }
+
+    @Test
+    fun a_second_write_is_refused_while_one_is_in_flight() = runTest(dispatcher) {
+        val fake = FakeHubApi()
+        val vm = model(fake)
+        vm.load()
+        advanceUntilIdle()
+        vm.edit { it.copy(headlineEn = "x") }
+
+        vm.save()
+        vm.save()
+        advanceUntilIdle()
+
+        assertEquals(1, fake.saved.size)
+    }
+
+    @Test
+    fun retry_needs_a_retryable_failure_and_a_non_retryable_one_forgets_the_write() = runTest(dispatcher) {
+        val fake = FakeHubApi()
+        val vm = model(fake)
+        vm.load()
+        advanceUntilIdle()
+        vm.edit { it.copy(slug = "taken") }
+        fake.saveResult = refusal("hub.slug_taken")
+        vm.save()
+        advanceUntilIdle()
+        assertTrue(vm.state.value.failure!!.saveFailed, "the save banner says nothing typed is lost")
+
+        vm.retry()
+        advanceUntilIdle()
+        assertEquals(1, fake.saved.size, "the server said repeating cannot help")
+    }
+
+    @Test
+    fun writes_and_area_picks_are_ignored_unless_the_listing_is_editable() = runTest(dispatcher) {
+        val fake = FakeHubApi()
+        fake.listing = AuthResult.Ok(owner(status = "suspended"))
+        val vm = model(fake)
+        vm.load()
+        advanceUntilIdle()
+
+        vm.unpublish()
+        vm.pickDivision("BD10")
+        vm.pickDistrict("BD1001")
+        advanceUntilIdle()
+
+        assertEquals(0, fake.unpublished)
+        assertEquals("", vm.state.value.areas.divisionCode.takeIf { it == "BD10" } ?: "")
+        assertEquals("", vm.state.value.draft.districtCode)
+    }
+
+    @Test
+    fun an_unknown_status_is_never_editable() = runTest(dispatcher) {
+        val fake = FakeHubApi()
+        fake.listing = AuthResult.Ok(owner(status = "archived"))
+        val vm = model(fake)
+        vm.load()
+        advanceUntilIdle()
+
+        assertFalse(vm.state.value.body is HubListingUiState.Editing)
+        assertFalse(vm.state.value.canSave)
+        assertEquals(ListingStatus.UNKNOWN, ListingStatus.fromWire("archived"))
     }
 }

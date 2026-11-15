@@ -259,6 +259,9 @@ enum class ListingStatus(val wire: String) {
 
     /** Taken down by an administrator; read-only until they lift it. */
     SUSPENDED("suspended"),
+
+    /** A status this version does not know; never edited from here. */
+    UNKNOWN(""),
     ;
 
     companion object {
@@ -266,9 +269,10 @@ enum class ListingStatus(val wire: String) {
          * Read the server's value.
          *
          * @param wire The server's `status`
-         * @return The status; anything unrecognised reads as a draft
+         * @return The status; anything unrecognised reads as [UNKNOWN], which is read-only
          */
-        fun fromWire(wire: String): ListingStatus = entries.firstOrNull { it.wire == wire } ?: DRAFT
+        fun fromWire(wire: String): ListingStatus =
+            entries.firstOrNull { it.wire == wire && it != UNKNOWN } ?: UNKNOWN
     }
 }
 

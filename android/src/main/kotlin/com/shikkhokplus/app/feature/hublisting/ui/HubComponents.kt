@@ -35,6 +35,7 @@ internal fun statusLabel(status: ListingStatus): Int =
         ListingStatus.PUBLISHED -> R.string.hub_status_published
         ListingStatus.HIDDEN -> R.string.hub_status_hidden
         ListingStatus.SUSPENDED -> R.string.hub_status_suspended
+        ListingStatus.UNKNOWN -> R.string.error_unexpected
     }
 
 /** What a teaching mode or batch mode is called, by its wire value. */

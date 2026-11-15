@@ -1823,8 +1823,6 @@
     <string name="hub_batch_value_invalid">বেছে নেওয়া একটি বিকল্প গ্রহণযোগ্য নয়। তালিকা থেকে বেছে নিন।</string>
     <string name="hub_more_title">পাবলিক লিস্টিং</string>
     <string name="hub_more_sub">শিক্ষকপ্লাসে আপনার পেজ, যেখানে অভিভাবকরা আপনাকে খুঁজে পান</string>
-    <string name="hub_batches_row">ব্যাচ লিস্টিং</string>
-    <string name="hub_batches_sub">আপনার পেজে কোন ব্যাচগুলো দেখা যাবে তা ঠিক করুন</string>
     <string name="hub_title">পাবলিক লিস্টিং</string>
     <string name="hub_status_draft">খসড়া</string>
     <string name="hub_status_published">প্রকাশিত</string>

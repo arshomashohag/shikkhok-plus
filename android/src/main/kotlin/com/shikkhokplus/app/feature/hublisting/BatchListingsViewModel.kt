@@ -48,7 +48,8 @@ data class BatchEditorState(
     val dirty: Boolean get() = draft != batchDraftOf(batch)
 
     /** Whether the batch's listing is suspended, and so read-only. */
-    val readOnly: Boolean get() = ListingStatus.fromWire(batch.status) == ListingStatus.SUSPENDED
+    val readOnly: Boolean
+        get() = ListingStatus.fromWire(batch.status) in setOf(ListingStatus.SUSPENDED, ListingStatus.UNKNOWN)
 
     /** Whether Save is offered. */
     val canSave: Boolean get() = !readOnly && dirty && !busy
@@ -95,8 +96,13 @@ class BatchListingsViewModel(
 
     private var lastWrite: BatchWrite? = null
 
-    /** Read the batches. */
+    /** Read the batches; does nothing once they are showing, so re-entry keeps the open editor. */
     fun load() {
+        if (_state.value.body is BatchListingsBody.Loaded) return
+        refresh()
+    }
+
+    private fun refresh() {
         viewModelScope.launch {
             val result = api.batchListings()
             _state.update {
@@ -140,7 +146,7 @@ class BatchListingsViewModel(
     /** Close the editor and read the list as the server now has it. */
     fun close() {
         _state.update { it.copy(editor = null) }
-        load()
+        refresh()
     }
 
     /**

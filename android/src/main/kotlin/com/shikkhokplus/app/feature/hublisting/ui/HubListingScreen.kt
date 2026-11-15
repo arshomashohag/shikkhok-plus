@@ -476,8 +476,9 @@ internal fun ChecklistCard(items: List<HubChecklistItem>) {
 /** A failure the server named, with Retry when repeating the call can help. */
 @Composable
 internal fun FailureBanner(failure: HubFailure, onRetry: () -> Unit) {
+    val message = stringResource(MessageKeys.resolve(failure.messageKey))
     Banner(
-        title = stringResource(MessageKeys.resolve(failure.messageKey)),
+        title = if (failure.saveFailed) stringResource(R.string.hub_save_failed) + " " + message else message,
         tone = BannerTone.ERROR,
         action =
             if (failure.canRetry) {

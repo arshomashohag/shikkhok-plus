@@ -1890,8 +1890,6 @@
     <string name="hub_batch_value_invalid">One of the chosen options is not allowed. Pick from the list.</string>
     <string name="hub_more_title">Public listing</string>
     <string name="hub_more_sub">Your page on ShikkhokPlus that parents can find</string>
-    <string name="hub_batches_row">Batch listings</string>
-    <string name="hub_batches_sub">Choose which batches appear on your page</string>
     <string name="hub_title">Public listing</string>
     <string name="hub_status_draft">Draft</string>
     <string name="hub_status_published">Published</string>
