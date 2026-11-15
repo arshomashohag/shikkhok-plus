@@ -64,6 +64,8 @@ const student = {
   display_name: 'Tasnim',
   student_phone: '+8801611477203',
   guardian_phone: null,
+  student_email: null,
+  guardian_email: null,
   student_state: 'accepted',
   guardian_state: 'absent',
   is_removable: false,
@@ -92,7 +94,8 @@ describe('Students on a wide window', () => {
     expect(within(table).getByRole('link', { name: 'Tasnim' })).toBeInTheDocument()
     expect(within(table).getByText('01611-477203')).toBeInTheDocument()
     expect(within(table).getByText('Accepted')).toBeInTheDocument()
-    expect(within(table).getByText('No phone')).toBeInTheDocument()
+    // A guardian with neither phone nor email [W7 step 7, reworded § 5].
+    expect(within(table).getByText('No contact')).toBeInTheDocument()
     expect(within(table).getByText('৳4,500')).toBeInTheDocument()
     // The add action sits in the header, once; there is no floating button.
     expect(screen.getAllByRole('link', { name: 'Add student' })).toHaveLength(1)

@@ -28,7 +28,7 @@ import {
   identifierInputProps,
   useFailureText,
 } from '../../auth/parts'
-import type { SettingsNotice } from './paths'
+import { securityPaths, type SettingsNotice } from './paths'
 
 export function AddPhone() {
   return <AddContact kind="phone" />
@@ -76,14 +76,15 @@ function AddContact({ kind }: { kind: IdentifierKind }) {
     const state: SettingsNotice = {
       notice: t(phone ? 'web_contact_phone_added' : 'web_contact_email_added'),
     }
-    navigate('/settings', { replace: true, state })
+    // Back where Add was opened from: the contacts screen [W6 step 3].
+    navigate(securityPaths.contacts(), { replace: true, state })
   }
 
   const title = t(phone ? 'web_contact_add_phone' : 'web_contact_add_email')
   if (sentTo)
     return (
       <>
-        <TopBar title={title} back="/settings" />
+        <TopBar title={title} back={securityPaths.contacts()} />
         <div className="card">
           <h2 style={{ marginTop: 0 }}>{t('auth_code_label')}</h2>
           <p className="meta">
@@ -107,7 +108,7 @@ function AddContact({ kind }: { kind: IdentifierKind }) {
   const help = t(phone ? 'web_contact_add_phone_why' : 'web_contact_add_email_why')
   return (
     <>
-      <TopBar title={title} back="/settings" />
+      <TopBar title={title} back={securityPaths.contacts()} />
       <form className="card" onSubmit={onSubmit} noValidate>
         <Field
           id="contact"

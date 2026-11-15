@@ -1,5 +1,16 @@
 /**
- * Sign in with a mobile number or an email address, and a password.
+ * Sign in with a username, a mobile number or an email address, typed in
+ * one field, and a password [FR4.1] [FR4.2].
+ *
+ * The client never classifies what was typed: it checks only that the
+ * field is not blank and sends it trimmed, as typed, as `login`; no
+ * shape check, no `phone` or `email` key [FR11.3] [NFR1.2]. An
+ * `email.invalid` (a login with an `@` that is no address) is shown
+ * under the field; every other refusal goes in the banner.
+ *
+ * Nothing typed is handed to the code flow: its links carry no route
+ * state, which the browser would keep in `history.state` [functional-spec
+ * § 1 defect 6] [NFR3.3].
  *
  * A wrong password, an unknown account and an account that has no
  * password yet get the same answer from the server
@@ -19,16 +30,7 @@ import { useT } from '../../i18n/i18n'
 import { useSession } from '../../session/session'
 import { AuthFrame } from './AuthFrame'
 import { MfaStep, type Challenge } from './MfaStep'
-import { invalidKey, readIdentifier, type IdentifierKind } from './identifier'
-import type { CodeFlowEntry } from './PasswordCode'
-import {
-  describedBy,
-  Field,
-  identifierInputProps,
-  KindToggle,
-  PasswordInput,
-  useFailureText,
-} from './parts'
+import { describedBy, Field, PasswordInput, useFailureText } from './parts'
 
 /** The challenge's lifetime when an older server does not say. */
 const CHALLENGE_S = 300
@@ -41,11 +43,10 @@ export function SignIn() {
   const failure = useFailureText()
   const { signIn } = useSession()
   const [challenge, setChallenge] = useState<Challenge | null>(null)
-  const [kind, setKind] = useState<IdentifierKind>('phone')
-  const [typed, setTyped] = useState('')
+  const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
-  const [identifierError, setIdentifierError] = useState<string | null>(null)
+  const [loginError, setLoginError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pointToCode, setPointToCode] = useState(false)
   /** Why the form is showing again, when the second step lapsed. */
@@ -57,22 +58,21 @@ export function SignIn() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
-    setIdentifierError(null)
+    setLoginError(null)
     setError(null)
     setPointToCode(false)
     setNotice(null)
-    const identifier = readIdentifier(kind, typed)
-    if (!identifier) {
-      setIdentifierError(t(invalidKey(kind)))
-      return
-    }
+    const typed = login.trim()
+    // Non-blank is the only condition: no shape check, no classification.
+    // Sign in stays disabled until then, as on Android.
+    if (!typed) return
     if (!password) {
       setError(t('web_auth_password_required'))
       return
     }
     setBusy(true)
     try {
-      const answer = await signInWithPassword(identifier, password)
+      const answer = await signInWithPassword(typed, password)
       setPassword('')
       if (answer.mfa_required && answer.mfa_challenge) {
         // No token yet: nothing is stored until the second step succeeds.
@@ -83,8 +83,11 @@ export function SignIn() {
       }
       signIn(tokensFrom(answer))
     } catch (err) {
-      setError(failure(err))
-      setPointToCode(err instanceof ApiError && POINT_TO_CODE.has(err.messageKey))
+      if (err instanceof ApiError && err.messageKey === 'email.invalid') setLoginError(failure(err))
+      else {
+        setError(failure(err))
+        setPointToCode(err instanceof ApiError && POINT_TO_CODE.has(err.messageKey))
+      }
       setPassword('')
       setBusy(false)
     }
@@ -98,8 +101,6 @@ export function SignIn() {
     },
     [t],
   )
-
-  const codeEntry: CodeFlowEntry = { kind, typed }
 
   if (challenge)
     return (
@@ -118,30 +119,19 @@ export function SignIn() {
             {notice}
           </div>
         ) : null}
-        <KindToggle
-          kind={kind}
-          disabled={busy}
-          onKind={(k) => {
-            setKind(k)
-            setTyped('')
-            setIdentifierError(null)
-          }}
-        />
-        <Field
-          id="identifier"
-          label={t(kind === 'phone' ? 'auth_phone_label' : 'web_auth_email_label')}
-          error={identifierError}
-        >
+        <Field id="login" label={t('auth_login_label')} error={loginError}>
           <input
-            id="identifier"
+            id="login"
             name="username"
-            {...identifierInputProps(kind, 'username')}
-            placeholder={kind === 'phone' ? t('auth_phone_hint') : undefined}
-            value={typed}
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={login}
             disabled={busy}
-            onChange={(e) => setTyped(e.target.value)}
-            aria-invalid={identifierError ? true : undefined}
-            aria-describedby={describedBy('identifier', false, Boolean(identifierError))}
+            onChange={(e) => setLogin(e.target.value)}
+            aria-invalid={loginError ? true : undefined}
+            aria-describedby={describedBy('login', false, Boolean(loginError))}
             autoFocus
           />
         </Field>
@@ -164,29 +154,26 @@ export function SignIn() {
                 <>
                   <br />
                   {t('web_auth_password_wrong_hint')}{' '}
-                  <Link to="/signin/code" state={codeEntry}>
-                    {t('web_auth_get_code')}
-                  </Link>
+                  <Link to="/signin/code">{t('web_auth_get_code')}</Link>
                 </>
               ) : null}
             </span>
           </div>
         ) : null}
         <div className="button-row">
-          <button type="submit" className="btn btn-primary btn-money" disabled={busy}>
+          <button
+            type="submit"
+            className="btn btn-primary btn-money"
+            disabled={busy || !login.trim()}
+          >
             {busy ? t('web_auth_signing_in') : t('auth_verify')}
           </button>
         </div>
         <p className="meta" style={{ marginTop: 16 }}>
-          <Link to="/signin/code" state={codeEntry}>
-            {t('web_auth_forgot_password')}
-          </Link>
+          <Link to="/signin/code">{t('web_auth_forgot_password')}</Link>
         </p>
         <p className="meta">
-          {t('web_auth_first_password')}{' '}
-          <Link to="/signin/code" state={codeEntry}>
-            {t('web_auth_get_code')}
-          </Link>
+          {t('web_auth_first_password')} <Link to="/signin/code">{t('web_auth_get_code')}</Link>
         </p>
         <p className="meta" style={{ marginTop: 24 }}>
           {t('auth_new_here')} <Link to="/signup">{t('auth_create_account')}</Link>

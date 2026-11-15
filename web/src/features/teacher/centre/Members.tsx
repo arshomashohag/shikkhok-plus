@@ -4,6 +4,10 @@
  * Every rule is the server's: an invitation grants nothing until accepted,
  * a removal takes effect on the member's next request, and the last
  * manager cannot be removed. This screen asks and shows the answer.
+ *
+ * An invitation goes by phone, email or both [FR6.4]; a member invited
+ * by email alone has no phone, and the card shows the address instead
+ * (`contactLine`) [C2].
  */
 import { useState } from 'react'
 import { inviteMember, listMembers, revokeMember, type Schemas } from '../../../api/endpoints'
@@ -11,6 +15,7 @@ import { ApiError } from '../../../api/errors'
 import { formatPhone, normalisePhone } from '../../../core/format'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
+import { readIdentifier } from '../../auth/identifier'
 import {
   EmptyState,
   ErrorCard,
@@ -33,15 +38,45 @@ export function memberState(m: Member): string {
   return 'centre_member_accepted'
 }
 
-/** The invitation body, or null while the form is not yet sendable. */
+/**
+ * The contact shown on a member's card: the formatted phone, else the
+ * email the invitation went to, else nothing. `phone` is nullable since
+ * invitations by email [C2]; `formatPhone` is never handed a null
+ * [FR6.4] [NFR6.2].
+ */
+export function contactLine(m: Member): string | null {
+  if (m.phone !== null) return formatPhone(m.phone)
+  return m.invited_email ?? null
+}
+
+/**
+ * The invitation body, or null while the form is not yet sendable
+ * [FR6.4] [functional-spec W8 steps 2–3].
+ *
+ * Sendable when the name is non-blank, at least one of phone or email is
+ * non-blank, and each non-blank value is well-formed. The at-least-one
+ * rule is a presence check mirroring the schema's shape, not a policy:
+ * whether the person may be invited is the server's. Blanks are omitted.
+ */
 export function inviteBody(
   name: string,
   phone: string,
+  email: string,
   role: Role,
 ): Schemas['MemberInviteRequest'] | null {
-  const normal = normalisePhone(phone)
-  if (!name.trim() || !normal) return null
-  return { display_name: name.trim(), phone: normal, role }
+  if (!name.trim() || (!phone.trim() && !email.trim())) return null
+  const body: Schemas['MemberInviteRequest'] = { display_name: name.trim(), role }
+  if (phone.trim()) {
+    const normal = normalisePhone(phone)
+    if (!normal) return null
+    body.phone = normal
+  }
+  if (email.trim()) {
+    const read = readIdentifier('email', email)
+    if (!read || !('email' in read)) return null
+    body.email = read.email
+  }
+  return body
 }
 
 function failureText(e: unknown, t: (k: string) => string, message: (k: string) => string) {
@@ -55,10 +90,11 @@ function InviteSheet({ onClose, onSent }: { onClose: () => void; onSent: (name: 
   const { t, message } = useT()
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('teacher')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
-  const body = inviteBody(name, phone, role)
+  const body = inviteBody(name, phone, email, role)
 
   async function send() {
     if (!body) return
@@ -78,7 +114,7 @@ function InviteSheet({ onClose, onSent }: { onClose: () => void; onSent: (name: 
     <Sheet
       title={t('centre_invite_title')}
       onClose={onClose}
-      dirty={name.trim() !== '' || phone.trim() !== ''}
+      dirty={name.trim() !== '' || phone.trim() !== '' || email.trim() !== ''}
     >
       <div className="field" style={{ marginTop: 0 }}>
         <label htmlFor="cm-name">{t('centre_invite_name_label')}</label>
@@ -98,7 +134,24 @@ function InviteSheet({ onClose, onSent }: { onClose: () => void; onSent: (name: 
           placeholder={t('auth_phone_hint')}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
+          aria-describedby="cm-by-help"
         />
+      </div>
+      <div className="field">
+        <label htmlFor="cm-email">{t('centre_invite_email_label')}</label>
+        <input
+          id="cm-email"
+          type="email"
+          inputMode="email"
+          // Someone else's address: never offer the manager's own [NFR3.8].
+          autoComplete="off"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          aria-describedby="cm-by-help"
+        />
+        <span id="cm-by-help" className="help">
+          {t('centre_invite_by_help')}
+        </span>
       </div>
       <div className="field">
         <label htmlFor="cm-role">{t('centre_invite_role_label')}</label>
@@ -216,11 +269,9 @@ export function Members() {
                   </span>
                   <br />
                   <span className="meta">
-                    {[
-                      t(`centre_member_role_${m.role}`),
-                      formatPhone(m.phone),
-                      t(memberState(m)),
-                    ].join(' · ')}
+                    {[t(`centre_member_role_${m.role}`), contactLine(m), t(memberState(m))]
+                      .filter((part) => part !== null)
+                      .join(' · ')}
                   </span>
                 </span>
                 {m.revoked ? null : (

@@ -8,6 +8,11 @@
  *
  * States follow `SessionStateMapper.kt`: no lens (only invitations to
  * answer), one lens (open it), several (pick, once, remembered here).
+ *
+ * **Behind every lens, the username gate** [FR5.2]. A read saying
+ * `username_required: true` publishes `username-required`, and `App`
+ * renders the choose-username gate in place of every route. It lifts
+ * only on a later read saying false, never on a write's answer alone.
  */
 import {
   createContext,
@@ -15,6 +20,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -41,6 +47,7 @@ export type Session =
   | { state: 'signed-out' }
   | { state: 'resolving' }
   | { state: 'failed'; error: ApiError }
+  | { state: 'username-required'; me: Me }
   | {
       state: 'ready'
       me: Me
@@ -99,6 +106,32 @@ export function resolveLens(
   return kept ? { lens: kept.lens, choosing: false } : { lens: null, choosing: true }
 }
 
+/**
+ * What one successful `/v1/me` read publishes: the choose-username gate
+ * when the server says the account has no username yet, else the app
+ * [FR5.2] [NFR3.14]. An absent flag (an older server) reads as false
+ * [NFR6.3]. Nothing about the app — lens or workspace — is decided
+ * behind the gate. Exported for tests: with {@link resolveLens}, this is
+ * the session's state machine.
+ *
+ * @param workspaceOf Picks the workspace to act on; called only for `ready`
+ */
+export function sessionFromMe(
+  me: Me,
+  remembered: Lens | null,
+  workspaceOf: (offered: readonly { owner_id: string }[]) => string | null = reconcileWorkspace,
+): Session {
+  if (me.username_required === true) return { state: 'username-required', me }
+  const options = readLenses(me.lenses)
+  return {
+    state: 'ready',
+    me,
+    options,
+    ...resolveLens(options, remembered),
+    workspace: workspaceOf(me.workspaces ?? []),
+  }
+}
+
 interface SessionValue {
   session: Session
   signIn: (tokens: TokenResponse) => void
@@ -108,6 +141,12 @@ interface SessionValue {
   chooseWorkspace: (id: string) => void
   /** Re-read `/v1/me`, e.g. after accepting an invitation or creating a first batch. */
   refresh: () => void
+  /**
+   * Re-read `/v1/me` and settle when that read (or a newer one that
+   * superseded it) settles, whatever it published. The gate waits on
+   * this rather than inferring a read's end from a changed account.
+   */
+  reread: () => Promise<void>
 }
 
 const SessionContext = createContext<SessionValue | null>(null)
@@ -118,6 +157,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     readTokens() ? { state: 'resolving' } : { state: 'signed-out' },
   )
   const [nonce, setNonce] = useState(0)
+  /** The newest read asked for; mirrors `nonce` so a `reread()` knows its own. */
+  const asked = useRef(0)
+  /** The newest read that settled (or was made moot by signing out). */
+  const [settledAt, setSettledAt] = useState(0)
+  /** Pending `reread()` callers, each with the read it waits for. */
+  const waiting = useRef<{ at: number; resolve: () => void }[]>([])
 
   // Sign-out in another tab, or a refresh the server refused, ends it here.
   useEffect(
@@ -131,26 +176,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!signedIn) {
       setSession({ state: 'signed-out' })
+      // No read is coming: every pending reread() is moot.
+      setSettledAt(asked.current)
       return
     }
     let live = true
-    setSession((s) => (s.state === 'ready' ? s : { state: 'resolving' }))
+    // A re-read keeps what is on screen, the gate included, so it never
+    // flashes the loader [NFR8.6].
+    setSession((s) =>
+      s.state === 'ready' || s.state === 'username-required' ? s : { state: 'resolving' },
+    )
     readMe().then(
       (me) => {
         if (!live) return
-        const options = readLenses(me.lenses)
-        setSession({
-          state: 'ready',
-          me,
-          options,
-          ...resolveLens(options, storedLens()),
-          workspace: reconcileWorkspace(me.workspaces ?? []),
-        })
+        setSession(sessionFromMe(me, storedLens()))
+        setSettledAt(nonce)
       },
       (e: unknown) => {
         if (!live) return
         const error =
           e instanceof ApiError ? e : new ApiError(0, 'UNEXPECTED', UNEXPECTED_KEY, true)
+        setSettledAt(nonce)
         if (error.status === 401) {
           clearTokens()
           return
@@ -163,11 +209,36 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [signedIn, nonce])
 
-  const signIn = useCallback((tokens: TokenResponse) => {
-    saveTokens(tokens)
-    setSignedIn(true)
-    setNonce((n) => n + 1)
+  // Settle each `reread()` once what its read published is on screen, so
+  // the caller sees the result rendered, or finds itself unmounted.
+  useEffect(() => {
+    const due = waiting.current.filter((w) => w.at <= settledAt)
+    waiting.current = waiting.current.filter((w) => w.at > settledAt)
+    for (const w of due) w.resolve()
+  }, [settledAt, session])
+
+  const refresh = useCallback(() => {
+    asked.current += 1
+    setNonce(asked.current)
   }, [])
+
+  const reread = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        refresh()
+        waiting.current.push({ at: asked.current, resolve })
+      }),
+    [refresh],
+  )
+
+  const signIn = useCallback(
+    (tokens: TokenResponse) => {
+      saveTokens(tokens)
+      setSignedIn(true)
+      refresh()
+    },
+    [refresh],
+  )
 
   const signOut = useCallback(() => {
     const held = readTokens()
@@ -187,8 +258,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSession((s) => (s.state === 'ready' ? { ...s, lens, choosing: false } : s))
   }, [])
 
-  const refresh = useCallback(() => setNonce((n) => n + 1), [])
-
   // Opened offline: try again by itself the moment the connection returns.
   useEffect(() => {
     if (session.state !== 'failed') return
@@ -197,8 +266,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [session.state, refresh])
 
   const value = useMemo(
-    () => ({ session, signIn, signOut, chooseLens, chooseWorkspace, refresh }),
-    [session, signIn, signOut, chooseLens, chooseWorkspace, refresh],
+    () => ({ session, signIn, signOut, chooseLens, chooseWorkspace, refresh, reread }),
+    [session, signIn, signOut, chooseLens, chooseWorkspace, refresh, reread],
   )
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }

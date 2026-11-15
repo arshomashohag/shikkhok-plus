@@ -128,6 +128,7 @@ export function PasswordInput({
   describedBy: described,
   disabled,
   autoFocus,
+  autofocusInSheet,
 }: {
   id: string
   value: string
@@ -137,6 +138,8 @@ export function PasswordInput({
   describedBy?: string
   disabled?: boolean
   autoFocus?: boolean
+  /** Where a `Sheet` puts focus when it opens (`data-autofocus`). */
+  autofocusInSheet?: boolean
 }) {
   return (
     <input
@@ -150,6 +153,7 @@ export function PasswordInput({
       aria-invalid={invalid ? true : undefined}
       aria-describedby={described}
       autoFocus={autoFocus}
+      data-autofocus={autofocusInSheet ? true : undefined}
     />
   )
 }
@@ -174,6 +178,11 @@ export function HiddenUsername({ value }: { value: string }) {
   )
 }
 
+/** Whole seconds until `at` (epoch ms), never below zero. */
+export function secondsUntil(at: number, now = Date.now()): number {
+  return Math.max(0, Math.ceil((at - now) / 1000))
+}
+
 /**
  * The six-digit code field, which checks by itself after the sixth digit,
  * with "Send a new code" after a minute.
@@ -181,14 +190,22 @@ export function HiddenUsername({ value }: { value: string }) {
  * @param verify Spends the code; a rejection is shown and the field cleared.
  *   On success the parent moves on, so this step stays busy.
  * @param resend Asks for a new code
+ * @param initialError Why the step is showing again, shown on mount
+ *   [frontend-components § 2.2a]
+ * @param resendAvailableAt When Resend opens (epoch ms), so a step shown
+ *   again keeps the original send's pacing; by default a minute from now
  */
 export function CodeEntry({
   verify,
   resend,
+  initialError = null,
+  resendAvailableAt,
   children,
 }: {
   verify: (code: string) => Promise<void>
   resend: () => Promise<void>
+  initialError?: string | null
+  resendAvailableAt?: number
   /** Extra buttons for the row under the field, such as "Change". */
   children?: ReactNode
 }) {
@@ -196,8 +213,10 @@ export function CodeEntry({
   const failure = useFailureText()
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [resendIn, setResendIn] = useState(RESEND_AFTER_S)
+  const [error, setError] = useState<string | null>(initialError)
+  const [resendIn, setResendIn] = useState(() =>
+    resendAvailableAt === undefined ? RESEND_AFTER_S : secondsUntil(resendAvailableAt),
+  )
   const codeRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {

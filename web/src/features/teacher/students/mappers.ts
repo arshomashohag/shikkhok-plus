@@ -26,6 +26,9 @@ export interface Seat {
   enrollmentId: string
   displayName: string
   guardianPhone: string | null
+  /** Recorded by the teacher, shown where a phone is when there is none [FR6.3]. */
+  guardianEmail: string | null
+  studentEmail: string | null
   /** A fee set for this student alone; null when the batch fee applies. */
   customFee: Money | null
   studentState: LinkState
@@ -77,6 +80,8 @@ export function mapSeats(
       enrollmentId: r.enrollment_id,
       displayName: r.display_name,
       guardianPhone: r.guardian_phone ?? null,
+      guardianEmail: r.guardian_email ?? null,
+      studentEmail: r.student_email ?? null,
       customFee: Money.fromWireOrNull(r.fee_amount),
       studentState,
       guardianState,
@@ -103,12 +108,27 @@ export function seatLine(seat: Seat, formatPhone: (raw: string) => string): Phra
   if (seat.declined) return [['batch_declined_by_number']]
   const parts: Phrase[] = []
   if (seat.customFee) parts.push(['batch_custom_fee', seat.customFee.format()])
-  if (seat.guardianPhone === null) parts.push(['batch_no_guardian'])
+  const guardian = guardianContact(seat, formatPhone)
+  if (guardian === null) parts.push(['batch_no_guardian'])
   else if (seat.guardianState === 'declined') parts.push(['batch_guardian_declined'])
-  else parts.push(['batch_guardian', formatPhone(seat.guardianPhone)])
+  else parts.push(['batch_guardian', guardian])
   if (seat.studentState === 'pending') parts.push(['batch_not_answered'])
   if (seat.status === 'inactive') parts.push(['roster_status_inactive'])
   return parts
+}
+
+/**
+ * The guardian as the roster names them: the formatted phone, else the
+ * email, else null for no guardian recorded [functional-spec W7 step 7].
+ *
+ * @param formatPhone Renders a phone number; injected so this stays pure
+ */
+export function guardianContact(
+  seat: Pick<Seat, 'guardianPhone' | 'guardianEmail'>,
+  formatPhone: (raw: string) => string,
+): string | null {
+  if (seat.guardianPhone) return formatPhone(seat.guardianPhone)
+  return seat.guardianEmail
 }
 
 /** What to offer when the server refuses a removal, by its error code. */

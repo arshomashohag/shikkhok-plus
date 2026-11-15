@@ -12,5 +12,9 @@
   "web_notices_edit_title": "নোটিশ বদলান",
   "web_dues_remind_offline": "রিমাইন্ডার পাঠাতে ইন্টারনেট সংযোগ লাগবে।",
   "web_students_remove_seat_named": "ব্যাচ থেকে সরান: {1}",
-  "web_students_remove_seat_body": "{1}-কে “{2}” থেকে সরানো হবে। কেউ এই জায়গা গ্রহণ করেনি, তাই কারও কোনও রেকর্ড নষ্ট হবে না।"
+  "web_students_remove_seat_body": "{1}-কে “{2}” থেকে সরানো হবে। কেউ এই জায়গা গ্রহণ করেনি, তাই কারও কোনও রেকর্ড নষ্ট হবে না।",
+  "web_students_add_by_email": "এর বদলে ইমেইল দিয়ে যোগ করুন",
+  "web_student_edit_title": "শিক্ষার্থীর তথ্য বদলান",
+  "web_student_edit_save": "পরিবর্তন সংরক্ষণ করুন",
+  "web_student_edit_saved": "পরিবর্তন সংরক্ষণ হয়েছে"
 }

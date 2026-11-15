@@ -119,7 +119,7 @@ acceptance step before the Bolt is complete.
 
 ### Part A — structure, runner and the generated sets
 
-- [ ] **Step 1: Runner and baseline.**
+- [x] **Step 1: Runner and baseline.**
   - `web/node_modules` is absent, so first run `cd web && npm ci --no-audit --no-fund`. That is the same locked install `make web` performs; it changes no lockfile.
   - Then run `cd web && npx vitest run src/session/session.test.ts src/api/client.test.ts` and confirm it runs green.
   - Record the baselines this plan expects red, by reading the code:
@@ -130,7 +130,7 @@ acceptance step before the Bolt is complete.
   - All unit-scoped commands are in `unit-test-instructions.md`.
 
   *(NFR5.2 baseline)*
-- [ ] **Step 2: Regenerate the API types and the strings.**
+- [x] **Step 2: Regenerate the API types and the strings.**
   - Run `cd web && npm run gen:api` and `npm run gen:strings`.
   - Commit the regenerated `src/api/schema.d.ts` and `src/i18n/generated/{strings.en,strings.bn,message-keys}.json` as their own commit, `chore(web): regenerate API types and strings`, so the generated diff is reviewable apart from hand-written code.
   - `npm run check:generated` goes green.
@@ -138,7 +138,7 @@ acceptance step before the Bolt is complete.
   - `npm run typecheck` is expected red here (correction 2), and its errors are recorded. Nothing is suppressed to quiet them.
 
   *(functional-spec § 1 defect 1, § 5; FR11.2 strings half; NFR9.1, NFR5.2)*
-- [ ] **Step 3: Web-only strings: reworded, removed and new.** These are in `src/i18n/web/{auth,core,account,students}.{en,bn}.json`, English and Bangla together.
+- [x] **Step 3: Web-only strings: reworded, removed and new.** These are in `src/i18n/web/{auth,core,account,students}.{en,bn}.json`, English and Bangla together.
   - **Reworded:** the swept rewordings exactly as functional-spec § 5 lists them, in both languages: `web_auth_signin_body`, `web_auth_point_login`, `web_password_set_body`, `web_auth_signup_phone_help`, `web_auth_signup_email_help`, `web_contact_add_phone_why`, `web_contact_add_email_why`, `web_students_col_phone`, `web_students_no_phone` and `web_roster_col_contact`.
   - **Removed:** `web_auth_password_wrong`, from both languages.
   - **New:** frontend-components § 7's new keys: `web_auth_replace_username_body_plain`, `web_students_add_by_email`, `web_student_edit_title`, `web_student_edit_save`, `web_student_edit_saved`.
@@ -147,7 +147,7 @@ acceptance step before the Bolt is complete.
     - one assertion per reworded key that its English text equals § 5's.
 
   *(FR11.2; functional-spec § 5, W10)*
-- [ ] **Step 4: Sign-up sends the required username.**
+- [x] **Step 4: Sign-up sends the required username.**
   - `features/auth/SignUp.tsx` gains the Username field above the passwords, using `signup_username_label` and `signup_username_help`, with the trimmed value sent as `username`.
   - A blank value shows `signup_username_required` under the field.
   - `account.username.*` (400) and `account.username.unavailable` (409) from `POST /v1/accounts` land under Username, and every other field keeps its value.
@@ -164,14 +164,14 @@ acceptance step before the Bolt is complete.
 
 ### Part B — test-first: what decides which screen is shown and whether the session survives (written and run first)
 
-- [ ] **Step 5: Members list with an email-only invitation, regression first.**
+- [x] **Step 5: Members list with an email-only invitation, regression first.**
   - **Red:** in `features/teacher/centre/Members.test.ts`, add a pure `contactLine` case: phone formatted when non-null, `invited_email` when the phone is null, `null` when both are null.
   - **Red:** in `centre.screens.test.tsx`, render the members screen with a list containing `{"phone": null, "invited_email": "rina@example.com", …}` and assert it renders the email and does not throw.
   - Run both red. The render case fails with the `null.replace` TypeError traced in functional-spec § 1 defect 2.
   - **Green:** `Members.tsx` exports `contactLine(m)`. Each card renders the line it returns, and `formatPhone` is never called with `null`. The Step 2 typecheck error for `Members.tsx` goes green.
 
   *(functional-spec § 1 defect 2, W8 step 5; NFR6.2; FR6.4, FR11.1)*
-- [ ] **Step 6: Renewal survives an aborted caller, pinned first.** In `src/api/client.test.ts`, written before Step 10 touches `client.ts`:
+- [x] **Step 6: Renewal survives an aborted caller, pinned first.** In `src/api/client.test.ts`, written before Step 10 touches `client.ts`:
   - signed in with a stale access token, `/v1/auth/refresh` is held open by the fetch mock;
   - a lookup's `AbortController` is aborted while `request()` awaits renewal;
   - the refresh is then released.
@@ -181,7 +181,7 @@ acceptance step before the Bolt is complete.
     - the refresh route was called exactly once.
 
   Run it. **Expected green**, because the design read the structure as correct (functional-spec § 1 defect 5). If it is red, that is a found defect: stop and record it before any further step. It must stay green through every later step. *(NFR8.7; functional-spec § 1 defect 5)*
-- [ ] **Step 7: The session's username-required state, tests first.**
+- [x] **Step 7: The session's username-required state, tests first.**
   - In `src/session/session.test.ts`, add `sessionFromMe`:
     - `username_required: true` gives `{ state: 'username-required', me }`;
     - `false` gives the `ready` value `resolveLens` and `reconcileWorkspace` produce today;
@@ -189,7 +189,7 @@ acceptance step before the Bolt is complete.
   - Add minimal signatures only, so the tests compile and fail on their assertions: the `username-required` arm of `Session`, an exported `sessionFromMe` stub, and a `reread()` stub on the context value. Run red.
 
   *(FR5.1, FR5.2, FR5.3; NFR3.14, NFR6.3, NFR8.5)*
-- [ ] **Step 8: Gate before routes, and lift only on a fresh read, tests first.**
+- [x] **Step 8: Gate before routes, and lift only on a fresh read, tests first.**
   - New `src/session/usernameGate.routing.test.tsx`. It renders `App` signed in under `BrowserRouter`, as `src/main.tsx` does, with a fetch mock that answers `GET /v1/me` per test.
   - Cases, named for what they assert:
     1. `the first render after resolving is the gate when the read says true`: the lens picker, the shell and every route's content never render. The mock records exactly one `/v1/me` before the gate shows.
@@ -207,7 +207,7 @@ acceptance step before the Bolt is complete.
   - Run red.
 
   *(FR5.2, FR5.3, FR5.4; NFR3.14, NFR3.15, NFR3.16, NFR8.5, NFR8.6; functional-spec W4, § 3.3, § 3.4)*
-- [ ] **Step 9: Session state, `App` branch and the gate, green.**
+- [x] **Step 9: Session state, `App` branch and the gate, green.**
   - `session/session.tsx`:
     - `sessionFromMe`;
     - the `username-required` state;
@@ -235,7 +235,7 @@ acceptance step before the Bolt is complete.
 
 ### Part C — implementation, then each layer's tests (test-after)
 
-- [ ] **Step 10: `send()` treats any aborted signal as cancelled.**
+- [x] **Step 10: `send()` treats any aborted signal as cancelled.**
   - `api/client.ts` `send()`: in its `catch`, rethrow when `options.signal?.aborted` is true, before mapping to `networkError()`.
   - `renew()` is unchanged and gains no signal.
   - Tests, in `src/api/client.test.ts`:
@@ -245,7 +245,7 @@ acceptance step before the Bolt is complete.
   - Step 6 stays green.
 
   *(NFR8.8; functional-spec § 9 item 6)*
-- [ ] **Step 11: Route error boundary.**
+- [x] **Step 11: Route error boundary.**
   - New `src/shell/RouteErrorBoundary.tsx`, a class component. `App` wraps everything it returns in it and passes `pathname={useLocation().pathname}`.
   - On a render error it shows `ErrorCard` with `new ApiError(500, 'UNEXPECTED', UNEXPECTED_KEY, true)`, so `error_unexpected` and `auth_retry` appear.
   - Retry clears the error. `componentDidUpdate` clears it when `pathname` changes, and there is no `key` (correction 3).
@@ -257,7 +257,7 @@ acceptance step before the Bolt is complete.
     - a navigation that changes only the search string does not remount a healthy subtree (a mount counter).
 
   *(functional-spec § 10 item 2; frontend-components § 5)*
-- [ ] **Step 12: The email check counts code points.**
+- [x] **Step 12: The email check counts code points.**
   - `features/auth/identifier.ts` `readIdentifier` compares `[...email].length` with 254. The pattern is unchanged.
   - Tests, new `features/auth/identifier.test.ts`:
     - `a@b.c.` and `a@.b.c` accepted;
@@ -268,7 +268,7 @@ acceptance step before the Bolt is complete.
   - Existing add-contact tests stay green.
 
   *(functional-spec § 1 defect 4; NFR3.12; FR11.3)*
-- [ ] **Step 13: API functions.** In `api/endpoints.ts` and the feature `api.ts` files, exactly frontend-components § 4:
+- [x] **Step 13: API functions.** In `api/endpoints.ts` and the feature `api.ts` files, exactly frontend-components § 4:
   - `signInWithPassword(login, password)`;
   - `verifyCode(identifier, code, username?)`;
   - `checkUsername` and `checkMyUsername` (POST, body, signal);
@@ -292,7 +292,7 @@ acceptance step before the Bolt is complete.
   - refusal envelopes come back as `ApiError` with their key.
 
   *(FR3.1, FR4.1, FR5.4, FR6.1, FR6.4, FR6.7, FR7.1, FR8.2; NFR1.2, NFR3.1, NFR9.1)*
-- [ ] **Step 14: The availability checker and the username field.**
+- [x] **Step 14: The availability checker and the username field.**
   - New `features/auth/username/availability.ts`: the `Availability` type and `mapAvailability`. An unknown status maps to could-not-check.
   - New `features/auth/username/useUsernameAvailability.ts`, with:
     - the 500 ms debounce;
@@ -324,7 +324,7 @@ acceptance step before the Bolt is complete.
   - Sign-up submission is never gated on the hint; this is asserted in `SignUp.test.tsx`.
 
   *(FR3.1, FR3.2, FR11.3; NFR1.3, NFR2.1, NFR2.3, NFR3.11, NFR6.3, NFR8.1, NFR8.2, NFR8.3; TSD-1, TSD-5)*
-- [ ] **Step 15: One-field sign-in, with no route state.**
+- [x] **Step 15: One-field sign-in, with no route state.**
   - `features/auth/SignIn.tsx`:
     - one `auth_login_label` field with `type="text"`, `autocomplete="username"`, `autocapitalize="none"` and `spellcheck="false"`;
     - no `KindToggle`;
@@ -342,7 +342,7 @@ acceptance step before the Bolt is complete.
   - In `PasswordCode.test.tsx`: it starts empty with the toggle.
 
   *(FR4.1, FR4.2, FR10.1, FR11.1; NFR1.1, NFR1.2; functional-spec § 1 defect 6)*
-- [ ] **Step 16: Sign-up email lookup and the password-manager username.**
+- [x] **Step 16: Sign-up email lookup and the password-manager username.**
   - `SignUp.tsx`: when the email field is left holding an address the shared check accepts, it calls `lookupAlreadyAdded({ email })`. This happens once per value, remembered, with a late answer for a changed value dropped and the role locked on a seat. A refusal or a failure shows nothing and never blocks.
   - The header comment's sentence "An email address is never looked up" is corrected.
   - `ChoosePassword.tsx`'s `HiddenUsername` carries the chosen username after a sign-up, and the phone or email in the code flow (`setupFrom` takes an optional username).
@@ -353,7 +353,7 @@ acceptance step before the Bolt is complete.
   - In `security/password.test.tsx`: `HiddenUsername` holds `me.username`.
 
   *(FR6.7, FR11.1; functional-spec W9, § 7 password managers)*
-- [ ] **Step 17: The code-step seam and the Replace step.**
+- [x] **Step 17: The code-step seam and the Replace step.**
   - `features/auth/parts.tsx` `CodeEntry` gains `initialError` and `resendAvailableAt` (frontend-components § 2.2a). The default equals today's behaviour.
   - New `features/auth/ReplaceUsernameStep.tsx`: Username field with the public hint, Continue, Back, focus on mount.
   - `SignUp.tsx` and `PasswordCode.tsx` each own the `code | replace` switch, a `heldCode` ref and `sentAt`.
@@ -377,7 +377,7 @@ acceptance step before the Bolt is complete.
     - a `parts.test.tsx` case for `CodeEntry`: `initialError` on mount, and `resendAvailableAt` in the past enabling Resend at once.
 
   *(FR2.2, FR11.1; NFR1.4, NFR3.6; functional-spec W2, § 3.2; frontend-components § 2.2a)*
-- [ ] **Step 18: Username in Settings.**
+- [x] **Step 18: Username in Settings.**
   - New `features/account/username/UsernameScreen.tsx` at `securityPaths.username()`, with the `UsernameState` of § 2.5:
     - the authenticated hint;
     - the current password with `autocomplete="current-password"`;
@@ -396,7 +396,7 @@ acceptance step before the Bolt is complete.
   - In `security.test.tsx`: the Username row.
 
   *(FR7.1, FR7.2, FR7.5, FR11.1, FR11.3; NFR3.13; functional-spec W5)*
-- [ ] **Step 19: Contacts: view, add, replace, remove.**
+- [x] **Step 19: Contacts: view, add, replace, remove.**
   - New `features/account/contacts/`:
     - `mappers.ts` `contactCards(me)`;
     - `ContactsScreen.tsx` at `securityPaths.contacts()`;
@@ -417,7 +417,7 @@ acceptance step before the Bolt is complete.
     - `security.test.tsx`: the Phone and email row replaces the Add rows (correction 1).
 
   *(FR8.1, FR8.2, FR8.3, FR8.4, FR11.1, FR11.3; NFR3.13; functional-spec W6)*
-- [ ] **Step 20: Student emails, the Edit sheet and the quick-add link.**
+- [x] **Step 20: Student emails, the Edit sheet and the quick-add link.**
   - `features/teacher/people/NewStudent.tsx` gains two email fields with `autocomplete="off"`. They are checked by the shared email check and sent trimmed, and omitted when blank.
   - New `people/EditStudentSheet.tsx` on `StudentDetail.tsx`:
     - name, both phones and both emails;
@@ -442,7 +442,7 @@ acceptance step before the Bolt is complete.
       - the quick-add link's target.
 
   *(FR6.1, FR6.2, FR6.3, FR11.1; NFR3.8, NFR6.1; functional-spec W7, Q4, Q6)*
-- [ ] **Step 21: Centre invite by email.**
+- [x] **Step 21: Centre invite by email.**
   - `features/teacher/centre/Members.tsx`:
     - an email field with `autocomplete="off"`, plus `centre_invite_by_help`;
     - `inviteBody(name, phone, email, role)`, which returns `null` unless the name is non-blank, at least one contact is non-blank, and each non-blank value is well-formed;
@@ -458,7 +458,7 @@ acceptance step before the Bolt is complete.
 
 ### Part D — environment/build configuration and the mechanical guards
 
-- [ ] **Step 22: `no-console`, and the lint-configuration pin.**
+- [x] **Step 22: `no-console`, and the lint-configuration pin.**
   - `web/eslint.config.js`:
     - `'no-console': 'error'` with no allowed method, on `src/**/*.{ts,tsx}`, test files excluded;
     - `linterOptions: { reportUnusedDisableDirectives: 'error' }`.
@@ -470,7 +470,7 @@ acceptance step before the Bolt is complete.
   - `cd web && npm run lint` green.
 
   *(NFR3.5; TSD-2; functional-spec § 7, § 10 item 6)*
-- [ ] **Step 23: No identifier leaks.** New `src/test/noIdentifierLeaks.test.tsx`.
+- [x] **Step 23: No identifier leaks.** New `src/test/noIdentifierLeaks.test.tsx`.
   - **Setup.** It mounts the flows under `BrowserRouter` (TSD-4), with `vi.stubGlobal('indexedDB', { open: vi.fn() })` and `vi.unstubAllGlobals()` after.
   - **Flows driven:** sign-in, sign-up through a 409 and Replace, the gate and rename. Each uses one distinctive sentinel per value: username, login, phone, email, password and code.
   - **After every step it snapshots:**
@@ -485,19 +485,19 @@ acceptance step before the Bolt is complete.
     - after the first navigation, `window.history.state` holds the router's entry (a numeric `idx`).
 
   *(NFR3.2, NFR3.3, NFR3.4, NFR3.6; functional-spec § 7 Sensitive data)*
-- [ ] **Step 24: The send-path scan and the named-test list.**
+- [x] **Step 24: The send-path scan and the named-test list.**
   - New `src/test/usernameKeyScan.test.ts`. No file under `src/` other than `api/endpoints.ts` and the username, sign-in and sign-up modules sends a `username` or `login` key. It is paired with a "present" assertion on `api/endpoints.ts`, so an empty scan fails.
   - New `src/test/namedTests.test.ts`. It holds the list of every named test file this unit adds or extends (the files in `unit-test-instructions.md`) and fails if any listed file is missing. Vitest already fails a listed file that holds no test.
 
   *(NFR3.7, NFR5.1)*
-- [ ] **Step 25: Bangla layout rows and the device timing rows.**
+- [x] **Step 25: Bangla layout rows and the device timing rows.**
   - `docs/delivery/bangla-layout-check.md` gains one row per screen in functional-spec § 8: unit `U4 (web)`, Artboard `web`, status *not yet checked*.
   - Run each check in a browser in বাংলা at a 360 CSS px viewport and again at the wide layout, at each screen's longest Bangla string. Derive that string from the generated `strings.bn.json` and `i18n/web/*.bn.json` once Steps 2–3 land. Record the string and a `PASS`, `FAIL (…)` or `FIXED (…)` status.
   - Beside U3's timing table, add performance NFR8.4's timed check rows for sign-up, the gate and rename (browser, device, network, observed times), also *not yet checked*.
   - **Both are manual verifiers and nothing automated discharges them.** No screenshot test or browser performance harness exists or is added, and the Vitest tests above are correctness tests that measure neither layout nor latency.
 
   *(FR11.2; NFR8.4)*
-- [ ] **Step 26: Full web checks.**
+- [x] **Step 26: Full web checks.**
   - Run `cd web && npm run check`: `check:generated`, `format:check`, `lint` with `--max-warnings 0`, `typecheck`, `test` (the whole web suite, so the existing suite stays green: scope floor), `build`, `build:admin`, `check:bundles`.
   - Then run `make web` from the repository root, which repeats `npm ci` and `npm run check`.
   - All green is required for completion (NFR5.2). No ESLint rule, TypeScript option, `check-bundles` assertion or `--max-warnings 0` is relaxed to get there (project Forbidden).
@@ -509,7 +509,7 @@ acceptance step before the Bolt is complete.
 
 ### Part E — documentation and traceability
 
-- [ ] **Step 27: Documentation and traceability** (the orchestrator's).
+- [x] **Step 27: Documentation and traceability** (the orchestrator's).
   - TSDoc on every new module and exported function, keeping the `[FR…]` / `[NFR…]` tag convention the web code uses.
   - `code-summary.md`, `source-manifest.json` and `traceability.json` in this directory.
   - The code summary records:

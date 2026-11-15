@@ -1,0 +1,266 @@
+{
+  "stage": "code-generation",
+  "unit": "web-identity",
+  "upstream_ids": [
+    "FR2.1",
+    "FR2.2",
+    "FR3.1",
+    "FR3.2",
+    "FR4.1",
+    "FR4.2",
+    "FR5.1",
+    "FR5.2",
+    "FR5.3",
+    "FR5.4",
+    "FR6.1",
+    "FR6.2",
+    "FR6.3",
+    "FR6.4",
+    "FR6.7",
+    "FR7.1",
+    "FR7.5",
+    "FR8.1",
+    "FR8.2",
+    "FR8.4",
+    "FR11",
+    "FR11.1",
+    "FR11.2",
+    "FR11.3",
+    "NFR1.1",
+    "NFR1.4",
+    "NFR2.1",
+    "NFR3.1",
+    "NFR3.2",
+    "NFR3.5",
+    "NFR3.7",
+    "NFR3.8",
+    "NFR3.12",
+    "NFR5.1",
+    "NFR5.2",
+    "NFR6.2",
+    "NFR8.1",
+    "NFR8.3",
+    "NFR8.4",
+    "NFR8.5",
+    "NFR8.7",
+    "NFR8.8",
+    "NFR9.1"
+  ],
+  "coverage": [
+    {
+      "id": "FR2.1",
+      "status": "OK",
+      "target": "web/src/features/auth/SignUp.tsx (username field)"
+    },
+    {
+      "id": "FR2.2",
+      "status": "OK",
+      "target": "web/src/features/auth/ReplaceUsernameStep.tsx; SignUp.tsx and PasswordCode.tsx own the code-step seam"
+    },
+    {
+      "id": "FR3.1",
+      "status": "OK",
+      "target": "web/src/features/auth/username/availability.ts, useUsernameAvailability.ts"
+    },
+    {
+      "id": "FR3.2",
+      "status": "OK",
+      "target": "web/src/features/auth/username/useUsernameAvailability.ts (debounce, latest-wins, own 3 s timer, stop after 429)"
+    },
+    {
+      "id": "FR4.1",
+      "status": "OK",
+      "target": "web/src/features/auth/SignIn.tsx (one login field, sent as typed)"
+    },
+    {
+      "id": "FR4.2",
+      "status": "OK",
+      "target": "web/src/features/auth/SignIn.tsx, PasswordCode.tsx (no route state)"
+    },
+    {
+      "id": "FR5.1",
+      "status": "OK",
+      "target": "web/src/session/session.tsx (sessionFromMe, username-required)"
+    },
+    {
+      "id": "FR5.2",
+      "status": "OK",
+      "target": "web/src/App.tsx (gate before routes), features/account/username/ChooseUsernameGate.tsx"
+    },
+    {
+      "id": "FR5.3",
+      "status": "OK",
+      "target": "web/src/session/session.tsx (reread; lifts only on a fresh read)"
+    },
+    {
+      "id": "FR5.4",
+      "status": "OK",
+      "target": "web/src/features/account/username/ChooseUsernameGate.tsx, api/endpoints.ts"
+    },
+    {
+      "id": "FR6.1",
+      "status": "OK",
+      "target": "web/src/features/teacher/people/NewStudent.tsx, mappers.ts"
+    },
+    {
+      "id": "FR6.2",
+      "status": "OK",
+      "target": "web/src/features/teacher/people/EditStudentSheet.tsx"
+    },
+    {
+      "id": "FR6.3",
+      "status": "OK",
+      "target": "web/src/features/teacher/people/StudentsList.tsx, features/teacher/students/StudentsTab.tsx, mappers.ts"
+    },
+    {
+      "id": "FR6.4",
+      "status": "OK",
+      "target": "web/src/features/teacher/centre/Members.tsx (contactLine, inviteBody)"
+    },
+    {
+      "id": "FR6.7",
+      "status": "OK",
+      "target": "web/src/features/auth/SignUp.tsx (email already-added lookup)"
+    },
+    {
+      "id": "FR7.1",
+      "status": "OK",
+      "target": "web/src/features/account/username/UsernameScreen.tsx, security/AccountEntries.tsx"
+    },
+    {
+      "id": "FR7.5",
+      "status": "OK",
+      "target": "web/src/features/account/username/UsernameScreen.tsx"
+    },
+    {
+      "id": "FR8.1",
+      "status": "OK",
+      "target": "web/src/features/account/contacts/ContactsScreen.tsx"
+    },
+    {
+      "id": "FR8.2",
+      "status": "OK",
+      "target": "web/src/features/account/contacts/ReplaceContact.tsx"
+    },
+    {
+      "id": "FR8.4",
+      "status": "OK",
+      "target": "web/src/features/account/contacts/RemoveContactSheet.tsx (server decides the last-contact rule)"
+    },
+    {
+      "id": "FR11",
+      "status": "OK",
+      "target": "web/src/features/auth/*, features/account/*, App.tsx"
+    },
+    {
+      "id": "FR11.1",
+      "status": "OK",
+      "target": "web/src/i18n/generated/*, i18n/web/*.{en,bn}.json"
+    },
+    {
+      "id": "FR11.2",
+      "status": "OK",
+      "target": "web/src/i18n (regenerated and web-only strings); docs/delivery/bangla-layout-check.md layout rows (manual, not yet checked; nothing automated discharges them)"
+    },
+    {
+      "id": "FR11.3",
+      "status": "OK",
+      "target": "web/src/features/auth/identifier.ts (format only, code-point length)"
+    },
+    {
+      "id": "NFR1.1",
+      "status": "OK",
+      "target": "web/src/features/auth/SignIn.tsx"
+    },
+    {
+      "id": "NFR1.4",
+      "status": "OK",
+      "target": "web/src/features/auth/ReplaceUsernameStep.tsx"
+    },
+    {
+      "id": "NFR2.1",
+      "status": "OK",
+      "target": "web/src/features/auth/username/useUsernameAvailability.ts"
+    },
+    {
+      "id": "NFR3.1",
+      "status": "OK",
+      "target": "web/src/api/endpoints.ts (POST bodies)"
+    },
+    {
+      "id": "NFR3.2",
+      "status": "OK",
+      "target": "web/src/test/noIdentifierLeaks.test.tsx"
+    },
+    {
+      "id": "NFR3.5",
+      "status": "OK",
+      "target": "web/eslint.config.js (no-console); web/src/test/lintConfig.test.ts"
+    },
+    {
+      "id": "NFR3.7",
+      "status": "OK",
+      "target": "web/src/test/usernameKeyScan.test.ts"
+    },
+    {
+      "id": "NFR3.8",
+      "status": "OK",
+      "target": "web/src/features/teacher/people/* (autocomplete=off)"
+    },
+    {
+      "id": "NFR3.12",
+      "status": "OK",
+      "target": "web/src/features/auth/identifier.ts"
+    },
+    {
+      "id": "NFR5.1",
+      "status": "OK",
+      "target": "web/src/test/namedTests.test.ts"
+    },
+    {
+      "id": "NFR5.2",
+      "status": "OK",
+      "target": "npm run check and make web green"
+    },
+    {
+      "id": "NFR6.2",
+      "status": "OK",
+      "target": "web/src/features/teacher/centre/Members.tsx (nullable phone)"
+    },
+    {
+      "id": "NFR8.1",
+      "status": "OK",
+      "target": "web/src/features/auth/username/useUsernameAvailability.ts"
+    },
+    {
+      "id": "NFR8.3",
+      "status": "OK",
+      "target": "web/src/features/auth/username/useUsernameAvailability.ts"
+    },
+    {
+      "id": "NFR8.4",
+      "status": "OK",
+      "target": "docs/delivery/bangla-layout-check.md timing rows (manual, not yet checked; nothing automated discharges them)"
+    },
+    {
+      "id": "NFR8.5",
+      "status": "OK",
+      "target": "web/src/App.tsx"
+    },
+    {
+      "id": "NFR8.7",
+      "status": "OK",
+      "target": "web/src/api/client.ts unchanged renewal; client.test.ts"
+    },
+    {
+      "id": "NFR8.8",
+      "status": "OK",
+      "target": "web/src/api/client.ts send()"
+    },
+    {
+      "id": "NFR9.1",
+      "status": "OK",
+      "target": "web/src/api/schema.d.ts regenerated; check:generated"
+    }
+  ]
+}

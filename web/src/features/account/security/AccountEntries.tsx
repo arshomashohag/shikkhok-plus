@@ -1,14 +1,15 @@
 /**
- * Settings rows for how the person signs in: the password (set or
- * change), and adding the phone number or email address the account
- * lacks. Which rows show follows `/v1/me` as the server answered it;
- * nothing is inferred.
+ * Settings rows for how the person signs in: the username [FR7.1], the
+ * password (set or change), and one Phone and email row that opens the
+ * contacts screen [FR8.1]. Which rows show, and what they say, follows
+ * `/v1/me` as the server answered it; nothing is inferred.
  */
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useT } from '../../../i18n/i18n'
 import { useReadySession } from '../../../session/session'
 import { ChevronIcon, MailIcon, ShieldIcon, UsersIcon } from '../../../ui/icons'
+import { contactsSummary } from '../contacts/mappers'
 import { securityPaths } from './paths'
 import { needsPassword } from './PasswordPrompt'
 
@@ -65,8 +66,17 @@ export function AccountEntries({ offline }: { offline?: string | null }) {
   const missing = needsPassword(me)
   // An older server does not say; offer nothing it cannot answer.
   const knowsPassword = typeof me.has_password === 'boolean'
+  const contacts = contactsSummary(me)
   return (
     <>
+      <EntryRow
+        to={securityPaths.username()}
+        icon={<UsersIcon />}
+        title={t('more_username')}
+        // As stored, display casing kept; the gate means it is rarely absent.
+        sub={me.username ?? t('more_username_choose')}
+        offline={offline}
+      />
       {knowsPassword ? (
         <EntryRow
           to={securityPaths.password()}
@@ -81,24 +91,13 @@ export function AccountEntries({ offline }: { offline?: string | null }) {
           }
         />
       ) : null}
-      {me.phone === null ? (
-        <EntryRow
-          to={securityPaths.addContact('phone')}
-          icon={<UsersIcon />}
-          title={t('web_contact_add_phone')}
-          sub={t('web_contact_add_phone_why')}
-          offline={offline}
-        />
-      ) : null}
-      {me.email === null ? (
-        <EntryRow
-          to={securityPaths.addContact('email')}
-          icon={<MailIcon />}
-          title={t('web_contact_add_email')}
-          sub={t('web_contact_add_email_why')}
-          offline={offline}
-        />
-      ) : null}
+      <EntryRow
+        to={securityPaths.contacts()}
+        icon={<MailIcon />}
+        title={t('more_contacts')}
+        sub={contacts ?? t('more_contacts_sub_none')}
+        offline={offline}
+      />
     </>
   )
 }

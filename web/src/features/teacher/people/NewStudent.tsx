@@ -8,6 +8,10 @@
  *   beside it; blank means INHERIT, never zero, because zero is a waiver.
  * - A name already on the list gets a hint, not a block; a number already
  *   on the list is refused by the server and shown in its own words [D2].
+ * - A student email and a guardian email may be recorded too [FR6.1],
+ *   checked with the shared email check, omitted when blank, and never
+ *   autofilled: they are someone else's addresses [NFR3.8]. An email
+ *   already on the list (`student.email.taken`) is shown under it.
  *
  * Opened from a roster's "New student" with that batch already chosen.
  */
@@ -24,6 +28,7 @@ import { mapBatch, type BatchSummary } from '../mappers'
 import { sameNameMatch } from '../students/mappers'
 import { mutationId } from '../classes/api'
 import { createStudent, listStudents } from './api'
+import { typedEmail } from './mappers'
 
 interface Context {
   batches: BatchSummary[]
@@ -77,6 +82,10 @@ function StudentForm({
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [guardian, setGuardian] = useState('')
+  const [studentEmailTyped, setStudentEmail] = useState('')
+  const [guardianEmailTyped, setGuardianEmail] = useState('')
+  /** `student.email.taken`, shown under the student email until it is edited. */
+  const [emailTaken, setEmailTaken] = useState<string | null>(null)
   // Batch id → the fee typed for it; blank inherits the batch's fee.
   const [chosen, setChosen] = useState<Record<string, string>>(() =>
     preselected && batches.some((b) => b.id === preselected) ? { [preselected]: '' } : {},
@@ -87,6 +96,9 @@ function StudentForm({
 
   const studentPhone = normalisePhone(phone)
   const guardianPhone = normalisePhone(guardian)
+  // The shared email check; blank means absent [W7 steps 2–3].
+  const studentEmail = typedEmail(studentEmailTyped)
+  const guardianEmail = typedEmail(guardianEmailTyped)
   const picked = batches.filter((b) => b.id in chosen)
   const fees = picked.map((b) => {
     const typed = chosen[b.id] ?? ''
@@ -98,6 +110,8 @@ function StudentForm({
     name.trim() !== '' &&
     (phone.trim() === '' || studentPhone !== null) &&
     (guardian.trim() === '' || guardianPhone !== null) &&
+    studentEmail !== null &&
+    guardianEmail !== null &&
     feesOk
   const sameName = sameNameMatch(name, names)
 
@@ -124,13 +138,52 @@ function StudentForm({
         display_name: name.trim(),
         student_phone: studentPhone,
         guardian_phone: guardianPhone,
+        // Omitted when blank, trimmed when sent.
+        ...(studentEmail ? { student_email: studentEmail } : {}),
+        ...(guardianEmail ? { guardian_email: guardianEmail } : {}),
         enrollments: fees.map((f) => ({ batch_id: f.batch.id, fee_amount: f.money?.wire ?? null })),
       })
       navigate(-1)
     } catch (err) {
-      setError(message(err instanceof ApiError ? err.messageKey : 'error.unexpected'))
+      const key = err instanceof ApiError ? err.messageKey : 'error.unexpected'
+      if (key === 'student.email.taken') setEmailTaken(message(key))
+      else setError(message(key))
       setBusy(false)
     }
+  }
+
+  const emailField = (
+    which: 'student' | 'guardian',
+    value: string,
+    onChange: (v: string) => void,
+    malformed: boolean,
+    refused: string | null,
+  ) => {
+    const id = `${ids}-${which}-email`
+    const problem = malformed ? t('web_auth_email_invalid') : refused
+    return (
+      <div className="field">
+        <label htmlFor={id}>
+          {t(which === 'student' ? 'student_add_student_email' : 'student_add_guardian_email')}
+        </label>
+        <input
+          id={id}
+          type="email"
+          inputMode="email"
+          // Someone else's address: never offer the teacher's own [NFR3.8].
+          autoComplete="off"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-invalid={problem ? true : undefined}
+          aria-describedby={problem ? `${id}-error` : undefined}
+        />
+        {problem ? (
+          <span id={`${id}-error`} className="field-error" role="alert">
+            {problem}
+          </span>
+        ) : null}
+      </div>
+    )
   }
 
   return (
@@ -163,6 +216,16 @@ function StudentForm({
           <span className="help">{t('student_add_student_phone_help')}</span>
         )}
       </div>
+      {emailField(
+        'student',
+        studentEmailTyped,
+        (v) => {
+          setStudentEmail(v)
+          setEmailTaken(null)
+        },
+        studentEmail === null,
+        emailTaken,
+      )}
       <div className="field">
         <label htmlFor={`${ids}-guardian`}>{t('student_add_guardian')}</label>
         <input
@@ -178,6 +241,7 @@ function StudentForm({
           <span className="field-error">{t('phone_invalid')}</span>
         ) : null}
       </div>
+      {emailField('guardian', guardianEmailTyped, setGuardianEmail, guardianEmail === null, null)}
 
       <div className="field">
         <span id={`${ids}-batches`} className="label">

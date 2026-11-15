@@ -1,0 +1,244 @@
+{
+  "stage": "code-generation",
+  "unit": "web-identity",
+  "version": 1,
+  "writes": [
+    {
+      "path": "docs/delivery/bangla-layout-check.md"
+    },
+    {
+      "path": "web/eslint.config.js"
+    },
+    {
+      "path": "web/src/App.tsx"
+    },
+    {
+      "path": "web/src/api/client.test.ts"
+    },
+    {
+      "path": "web/src/api/client.ts"
+    },
+    {
+      "path": "web/src/api/endpoints.ts"
+    },
+    {
+      "path": "web/src/api/schema.d.ts"
+    },
+    {
+      "path": "web/src/core/useResource.ts"
+    },
+    {
+      "path": "web/src/features/account/area/mappers.test.ts"
+    },
+    {
+      "path": "web/src/features/account/contacts/ContactsScreen.tsx"
+    },
+    {
+      "path": "web/src/features/account/contacts/RemoveContactSheet.tsx"
+    },
+    {
+      "path": "web/src/features/account/contacts/ReplaceContact.tsx"
+    },
+    {
+      "path": "web/src/features/account/contacts/contacts.test.tsx"
+    },
+    {
+      "path": "web/src/features/account/contacts/mappers.ts"
+    },
+    {
+      "path": "web/src/features/account/security/AccountEntries.tsx"
+    },
+    {
+      "path": "web/src/features/account/security/AddContact.tsx"
+    },
+    {
+      "path": "web/src/features/account/security/Password.tsx"
+    },
+    {
+      "path": "web/src/features/account/security/index.tsx"
+    },
+    {
+      "path": "web/src/features/account/security/password.test.tsx"
+    },
+    {
+      "path": "web/src/features/account/security/paths.ts"
+    },
+    {
+      "path": "web/src/features/account/security/security.test.tsx"
+    },
+    {
+      "path": "web/src/features/account/username/ChooseUsernameGate.test.tsx"
+    },
+    {
+      "path": "web/src/features/account/username/ChooseUsernameGate.tsx"
+    },
+    {
+      "path": "web/src/features/account/username/UsernameScreen.tsx"
+    },
+    {
+      "path": "web/src/features/account/username/username.test.tsx"
+    },
+    {
+      "path": "web/src/features/auth/ChoosePassword.tsx"
+    },
+    {
+      "path": "web/src/features/auth/PasswordCode.test.tsx"
+    },
+    {
+      "path": "web/src/features/auth/PasswordCode.tsx"
+    },
+    {
+      "path": "web/src/features/auth/ReplaceUsernameStep.tsx"
+    },
+    {
+      "path": "web/src/features/auth/SignIn.test.tsx"
+    },
+    {
+      "path": "web/src/features/auth/SignIn.tsx"
+    },
+    {
+      "path": "web/src/features/auth/SignUp.test.tsx"
+    },
+    {
+      "path": "web/src/features/auth/SignUp.tsx"
+    },
+    {
+      "path": "web/src/features/auth/identifier.test.ts"
+    },
+    {
+      "path": "web/src/features/auth/identifier.ts"
+    },
+    {
+      "path": "web/src/features/auth/parts.test.tsx"
+    },
+    {
+      "path": "web/src/features/auth/parts.tsx"
+    },
+    {
+      "path": "web/src/features/auth/username/AvailabilityHint.tsx"
+    },
+    {
+      "path": "web/src/features/auth/username/UsernameField.test.tsx"
+    },
+    {
+      "path": "web/src/features/auth/username/UsernameField.tsx"
+    },
+    {
+      "path": "web/src/features/auth/username/availability.test.ts"
+    },
+    {
+      "path": "web/src/features/auth/username/availability.ts"
+    },
+    {
+      "path": "web/src/features/auth/username/useUsernameAvailability.test.ts"
+    },
+    {
+      "path": "web/src/features/auth/username/useUsernameAvailability.ts"
+    },
+    {
+      "path": "web/src/features/family/pay/PayScreen.tsx"
+    },
+    {
+      "path": "web/src/features/teacher/centre/Members.test.ts"
+    },
+    {
+      "path": "web/src/features/teacher/centre/Members.tsx"
+    },
+    {
+      "path": "web/src/features/teacher/centre/centre.screens.test.tsx"
+    },
+    {
+      "path": "web/src/features/teacher/people/EditStudentSheet.tsx"
+    },
+    {
+      "path": "web/src/features/teacher/people/NewStudent.tsx"
+    },
+    {
+      "path": "web/src/features/teacher/people/StudentDetail.tsx"
+    },
+    {
+      "path": "web/src/features/teacher/people/StudentsList.tsx"
+    },
+    {
+      "path": "web/src/features/teacher/people/mappers.ts"
+    },
+    {
+      "path": "web/src/features/teacher/people/people.test.tsx"
+    },
+    {
+      "path": "web/src/features/teacher/students/AddStudent.tsx"
+    },
+    {
+      "path": "web/src/features/teacher/students/StudentsTab.tsx"
+    },
+    {
+      "path": "web/src/features/teacher/students/mappers.test.ts"
+    },
+    {
+      "path": "web/src/features/teacher/students/mappers.ts"
+    },
+    {
+      "path": "web/src/features/teacher/students/students.test.tsx"
+    },
+    {
+      "path": "web/src/features/teacher/wide.test.tsx"
+    },
+    {
+      "path": "web/src/i18n/generated/message-keys.json"
+    },
+    {
+      "path": "web/src/i18n/generated/strings.bn.json"
+    },
+    {
+      "path": "web/src/i18n/generated/strings.en.json"
+    },
+    {
+      "path": "web/src/i18n/i18n.test.ts"
+    },
+    {
+      "path": "web/src/i18n/web/auth.bn.json"
+    },
+    {
+      "path": "web/src/i18n/web/auth.en.json"
+    },
+    {
+      "path": "web/src/i18n/web/core.bn.json"
+    },
+    {
+      "path": "web/src/i18n/web/core.en.json"
+    },
+    {
+      "path": "web/src/i18n/web/students.bn.json"
+    },
+    {
+      "path": "web/src/i18n/web/students.en.json"
+    },
+    {
+      "path": "web/src/session/session.test.ts"
+    },
+    {
+      "path": "web/src/session/session.tsx"
+    },
+    {
+      "path": "web/src/session/usernameGate.routing.test.tsx"
+    },
+    {
+      "path": "web/src/shell/RouteErrorBoundary.test.tsx"
+    },
+    {
+      "path": "web/src/shell/RouteErrorBoundary.tsx"
+    },
+    {
+      "path": "web/src/test/lintConfig.test.ts"
+    },
+    {
+      "path": "web/src/test/namedTests.test.ts"
+    },
+    {
+      "path": "web/src/test/noIdentifierLeaks.test.tsx"
+    },
+    {
+      "path": "web/src/test/usernameKeyScan.test.ts"
+    }
+  ]
+}

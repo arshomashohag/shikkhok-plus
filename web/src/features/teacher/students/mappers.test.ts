@@ -3,6 +3,7 @@ import type { Schemas } from '../../../api/endpoints'
 import { MoneyFormatError } from '../../../core/money'
 import {
   bangladeshToday,
+  guardianContact,
   mapNotices,
   mapSeats,
   phoneProblem,
@@ -18,6 +19,8 @@ function row(patch: Partial<Schemas['RosterRowResponse']> = {}): Schemas['Roster
     display_name: 'তাসনিম জাহান',
     fee_amount: null,
     guardian_phone: '+8801911000003',
+    guardian_email: null,
+    student_email: null,
     guardian_state: 'accepted',
     inactive_from: null,
     is_removable: false,
@@ -29,6 +32,34 @@ function row(patch: Partial<Schemas['RosterRowResponse']> = {}): Schemas['Roster
 }
 
 const phone = (raw: string) => `P(${raw})`
+
+describe('emails on the roster [W7 step 7]', () => {
+  it('mapSeats reads the guardian and student emails', () => {
+    const [seat] = mapSeats(
+      [row({ guardian_email: 'mother@example.com', student_email: 'tasnim@example.com' })],
+      null,
+    )
+    expect(seat).toMatchObject({
+      guardianEmail: 'mother@example.com',
+      studentEmail: 'tasnim@example.com',
+    })
+  })
+
+  it('guardianContact prefers the phone, then the email, else null', () => {
+    expect(
+      guardianContact({ guardianPhone: '+8801911000003', guardianEmail: 'm@x.cd' }, phone),
+    ).toBe('P(+8801911000003)')
+    expect(guardianContact({ guardianPhone: null, guardianEmail: 'm@x.cd' }, phone)).toBe('m@x.cd')
+    expect(guardianContact({ guardianPhone: null, guardianEmail: null }, phone)).toBeNull()
+  })
+
+  it('the seat line names a guardian by email when no phone was recorded', () => {
+    const [seat] = mapSeats([row({ guardian_phone: null, guardian_email: 'm@x.cd' })], null)
+    expect(seatLine(seat!, phone)).toContainEqual(['batch_guardian', 'm@x.cd'])
+    const [none] = mapSeats([row({ guardian_phone: null, guardian_email: null })], null)
+    expect(seatLine(none!, phone)).toContainEqual(['batch_no_guardian'])
+  })
+})
 
 describe('mapSeats', () => {
   it('maps a seat and joins its fee chip by enrollment id', () => {

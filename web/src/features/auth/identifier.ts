@@ -16,13 +16,16 @@ export type IdentifierKind = 'phone' | 'email'
 export const PASSWORD_MIN = 8
 export const PASSWORD_MAX = 128
 
-/** The server's limit on an email address. */
+/** The server's limit on an email address, in Unicode code points. */
 const EMAIL_MAX = 254
 
 /**
  * Turn what was typed into an {@link Identifier}, or null when its shape
  * is wrong. A phone number is normalised as before; an email address is
- * trimmed and lowercased, as the server does.
+ * trimmed and lowercased, as the server does, and matched against the
+ * server's own pattern. Its length is counted in **code points**, as the
+ * server counts it, never in UTF-16 halves — so the client is never
+ * stricter than the server [FR11.3] [NFR3.12].
  */
 export function readIdentifier(kind: IdentifierKind, typed: string): Identifier | null {
   if (kind === 'phone') {
@@ -30,7 +33,7 @@ export function readIdentifier(kind: IdentifierKind, typed: string): Identifier 
     return phone ? { phone } : null
   }
   const email = typed.trim().toLowerCase()
-  if (email.length > EMAIL_MAX || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null
+  if ([...email].length > EMAIL_MAX || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null
   return { email }
 }
 

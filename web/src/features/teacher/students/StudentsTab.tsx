@@ -35,6 +35,7 @@ import { paths, seatState } from '../paths'
 import { removeEnrollment, setInactiveFrom } from './api'
 import {
   bangladeshToday,
+  guardianContact,
   mapSeats,
   removalRemedy,
   seatLine,
@@ -79,11 +80,11 @@ export function StudentsTab({ batchId, batch }: BatchTabProps) {
   const [snack, setSnack] = useState<string | null>(null)
   const dismiss = useCallback(() => setSnack(null), [])
 
+  // A declined seat is known by the contact recorded for it: the phone,
+  // then the email, then the plain words [W7 step 7].
   const label = (seat: Seat) =>
     seat.declined
-      ? seat.guardianPhone
-        ? formatPhone(seat.guardianPhone)
-        : t('roster_declined_no_number')
+      ? (guardianContact(seat, formatPhone) ?? t('roster_declined_no_number'))
       : seat.displayName
 
   async function remove(seat: Seat) {
