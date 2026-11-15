@@ -713,6 +713,21 @@ sealed interface Destination {
         override val route: String = "payment-methods"
     }
 
+    /** The owner's public listing editor, opened from More. */
+    data object HubListing : Destination {
+        override val route: String = "hub"
+    }
+
+    /** The owner's batch listings, pushed over [HubListing]. */
+    data object BatchListings : Destination {
+        override val route: String = "hub/batches"
+    }
+
+    /** "Show my name on the centre's public page", opened from More. */
+    data object NameConsent : Destination {
+        override val route: String = "hub/name-consent"
+    }
+
     /** Adding a payment method (P2, P3). */
     data object AddPaymentMethod : Destination {
         override val route: String = "payment-methods/new?kind={kind}"

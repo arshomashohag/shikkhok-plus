@@ -49,17 +49,25 @@ jobs:
     # **Raised from 10 on 2026-10-25, against a measurement rather than a
     # guess.** Run 40203674746 was cancelled at exactly 10 minutes with
     # pytest at 75%; the steps before it cost 81s in total (install 19s,
-    # lockfile compile 43s, CVE audit 12s), so the suite itself needs
-    # ~11.8 min and the job ~13.1. 20 leaves headroom without hiding a
-    # trend: a job that starts taking 18 is telling you something.
+    # lockfile compile 43s, CVE audit 12s), so the suite itself needed
+    # ~11.8 min and the job ~13.1.
     #
-    # The length is not waste and is not to be optimised away by
-    # collapsing it. `make test` runs the suite TWICE on purpose — 100%
-    # branch on app.money, 80% line on the rest — because one run cannot
-    # enforce two different floors, and the floor that is not enforced is
-    # the one that quietly erodes. That reasoning is in the Makefile and
-    # it still holds; the suite grew through D4-D6, the cap did not.
-    timeout-minutes: 20
+    # **Raised from 20 on 2026-11-15, against a measurement again.** Run
+    # 43703008279 (the public-hub H0/H1 pull request) was cancelled at
+    # exactly 20 minutes with pytest at 85%: the steps before pytest took
+    # 50s and pytest itself had run 19m11s, so the suite now needs ~22.6
+    # min and the job ~24. The hub units added several hundred tests that
+    # each run against a real PostgreSQL container. 35 leaves headroom
+    # without hiding a trend: a job that starts taking 30 is telling you
+    # something, and the next raise should come with a look at test cost.
+    #
+    # The length is not waste and is not to be optimised away by dropping
+    # a floor. `make test` runs the suite once and enforces both floors
+    # from that one run -- 100% branch on app.money, 80% line on the rest
+    # -- through two `coverage report` passes over the same data file
+    # (see the Makefile), because the floor that is not enforced is the
+    # one that quietly erodes.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

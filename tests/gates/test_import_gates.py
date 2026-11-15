@@ -35,12 +35,14 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
+from typing import Final
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 MONEY = ROOT / "app" / "money"
 ERRORS = ROOT / "app" / "errors"
+HUB_PUBLIC = ROOT / "app" / "hub" / "public"
 FIXTURES = Path(__file__).parent / "fixtures"
 
 #: Layers the error handler may never import from. [NFR17.2]
@@ -69,6 +71,21 @@ FORBIDDEN_PREFIXES = (
     "app.repositories",
     "app.authz",
     "app.schemas",
+)
+
+#: The only ``app.`` modules the public hub may import. The hub serves
+#: anonymous, cacheable reads through a restricted database role, so it must
+#: not reach the full ORM model layer, the authorization layer or the
+#: repositories: an import is how a public page would come to read a private
+#: table.
+HUB_PUBLIC_IMPORT_ALLOWLIST: Final[frozenset[str]] = frozenset(
+    {
+        "app.hub.public",
+        "app.db.roles",
+        "app.money",
+        "app.api.html",
+        "app.errors",
+    }
 )
 
 #: The only path where raw decimal arithmetic is permitted. [BR6.2, NFR9.5]
@@ -366,6 +383,116 @@ class TestGate2Inward:
                 "The money module's entry should carry no rule exemptions; "
                 "its decimal permission comes from being the module itself."
             )
+
+
+def _hub_public_imports(source: Path, package: str) -> set[str]:
+    """
+    Collect the absolute name of everything a file imports.
+
+    Unlike :func:`_imported_modules`, this resolves relative imports against
+    ``package`` and judges ``from X import Y`` as ``X.Y``: ``Y`` may itself
+    be a module, so ``from app import db`` must be seen as ``app.db``.
+
+    :param source: The file to parse.
+    :param package: The dotted package the file lives in.
+    :return: Absolute dotted names, one per imported name.
+    """
+    tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            parts = package.split(".")
+            base = parts[: max(len(parts) - (node.level - 1), 0)] if node.level else []
+            prefix = ".".join([*base, *([node.module] if node.module else [])])
+            found.update(f"{prefix}.{alias.name}" for alias in node.names)
+        elif isinstance(node, ast.Call):
+            target = _dynamic_import_target(node)
+            if target is not None:
+                found.add(target)
+    return found
+
+
+def _hub_public_offenders(sources: list[Path], package: str | None = None) -> list[str]:
+    """
+    List every ``app.`` import outside the public hub's allowlist.
+
+    An import is allowed when its absolute name equals, or is a submodule
+    of, an allowlist entry. Non-``app`` imports (third-party, standard
+    library) are not this gate's concern.
+
+    :param sources: The files to parse.
+    :param package: The package to resolve relative imports against; by
+        default each file's own package, from its path under the repo root.
+    :return: One description per offending import.
+    """
+    offenders: list[str] = []
+    for source in sources:
+        home = package or ".".join(source.relative_to(ROOT).parent.parts)
+        for module in sorted(_hub_public_imports(source, home)):
+            if not module.startswith("app."):
+                continue
+            allowed = any(
+                module == entry or module.startswith(f"{entry}.")
+                for entry in HUB_PUBLIC_IMPORT_ALLOWLIST
+            )
+            if not allowed:
+                offenders.append(f"{source.name} imports {module}")
+    return offenders
+
+
+class TestHubPublicImportGate:
+    """``app/hub/public`` imports only its allowlist."""
+
+    def test_hub_public_imports_only_its_allowlist(self) -> None:
+        """The real tree is clean, and the walk is not vacuous.
+
+        :return: None
+        """
+        sources = list(HUB_PUBLIC.rglob("*.py"))
+        assert (HUB_PUBLIC / "__init__.py") in sources, "gate walks nothing"
+        assert not _hub_public_offenders(sources)
+
+    def test_hub_public_import_gate_fires_on_fixture(self) -> None:
+        """A module importing ``app.db.models`` is refused.
+
+        :return: None
+        """
+        fixture = FIXTURES / "hub_public_bad_import" / "bad_module.py.txt"
+        assert _hub_public_offenders([fixture], package="app.hub.public") == [
+            "bad_module.py.txt imports app.db.models.Account"
+        ]
+
+    @pytest.mark.parametrize(
+        ("line", "expected"),
+        [
+            ("from app import db", ["app.db"]),
+            ("from app import authz", ["app.authz"]),
+            ("from app.db import roles", []),
+            ("from app.db import models", ["app.db.models"]),
+            ("from app.money import Money", []),
+            ("from ..db import models", ["app.hub.db.models"]),
+            ("from ...authz import x", ["app.authz.x"]),
+            ("from ...db import roles", []),
+            ("from . import registry", []),
+            ("from .registry import X", []),
+        ],
+    )
+    def test_hub_public_gate_judges_the_absolute_name(
+        self, tmp_path: Path, line: str, expected: list[str]
+    ) -> None:
+        """Aliased-module and relative imports are resolved before judging.
+
+        :param tmp_path: A scratch directory
+        :param line: The import statement under test
+        :param expected: The offending names it should yield
+        :return: None
+        """
+        probe = tmp_path / "probe.py.txt"
+        probe.write_text(line + "\n", encoding="utf-8")
+        found = _hub_public_offenders([probe], package="app.hub.public")
+        assert found == [f"probe.py.txt imports {name}" for name in expected]
 
 
 def _ruff_or_skip() -> list[str]:

@@ -62,6 +62,7 @@ class NotificationResponse(BaseModel):
         "claim_to_verify",
         "class_cancelled",
         "class_rescheduled",
+        "hub_listing_suspended",
     ]
     enrollment_id: uuid.UUID | None = None
     batch_name: str

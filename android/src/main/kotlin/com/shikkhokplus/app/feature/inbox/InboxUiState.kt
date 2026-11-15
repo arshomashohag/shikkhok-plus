@@ -39,6 +39,9 @@ enum class InboxKind {
 
     /** A class the teacher moved to another day or time. */
     CLASS_RESCHEDULED,
+
+    /** An administrator suspended the owner's public listing. */
+    HUB_LISTING_SUSPENDED,
 }
 
 /**
@@ -115,6 +118,9 @@ sealed interface InboxTarget {
 
     /** The teacher's payments to check. */
     data object Verify : InboxTarget
+
+    /** The owner's public listing, to read why it was suspended. */
+    data object HubListing : InboxTarget
 
     /**
      * One payment to check, opened at its review.

@@ -39,6 +39,7 @@ export const INBOX_KINDS = [
   'claim_to_verify',
   'class_cancelled',
   'class_rescheduled',
+  'hub_listing_suspended',
 ] as const satisfies readonly ApiInboxKind[]
 
 export type InboxKind = (typeof INBOX_KINDS)[number]
@@ -135,6 +136,7 @@ export const TITLE_KEY: Record<InboxKind, string> = {
   claim_to_verify: 'inbox_claim_to_verify_title',
   class_cancelled: 'inbox_class_cancelled_title',
   class_rescheduled: 'inbox_class_rescheduled_title',
+  hub_listing_suspended: 'web_inbox_hub_listing_suspended_title',
 }
 
 /** "Child · Batch", or just the batch for the reader's own seat. */
@@ -229,6 +231,7 @@ export function targetOf(m: InboxMessage): InboxTarget {
   if (m.kind === 'claim_to_verify') {
     return { to: m.sourceId ? paths.payment(m.sourceId) : paths.verify(), lens: 'teacher' }
   }
+  if (m.kind === 'hub_listing_suspended') return { to: paths.hub(), lens: 'teacher' }
   return { to: accountPaths.inboxItem(m.id), lens: null }
 }
 

@@ -32,6 +32,7 @@ __all__ = [
     "EXAM_CANCELLED",
     "EXAM_SCHEDULED",
     "FEE_REMINDER",
+    "HUB_LISTING_SUSPENDED",
     "INBOX_LIMIT",
     "LEGACY_KINDS",
     "MARKS_AVAILABLE",
@@ -97,6 +98,11 @@ CLASS_CANCELLED: Final[str] = "class_cancelled"
 #: A class the teacher moved to another day or time [PO-1]. A second move
 #: replaces the first move's item rather than stacking beside it.
 CLASS_RESCHEDULED: Final[str] = "class_rescheduled"
+
+#: An administrator suspended the owner's public hub listing. Deliberately
+#: absent from :data:`LEGACY_KINDS`: only a client that announces it can
+#: draw it, so an older install's badge never counts it.
+HUB_LISTING_SUSPENDED: Final[str] = "hub_listing_suspended"
 
 #: The kinds every client knew before clients began announcing theirs
 #: [PO-10]. **Frozen: never add to it.** A client that does not say which

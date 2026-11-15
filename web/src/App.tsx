@@ -35,6 +35,7 @@ import { peopleRoutes } from './features/teacher/people'
 import { studentsRoutes } from './features/teacher/students'
 import { moneyRoutes } from './features/teacher/money'
 import { centreRoutes } from './features/teacher/centre'
+import { hubRoutes } from './features/teacher/hub'
 
 import { batchRoutes } from './features/family/batch'
 import { payRoutes } from './features/family/pay'
@@ -55,6 +56,7 @@ const AREA_ROUTES = [
   ...peopleRoutes,
   ...moneyRoutes,
   ...centreRoutes,
+  ...hubRoutes,
 ]
 
 function Only({

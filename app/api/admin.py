@@ -12,11 +12,12 @@ What crosses the boundary is decided in ``app.admin`` and
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 import uuid
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from app.admin.overview import overview
@@ -34,6 +35,7 @@ from app.help.tickets import (
     set_status,
     support_reply,
 )
+from app.moderation import reports, suspension
 from app.schemas.admin import (
     AdminAppVersion,
     AdminOverviewResponse,
@@ -49,6 +51,15 @@ from app.schemas.admin import (
     AdminWorkspacesResponse,
 )
 from app.schemas.admin import AdminTicket as AdminTicketWire
+from app.schemas.moderation import (
+    AdminHubDecisionRequest,
+    AdminHubField,
+    AdminHubQueueItem,
+    AdminHubQueueResponse,
+    AdminHubReportDecided,
+    AdminHubSuspensionRequest,
+    AdminHubSuspensionState,
+)
 
 __all__ = ["router"]
 
@@ -302,3 +313,109 @@ def change_status(
     detail = set_status(session, ticket_id, body.status)
     session.commit()
     return _detail(detail)
+
+
+def _correlation(request: Request) -> str:
+    """Read the request's correlation id for the moderation event.
+
+    :param request: The incoming request
+    :return: The id, capped to the column width
+    """
+    return str(getattr(request.state, "correlation_id", "unknown"))[:64]
+
+
+@router.get("/hub/queue", response_model=AdminHubQueueResponse)
+def hub_queue(
+    lens: Annotated[PlatformAdminLens, Depends(platform_admin_lens)],
+    session: Annotated[Session, Depends(get_session)],
+    kind: Annotated[Literal["report", "listing"], Query()] = "report",
+) -> AdminHubQueueResponse:
+    """List open reports, or suspended listings, oldest first.
+
+    :param lens: The administrator's lens
+    :param session: The request-scoped session
+    :param kind: ``report`` or ``listing``
+    :return: The queue; a reporter appears only as an opaque label
+    """
+    _audit(lens, f"hub_queue_{kind}")
+    return AdminHubQueueResponse(
+        kind=kind,
+        items=[
+            AdminHubQueueItem(
+                kind=i.kind,
+                report_id=i.report_id,
+                target_kind=i.target_kind,
+                target_id=i.target_id,
+                owner_id=i.owner_id,
+                title=i.title,
+                fields=[
+                    AdminHubField.model_validate({"key": k, "value": v})
+                    for k, v in i.fields
+                ],
+                reason=i.reason,
+                note=i.note,
+                reporter_ref=i.reporter_ref,
+                waited_hours=i.waited_hours,
+            )
+            for i in reports.queue(session, kind)
+        ],
+    )
+
+
+@router.post("/hub/reports/{report_id}/decision", response_model=AdminHubReportDecided)
+def decide_report(
+    report_id: uuid.UUID,
+    body: AdminHubDecisionRequest,
+    request: Request,
+    lens: Annotated[PlatformAdminLens, Depends(platform_admin_lens)],
+    session: Annotated[Session, Depends(get_session)],
+) -> AdminHubReportDecided:
+    """Uphold or dismiss a report.
+
+    :param report_id: The report
+    :param body: The decision
+    :param request: The incoming request
+    :param lens: The administrator's lens
+    :param session: The request-scoped session
+    :return: The report and its new status
+    """
+    _audit(lens, "hub_report_decision")
+    reports.decide(
+        session,
+        lens,
+        report_id,
+        body.decision,
+        dt.datetime.now(tz=dt.UTC),
+        _correlation(request),
+    )
+    return AdminHubReportDecided(report_id=report_id, status=body.decision)
+
+
+@router.put("/hub/owners/{owner_id}/suspension", response_model=AdminHubSuspensionState)
+def set_suspension(
+    owner_id: uuid.UUID,
+    body: AdminHubSuspensionRequest,
+    request: Request,
+    lens: Annotated[PlatformAdminLens, Depends(platform_admin_lens)],
+    session: Annotated[Session, Depends(get_session)],
+) -> AdminHubSuspensionState:
+    """Suspend or restore an owner's public listing.
+
+    :param owner_id: The owner
+    :param body: Whether to suspend, and why
+    :param request: The incoming request
+    :param lens: The administrator's lens
+    :param session: The request-scoped session
+    :return: The owner and whether the listing is suspended now
+    """
+    _audit(lens, "hub_suspension")
+    suspension.set(
+        session,
+        lens,
+        owner_id,
+        body.suspended,
+        body.reason_code,
+        dt.datetime.now(tz=dt.UTC),
+        _correlation(request),
+    )
+    return AdminHubSuspensionState(owner_id=owner_id, suspended=body.suspended)

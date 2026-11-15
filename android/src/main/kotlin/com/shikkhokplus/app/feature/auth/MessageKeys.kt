@@ -67,6 +67,26 @@ object MessageKeys {
         // A malformed email, refused by the server on any route that takes
         // one, as `phone.invalid` is for a number.
         "email.invalid" to R.string.email_invalid,
+        // The public hub's owner listing.
+        "hub.consent_outdated" to R.string.hub_consent_outdated,
+        "hub.listing_incomplete" to R.string.hub_listing_incomplete,
+        "hub.listing_suspended" to R.string.hub_listing_suspended,
+        "hub.slug_taken" to R.string.hub_slug_taken,
+        "hub.slug_invalid" to R.string.hub_slug_invalid,
+        "hub.area_mismatch" to R.string.hub_area_mismatch,
+        "hub.text_contains_contact" to R.string.hub_text_contains_contact,
+        "hub.batch_flags_required" to R.string.hub_batch_flags_required,
+        "hub.batch_inactive" to R.string.hub_batch_inactive,
+        "hub.owner_not_published" to R.string.hub_owner_not_published,
+        "hub.batch_value_invalid" to R.string.hub_batch_value_invalid,
+        "hub.address_centre_only" to R.string.hub_address_centre_only,
+        "hub.write_ceiling" to R.string.hub_write_ceiling,
+        "hub.report_target_not_found" to R.string.hub_report_target_not_found,
+        "hub.report_already_filed" to R.string.hub_report_already_filed,
+        "hub.report_ceiling" to R.string.hub_report_ceiling,
+        "hub.report_already_decided" to R.string.hub_report_already_decided,
+        "hub.admin_target_not_found" to R.string.hub_admin_target_not_found,
+        "hub.report_reason_invalid" to R.string.hub_report_reason_invalid,
         // Adding a phone or an email to an account.
         "account.contact.already_set" to R.string.account_contact_already_set,
         "account.contact.taken" to R.string.account_contact_taken,

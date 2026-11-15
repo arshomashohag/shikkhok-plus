@@ -391,6 +391,85 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/admin/hub/owners/{owner_id}/suspension': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Set Suspension
+     * @description Suspend or restore an owner's public listing.
+     *
+     *     :param owner_id: The owner
+     *     :param body: Whether to suspend, and why
+     *     :param request: The incoming request
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The owner and whether the listing is suspended now
+     */
+    put: operations['set_suspension_v1_admin_hub_owners__owner_id__suspension_put']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/hub/queue': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Queue
+     * @description List open reports, or suspended listings, oldest first.
+     *
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :param kind: ``report`` or ``listing``
+     *     :return: The queue; a reporter appears only as an opaque label
+     */
+    get: operations['hub_queue_v1_admin_hub_queue_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/hub/reports/{report_id}/decision': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Decide Report
+     * @description Uphold or dismiss a report.
+     *
+     *     :param report_id: The report
+     *     :param body: The decision
+     *     :param request: The incoming request
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The report and its new status
+     */
+    post: operations['decide_report_v1_admin_hub_reports__report_id__decision_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/admin/overview': {
     parameters: {
       query?: never
@@ -1035,6 +1114,85 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/batches/{batch_id}/listing': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Put Batch Listing
+     * @description Create or edit one batch's listing.
+     *
+     *     Shares the owner's daily allowance of listing edits.
+     *
+     *     :param batch_id: The batch
+     *     :param body: The edits; an omitted field is left alone
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The batch with its listing
+     *     :raises CeilingBreach: The owner has used today's edits
+     */
+    put: operations['put_batch_listing_v1_batches__batch_id__listing_put']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/batches/{batch_id}/listing/publish': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Publish Batch Listing
+     * @description Make one batch's listing public, under an owner who already is.
+     *
+     *     :param batch_id: The batch
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The batch with its listing
+     */
+    post: operations['publish_batch_listing_v1_batches__batch_id__listing_publish_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/batches/{batch_id}/listing/unpublish': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Unpublish Batch Listing
+     * @description Hide one batch's listing; the data is kept.
+     *
+     *     :param batch_id: The batch
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The batch with its listing
+     */
+    post: operations['unpublish_batch_listing_v1_batches__batch_id__listing_unpublish_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/batches/{batch_id}/marksheet-visibility': {
     parameters: {
       query?: never
@@ -1657,6 +1815,31 @@ export interface paths {
      *     :raises CeilingBreach: The account has opened its allowance today
      */
     post: operations['open_centre_v1_centres_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/centres/{centre_id}/members/me/public-name-consent': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Put Public Name Consent
+     * @description Agree, or stop agreeing, to be named on the centre's public page.
+     *
+     *     :param body: ``consent`` true to be named, false to withdraw
+     *     :param lens: The caller's lens on their own membership
+     *     :param session: The request-scoped session
+     *     :return: An empty 204
+     */
+    put: operations['put_public_name_consent_v1_centres__centre_id__members_me_public_name_consent_put']
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -2544,6 +2727,192 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/hub/areas': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Areas
+     * @description List the divisions, or the areas directly inside one.
+     *
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :param parent: The enclosing area's code; omit for the divisions
+     *     :return: The areas; empty for an unknown parent
+     */
+    get: operations['hub_areas_v1_hub_areas_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/batch-listings': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Batch Listings
+     * @description List the owner's active batches with their listing state.
+     *
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: One entry per active batch, oldest first
+     */
+    get: operations['list_batch_listings_v1_hub_batch_listings_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/listing': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Listing
+     * @description Read the owner's listing, drafting one on the first call.
+     *
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The listing and what it still needs
+     */
+    get: operations['get_listing_v1_hub_listing_get']
+    /**
+     * Put Listing
+     * @description Edit the owner's listing.
+     *
+     *     **Bounded per owner and day**: each call consumes one of the day's
+     *     listing edits, so a loop rewriting the page is refused with a 409.
+     *
+     *     :param body: The edits; an omitted field is left alone
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The listing after the edit
+     *     :raises CeilingBreach: The owner has used today's edits
+     */
+    put: operations['put_listing_v1_hub_listing_put']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/listing/publish': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Publish Listing
+     * @description Agree to the listing terms and make the listing public.
+     *
+     *     :param body: The version of the terms the owner was shown
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The published listing
+     */
+    post: operations['publish_listing_v1_hub_listing_publish_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/listing/unpublish': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Unpublish Listing
+     * @description Hide the owner's listing; the data is kept.
+     *
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The listing
+     */
+    post: operations['unpublish_listing_v1_hub_listing_unpublish_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/reports': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * File Report
+     * @description Report a published hub listing; nothing about the listing changes.
+     *
+     *     :param body: The target, the reason and an optional note
+     *     :param request: The incoming request, for its correlation id
+     *     :param account_id: The authenticated reporter
+     *     :param session: The request-scoped session
+     *     :return: An empty 202
+     */
+    post: operations['file_report_v1_hub_reports_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/slugs/{slug}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Slug Availability
+     * @description Say whether the caller may claim a slug.
+     *
+     *     :param slug: The wanted slug
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: Whether it is free and well formed
+     */
+    get: operations['slug_availability_v1_hub_slugs__slug__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/invitations': {
     parameters: {
       query?: never
@@ -2737,6 +3106,33 @@ export interface paths {
      *     :return: The batch view, with its server timestamp
      */
     get: operations['read_my_batch_teaching_v1_me_batches__enrollment_id__teaching_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/centre-memberships': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Centre Memberships
+     * @description List the caller's own accepted centre memberships and name consent.
+     *
+     *     Scoped to the authenticated account in SQL; it takes no id from the
+     *     request, so it can reach nobody else's membership.
+     *
+     *     :param account_id: The authenticated account
+     *     :param session: The request-scoped session
+     *     :return: One entry per accepted, unrevoked membership, oldest first
+     */
+    get: operations['list_centre_memberships_v1_me_centre_memberships_get']
     put?: never
     post?: never
     delete?: never
@@ -4519,6 +4915,165 @@ export interface components {
       secret: string
     }
     /**
+     * AdminHubDecisionRequest
+     * @description An administrator's decision on a report.
+     *
+     *     :ivar decision: ``upheld`` or ``dismissed``
+     */
+    AdminHubDecisionRequest: {
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: 'dismissed' | 'upheld'
+    }
+    /**
+     * AdminHubField
+     * @description One submitted public field of a moderated target.
+     *
+     *     :ivar key: Which field
+     *     :ivar value: What the owner submitted
+     */
+    AdminHubField: {
+      /**
+       * Key
+       * @enum {string}
+       */
+      key:
+        | 'area_bn'
+        | 'area_en'
+        | 'bio_bn'
+        | 'bio_en'
+        | 'description_bn'
+        | 'description_en'
+        | 'headline_bn'
+        | 'headline_en'
+        | 'public_contact_phone'
+        | 'public_name'
+        | 'public_title'
+        | 'qualifications'
+        | 'street_address'
+        | 'subject_tags'
+        | 'syllabus_bn'
+        | 'syllabus_en'
+      /** Value */
+      value: string
+    }
+    /**
+     * AdminHubQueueItem
+     * @description One row of the moderation queue.
+     *
+     *     :ivar kind: ``report`` or ``listing``
+     *     :ivar report_id: The report, for a report row
+     *     :ivar target_kind: What was reported or suspended
+     *     :ivar target_id: The target's id
+     *     :ivar owner_id: The owner the listing belongs to, when known
+     *     :ivar title: The target's public name: an owner's public name or a
+     *         batch's public title
+     *     :ivar fields: Everything the owner submitted for display on the target
+     *     :ivar reason: The report reason or the suspension reason code
+     *     :ivar note: The reporter's note, for a report row
+     *     :ivar reporter_ref: The opaque reporter label, for a report row
+     *     :ivar waited_hours: Whole hours since the report or the suspension
+     */
+    AdminHubQueueItem: {
+      /** Fields */
+      fields: components['schemas']['AdminHubField'][]
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'listing' | 'report'
+      /** Note */
+      note: string | null
+      /** Owner Id */
+      owner_id: string | null
+      /** Reason */
+      reason: string | null
+      /** Report Id */
+      report_id: string | null
+      /** Reporter Ref */
+      reporter_ref: string | null
+      /**
+       * Target Id
+       * Format: uuid
+       */
+      target_id: string
+      /** Target Kind */
+      target_kind: string
+      /** Title */
+      title: string | null
+      /** Waited Hours */
+      waited_hours: number
+    }
+    /**
+     * AdminHubQueueResponse
+     * @description The moderation queue, oldest first.
+     *
+     *     :ivar kind: Which queue this is
+     *     :ivar items: Its rows
+     */
+    AdminHubQueueResponse: {
+      /** Items */
+      items: components['schemas']['AdminHubQueueItem'][]
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'listing' | 'report'
+    }
+    /**
+     * AdminHubReportDecided
+     * @description A report after its decision.
+     *
+     *     :ivar report_id: The report
+     *     :ivar status: ``upheld`` or ``dismissed``
+     */
+    AdminHubReportDecided: {
+      /**
+       * Report Id
+       * Format: uuid
+       */
+      report_id: string
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'dismissed' | 'upheld'
+    }
+    /**
+     * AdminHubSuspensionRequest
+     * @description Suspend or restore an owner's listing.
+     *
+     *     :ivar suspended: True to suspend, False to lift
+     *     :ivar reason_code: A closed reason
+     */
+    AdminHubSuspensionRequest: {
+      /**
+       * Reason Code
+       * @enum {string}
+       */
+      reason_code: 'abusive' | 'child_safety' | 'fake' | 'misleading' | 'other' | 'personal_info'
+      /** Suspended */
+      suspended: boolean
+    }
+    /**
+     * AdminHubSuspensionState
+     * @description An owner's listing after a suspension change.
+     *
+     *     :ivar owner_id: The owner
+     *     :ivar suspended: Whether the listing is suspended now
+     */
+    AdminHubSuspensionState: {
+      /**
+       * Owner Id
+       * Format: uuid
+       */
+      owner_id: string
+      /** Suspended */
+      suspended: boolean
+    }
+    /**
      * AdminMfaRequest
      * @description Finish signing in: exactly one of the two codes.
      *
@@ -4931,6 +5486,28 @@ export interface components {
       edited: boolean
     }
     /**
+     * AreaOption
+     * @description One division, district or upazila.
+     *
+     *     :ivar code: The BBS geocode
+     *     :ivar kind: ``division``, ``district`` or ``upazila``
+     *     :ivar name_en: The English name
+     *     :ivar name_bn: The Bangla name
+     */
+    AreaOption: {
+      /** Code */
+      code: string
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'district' | 'division' | 'upazila'
+      /** Name Bn */
+      name_bn: string
+      /** Name En */
+      name_en: string
+    }
+    /**
      * AssignmentRequest
      * @description Set one class's teacher and room, apart from its weekly slot.
      *
@@ -5136,6 +5713,176 @@ export interface components {
       seats: components['schemas']['RosterFeeRowResponse'][]
     }
     /**
+     * BatchListingResponse
+     * @description One of the owner's batches with its listing, if it has one yet.
+     *
+     *     ``status`` is ``draft`` before any listing row exists.
+     *
+     *     :ivar batch_id: The batch
+     *     :ivar batch_name: Its name in the owner's own records, shown only to the
+     *         owner; the public page uses ``public_title``
+     *     :ivar subjects: Its subject names
+     *     :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
+     *     :ivar slug: The public path segment
+     *     :ivar public_title: The batch's public name
+     *     :ivar description_en: The English description
+     *     :ivar description_bn: The Bangla description
+     *     :ivar syllabus_en: The English syllabus
+     *     :ivar syllabus_bn: The Bangla syllabus
+     *     :ivar class_levels: The class levels taught
+     *     :ivar curriculum: The curriculum
+     *     :ivar subject_tags: Public subject tags
+     *     :ivar mode: How the batch is taught
+     *     :ivar admissions: ``open``, ``waitlist`` or ``closed``
+     *     :ivar show_fee: Whether the fee is public, or None before a listing
+     *     :ivar show_schedule: Whether the timetable is public, or None
+     *     :ivar fee: The batch fee, only while ``show_fee`` is set
+     *     :ivar teacher_names: The teachers the page may name
+     *     :ivar checklist: Each requirement and whether it is met
+     *     :ivar publishable: Whether every requirement is met
+     */
+    BatchListingResponse: {
+      /** Admissions */
+      admissions: ('closed' | 'open' | 'waitlist') | null
+      /**
+       * Batch Id
+       * Format: uuid
+       */
+      batch_id: string
+      /** Batch Name */
+      batch_name: string
+      /** Checklist */
+      checklist: components['schemas']['ChecklistItemWire'][]
+      /** Class Levels */
+      class_levels: (
+        | 'a_level'
+        | 'admission'
+        | 'class_1'
+        | 'class_10'
+        | 'class_11'
+        | 'class_12'
+        | 'class_2'
+        | 'class_3'
+        | 'class_4'
+        | 'class_5'
+        | 'class_6'
+        | 'class_7'
+        | 'class_8'
+        | 'class_9'
+        | 'hsc'
+        | 'o_level'
+        | 'other'
+        | 'ssc'
+      )[]
+      /** Curriculum */
+      curriculum:
+        ('english_medium' | 'madrasah' | 'national_bangla' | 'national_english' | 'other') | null
+      /** Description Bn */
+      description_bn: string | null
+      /** Description En */
+      description_en: string | null
+      fee: components['schemas']['Money'] | null
+      /** Mode */
+      mode: ('home_visit' | 'in_person' | 'online') | null
+      /** Public Title */
+      public_title: string | null
+      /** Publishable */
+      publishable: boolean
+      /** Show Fee */
+      show_fee: boolean | null
+      /** Show Schedule */
+      show_schedule: boolean | null
+      /** Slug */
+      slug: string | null
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'draft' | 'hidden' | 'published' | 'suspended'
+      /** Subject Tags */
+      subject_tags: string[]
+      /** Subjects */
+      subjects: string[]
+      /** Syllabus Bn */
+      syllabus_bn: string | null
+      /** Syllabus En */
+      syllabus_en: string | null
+      /** Teacher Names */
+      teacher_names: string[]
+    }
+    /**
+     * BatchListingUpdateRequest
+     * @description Edit one batch's listing; an omitted field is left alone.
+     *
+     *     The first save must carry ``show_fee`` and ``show_schedule``.
+     *
+     *     :ivar slug: The public path segment, unique per owner
+     *     :ivar public_title: The batch's public name; empty clears it
+     *     :ivar description_en: The English description
+     *     :ivar description_bn: The Bangla description
+     *     :ivar syllabus_en: The English syllabus
+     *     :ivar syllabus_bn: The Bangla syllabus
+     *     :ivar class_levels: The class levels taught
+     *     :ivar curriculum: The curriculum; empty clears it
+     *     :ivar subject_tags: Public subject tags
+     *     :ivar mode: How the batch is taught; empty clears it
+     *     :ivar admissions: ``open``, ``waitlist`` or ``closed``
+     *     :ivar show_fee: Whether the fee is public
+     *     :ivar show_schedule: Whether the weekly timetable is public
+     */
+    BatchListingUpdateRequest: {
+      /** Admissions */
+      admissions?: ('closed' | 'open' | 'waitlist') | null
+      /** Class Levels */
+      class_levels?:
+        | (
+            | 'a_level'
+            | 'admission'
+            | 'class_1'
+            | 'class_10'
+            | 'class_11'
+            | 'class_12'
+            | 'class_2'
+            | 'class_3'
+            | 'class_4'
+            | 'class_5'
+            | 'class_6'
+            | 'class_7'
+            | 'class_8'
+            | 'class_9'
+            | 'hsc'
+            | 'o_level'
+            | 'other'
+            | 'ssc'
+          )[]
+        | null
+      /** Curriculum */
+      curriculum?:
+        | ('english_medium' | 'madrasah' | 'national_bangla' | 'national_english' | 'other')
+        | ''
+        | null
+      /** Description Bn */
+      description_bn?: string | null
+      /** Description En */
+      description_en?: string | null
+      /** Mode */
+      mode?: ('home_visit' | 'in_person' | 'online') | '' | null
+      /** Public Title */
+      public_title?: string | null
+      /** Show Fee */
+      show_fee?: boolean | null
+      /** Show Schedule */
+      show_schedule?: boolean | null
+      /** Slug */
+      slug?: string | null
+      /** Subject Tags */
+      subject_tags?: string[] | null
+      /** Syllabus Bn */
+      syllabus_bn?: string | null
+      /** Syllabus En */
+      syllabus_en?: string | null
+    }
+    /**
      * BatchResponse
      * @description A batch as its owner sees it.
      *
@@ -5337,6 +6084,41 @@ export interface components {
       name: string
     }
     /**
+     * CentreMembershipResponse
+     * @description One accepted centre membership of the caller, with its name consent.
+     *
+     *     :ivar member_id: The membership
+     *     :ivar centre_id: The centre, for the consent route's path
+     *     :ivar centre_name: The centre's name
+     *     :ivar role: ``manager`` or ``teacher``
+     *     :ivar public_name_consent: Whether the member agreed to be named publicly
+     *     :ivar name_shown: The exact name the centre's page shows once they agree:
+     *         the name the centre entered for them, which is theirs to see
+     */
+    CentreMembershipResponse: {
+      /**
+       * Centre Id
+       * Format: uuid
+       */
+      centre_id: string
+      /** Centre Name */
+      centre_name: string
+      /**
+       * Member Id
+       * Format: uuid
+       */
+      member_id: string
+      /** Name Shown */
+      name_shown: string
+      /** Public Name Consent */
+      public_name_consent: boolean
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: 'manager' | 'teacher'
+    }
+    /**
      * CentreResponse
      * @description The centre just opened.
      *
@@ -5367,6 +6149,19 @@ export interface components {
        * Format: uuid
        */
       enrollment_id: string
+    }
+    /**
+     * ChecklistItemWire
+     * @description One requirement of a listing and whether it is met.
+     *
+     *     :ivar key: The requirement's stable name
+     *     :ivar done: Whether it is met
+     */
+    ChecklistItemWire: {
+      /** Done */
+      done: boolean
+      /** Key */
+      key: string
     }
     /**
      * ChildBatchResponse
@@ -5571,6 +6366,16 @@ export interface components {
       outstanding: components['schemas']['Money']
       /** Owing Students */
       owing_students: number
+    }
+    /**
+     * ConsentRequest
+     * @description A centre member agreeing, or no longer agreeing, to be named.
+     *
+     *     :ivar consent: True to be named on the centre's public page
+     */
+    ConsentRequest: {
+      /** Consent */
+      consent: boolean
     }
     /**
      * ContactRequest
@@ -7077,6 +7882,36 @@ export interface components {
       status: 'approved_full' | 'approved_partial' | 'pending' | 'rejected'
     }
     /**
+     * HubReportRequest
+     * @description A reader's report about one hub target.
+     *
+     *     :ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,
+     *         ``review`` or ``reply``
+     *     :ivar target_id: The target's id: an owner id for an owner listing, a
+     *         batch id for a batch listing
+     *     :ivar reason: A closed reason
+     *     :ivar note: An optional note; it may not carry a phone number
+     */
+    HubReportRequest: {
+      /** Note */
+      note?: string | null
+      /**
+       * Reason
+       * @enum {string}
+       */
+      reason: 'abusive' | 'child_safety' | 'fake' | 'misleading' | 'other' | 'personal_info'
+      /**
+       * Target Id
+       * Format: uuid
+       */
+      target_id: string
+      /**
+       * Target Kind
+       * @enum {string}
+       */
+      target_kind: 'batch_listing' | 'media' | 'owner_listing' | 'reply' | 'review'
+    }
+    /**
      * InactiveFromRequest
      * @description Mark a seat inactive from a date, or clear it [AC2.4.1].
      *
@@ -7886,6 +8721,7 @@ export interface components {
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
+        | 'hub_listing_suspended'
         | 'marks_available'
         | 'notice'
         | 'payment_approved'
@@ -7961,6 +8797,7 @@ export interface components {
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
+        | 'hub_listing_suspended'
         | 'marks_available'
         | 'notice'
         | 'payment_approved'
@@ -8067,6 +8904,122 @@ export interface components {
        */
       extra_fee_options?: components['schemas']['ExtraFeeRefResponse'][]
       owed_together: components['schemas']['Money']
+    }
+    /**
+     * OwnerListingResponse
+     * @description The owner's listing, with what publishing still needs.
+     *
+     *     :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
+     *     :ivar slug: The public path segment, or None while a draft
+     *     :ivar public_name: The name shown publicly
+     *     :ivar headline_en: The English headline
+     *     :ivar headline_bn: The Bangla headline
+     *     :ivar bio_en: The English biography
+     *     :ivar bio_bn: The Bangla biography
+     *     :ivar qualifications: Qualifications
+     *     :ivar teaching_mode: How the owner teaches
+     *     :ivar district_code: The district's BBS code
+     *     :ivar upazila_code: The upazila's BBS code
+     *     :ivar street_address: A centre's street address
+     *     :ivar public_contact_phone: The one number shown publicly
+     *     :ivar consent_version: The consent text the owner last agreed to
+     *     :ivar published_at: When it was last published
+     *     :ivar checklist: Each requirement and whether it is met
+     *     :ivar publishable: Whether every requirement is met
+     *     :ivar runs_classes: Whether the owner earns the Runs classes badge
+     *     :ivar consent_version_current: The consent text version to agree to now
+     *     :ivar is_centre: Whether the owner is a coaching centre, the only kind
+     *         that may show a street address
+     */
+    OwnerListingResponse: {
+      /** Bio Bn */
+      bio_bn: string | null
+      /** Bio En */
+      bio_en: string | null
+      /** Checklist */
+      checklist: components['schemas']['ChecklistItemWire'][]
+      /** Consent Version */
+      consent_version: string | null
+      /** Consent Version Current */
+      consent_version_current: string
+      /** District Code */
+      district_code: string | null
+      /** Headline Bn */
+      headline_bn: string | null
+      /** Headline En */
+      headline_en: string | null
+      /** Is Centre */
+      is_centre: boolean
+      /** Public Contact Phone */
+      public_contact_phone: string | null
+      /** Public Name */
+      public_name: string
+      /** Publishable */
+      publishable: boolean
+      /** Published At */
+      published_at: string | null
+      /** Qualifications */
+      qualifications: string | null
+      /** Runs Classes */
+      runs_classes: boolean
+      /** Slug */
+      slug: string | null
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'draft' | 'hidden' | 'published' | 'suspended'
+      /** Street Address */
+      street_address: string | null
+      /** Teaching Mode */
+      teaching_mode: ('home_visit' | 'in_person' | 'online')[]
+      /** Upazila Code */
+      upazila_code: string | null
+    }
+    /**
+     * OwnerListingUpdateRequest
+     * @description Edit the owner's listing; an omitted field is left alone.
+     *
+     *     An empty string clears a nullable text field.
+     *
+     *     :ivar slug: The public path segment
+     *     :ivar public_name: The name shown publicly
+     *     :ivar headline_en: The English headline
+     *     :ivar headline_bn: The Bangla headline
+     *     :ivar bio_en: The English biography
+     *     :ivar bio_bn: The Bangla biography
+     *     :ivar qualifications: Qualifications
+     *     :ivar teaching_mode: How the owner teaches
+     *     :ivar district_code: The district's BBS code
+     *     :ivar upazila_code: The upazila's BBS code; must lie in the district
+     *     :ivar street_address: A centre's street address
+     *     :ivar public_contact_phone: The one number shown publicly
+     */
+    OwnerListingUpdateRequest: {
+      /** Bio Bn */
+      bio_bn?: string | null
+      /** Bio En */
+      bio_en?: string | null
+      /** District Code */
+      district_code?: string | null
+      /** Headline Bn */
+      headline_bn?: string | null
+      /** Headline En */
+      headline_en?: string | null
+      /** Public Contact Phone */
+      public_contact_phone?: string | null
+      /** Public Name */
+      public_name?: string | null
+      /** Qualifications */
+      qualifications?: string | null
+      /** Slug */
+      slug?: string | null
+      /** Street Address */
+      street_address?: string | null
+      /** Teaching Mode */
+      teaching_mode?: ('home_visit' | 'in_person' | 'online')[] | null
+      /** Upazila Code */
+      upazila_code?: string | null
     }
     /**
      * PasswordChangeRequest
@@ -8753,6 +9706,16 @@ export interface components {
       run: number
       /** Total Marks */
       total_marks: number
+    }
+    /**
+     * PublishRequest
+     * @description Agree to the listing terms and publish.
+     *
+     *     :ivar consent_version: The version of the terms the owner was shown
+     */
+    PublishRequest: {
+      /** Consent Version */
+      consent_version: string
     }
     /**
      * PublishedMarksheetResponse
@@ -9591,6 +10554,19 @@ export interface components {
       account_id: string
       /** Code Sent To */
       code_sent_to: string
+    }
+    /**
+     * SlugAvailability
+     * @description Whether the caller may claim a slug.
+     *
+     *     :ivar slug: The slug asked about
+     *     :ivar available: True when it is well formed and nobody else holds it
+     */
+    SlugAvailability: {
+      /** Available */
+      available: boolean
+      /** Slug */
+      slug: string
     }
     /**
      * StaffLeaveRequest
@@ -11149,6 +12125,161 @@ export interface operations {
       }
     }
   }
+  set_suspension_v1_admin_hub_owners__owner_id__suspension_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        owner_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminHubSuspensionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminHubSuspensionState']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  hub_queue_v1_admin_hub_queue_get: {
+    parameters: {
+      query?: {
+        kind?: 'listing' | 'report'
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminHubQueueResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  decide_report_v1_admin_hub_reports__report_id__decision_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        report_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminHubDecisionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminHubReportDecided']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
   get_overview_v1_admin_overview_get: {
     parameters: {
       query?: never
@@ -12626,6 +13757,292 @@ export interface operations {
       }
       /** @description No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle. */
       403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  put_batch_listing_v1_batches__batch_id__listing_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        batch_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BatchListingUpdateRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BatchListingResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  publish_batch_listing_v1_batches__batch_id__listing_publish_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        batch_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BatchListingResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  unpublish_batch_listing_v1_batches__batch_id__listing_unpublish_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        batch_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BatchListingResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
         headers: {
           [name: string]: unknown
         }
@@ -14913,6 +16330,75 @@ export interface operations {
       }
       /** @description Valid request; current state forbids it. Refetch and decide. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  put_public_name_consent_v1_centres__centre_id__members_me_public_name_consent_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        centre_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ConsentRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
         headers: {
           [name: string]: unknown
         }
@@ -17327,6 +18813,621 @@ export interface operations {
       }
     }
   }
+  hub_areas_v1_hub_areas_get: {
+    parameters: {
+      query?: {
+        parent?: string | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AreaOption'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  list_batch_listings_v1_hub_batch_listings_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BatchListingResponse'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  get_listing_v1_hub_listing_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OwnerListingResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  put_listing_v1_hub_listing_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['OwnerListingUpdateRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OwnerListingResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  publish_listing_v1_hub_listing_publish_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublishRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OwnerListingResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  unpublish_listing_v1_hub_listing_unpublish_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OwnerListingResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  file_report_v1_hub_reports_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubReportRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  slug_availability_v1_hub_slugs__slug__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SlugAvailability']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
   list_invitations_v1_invitations_get: {
     parameters: {
       query?: never
@@ -17679,6 +19780,62 @@ export interface operations {
       }
       /** @description The request could not be parsed */
       422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  list_centre_memberships_v1_me_centre_memberships_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CentreMembershipResponse'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
         headers: {
           [name: string]: unknown
         }

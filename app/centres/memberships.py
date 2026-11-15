@@ -23,12 +23,13 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.authz.lenses import MembershipLens
+from app.authz.lenses import CentreMemberLens, MembershipLens
 from app.db.models import Owner, OwnerMember
 
 __all__ = [
     "MembershipRow",
     "available_memberships",
+    "centre_member",
     "decide_membership",
     "link_memberships",
     "read_membership",
@@ -49,6 +50,32 @@ class MembershipRow:
     centre_name: str
     role: str
     decision: str
+
+
+def centre_member(
+    session: Session, account_id: uuid.UUID, centre_id: uuid.UUID
+) -> CentreMemberLens | None:
+    """Resolve the account's live membership of one centre, if it has one.
+
+    :param session: The session to read through
+    :param account_id: The authenticated account
+    :param centre_id: The centre, from the route path
+    :return: The lens, or None when the account holds no accepted,
+        unrevoked membership there
+    """
+    member_id = session.execute(
+        sa.select(OwnerMember.id).where(
+            OwnerMember.owner_id == centre_id,
+            OwnerMember.account_id == account_id,
+            OwnerMember.decision == "accepted",
+            OwnerMember.revoked_at.is_(None),
+        )
+    ).scalar_one_or_none()
+    if member_id is None:
+        return None
+    return CentreMemberLens(
+        account_id=account_id, owner_id=centre_id, member_id=member_id
+    )
 
 
 def available_memberships(

@@ -222,13 +222,17 @@ def _clean_tables(request: pytest.FixtureRequest) -> Iterator[None]:
         #
         # Deriving it is also strictly more correct: every table the
         # schema has is one a test can write.
+        #
+        # ``bd_area`` is the exception: a fixed vocabulary seeded by its
+        # migration that no test writes, so truncating it would leave
+        # every later test an empty list.
         tables = [
             row[0]
             for row in connection.execute(
                 sa.text(
                     "SELECT tablename FROM pg_tables "
                     "WHERE schemaname = 'public' "
-                    "AND tablename <> 'alembic_version'"
+                    "AND tablename NOT IN ('alembic_version', 'bd_area')"
                 )
             )
         ]

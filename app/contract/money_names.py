@@ -53,6 +53,12 @@ MONEY_NAME_TOKENS: Final[tuple[str, ...]] = (
 #: Keyed ``(table, column)`` so an exemption can never widen beyond the
 #: one column it was reasoned about, and each entry states why.
 NON_MONEY_COLUMNS: Final[dict[tuple[str, str], str]] = {
+    ("batch_listing", "show_fee"): (
+        "A BOOLEAN: whether a batch's fee is shown on its public page "
+        "[0036]. It carries no amount; the fee it governs stays on "
+        "`batch.default_fee`, a NUMERIC(12,2) checked by this same gate. "
+        "Matches the 'fee' token."
+    ),
     ("batch", "fee_due_day"): (
         "An INTEGER 1-31 day-of-month, not an amount [AC2.1.2]. Values "
         "29-31 are legal and clamp to the month's last day at generation "

@@ -96,6 +96,14 @@ class Scope(enum.Enum):
     #: Reached by cascading from a table this module deletes directly.
     VIA_CASCADE = "via_cascade"
 
+    #: Reached through ``owner``: the rows hanging off an owner row that
+    #: belongs to this account AND is a solo teacher's. The ``owner`` row
+    #: itself is never deleted (``0010`` clears its account link and the
+    #: batches beneath it stay as history), so a cascade never reaches
+    #: these rows and they are deleted explicitly. A coaching centre's
+    #: owner row has no account, so a manager's deletion never matches it.
+    SOLO_OWNER = "solo_owner"
+
     #: Belongs to no person. A counter, a job's telemetry. Deleting
     #: these on a person's request would destroy operational state
     #: shared by every user.
@@ -244,6 +252,44 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
             "counters on request would make the deletion route the way "
             "to reset the ceilings protecting it. They expire on their "
             "own 48-hour window instead [DESIGN-7]."
+        ),
+    ),
+    "owner_listing": _Target(
+        scope=Scope.SOLO_OWNER,
+        column="owner_id",
+        note=(
+            "A solo teacher's public profile. `owner` is retained, so no "
+            "cascade fires; deleted by owner, and a centre's survives."
+        ),
+    ),
+    "batch_listing": _Target(
+        scope=Scope.SOLO_OWNER,
+        column="owner_id",
+        note=(
+            "A solo teacher's public class pages. The batch itself stays "
+            "as its students' history; only the publication goes."
+        ),
+    ),
+    "hub_report": _Target(
+        scope=Scope.ACCOUNT_COLUMN,
+        column="reporter_account_id",
+        note="A complaint the account filed; nobody else has a claim on it.",
+    ),
+    "hub_moderation_event": _Target(
+        scope=Scope.NOT_PERSONAL,
+        column=None,
+        note=(
+            "A closed-vocabulary record that moderation acted, holding no "
+            "free text and no name; the admin link clears on its own."
+        ),
+    ),
+    "bd_area": _Target(
+        scope=Scope.NOT_PERSONAL,
+        column=None,
+        note=(
+            "A fixed list of Bangladesh's divisions, districts and "
+            "upazilas. It names no person, so a person's deletion has "
+            "nothing in it to remove."
         ),
     ),
     "room": _Target(
@@ -403,6 +449,13 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
             session, table, target, account_id=account_id
         )
 
+    # A solo teacher's publication. `owner` stays, so nothing cascades.
+    for table, target in sorted(HARD_DELETE_SCOPES.items()):
+        if target.scope is Scope.SOLO_OWNER:
+            rows_deleted[table] = _delete_solo_owner_rows(
+                session, table, target, account_id
+            )
+
     # LAST, so the SET NULL and CASCADE constraints fire against a
     # schema the explicit deletes have already emptied where they must.
     # `session.connection().execute` rather than `session.execute`, and
@@ -422,6 +475,32 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
 
     session.commit()
     return DeletionResult(existed=True, rows_deleted=rows_deleted)
+
+
+def _delete_solo_owner_rows(
+    session: Session, table: str, target: _Target, account_id: uuid.UUID
+) -> int:
+    """Delete a table's rows for the solo owners an account holds.
+
+    The names come from :data:`HARD_DELETE_SCOPES`, never from input.
+    ``kind = 'teacher'`` is stated although a centre has no account, so
+    the rule survives a constraint changing.
+
+    :param session: The session to write through
+    :param table: The table to delete from
+    :param target: Its scoping decision
+    :param account_id: The account being deleted
+    :return: How many rows were removed
+    :raises ValueError: The target names no column to match on
+    """
+    if target.column is None:
+        raise ValueError(f"{table} has no column to match on")
+    statement = sa.text(
+        f"DELETE FROM {table} WHERE {target.column} IN "  # noqa: S608
+        "(SELECT id FROM owner WHERE account_id = :account_id "
+        "AND kind = 'teacher')"
+    )
+    return session.connection().execute(statement, {"account_id": account_id}).rowcount
 
 
 def _delete_where(

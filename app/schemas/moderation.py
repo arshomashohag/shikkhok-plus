@@ -1,0 +1,165 @@
+"""Wire shapes for hub reports and the administrator's moderation routes.
+
+**No reporter identity crosses the admin boundary.** A queue item carries only
+``reporter_ref``, the opaque label from :mod:`app.help.identity`; there is no
+phone, name or account id field here to leak.
+"""
+
+from __future__ import annotations
+
+import uuid
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.moderation.vocab import Reason, TargetKind
+
+__all__ = [
+    "AdminHubDecisionRequest",
+    "AdminHubField",
+    "AdminHubQueueItem",
+    "AdminHubQueueResponse",
+    "AdminHubReportDecided",
+    "AdminHubSuspensionRequest",
+    "AdminHubSuspensionState",
+    "HubReportRequest",
+]
+
+
+class HubReportRequest(BaseModel):
+    """A reader's report about one hub target.
+
+    :ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,
+        ``review`` or ``reply``
+    :ivar target_id: The target's id: an owner id for an owner listing, a
+        batch id for a batch listing
+    :ivar reason: A closed reason
+    :ivar note: An optional note; it may not carry a phone number
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    target_kind: TargetKind
+    target_id: uuid.UUID
+    reason: Reason
+    note: str | None = Field(default=None, max_length=500)
+
+
+#: Every field a queue item may show; each is something an owner submitted
+#: for display on the hub, never anything a teacher keeps privately.
+AdminHubFieldKey = Literal[
+    "public_name",
+    "headline_en",
+    "headline_bn",
+    "bio_en",
+    "bio_bn",
+    "qualifications",
+    "street_address",
+    "public_contact_phone",
+    "area_en",
+    "area_bn",
+    "public_title",
+    "description_en",
+    "description_bn",
+    "syllabus_en",
+    "syllabus_bn",
+    "subject_tags",
+]
+
+
+class AdminHubField(BaseModel):
+    """One submitted public field of a moderated target.
+
+    :ivar key: Which field
+    :ivar value: What the owner submitted
+    """
+
+    key: AdminHubFieldKey
+    value: str
+
+
+class AdminHubQueueItem(BaseModel):
+    """One row of the moderation queue.
+
+    :ivar kind: ``report`` or ``listing``
+    :ivar report_id: The report, for a report row
+    :ivar target_kind: What was reported or suspended
+    :ivar target_id: The target's id
+    :ivar owner_id: The owner the listing belongs to, when known
+    :ivar title: The target's public name: an owner's public name or a
+        batch's public title
+    :ivar fields: Everything the owner submitted for display on the target
+    :ivar reason: The report reason or the suspension reason code
+    :ivar note: The reporter's note, for a report row
+    :ivar reporter_ref: The opaque reporter label, for a report row
+    :ivar waited_hours: Whole hours since the report or the suspension
+    """
+
+    kind: Literal["report", "listing"]
+    report_id: uuid.UUID | None
+    target_kind: str
+    target_id: uuid.UUID
+    owner_id: uuid.UUID | None
+    title: str | None
+    fields: list[AdminHubField]
+    reason: str | None
+    note: str | None
+    reporter_ref: str | None
+    waited_hours: int
+
+
+class AdminHubQueueResponse(BaseModel):
+    """The moderation queue, oldest first.
+
+    :ivar kind: Which queue this is
+    :ivar items: Its rows
+    """
+
+    kind: Literal["report", "listing"]
+    items: list[AdminHubQueueItem]
+
+
+class AdminHubDecisionRequest(BaseModel):
+    """An administrator's decision on a report.
+
+    :ivar decision: ``upheld`` or ``dismissed``
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision: Literal["upheld", "dismissed"]
+
+
+class AdminHubSuspensionRequest(BaseModel):
+    """Suspend or restore an owner's listing.
+
+    :ivar suspended: True to suspend, False to lift
+    :ivar reason_code: A closed reason
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    suspended: bool
+    reason_code: Reason
+
+
+class AdminHubReportDecided(BaseModel):
+    """A report after its decision.
+
+    :ivar report_id: The report
+    :ivar status: ``upheld`` or ``dismissed``
+    """
+
+    report_id: uuid.UUID
+    status: Literal["upheld", "dismissed"]
+
+
+class AdminHubSuspensionState(BaseModel):
+    """An owner's listing after a suspension change.
+
+    :ivar owner_id: The owner
+    :ivar suspended: Whether the listing is suspended now
+    """
+
+    owner_id: uuid.UUID
+    suspended: bool

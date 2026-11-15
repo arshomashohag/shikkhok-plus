@@ -187,6 +187,276 @@
         "title": "AdminEnrollment",
         "type": "object"
       },
+      "AdminHubDecisionRequest": {
+        "additionalProperties": false,
+        "description": "An administrator's decision on a report.\n\n:ivar decision: ``upheld`` or ``dismissed``",
+        "properties": {
+          "decision": {
+            "enum": [
+              "dismissed",
+              "upheld"
+            ],
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "AdminHubDecisionRequest",
+        "type": "object"
+      },
+      "AdminHubField": {
+        "description": "One submitted public field of a moderated target.\n\n:ivar key: Which field\n:ivar value: What the owner submitted",
+        "properties": {
+          "key": {
+            "enum": [
+              "area_bn",
+              "area_en",
+              "bio_bn",
+              "bio_en",
+              "description_bn",
+              "description_en",
+              "headline_bn",
+              "headline_en",
+              "public_contact_phone",
+              "public_name",
+              "public_title",
+              "qualifications",
+              "street_address",
+              "subject_tags",
+              "syllabus_bn",
+              "syllabus_en"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ],
+        "title": "AdminHubField",
+        "type": "object"
+      },
+      "AdminHubQueueItem": {
+        "description": "One row of the moderation queue.\n\n:ivar kind: ``report`` or ``listing``\n:ivar report_id: The report, for a report row\n:ivar target_kind: What was reported or suspended\n:ivar target_id: The target's id\n:ivar owner_id: The owner the listing belongs to, when known\n:ivar title: The target's public name: an owner's public name or a\n    batch's public title\n:ivar fields: Everything the owner submitted for display on the target\n:ivar reason: The report reason or the suspension reason code\n:ivar note: The reporter's note, for a report row\n:ivar reporter_ref: The opaque reporter label, for a report row\n:ivar waited_hours: Whole hours since the report or the suspension",
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/AdminHubField"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "listing",
+              "report"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "report_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Id"
+          },
+          "reporter_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reporter Ref"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_kind": {
+            "title": "Target Kind",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "waited_hours": {
+            "title": "Waited Hours",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fields",
+          "kind",
+          "note",
+          "owner_id",
+          "reason",
+          "report_id",
+          "reporter_ref",
+          "target_id",
+          "target_kind",
+          "title",
+          "waited_hours"
+        ],
+        "title": "AdminHubQueueItem",
+        "type": "object"
+      },
+      "AdminHubQueueResponse": {
+        "description": "The moderation queue, oldest first.\n\n:ivar kind: Which queue this is\n:ivar items: Its rows",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminHubQueueItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "listing",
+              "report"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "kind"
+        ],
+        "title": "AdminHubQueueResponse",
+        "type": "object"
+      },
+      "AdminHubReportDecided": {
+        "description": "A report after its decision.\n\n:ivar report_id: The report\n:ivar status: ``upheld`` or ``dismissed``",
+        "properties": {
+          "report_id": {
+            "format": "uuid",
+            "title": "Report Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "dismissed",
+              "upheld"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_id",
+          "status"
+        ],
+        "title": "AdminHubReportDecided",
+        "type": "object"
+      },
+      "AdminHubSuspensionRequest": {
+        "additionalProperties": false,
+        "description": "Suspend or restore an owner's listing.\n\n:ivar suspended: True to suspend, False to lift\n:ivar reason_code: A closed reason",
+        "properties": {
+          "reason_code": {
+            "enum": [
+              "abusive",
+              "child_safety",
+              "fake",
+              "misleading",
+              "other",
+              "personal_info"
+            ],
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "suspended": {
+            "title": "Suspended",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reason_code",
+          "suspended"
+        ],
+        "title": "AdminHubSuspensionRequest",
+        "type": "object"
+      },
+      "AdminHubSuspensionState": {
+        "description": "An owner's listing after a suspension change.\n\n:ivar owner_id: The owner\n:ivar suspended: Whether the listing is suspended now",
+        "properties": {
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "suspended": {
+            "title": "Suspended",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "owner_id",
+          "suspended"
+        ],
+        "title": "AdminHubSuspensionState",
+        "type": "object"
+      },
       "AdminMfaRequest": {
         "additionalProperties": false,
         "description": "Finish signing in: exactly one of the two codes.\n\n:ivar challenge: From the SMS step\n:ivar code: Six digits from the authenticator app\n:ivar recovery_code: A recovery code, only after setup",
@@ -924,6 +1194,40 @@
         "title": "AnnouncementResponse",
         "type": "object"
       },
+      "AreaOption": {
+        "description": "One division, district or upazila.\n\n:ivar code: The BBS geocode\n:ivar kind: ``division``, ``district`` or ``upazila``\n:ivar name_en: The English name\n:ivar name_bn: The Bangla name",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "district",
+              "division",
+              "upazila"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name_bn": {
+            "title": "Name Bn",
+            "type": "string"
+          },
+          "name_en": {
+            "title": "Name En",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "kind",
+          "name_bn",
+          "name_en"
+        ],
+        "title": "AreaOption",
+        "type": "object"
+      },
       "AssignmentRequest": {
         "additionalProperties": false,
         "description": "Set one class's teacher and room, apart from its weekly slot.\n\n:ivar teacher_member_id: Its teacher, or null for none\n:ivar room_id: Its room, or null for none",
@@ -1292,6 +1596,473 @@
           "seats"
         ],
         "title": "BatchFeesResponse",
+        "type": "object"
+      },
+      "BatchListingResponse": {
+        "description": "One of the owner's batches with its listing, if it has one yet.\n\n``status`` is ``draft`` before any listing row exists.\n\n:ivar batch_id: The batch\n:ivar batch_name: Its name in the owner's own records, shown only to the\n    owner; the public page uses ``public_title``\n:ivar subjects: Its subject names\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment\n:ivar public_title: The batch's public name\n:ivar description_en: The English description\n:ivar description_bn: The Bangla description\n:ivar syllabus_en: The English syllabus\n:ivar syllabus_bn: The Bangla syllabus\n:ivar class_levels: The class levels taught\n:ivar curriculum: The curriculum\n:ivar subject_tags: Public subject tags\n:ivar mode: How the batch is taught\n:ivar admissions: ``open``, ``waitlist`` or ``closed``\n:ivar show_fee: Whether the fee is public, or None before a listing\n:ivar show_schedule: Whether the timetable is public, or None\n:ivar fee: The batch fee, only while ``show_fee`` is set\n:ivar teacher_names: The teachers the page may name\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met",
+        "properties": {
+          "admissions": {
+            "anyOf": [
+              {
+                "enum": [
+                  "closed",
+                  "open",
+                  "waitlist"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admissions"
+          },
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "checklist": {
+            "items": {
+              "$ref": "#/components/schemas/ChecklistItemWire"
+            },
+            "title": "Checklist",
+            "type": "array"
+          },
+          "class_levels": {
+            "items": {
+              "enum": [
+                "a_level",
+                "admission",
+                "class_1",
+                "class_10",
+                "class_11",
+                "class_12",
+                "class_2",
+                "class_3",
+                "class_4",
+                "class_5",
+                "class_6",
+                "class_7",
+                "class_8",
+                "class_9",
+                "hsc",
+                "o_level",
+                "other",
+                "ssc"
+              ],
+              "type": "string"
+            },
+            "title": "Class Levels",
+            "type": "array"
+          },
+          "curriculum": {
+            "anyOf": [
+              {
+                "enum": [
+                  "english_medium",
+                  "madrasah",
+                  "national_bangla",
+                  "national_english",
+                  "other"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Curriculum"
+          },
+          "description_bn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description Bn"
+          },
+          "description_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description En"
+          },
+          "fee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "home_visit",
+                  "in_person",
+                  "online"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "public_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Title"
+          },
+          "publishable": {
+            "title": "Publishable",
+            "type": "boolean"
+          },
+          "show_fee": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Fee"
+          },
+          "show_schedule": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Schedule"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "hidden",
+              "published",
+              "suspended"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "subject_tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Subject Tags",
+            "type": "array"
+          },
+          "subjects": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Subjects",
+            "type": "array"
+          },
+          "syllabus_bn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Syllabus Bn"
+          },
+          "syllabus_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Syllabus En"
+          },
+          "teacher_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Teacher Names",
+            "type": "array"
+          }
+        },
+        "required": [
+          "admissions",
+          "batch_id",
+          "batch_name",
+          "checklist",
+          "class_levels",
+          "curriculum",
+          "description_bn",
+          "description_en",
+          "fee",
+          "mode",
+          "public_title",
+          "publishable",
+          "show_fee",
+          "show_schedule",
+          "slug",
+          "status",
+          "subject_tags",
+          "subjects",
+          "syllabus_bn",
+          "syllabus_en",
+          "teacher_names"
+        ],
+        "title": "BatchListingResponse",
+        "type": "object"
+      },
+      "BatchListingUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Edit one batch's listing; an omitted field is left alone.\n\nThe first save must carry ``show_fee`` and ``show_schedule``.\n\n:ivar slug: The public path segment, unique per owner\n:ivar public_title: The batch's public name; empty clears it\n:ivar description_en: The English description\n:ivar description_bn: The Bangla description\n:ivar syllabus_en: The English syllabus\n:ivar syllabus_bn: The Bangla syllabus\n:ivar class_levels: The class levels taught\n:ivar curriculum: The curriculum; empty clears it\n:ivar subject_tags: Public subject tags\n:ivar mode: How the batch is taught; empty clears it\n:ivar admissions: ``open``, ``waitlist`` or ``closed``\n:ivar show_fee: Whether the fee is public\n:ivar show_schedule: Whether the weekly timetable is public",
+        "properties": {
+          "admissions": {
+            "anyOf": [
+              {
+                "enum": [
+                  "closed",
+                  "open",
+                  "waitlist"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admissions"
+          },
+          "class_levels": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "a_level",
+                    "admission",
+                    "class_1",
+                    "class_10",
+                    "class_11",
+                    "class_12",
+                    "class_2",
+                    "class_3",
+                    "class_4",
+                    "class_5",
+                    "class_6",
+                    "class_7",
+                    "class_8",
+                    "class_9",
+                    "hsc",
+                    "o_level",
+                    "other",
+                    "ssc"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 30,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Levels"
+          },
+          "curriculum": {
+            "anyOf": [
+              {
+                "enum": [
+                  "english_medium",
+                  "madrasah",
+                  "national_bangla",
+                  "national_english",
+                  "other"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Curriculum"
+          },
+          "description_bn": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description Bn"
+          },
+          "description_en": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description En"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "home_visit",
+                  "in_person",
+                  "online"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "public_title": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Title"
+          },
+          "show_fee": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Fee"
+          },
+          "show_schedule": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Schedule"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "subject_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Tags"
+          },
+          "syllabus_bn": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Syllabus Bn"
+          },
+          "syllabus_en": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Syllabus En"
+          }
+        },
+        "title": "BatchListingUpdateRequest",
         "type": "object"
       },
       "BatchResponse": {
@@ -1697,6 +2468,51 @@
         "title": "CentreCreateRequest",
         "type": "object"
       },
+      "CentreMembershipResponse": {
+        "description": "One accepted centre membership of the caller, with its name consent.\n\n:ivar member_id: The membership\n:ivar centre_id: The centre, for the consent route's path\n:ivar centre_name: The centre's name\n:ivar role: ``manager`` or ``teacher``\n:ivar public_name_consent: Whether the member agreed to be named publicly\n:ivar name_shown: The exact name the centre's page shows once they agree:\n    the name the centre entered for them, which is theirs to see",
+        "properties": {
+          "centre_id": {
+            "format": "uuid",
+            "title": "Centre Id",
+            "type": "string"
+          },
+          "centre_name": {
+            "title": "Centre Name",
+            "type": "string"
+          },
+          "member_id": {
+            "format": "uuid",
+            "title": "Member Id",
+            "type": "string"
+          },
+          "name_shown": {
+            "title": "Name Shown",
+            "type": "string"
+          },
+          "public_name_consent": {
+            "title": "Public Name Consent",
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "manager",
+              "teacher"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "centre_id",
+          "centre_name",
+          "member_id",
+          "name_shown",
+          "public_name_consent",
+          "role"
+        ],
+        "title": "CentreMembershipResponse",
+        "type": "object"
+      },
       "CentreResponse": {
         "description": "The centre just opened.\n\n:ivar owner_id: The workspace id, sent as ``X-Workspace-Id`` to act on it\n:ivar name: Its name",
         "properties": {
@@ -1736,6 +2552,25 @@
           "enrollment_id"
         ],
         "title": "ChargeableStudentResponse",
+        "type": "object"
+      },
+      "ChecklistItemWire": {
+        "description": "One requirement of a listing and whether it is met.\n\n:ivar key: The requirement's stable name\n:ivar done: Whether it is met",
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "done",
+          "key"
+        ],
+        "title": "ChecklistItemWire",
         "type": "object"
       },
       "ChildBatchResponse": {
@@ -2119,6 +2954,21 @@
           "owing_students"
         ],
         "title": "CollectionsResponse",
+        "type": "object"
+      },
+      "ConsentRequest": {
+        "additionalProperties": false,
+        "description": "A centre member agreeing, or no longer agreeing, to be named.\n\n:ivar consent: True to be named on the centre's public page",
+        "properties": {
+          "consent": {
+            "title": "Consent",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "consent"
+        ],
+        "title": "ConsentRequest",
         "type": "object"
       },
       "ContactRequest": {
@@ -4728,6 +5578,59 @@
         "title": "HistoryLineResponse",
         "type": "object"
       },
+      "HubReportRequest": {
+        "additionalProperties": false,
+        "description": "A reader's report about one hub target.\n\n:ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,\n    ``review`` or ``reply``\n:ivar target_id: The target's id: an owner id for an owner listing, a\n    batch id for a batch listing\n:ivar reason: A closed reason\n:ivar note: An optional note; it may not carry a phone number",
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason": {
+            "enum": [
+              "abusive",
+              "child_safety",
+              "fake",
+              "misleading",
+              "other",
+              "personal_info"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_kind": {
+            "enum": [
+              "batch_listing",
+              "media",
+              "owner_listing",
+              "reply",
+              "review"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "target_id",
+          "target_kind"
+        ],
+        "title": "HubReportRequest",
+        "type": "object"
+      },
       "InactiveFromRequest": {
         "additionalProperties": false,
         "description": "Mark a seat inactive from a date, or clear it [AC2.4.1].\n\n:ivar inactive_from: The date, or null to reactivate the seat",
@@ -6050,6 +6953,7 @@
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
+              "hub_listing_suspended",
               "marks_available",
               "notice",
               "payment_approved",
@@ -6238,6 +7142,7 @@
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
+              "hub_listing_suspended",
               "marks_available",
               "notice",
               "payment_approved",
@@ -6446,6 +7351,377 @@
           "owed_together"
         ],
         "title": "OwedTogetherResponse",
+        "type": "object"
+      },
+      "OwnerListingResponse": {
+        "description": "The owner's listing, with what publishing still needs.\n\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment, or None while a draft\n:ivar public_name: The name shown publicly\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly\n:ivar consent_version: The consent text the owner last agreed to\n:ivar published_at: When it was last published\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met\n:ivar runs_classes: Whether the owner earns the Runs classes badge\n:ivar consent_version_current: The consent text version to agree to now\n:ivar is_centre: Whether the owner is a coaching centre, the only kind\n    that may show a street address",
+        "properties": {
+          "bio_bn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio Bn"
+          },
+          "bio_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio En"
+          },
+          "checklist": {
+            "items": {
+              "$ref": "#/components/schemas/ChecklistItemWire"
+            },
+            "title": "Checklist",
+            "type": "array"
+          },
+          "consent_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consent Version"
+          },
+          "consent_version_current": {
+            "title": "Consent Version Current",
+            "type": "string"
+          },
+          "district_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "District Code"
+          },
+          "headline_bn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headline Bn"
+          },
+          "headline_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headline En"
+          },
+          "is_centre": {
+            "title": "Is Centre",
+            "type": "boolean"
+          },
+          "public_contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Contact Phone"
+          },
+          "public_name": {
+            "title": "Public Name",
+            "type": "string"
+          },
+          "publishable": {
+            "title": "Publishable",
+            "type": "boolean"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "qualifications": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualifications"
+          },
+          "runs_classes": {
+            "title": "Runs Classes",
+            "type": "boolean"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "hidden",
+              "published",
+              "suspended"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "street_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street Address"
+          },
+          "teaching_mode": {
+            "items": {
+              "enum": [
+                "home_visit",
+                "in_person",
+                "online"
+              ],
+              "type": "string"
+            },
+            "title": "Teaching Mode",
+            "type": "array"
+          },
+          "upazila_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upazila Code"
+          }
+        },
+        "required": [
+          "bio_bn",
+          "bio_en",
+          "checklist",
+          "consent_version",
+          "consent_version_current",
+          "district_code",
+          "headline_bn",
+          "headline_en",
+          "is_centre",
+          "public_contact_phone",
+          "public_name",
+          "publishable",
+          "published_at",
+          "qualifications",
+          "runs_classes",
+          "slug",
+          "status",
+          "street_address",
+          "teaching_mode",
+          "upazila_code"
+        ],
+        "title": "OwnerListingResponse",
+        "type": "object"
+      },
+      "OwnerListingUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Edit the owner's listing; an omitted field is left alone.\n\nAn empty string clears a nullable text field.\n\n:ivar slug: The public path segment\n:ivar public_name: The name shown publicly\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code; must lie in the district\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly",
+        "properties": {
+          "bio_bn": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio Bn"
+          },
+          "bio_en": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio En"
+          },
+          "district_code": {
+            "anyOf": [
+              {
+                "maxLength": 12,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "District Code"
+          },
+          "headline_bn": {
+            "anyOf": [
+              {
+                "maxLength": 140,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headline Bn"
+          },
+          "headline_en": {
+            "anyOf": [
+              {
+                "maxLength": 140,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headline En"
+          },
+          "public_contact_phone": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Contact Phone"
+          },
+          "public_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Name"
+          },
+          "qualifications": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualifications"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "street_address": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street Address"
+          },
+          "teaching_mode": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "home_visit",
+                    "in_person",
+                    "online"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 3,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teaching Mode"
+          },
+          "upazila_code": {
+            "anyOf": [
+              {
+                "maxLength": 12,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upazila Code"
+          }
+        },
+        "title": "OwnerListingUpdateRequest",
         "type": "object"
       },
       "PasswordChangeRequest": {
@@ -7886,6 +9162,22 @@
         "title": "ProgressSummaryResponse",
         "type": "object"
       },
+      "PublishRequest": {
+        "additionalProperties": false,
+        "description": "Agree to the listing terms and publish.\n\n:ivar consent_version: The version of the terms the owner was shown",
+        "properties": {
+          "consent_version": {
+            "maxLength": 20,
+            "title": "Consent Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "consent_version"
+        ],
+        "title": "PublishRequest",
+        "type": "object"
+      },
       "PublishedMarksheetResponse": {
         "additionalProperties": false,
         "description": "A marksheet with its comparison [BR6.2].\n\n**No per-student collection.** ``bands`` holds counts rather than\npeople, and a test over the generated document asserts that no\nproperty of this schema is a collection of student-shaped\nobjects.\n\n:ivar published: Always true; the discriminator a client switches\n    on\n:ivar exam_title: The exam's title\n:ivar total_marks: Its denominator\n:ivar viewer_result_state: The viewer's own result state\n:ivar viewer_marks: The viewer's own mark, or null if absent\n:ivar viewer_rank: Their rank among marked results, or null\n:ivar average: The mean of marked results\n:ivar highest: The highest marked result\n:ivar marked_count: How many results were marked\n:ivar bands: The merged distribution",
@@ -9266,6 +10558,25 @@
           "code_sent_to"
         ],
         "title": "SignupResponse",
+        "type": "object"
+      },
+      "SlugAvailability": {
+        "description": "Whether the caller may claim a slug.\n\n:ivar slug: The slug asked about\n:ivar available: True when it is well formed and nobody else holds it",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "available",
+          "slug"
+        ],
+        "title": "SlugAvailability",
         "type": "object"
       },
       "StaffLeaveRequest": {
@@ -12104,6 +13415,222 @@
         ]
       }
     },
+    "/v1/admin/hub/owners/{owner_id}/suspension": {
+      "put": {
+        "description": "Suspend or restore an owner's public listing.\n\n:param owner_id: The owner\n:param body: Whether to suspend, and why\n:param request: The incoming request\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:return: The owner and whether the listing is suspended now",
+        "operationId": "set_suspension_v1_admin_hub_owners__owner_id__suspension_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Owner Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminHubSuspensionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHubSuspensionState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Set Suspension",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/hub/queue": {
+      "get": {
+        "description": "List open reports, or suspended listings, oldest first.\n\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param kind: ``report`` or ``listing``\n:return: The queue; a reporter appears only as an opaque label",
+        "operationId": "hub_queue_v1_admin_hub_queue_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "report",
+              "enum": [
+                "listing",
+                "report"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHubQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Queue",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/hub/reports/{report_id}/decision": {
+      "post": {
+        "description": "Uphold or dismiss a report.\n\n:param report_id: The report\n:param body: The decision\n:param request: The incoming request\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:return: The report and its new status",
+        "operationId": "decide_report_v1_admin_hub_reports__report_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminHubDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHubReportDecided"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Decide Report",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/v1/admin/overview": {
       "get": {
         "description": "Read the platform's aggregate figures.\n\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:return: The figures",
@@ -14053,6 +15580,358 @@
         "summary": "Read Batch Fees",
         "tags": [
           "fees"
+        ]
+      }
+    },
+    "/v1/batches/{batch_id}/listing": {
+      "put": {
+        "description": "Create or edit one batch's listing.\n\nShares the owner's daily allowance of listing edits.\n\n:param batch_id: The batch\n:param body: The edits; an omitted field is left alone\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The batch with its listing\n:raises CeilingBreach: The owner has used today's edits",
+        "operationId": "put_batch_listing_v1_batches__batch_id__listing_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchListingUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchListingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Put Batch Listing",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/batches/{batch_id}/listing/publish": {
+      "post": {
+        "description": "Make one batch's listing public, under an owner who already is.\n\n:param batch_id: The batch\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The batch with its listing",
+        "operationId": "publish_batch_listing_v1_batches__batch_id__listing_publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchListingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Publish Batch Listing",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/batches/{batch_id}/listing/unpublish": {
+      "post": {
+        "description": "Hide one batch's listing; the data is kept.\n\n:param batch_id: The batch\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The batch with its listing",
+        "operationId": "unpublish_batch_listing_v1_batches__batch_id__listing_unpublish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchListingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Unpublish Batch Listing",
+        "tags": [
+          "hub"
         ]
       }
     },
@@ -16902,6 +18781,93 @@
         "summary": "Open Centre",
         "tags": [
           "centres"
+        ]
+      }
+    },
+    "/v1/centres/{centre_id}/members/me/public-name-consent": {
+      "put": {
+        "description": "Agree, or stop agreeing, to be named on the centre's public page.\n\n:param body: ``consent`` true to be named, false to withdraw\n:param lens: The caller's lens on their own membership\n:param session: The request-scoped session\n:return: An empty 204",
+        "operationId": "put_public_name_consent_v1_centres__centre_id__members_me_public_name_consent_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "centre_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Centre Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Put Public Name Consent",
+        "tags": [
+          "hub"
         ]
       }
     },
@@ -19962,6 +21928,731 @@
         ]
       }
     },
+    "/v1/hub/areas": {
+      "get": {
+        "description": "List the divisions, or the areas directly inside one.\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param parent: The enclosing area's code; omit for the divisions\n:return: The areas; empty for an unknown parent",
+        "operationId": "hub_areas_v1_hub_areas_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "parent",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 12,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Parent"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AreaOption"
+                  },
+                  "title": "Response Hub Areas V1 Hub Areas Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Areas",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/batch-listings": {
+      "get": {
+        "description": "List the owner's active batches with their listing state.\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: One entry per active batch, oldest first",
+        "operationId": "list_batch_listings_v1_hub_batch_listings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BatchListingResponse"
+                  },
+                  "title": "Response List Batch Listings V1 Hub Batch Listings Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "List Batch Listings",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/listing": {
+      "get": {
+        "description": "Read the owner's listing, drafting one on the first call.\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The listing and what it still needs",
+        "operationId": "get_listing_v1_hub_listing_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerListingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Get Listing",
+        "tags": [
+          "hub"
+        ]
+      },
+      "put": {
+        "description": "Edit the owner's listing.\n\n**Bounded per owner and day**: each call consumes one of the day's\nlisting edits, so a loop rewriting the page is refused with a 409.\n\n:param body: The edits; an omitted field is left alone\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The listing after the edit\n:raises CeilingBreach: The owner has used today's edits",
+        "operationId": "put_listing_v1_hub_listing_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnerListingUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerListingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Put Listing",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/listing/publish": {
+      "post": {
+        "description": "Agree to the listing terms and make the listing public.\n\n:param body: The version of the terms the owner was shown\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The published listing",
+        "operationId": "publish_listing_v1_hub_listing_publish_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerListingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Publish Listing",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/listing/unpublish": {
+      "post": {
+        "description": "Hide the owner's listing; the data is kept.\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The listing",
+        "operationId": "unpublish_listing_v1_hub_listing_unpublish_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerListingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Unpublish Listing",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/reports": {
+      "post": {
+        "description": "Report a published hub listing; nothing about the listing changes.\n\n:param body: The target, the reason and an optional note\n:param request: The incoming request, for its correlation id\n:param account_id: The authenticated reporter\n:param session: The request-scoped session\n:return: An empty 202",
+        "operationId": "file_report_v1_hub_reports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HubReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "File Report",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/slugs/{slug}": {
+      "get": {
+        "description": "Say whether the caller may claim a slug.\n\n:param slug: The wanted slug\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: Whether it is free and well formed",
+        "operationId": "slug_availability_v1_hub_slugs__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlugAvailability"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Slug Availability",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
     "/v1/invitations": {
       "get": {
         "description": "List every unaccepted seat this account holds [BR1.3, BR5.5].\n\n**Lens-exempt for the same reason ``GET /v1/me`` is**, and recorded\nin ``LENS_EXEMPT_AUTHENTICATED`` rather than left to infer: this is\nthe route that REPORTS which invitation lenses exist, so requiring\none would mean a person had to already know which seats they were\noffered in order to ask. Every row it returns is derived from the\nauthenticated account id and it reads nothing another account could\nown.\n\nA **declined** seat stays in this list with its state, because its\nholder may change their mind [BR5.4, AC1.13.1]. A seat whose links\nthis account holds BOTH appears once [BR5.3].\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: One entry per unaccepted seat, oldest first",
@@ -20423,6 +23114,72 @@
         "summary": "Read My Batch Teaching",
         "tags": [
           "teaching"
+        ]
+      }
+    },
+    "/v1/me/centre-memberships": {
+      "get": {
+        "description": "List the caller's own accepted centre memberships and name consent.\n\nScoped to the authenticated account in SQL; it takes no id from the\nrequest, so it can reach nobody else's membership.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: One entry per accepted, unrevoked membership, oldest first",
+        "operationId": "list_centre_memberships_v1_me_centre_memberships_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CentreMembershipResponse"
+                  },
+                  "title": "Response List Centre Memberships V1 Me Centre Memberships Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "List Centre Memberships",
+        "tags": [
+          "hub"
         ]
       }
     },

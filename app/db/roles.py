@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Final
 
-__all__ = ["APP_ROLE", "SESSION_ACCOUNT_KEY"]
+__all__ = ["APP_ROLE", "HUB_READER_ROLE", "SESSION_ACCOUNT_KEY"]
 
 #: The role the application and the test suite connect as. Deliberately
 #: NOT the owner of the tables and NOT a superuser: PostgreSQL documents
@@ -18,6 +18,12 @@ __all__ = ["APP_ROLE", "SESSION_ACCOUNT_KEY"]
 #: either passes identically whether the policy is correct, broken, or
 #: absent.
 APP_ROLE: Final = "shikkhok_app"
+
+#: The ``NOLOGIN`` role the public hub reads as. The application role is a
+#: member and becomes it with ``SET LOCAL ROLE`` for one transaction. It
+#: holds no table grants until a later revision names each one, so anything
+#: not granted fails closed.
+HUB_READER_ROLE: Final = "shikkhok_hub_reader"
 
 #: The session variable the ``profile`` policy reads. Set inside the
 #: request transaction, so it cannot leak between pooled connections.
