@@ -90,7 +90,7 @@ def test_draft_without_slug_inserts_published_without_slug_fails(
     owner_session.rollback()
 
 
-@pytest.mark.parametrize("slug", ["Rahim-Sir", "ab", "-rahim", "rahim--sir", "a b c"])
+@pytest.mark.parametrize("slug", ["Rahim-Sir", "ab", "a b c", "rahim_sir", "র" * 3])
 def test_slug_check_rejects_uppercase_and_short(
     owner_session: Session, slug: str
 ) -> None:
@@ -103,6 +103,18 @@ def test_slug_check_rejects_uppercase_and_short(
     teacher = make_teacher(owner_session)
     with pytest.raises(sa.exc.IntegrityError, match="ck_owner_listing_slug"):
         _listing(owner_session, teacher.owner_id, slug=slug)
+    owner_session.rollback()
+
+
+def test_a_slug_over_sixty_characters_is_refused(owner_session: Session) -> None:
+    """The column is 60 wide and the check says 60, so 61 cannot get in.
+
+    :param owner_session: An arranging session
+    :return: None
+    """
+    teacher = make_teacher(owner_session)
+    with pytest.raises(sa.exc.DBAPIError):
+        _listing(owner_session, teacher.owner_id, slug="a" * 61)
     owner_session.rollback()
 
 
@@ -329,7 +341,7 @@ def test_report_is_unique_per_reporter_and_target(owner_session: Session) -> Non
     params = {"t": uuid.uuid4(), "a": teacher.account_id}
     insert = sa.text(
         "INSERT INTO hub_report (id, target_kind, target_id, reporter_account_id, "
-        "reason) VALUES (gen_random_uuid(), 'listing', :t, :a, 'spam')"
+        "reason) VALUES (gen_random_uuid(), 'listing', :t, :a, 'abusive')"
     )
     owner_session.execute(insert, params)
     owner_session.commit()

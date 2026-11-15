@@ -3365,11 +3365,11 @@ HUB_LISTING_STATUS_VALUES: tuple[str, ...] = (
 HUB_ADMISSIONS_VALUES: tuple[str, ...] = ("open", "waitlist", "closed")
 HUB_TEACHING_MODE_VALUES: tuple[str, ...] = ("in_person", "home_visit", "online")
 HUB_REPORT_REASON_VALUES: tuple[str, ...] = (
-    "inaccurate",
-    "inappropriate",
-    "spam",
-    "impersonation",
+    "personal_info",
     "child_safety",
+    "abusive",
+    "fake",
+    "misleading",
     "other",
 )
 HUB_REPORT_TARGET_VALUES: tuple[str, ...] = ("listing", "media", "review", "reply")
@@ -3404,11 +3404,8 @@ _HUB_MODERATION_EVENT = PgEnum(
     *HUB_MODERATION_EVENT_VALUES, name="hub_moderation_event_kind", create_type=False
 )
 
-#: A slug: lower-case words joined by single hyphens, 3 to 60 characters.
-_SLUG_CHECK = (
-    "slug IS NULL OR (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$' "
-    "AND char_length(slug) BETWEEN 3 AND 60)"
-)
+#: A slug: 3 to 60 lower-case ASCII letters, digits or hyphens.
+_SLUG_CHECK = "slug IS NULL OR slug ~ '^[a-z0-9-]{3,60}$'"
 
 #: The class levels and curricula a batch listing may carry.
 HUB_CLASS_LEVELS: tuple[str, ...] = (

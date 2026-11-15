@@ -13,7 +13,7 @@ did.
 **Rules that are shapes, not code.**
 
 * A live listing has a slug and a name; a draft needs neither. The slug is
-  lower-case, hyphenated and three to sixty characters.
+  three to sixty lower-case ASCII letters, digits or hyphens.
 * ``street_address`` is for a coaching centre only. A trigger refuses it
   for a solo teacher, because a teacher's address is their home.
 * ``batch_listing.owner_id`` must equal its batch's owner; a trigger keeps
@@ -52,11 +52,11 @@ ENUMS: Final[dict[str, tuple[str, ...]]] = {
     "hub_admissions": ("open", "waitlist", "closed"),
     "hub_teaching_mode": ("in_person", "home_visit", "online"),
     "hub_report_reason": (
-        "inaccurate",
-        "inappropriate",
-        "spam",
-        "impersonation",
+        "personal_info",
         "child_safety",
+        "abusive",
+        "fake",
+        "misleading",
         "other",
     ),
     "hub_report_target": ("listing", "media", "review", "reply"),
@@ -70,11 +70,8 @@ ENUMS: Final[dict[str, tuple[str, ...]]] = {
     ),
 }
 
-#: A slug: lower-case words joined by single hyphens, 3 to 60 characters.
-SLUG_CHECK: Final[str] = (
-    "slug IS NULL OR (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$' "
-    "AND char_length(slug) BETWEEN 3 AND 60)"
-)
+#: A slug: 3 to 60 lower-case ASCII letters, digits or hyphens.
+SLUG_CHECK: Final[str] = "slug IS NULL OR slug ~ '^[a-z0-9-]{3,60}$'"
 
 #: The class levels a batch may teach.
 CLASS_LEVELS: Final[tuple[str, ...]] = (

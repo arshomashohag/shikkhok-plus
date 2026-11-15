@@ -110,7 +110,7 @@ def test_reporter_deletion_removes_their_reports(owner_session: Session) -> None
             sa.text(
                 "INSERT INTO hub_report (id, target_kind, target_id, "
                 "reporter_account_id, reason) VALUES (gen_random_uuid(), "
-                "'listing', :t, :a, 'spam')"
+                "'listing', :t, :a, 'abusive')"
             ),
             {"t": target, "a": reporter.account_id},
         )
