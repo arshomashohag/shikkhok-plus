@@ -1,0 +1,27 @@
+{
+  "stage": "functional-design",
+  "unit": "android-identity",
+  "upstream_ids": ["FR5.2", "FR11", "FR11.1", "FR11.2"],
+  "coverage": [
+    {
+      "id": "FR5.2",
+      "status": "OK",
+      "target": "functional-spec.md W4 and § 3.4 Choose-username gate; frontend-components.md § 2.4, § 5 AppRoot gate, § 8 AppRoot routing and ChooseUsernameViewModel"
+    },
+    {
+      "id": "FR11",
+      "status": "OK",
+      "target": "functional-spec.md § 2 W1–W10 (Android half of FR11; the web half is U4); frontend-components.md § 1 composable hierarchy"
+    },
+    {
+      "id": "FR11.1",
+      "status": "OK",
+      "target": "functional-spec.md W1 sign-up username with live availability, W2 replacement, W3 one-field sign-in, W4 choose-username, W5 username in Settings, W6 contacts add/replace/remove, W7 student form emails, W8 centre invite by email; frontend-components.md § 2–§ 5"
+    },
+    {
+      "id": "FR11.2",
+      "status": "OK",
+      "target": "functional-spec.md § 5 Strings and § 8 Bangla layout obligations (manual table is the verifier; nothing automated discharges it); frontend-components.md § 7 String resources"
+    }
+  ]
+}
