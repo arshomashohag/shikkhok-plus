@@ -64,7 +64,8 @@ GitHub environment's secrets and variables.
 | Variable | Source | Notes |
 |---|---|---|
 | `SHIKKHOKPLUS_ENVIRONMENT` | the dispatch input | `staging` or `production` |
-| `SHIKKHOKPLUS_OTP_HMAC_KEY` | secret | not recoverable; keep a copy |
+| `SHIKKHOKPLUS_OTP_HMAC_KEY` | secret | not recoverable; keep a copy. It also keys username holds and username sign-in counters, so **rotating it invalidates in-flight codes, releases every live username hold early** (a renamed-away or deleted name becomes free at once) **and resets the username failure counters** (one more window of guesses) |
+| `SHIKKHOKPLUS_GLOBAL_HOURLY_USERNAME_LOOKUPS` | variable, default `1000` | username existence answers served per hour before the operator is alerted; alert only, never refuses |
 | `SHIKKHOKPLUS_JWT_KEYS`, `SHIKKHOKPLUS_JWT_ACTIVE_KID` | secret, `k1` | losing the key logs everyone out |
 | `SHIKKHOKPLUS_SMS_*`, `SHIKKHOKPLUS_GLOBAL_DAILY_SMS` | secrets and variables | no API key selects the null gateway; **production has no fallback** for the app hash or the ceiling, and the deploy fails without them [C-19] |
 | `SHIKKHOKPLUS_STAGING_OUTBOX` | variable, default `0` | a production process with it set refuses to start |

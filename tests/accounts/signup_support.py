@@ -10,25 +10,101 @@ it exists in the clear, so nothing here bypasses the path under test.
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from typing import Any
 from unittest import mock
 
+import sqlalchemy as sa
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
+from app.auth.passwords import hash_password
 from app.gateway.email import EmailMessage, NullEmailGateway
 from app.gateway.null import NullGateway
 
-__all__ = ["sign_up", "submit_signup"]
+__all__ = ["named_account", "sign_up", "submit_signup", "unique_username"]
+
+
+def named_account(
+    session: Session,
+    username: str | None = None,
+    *,
+    password: str | None = None,
+    changed_at: dt.datetime | None = None,
+) -> tuple[uuid.UUID, str]:
+    """Arrange an account with a number and, optionally, a username.
+
+    Written as the table owner, for arrangement only: the assertions are
+    made through the application's routes and role.
+
+    :param session: An arranging session
+    :param username: Its display form, or None for an account with none
+    :param password: Its password, or None for an account without one
+    :param changed_at: Its last ordinary rename, or None
+    :return: The account id and its number
+    """
+    account_id = uuid.uuid4()
+    phone = f"+88017{uuid.uuid4().int % 10**8:08d}"
+    now = dt.datetime.now(tz=dt.UTC)
+    session.execute(
+        sa.text(
+            "INSERT INTO account (id, phone, password_hash, password_changed_at, "
+            "created_at, activated_at, username, username_key, username_changed_at) "
+            "VALUES (:id, :phone, :hash, :pw_at, :now, :now, :name, :key, :changed)"
+        ),
+        {
+            "id": account_id,
+            "phone": phone,
+            "hash": hash_password(password) if password else None,
+            "pw_at": now if password else None,
+            "now": now,
+            "name": username,
+            "key": username.lower() if username else None,
+            "changed": changed_at,
+        },
+    )
+    session.commit()
+    return account_id, phone
+
+
+def unique_username() -> str:
+    """Return a username no other test uses [U1: FR2.1].
+
+    Starts with a letter and is 13 characters, so it passes FR1.
+
+    :return: A fresh, valid username
+    """
+    return f"u{uuid.uuid4().hex[:12]}"
+
+
+def with_username(body: dict[str, Any]) -> dict[str, Any]:
+    """Give a signup body a unique username unless it names one.
+
+    Sign-up requires a username since U1 [BR2.1]; a suite that is not
+    about usernames gets a fresh one, so two of its signups never collide.
+    A body that sets ``username`` -- even to None, to test its absence --
+    is sent as written.
+
+    :param body: The signup request body
+    :return: The body, with a username
+    """
+    if "username" not in body:
+        return {**body, "username": unique_username()}
+    if body["username"] is None:
+        return {key: value for key, value in body.items() if key != "username"}
+    return body
 
 
 def submit_signup(client: TestClient, body: dict[str, Any]) -> tuple[Any, str | None]:
     """Submit the signup form and capture the code it sent.
 
     :param client: The test client
-    :param body: The signup request body
+    :param body: The signup request body; given a unique username when it
+        names none (:func:`with_username`)
     :return: The response, and the six-digit code sent, if one was
     """
+    body = with_username(body)
     sent: list[str] = []
     original = NullGateway.send
     original_email = NullEmailGateway.send

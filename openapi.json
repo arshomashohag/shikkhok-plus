@@ -5040,7 +5040,7 @@
         "type": "object"
       },
       "MeResponse": {
-        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first\n:ivar self_name: The name this person chose for themselves, or\n    None before they have set one\n:ivar address: Their address, or None. **Owner-private** [BR3.4]:\n    it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens\n    response, which the schema-wide privacy gate asserts. It is\n    returned HERE because this is the owner reading their own row.\n    The free-text form, kept for an address typed before 2026-11-05\n:ivar address_house: House or flat, or None. Owner-private, as above\n:ivar address_road: Road or area, or None\n:ivar address_city: City or district, or None\n:ivar address_postcode: Four digits, or None\n:ivar phone: The number this account signs in with. The owner's own\n    login, read by the owner on a lens-exempt route; the profile\n    shows it read-only, and in-app deletion asks the person to type\n    it back as confirmation, which needs the app to know it\n:ivar email: The address this account signs in with, or None [0032].\n    The owner's own, like ``phone``\n:ivar has_password: Whether a password is set; an account without\n    one is asked to set one [0032]\n:ivar workspaces: Every workspace the teacher lens may act on, solo\n    first [0022]. A client sends the chosen one's ``owner_id`` as\n    ``X-Workspace-Id``; with one entry, or none, there is nothing to\n    choose",
+        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first\n:ivar self_name: The name this person chose for themselves, or\n    None before they have set one\n:ivar address: Their address, or None. **Owner-private** [BR3.4]:\n    it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens\n    response, which the schema-wide privacy gate asserts. It is\n    returned HERE because this is the owner reading their own row.\n    The free-text form, kept for an address typed before 2026-11-05\n:ivar address_house: House or flat, or None. Owner-private, as above\n:ivar address_road: Road or area, or None\n:ivar address_city: City or district, or None\n:ivar address_postcode: Four digits, or None\n:ivar phone: The number this account signs in with. The owner's own\n    login, read by the owner on a lens-exempt route; the profile\n    shows it read-only, and in-app deletion asks the person to type\n    it back as confirmation, which needs the app to know it\n:ivar email: The address this account signs in with, or None [0032].\n    The owner's own, like ``phone``\n:ivar has_password: Whether a password is set; an account without\n    one is asked to set one [0032]\n:ivar workspaces: Every workspace the teacher lens may act on, solo\n    first [0022]. A client sends the chosen one's ``owner_id`` as\n    ``X-Workspace-Id``; with one entry, or none, there is nothing to\n    choose\n:ivar username: The account's username as stored, or None [U1: FR5.1].\n    Owner-only: an ``OWN_ACCOUNT_FIELDS`` pair, served on these\n    lens-exempt routes and nowhere else [BR8.1]\n:ivar username_required: True exactly while the account has no\n    username [BR5.1]. Computed here on every response, never stored;\n    the clients show the choose-username screen on it, and the server\n    refuses nothing else for it [BR5.2]",
         "properties": {
           "address": {
             "anyOf": [
@@ -5141,6 +5141,22 @@
               }
             ],
             "title": "Self Name"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
+          "username_required": {
+            "default": true,
+            "title": "Username Required",
+            "type": "boolean"
           },
           "workspaces": {
             "items": {
@@ -6604,7 +6620,7 @@
       },
       "PasswordSignInRequest": {
         "additionalProperties": false,
-        "description": "Sign in with a phone number or an email address, and a password.\n\n:ivar phone: The account's number, or None\n:ivar email: Or its address\n:ivar password: The password",
+        "description": "Sign in with a username, a phone number or an email, and a password.\n\n**Exactly one of ``login``, ``phone`` and ``email``** [U1: BR4.1,\nNFR6.1]. ``login`` is what the person typed into the one field and is\nclassified on the server (ADR-003); ``phone`` and ``email`` keep their\nmeaning, so a client that sends them is unchanged. The inherited\nexactly-one-of-two validator is overridden BY NAME, so a login-only\nbody is accepted here while :class:`IdentifierFields` itself, which\nevery other request uses, still refuses a body with neither.\n\n:ivar login: A username, number or address, as typed, or None\n:ivar phone: The account's number, or None\n:ivar email: Or its address\n:ivar password: The password",
         "properties": {
           "email": {
             "anyOf": [
@@ -6617,6 +6633,19 @@
               }
             ],
             "title": "Email"
+          },
+          "login": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the person typed: a username, a phone number or an email address, classified on the server. Exactly one of login, phone and email.",
+            "title": "Login"
           },
           "password": {
             "maxLength": 1024,
@@ -9254,7 +9283,7 @@
       },
       "SignupRequest": {
         "additionalProperties": false,
-        "description": "Create an account for a number or an address nobody has registered.\n\nThe number is **typed by the person** and never read from the SIM\n[TC-4, D-35]: there is no device-side source for this field, here\nor anywhere in this product.\n\n:ivar phone: The number this identity is keyed on, or None\n:ivar email: Or the address [0032]; exactly one of the two. No\n    password here: it is chosen after the code is verified, with the\n    token that verification yields, so the person who proved the\n    destination is the one who sets it\n:ivar role: The claimed role; nothing verifies it [BR4.2]\n:ivar self_name: The name the person chose for themselves. Lands on\n    ``Profile.self_name`` and never on an ``Enrollment.display_name``\n    [BR3.1]\n:ivar address_house: House or flat. **Required**, on every path,\n    including a number a teacher already added (decided 2026-11-05)\n:ivar address_road: Road or area, required\n:ivar address_city: City or district, required\n:ivar address_postcode: Four digits, required\n:ivar centre_name: The centre's name. Required for ``coaching`` and\n    refused for every other role",
+        "description": "Create an account for a number or an address nobody has registered.\n\nThe number is **typed by the person** and never read from the SIM\n[TC-4, D-35]: there is no device-side source for this field, here\nor anywhere in this product.\n\n:ivar phone: The number this identity is keyed on, or None\n:ivar email: Or the address [0032]; exactly one of the two. No\n    password here: it is chosen after the code is verified, with the\n    token that verification yields, so the person who proved the\n    destination is the one who sets it\n:ivar role: The claimed role; nothing verifies it [BR4.2]\n:ivar self_name: The name the person chose for themselves. Lands on\n    ``Profile.self_name`` and never on an ``Enrollment.display_name``\n    [BR3.1]\n:ivar address_house: House or flat. **Required**, on every path,\n    including a number a teacher already added (decided 2026-11-05)\n:ivar address_road: Road or area, required\n:ivar address_city: City or district, required\n:ivar address_postcode: Four digits, required\n:ivar centre_name: The centre's name. Required for ``coaching`` and\n    refused for every other role\n:ivar username: The username, as typed [U1: BR2.1]. Required; judged\n    by FR1 on the server, not here, so a refusal carries its own\n    ``account.username.*`` key rather than a generic 422 (ADR-003)",
         "properties": {
           "address_city": {
             "description": "City or district.",
@@ -9334,6 +9363,13 @@
             "minLength": 1,
             "title": "Self Name",
             "type": "string"
+          },
+          "username": {
+            "description": "Required. What the person typed; judged on the server by the username rules, which refuse with an account.username.* key.",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
           }
         },
         "required": [
@@ -9342,7 +9378,8 @@
           "address_postcode",
           "address_road",
           "role",
-          "self_name"
+          "self_name",
+          "username"
         ],
         "title": "SignupRequest",
         "type": "object"
@@ -11027,6 +11064,115 @@
         "title": "UpcomingSessionResponse",
         "type": "object"
       },
+      "UsernameAvailabilityRequest": {
+        "additionalProperties": false,
+        "description": "Ask whether a name could be taken, in a body [NFR3.5].\n\n:ivar username: The candidate, as typed",
+        "properties": {
+          "username": {
+            "description": "What the person typed.",
+            "maxLength": 64,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ],
+        "title": "UsernameAvailabilityRequest",
+        "type": "object"
+      },
+      "UsernameAvailabilityResponse": {
+        "additionalProperties": false,
+        "description": "What a lookup may say about a name [BR3.1].\n\n:ivar status: ``available``, ``unavailable`` (taken and held alike),\n    ``invalid`` or ``reserved``\n:ivar message_key: For ``invalid``, which FR1 rule failed; else null",
+        "properties": {
+          "message_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For invalid: which username rule failed (account.username.*).",
+            "title": "Message Key"
+          },
+          "status": {
+            "enum": [
+              "available",
+              "invalid",
+              "reserved",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "UsernameAvailabilityResponse",
+        "type": "object"
+      },
+      "UsernameChangeRequest": {
+        "additionalProperties": false,
+        "description": "Choose the first username, rename, or take a released one back.\n\n:ivar username: The candidate, as typed\n:ivar password: The account's password: required when it already\n    has a username (a rename, a reclaim or a case-only change),\n    ignored for the first choice [BR5.3, BR6.1]",
+        "properties": {
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required when the account already has a username; ignored for the first choice.",
+            "title": "Password"
+          },
+          "username": {
+            "description": "What the person typed.",
+            "maxLength": 64,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ],
+        "title": "UsernameChangeRequest",
+        "type": "object"
+      },
+      "UsernameChangeResponse": {
+        "additionalProperties": false,
+        "description": "The username as stored, and when it may next change.\n\n:ivar username: The display form, as stored. Owner-only: an\n    ``OWN_ACCOUNT_FIELDS`` pair (ADR-010)\n:ivar next_change_at: When an ordinary rename is next allowed, or\n    null when no limit applies now [BR6.2]",
+        "properties": {
+          "next_change_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When an ordinary rename is next allowed, as an ISO 8601 UTC instant; null when no limit applies.",
+            "title": "Next Change At"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "next_change_at",
+          "username"
+        ],
+        "title": "UsernameChangeResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -11111,7 +11257,7 @@
       },
       "VerifyRequest": {
         "additionalProperties": false,
-        "description": "Present a code for verification.\n\n:ivar phone: The number the code was issued for, or None\n:ivar email: Or the address it was emailed to\n:ivar code: The six-digit code",
+        "description": "Present a code for verification.\n\n:ivar phone: The number the code was issued for, or None\n:ivar email: Or the address it was emailed to\n:ivar code: The six-digit code\n:ivar username: A replacement username, sent only after the draft's\n    own was answered ``account.username.unavailable`` [U1: BR2.5].\n    Ignored when the destination already has an account",
         "properties": {
           "code": {
             "maxLength": 10,
@@ -11142,6 +11288,19 @@
               }
             ],
             "title": "Phone"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional replacement username, used only after account.username.unavailable.",
+            "title": "Username"
           }
         },
         "required": [
@@ -11644,6 +11803,26 @@
             },
             "description": "Successful Response"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A username rule refused it (account.username.*)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "account.username.unavailable: the name is taken or held; identical whether or not the contact has an account"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -11767,6 +11946,78 @@
           }
         },
         "summary": "Lookup Already Added",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/v1/accounts/username-availability": {
+      "post": {
+        "description": "Say whether a name could be taken, and nothing more [U1: BR3.1].\n\n**Public, and in ``PUBLIC_ROUTES``**: it is called while the sign-up\nform is typed into, before any account exists [BR3.5]. **A POST with\na body**, so no username reaches a URL or an access log [NFR3.5].\n\nFour answers -- ``available``, ``unavailable``, ``invalid`` with the\nrule's key, ``reserved`` -- and a held name is ``unavailable`` exactly\nas a taken one is [ADR-007]. Bounded by its own ceilings, consumed for\nevery candidate before it is judged, so the refusal cannot depend on\nthe answer [BR3.3]; a refusal never blocks the form, whose submission\nis judged on its own [BR3.4].\n\n:param body: The candidate\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The status, and for ``invalid`` the rule it broke\n:raises CeilingBreach: A lookup ceiling refused this request",
+        "operationId": "check_username_availability_v1_accounts_username_availability_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsernameAvailabilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsernameAvailabilityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "auth.lookup.too_many: the availability ceilings; the form can still be submitted"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Check Username Availability",
         "tags": [
           "accounts"
         ]
@@ -12937,7 +13188,7 @@
     },
     "/v1/auth/password": {
       "post": {
-        "description": "Sign in with a phone number or an email address and a password.\n\n**One refusal for every failure** [BR2.7]: an unknown destination, an\naccount with no password yet and a wrong password all answer\n``auth.password.wrong``, after the same work. The person who has no\npassword yet is pointed at the code flow by the client's static\nhint, not by a response that would say their account exists.\n\nBounded per identifier and per network, with the per-prefix failure\nceilings shared with codes. Failures across the whole product alert\nand never refuse [SEC-1].\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The token pair, or the authenticator challenge\n:raises CeilingBreach: A failure ceiling is full\n:raises PasswordRefused: The sign-in was refused",
+        "description": "Sign in with a username, phone number or email address and a password.\n\n**One refusal for every failure** [BR2.7]: an unknown destination, an\naccount with no password yet and a wrong password all answer\n``auth.password.wrong``, after the same work. The person who has no\npassword yet is pointed at the code flow by the client's static\nhint, not by a response that would say their account exists. A\nusername's three failures are that same response [U1: BR4.4].\n\n**A username is bounded per network, not across networks** [U1:\nNFR2.4]: a stranger who fills its across-networks count cannot lock\nits owner out of a network that has not failed it three times, and a\nusername's counters never refuse a phone, email or code sign-in.\n\nBounded per identifier and per network, with the per-prefix failure\nceilings shared with codes. Failures across the whole product alert\nand never refuse [SEC-1].\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The token pair, or the authenticator challenge\n:raises CeilingBreach: A failure ceiling is full\n:raises PasswordRefused: The sign-in was refused",
         "operationId": "sign_in_with_password_v1_auth_password_post",
         "requestBody": {
           "content": {
@@ -13141,7 +13392,7 @@
     },
     "/v1/auth/verify": {
       "post": {
-        "description": "Verify a code and grant the right to choose a password.\n\n**Never a session** [0032]. A verified code yields a\n``password_setup_token``; ``POST /v1/auth/password/setup`` turns it\ninto a session once a password is chosen -- with the authenticator\ncode too when ``mfa_required`` -- so a code can recover an account\nand cannot sign in to one.\n\n**Bounded wider than one code** [C-20]. A verify arriving while the\ncaller's /64, its /48 or the whole product has failed too often this\nhour is refused before its code is checked, and every failure counts\nagainst all three. A code guessed to death counts against its\nnumber's daily cool-off, which stops further codes being issued for\nit. All of it applies to a known and an unknown number alike.\n\n**Completes a verify-first signup** [C-07]: a right code for a number\nwhose signup draft it was sent for creates the account, then signs\nit in, so both clients' existing \"sign up, then type the code\" flow\nis unchanged.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The password-setup grant\n:raises CeilingBreach: A failed-verify ceiling is full\n:raises CodeRefused: The code was refused",
+        "description": "Verify a code and grant the right to choose a password.\n\n**Never a session** [0032]. A verified code yields a\n``password_setup_token``; ``POST /v1/auth/password/setup`` turns it\ninto a session once a password is chosen -- with the authenticator\ncode too when ``mfa_required`` -- so a code can recover an account\nand cannot sign in to one.\n\n**Bounded wider than one code** [C-20]. A verify arriving while the\ncaller's /64, its /48 or the whole product has failed too often this\nhour is refused before its code is checked, and every failure counts\nagainst all three. A code guessed to death counts against its\nnumber's daily cool-off, which stops further codes being issued for\nit. All of it applies to a known and an unknown number alike.\n\n**Completes a verify-first signup** [C-07]: a right code for a number\nwhose signup draft it was sent for creates the account, then signs\nit in, so both clients' existing \"sign up, then type the code\" flow\nis unchanged.\n\n**A name taken since the draft rolls the whole verify back** [U1:\nBR2.4]: 409 ``account.username.unavailable``, and the route commits\nnothing on a 4xx, so the code stays unspent, its attempt is not\nrecorded and the draft is as it was. The person sends the same code\nwith a replacement ``username``. Not wrapped in the bounded retry:\nthis path commits code refusals part-way [BR10.3].\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The password-setup grant\n:raises CeilingBreach: A failed-verify or replacement ceiling is full\n:raises CodeRefused: The code was refused\n:raises UsernameRefused: The replacement breaks a username rule\n:raises UsernameUnavailable: The draft's name, or the replacement,\n    can no longer be claimed",
         "operationId": "verify_code_v1_auth_verify_post",
         "requestBody": {
           "content": {
@@ -13164,6 +13415,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "account.username.unavailable: the draft's username was taken since; nothing was consumed, so retry with the same code and a replacement username"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -13173,6 +13434,16 @@
               }
             },
             "description": "The request could not be parsed"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "auth.lookup.too_many: too many replacement usernames; the code was not read and still works"
           },
           "500": {
             "content": {
@@ -23528,6 +23799,170 @@
         "summary": "Read Today",
         "tags": [
           "analytics"
+        ]
+      }
+    },
+    "/v1/me/username": {
+      "put": {
+        "description": "Choose the first username, rename, reclaim, or change only its case.\n\n**Lens-exempt on ``GET /v1/me``'s reasoning** [BR3.5]: it writes the\nauthenticated account's own username and nothing else.\n\nIn this order [NFR1.6, NFR4.3]: the format (400, nothing counted);\nthe claim ceilings, committed, before the password, any lock or any\nread of another account or hold; then, for an account that already\nhas a username, the password, whose failures commit their own count;\nthen the change itself as one re-runnable unit of work, under the\nbounded retry because it sends nothing before its commit. A first\nchoice needs no password and the one sent is ignored [BR5.3].\n\nNobody is signed out [BR6.8]: other devices read the new name from\n``GET /v1/me``.\n\n:param body: The candidate, and the password for a rename\n:param request: The incoming request\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The stored username and when it may next change\n:raises UsernameRefused: It breaks a username rule\n:raises CeilingBreach: The claim ceilings, or the password's\n:raises UsernamePasswordRequired: A rename without a password, or by\n    an account that has none\n:raises ValidationError: ``auth.password.current_wrong``\n:raises UsernameUnavailable: The name is taken or held\n:raises UsernameChangeTooSoon: An ordinary rename inside the window",
+        "operationId": "change_my_username_v1_me_username_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsernameChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsernameChangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A username rule refused it (account.username.*); account.username.password_required; auth.password.current_wrong"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "account.username.unavailable; account.username.change_too_soon with details.next_change_at; auth.password.too_many_attempts"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "auth.lookup.too_many: too many claims this hour"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Change My Username",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/v1/me/username-availability": {
+      "post": {
+        "description": "Say whether this account could take a name, as Settings asks [BR3.2].\n\n**Lens-exempt on ``GET /v1/me``'s reasoning** [BR3.5]: it acts on the\nauthenticated account alone and reads nothing another account owns\nbeyond a yes or no. It differs from the public lookup only for names\nthis account itself holds -- its current key, or a live hold it\nreleased -- which answer ``available``, since a rename would take them\nback [NFR1.5]. Counted on the public lookup's ceilings, by network.\n\n:param body: The candidate\n:param request: The incoming request\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The status, and for ``invalid`` the rule it broke\n:raises CeilingBreach: A lookup ceiling refused this request",
+        "operationId": "check_my_username_availability_v1_me_username_availability_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsernameAvailabilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsernameAvailabilityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "auth.lookup.too_many: the availability ceilings"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Check My Username Availability",
+        "tags": [
+          "me"
         ]
       }
     },

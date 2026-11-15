@@ -53,6 +53,7 @@ ceilings protecting that number.
 
 from __future__ import annotations
 
+import datetime as dt
 import enum
 import uuid
 from dataclasses import dataclass
@@ -62,7 +63,8 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.accounts.identifier import Channel, Identifier
-from app.db.advisory import account_key, contact_key, lock_keys
+from app.accounts.usernames import place_hold
+from app.db.advisory import account_key, contact_key, lock_keys, username_key
 from app.governance.dispositions import DISPOSITIONS, Disposition
 from app.students.service import block_relinking
 from app.teaching.unassign import unassign_member
@@ -240,12 +242,12 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
         scope=Scope.NOT_PERSONAL,
         column=None,
         note=(
-            "Keyed on a scope VALUE, which for two of the seven scopes "
-            "is a phone number -- and it is still not deleted. These "
-            "counters are the abuse control: clearing a number's "
-            "counters on request would make the deletion route the way "
-            "to reset the ceilings protecting it. They expire on their "
-            "own 48-hour window instead [DESIGN-7]."
+            "Keyed on a scope VALUE, which for some scopes is a phone "
+            "number -- and it is still not deleted. These counters are "
+            "the abuse control: clearing a number's counters on request "
+            "would make the deletion route the way to reset the ceilings "
+            "protecting it. They expire on their own 48-hour window "
+            "instead [DESIGN-7]."
         ),
     ),
     "room": _Target(
@@ -304,9 +306,11 @@ _LIVE_MEMBERSHIPS: Final = sa.text(
     "SELECT id FROM owner_member WHERE account_id = :account_id AND revoked_at IS NULL"
 )
 
-#: The account's contacts, read again under its advisory key [U2: NFR3.1].
+#: The account's contacts and username key, read again under its advisory
+#: key [U2: NFR3.1; U1: BR7.5]. Without the key here a deletion would leave
+#: no hold, and the name would be free the moment the row went.
 _HELD_CONTACTS: Final = sa.text(
-    "SELECT id, phone, email FROM account WHERE id = :account_id"
+    "SELECT id, phone, email, username_key FROM account WHERE id = :account_id"
 )
 
 #: The replacement codes the account asked for [U2: NFR3.2].
@@ -391,13 +395,17 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
         if row is None:
             account_id = None
         else:
+            # The username's key joins the contacts' in ONE call, last in
+            # the order [U1: BR10.1], so a claim of the name waits for this
+            # deletion and then meets its hold.
             lock_keys(
                 session,
                 [
                     contact_key(kind, value)
                     for kind, value in (("phone", row.phone), ("email", row.email))
                     if value is not None
-                ],
+                ]
+                + ([username_key(row.username_key)] if row.username_key else []),
             )
     phones = {identifier.value} if identifier.is_phone else set()
     emails = set() if identifier.is_phone else {identifier.value}
@@ -457,6 +465,20 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
             continue
         rows_deleted[table] = _delete_where(
             session, table, target, account_id=account_id
+        )
+
+    # The deletion hold [U1: BR7.5]: 30 days, a keyed digest only, and no
+    # releasing account, so nobody -- this person included -- can take the
+    # name and stand in for its owner before it expires. In this one
+    # transaction, before the account row goes, so it commits with the
+    # deletion or not at all; idempotent on the digest, so the bounded
+    # retry around deletion places it once [NFR4.3].
+    if row is not None and row.username_key:
+        place_hold(
+            session,
+            row.username_key,
+            releasing_account_id=None,
+            now=dt.datetime.now(tz=dt.UTC),
         )
 
     # LAST, so the SET NULL and CASCADE constraints fire against a

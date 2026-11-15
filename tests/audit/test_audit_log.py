@@ -141,6 +141,9 @@ def test_the_event_vocabulary_is_closed() -> None:
         # U2 [BR5.11, NFR3.9]: a contact replaced or removed.
         "CONTACT_REPLACED",
         "CONTACT_REMOVED",
+        # U1 [BR2.8, BR8.4]: a username set, and one changed.
+        "USERNAME_SET",
+        "USERNAME_CHANGED",
     }
 
 

@@ -34,12 +34,12 @@ __all__ = [
     "unlensed_routes",
 ]
 
-#: Routes reachable with no authentication at all. **Exactly fourteen**,
-#: and the count IS asserted: a fifteenth entry is a diff against a
+#: Routes reachable with no authentication at all. **Exactly fifteen**,
+#: and the count IS asserted: a sixteenth entry is a diff against a
 #: stated number rather than a line appended to a growing list. The three
 #: admin sign-in routes moved it from eight, the app sign-in's second
-#: step to twelve [0028], and password sign-in and password setup to
-#: fourteen [0032].
+#: step to twelve [0028], password sign-in and password setup to
+#: fourteen [0032], and the public username lookup to fifteen [U1: BR3.5].
 #:
 #: The number read "five" over a six-entry set until 2026-10-22 — the two
 #: deletion routes were added without it, so the stated count and the
@@ -68,9 +68,9 @@ __all__ = [
 #:
 #: It also shaped the implementation rather than merely recording it. The
 #: external path needs two steps — send a code, then spend it — and a
-#: separate `/account-deletion/code` would have been a ninth entry here. So
-#: `POST /account-deletion` carries both steps, selected by whether the body
-#: names a code, and the count stays at eight [BR3.2].
+#: separate `/account-deletion/code` would have been one more entry here.
+#: So `POST /account-deletion` carries both steps, selected by whether the
+#: body names a code [BR3.2].
 #:
 #: **D6's in-app route is NOT here.** `DELETE /v1/me` is authenticated and
 #: goes in `LENS_EXEMPT_AUTHENTICATED` below, which is the whole reason that
@@ -109,6 +109,14 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # a verified code yields and which the password it sets spends.
         ("POST", "/v1/auth/password"),
         ("POST", "/v1/auth/password/setup"),
+        # The username availability lookup [U1: FR3.3, BR3.5], public on
+        # the already-added lookup's reasoning: the sign-up form asks it
+        # while the name is typed, before any account exists. It says
+        # only available, unavailable, invalid or reserved -- a held name
+        # reads as a taken one -- is bounded per network by its own
+        # ceilings, and takes the name in a POST body so no username
+        # reaches a URL or an access log [NFR3.5].
+        ("POST", "/v1/accounts/username-availability"),
         # Staging only, and absent entirely in production -- the router
         # is not registered unless the environment permits it. It is
         # public because it must work before anyone can authenticate,
@@ -263,6 +271,16 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # same reasoning: it acts on the authenticated account alone, and
         # asks for the account's password.
         ("POST", "/v1/me/contact/remove"),
+        # The account's own username [U1: BR3.5], on GET /v1/me's
+        # reasoning and no wider: each acts on the authenticated account
+        # alone and reads nothing another account owns beyond a yes or
+        # no. The lookup differs from the public one only for names this
+        # account itself holds; the change writes only this account's
+        # name, asks for its password for a rename, and is bounded per
+        # account and per network. An account holding no lens must be
+        # able to choose the username every client asks it for first.
+        ("POST", "/v1/me/username-availability"),
+        ("PUT", "/v1/me/username"),
     }
 )
 

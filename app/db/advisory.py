@@ -6,7 +6,16 @@ contact changes and a deletion on an account [LO-4]. Two transactions
 taking overlapping keys in different orders could wait on each other in
 a cycle, so every key is computed here and taken by :func:`lock_keys`,
 in one total order: by namespace (``student:``, then ``account:``, then
-``contact:``), and by ascending 64-bit key within a namespace [LO-1].
+``contact:``, then ``username:``), and by ascending 64-bit key within a
+namespace [LO-1].
+
+**Usernames come last** [U1: BR10.1, NFR4.2]. Every path that claims or
+releases a name takes its ``username:`` keys in the same call as its
+other keys, or in a call after all of them, and no path takes a username
+key and then any other, so the namespace cannot join a cycle. The key is
+what makes "no account has it" and "no live hold blocks it" one decision:
+a release committing between the two reads would otherwise let a held
+name through.
 
 Transaction-scoped (``pg_advisory_xact_lock``), so released at commit or
 rollback; correct across application instances [NFR8.9]; per contact or
@@ -24,11 +33,12 @@ from typing import Final
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-__all__ = ["account_key", "contact_key", "lock_keys"]
+__all__ = ["account_key", "contact_key", "lock_keys", "username_key"]
 
 #: The order namespaces are taken in [NFR4.2 LO-1]. The ``student:`` key
-#: is the create-replay key ``replayed_student`` takes itself.
-_NAMESPACE_ORDER: Final = ("student", "account", "contact")
+#: is the create-replay key ``replayed_student`` takes itself; the
+#: ``username:`` namespace is U1's, appended last [U1: BR10.1].
+_NAMESPACE_ORDER: Final = ("student", "account", "contact", "username")
 
 #: One key's lock. ``hashtextextended`` is the form ``replayed_student``
 #: already uses, so every advisory key in the product shares one space.
@@ -61,6 +71,19 @@ def contact_key(kind: str, value: str) -> str:
     :return: The key
     """
     return f"contact:{kind}:{value}"
+
+
+def username_key(key: str) -> str:
+    """Name the key that serialises every claim and release of one name.
+
+    Taken on the LOWERCASE key, so ``Rahim_01`` and ``rahim_01`` share
+    it [U1: BR1.7, BR10.1]. Like every advisory key, it is hashed before
+    it is locked and never stored or logged.
+
+    :param key: The username's lowercase key
+    :return: The advisory key
+    """
+    return f"username:{key}"
 
 
 def lock_keys(session: Session, keys: Iterable[str]) -> None:

@@ -159,12 +159,13 @@ actually does, and our build fails if the two stop matching.
 | Your authenticator recovery codes, stored only as hashes | no time limit |
 | Your authenticator-app setup, with its secret encrypted, if you turned it on | no time limit |
 | Your own name, photo and address | no time limit |
-| Your phone number and account record | no time limit |
+| Your phone number, username and account record | no time limit |
 
 ### Kept even after you delete your account, because the same record is someone else's too
 
 | Data | Removed anyway after |
 |---|---|
+| A changed or deleted username, held for 30 days so nobody else can take it, stored only as a keyed digest | 30 days, when the hold expires |
 | A class a teacher runs | no time limit |
 | A class that was held, on a date | no time limit |
 | A class's weekly timetable | no time limit |
@@ -205,7 +206,7 @@ These records are about how the service itself is running, not about any person.
 
 **A teacher's classes stay with their students.** If you are a teacher and delete your account, your sign-in, your own name and address are removed, and so are your name and payment number on each of your classes. The classes themselves stay as read-only history for your students and their guardians: their record of who came to each class, their results and fee records are theirs too. No new fees fall due on those classes, and amounts already recorded as owed stay on the records, where nobody can collect them.
 
-<!-- governance manifest digest: d970fe1034f42ab60a347bf29d6060e2b61b529b9930674109714db547da11a3
+<!-- governance manifest digest: 64c0af0ca0ffd604fc165c1442757bc3e8f2a997c707b5992a5a1d3279e60c34
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

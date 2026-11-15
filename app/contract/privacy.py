@@ -41,14 +41,17 @@ from fastapi.routing import APIRoute
 
 from app.authz.annotations import resolve_lens_type
 from app.authz.lenses import TeacherLens
-from app.contract.routes import _api_routes
+from app.contract.routes import LENS_EXEMPT_AUTHENTICATED, _api_routes
 
 __all__ = [
+    "ACCOUNT_PRIVATE_FIELDS",
     "FORBIDDEN_ACCOUNT_ID_FIELDS",
     "OWNER_PRIVATE_FIELDS",
+    "OWN_ACCOUNT_FIELDS",
     "STAFF_PRIVATE_FIELDS",
     "STAFF_ROUTE_PREFIX",
     "FieldViolation",
+    "account_private_leaks",
     "forbidden_fields",
     "is_teacher_facing",
     "lens_types_of",
@@ -81,8 +84,22 @@ OWNER_PRIVATE_FIELDS: Final[frozenset[str]] = frozenset(
         "address_road",
         "address_city",
         "address_postcode",
+        # [U1: BR8.2] A child's username is the owner's alone, like a
+        # profile field. This set is walked on teacher-facing routes only,
+        # so :data:`ACCOUNT_PRIVATE_FIELDS` carries the same two names
+        # through the every-route walk below.
+        "username",
+        "username_key",
     }
 )
+
+#: The account's own sign-in name and its key [U1: BR8.1, ADR-010].
+#: Walked on EVERY route by :func:`account_private_leaks`, because the
+#: teacher-facing walk alone would let a guardian, student, membership or
+#: admin response carry a child's username with CI green. A column added
+#: under a name containing ``username`` must join this set;
+#: ``tests/contract/test_privacy_schema.py`` asserts it [BR8.3].
+ACCOUNT_PRIVATE_FIELDS: Final[frozenset[str]] = frozenset({"username", "username_key"})
 
 #: Account identifiers in any spelling. ADR-001's half of the invariant.
 FORBIDDEN_ACCOUNT_ID_FIELDS: Final[frozenset[str]] = frozenset(
@@ -120,8 +137,18 @@ STAFF_ROUTE_PREFIX: Final = "/v1/centre/staff"
 #: lens-exempt ``/v1/me`` routes -- the same standing as its ``phone``.
 #: Named pair by pair, never by field name alone, so a staff member's
 #: ``email`` reaching any other schema still fails the gate.
+#:
+#: The two username pairs [U1: BR8.2] are the owner reading their own
+#: name. For them the pair is not enough on its own: the route must also
+#: be lens-exempt (:func:`account_private_leaks`), so ``MeResponse``
+#: reused on a non-owner route still fails. ``username_key`` has no pair
+#: and is served nowhere.
 OWN_ACCOUNT_FIELDS: Final[frozenset[tuple[str, str]]] = frozenset(
-    {("MeResponse", "email")}
+    {
+        ("MeResponse", "email"),
+        ("MeResponse", "username"),
+        ("UsernameChangeResponse", "username"),
+    }
 )
 
 
@@ -296,6 +323,51 @@ def staff_field_leaks(app: FastAPI) -> list[tuple[str, str, str]]:
             if (str(schema_name), field) in OWN_ACCOUNT_FIELDS:
                 continue
             leaks.append((route.path, str(schema_name), field))
+    return leaks
+
+
+def _account_private_field(field: str) -> str | None:
+    """Report whether a field name is an account's own username field.
+
+    :param field: The field name
+    :return: The name when it is account-private, else None
+    """
+    return field if field in ACCOUNT_PRIVATE_FIELDS else None
+
+
+def account_private_leaks(app: FastAPI) -> list[tuple[str, str, str, str]]:
+    """List every username field served anywhere but to its owner.
+
+    [U1: BR8.1, BR8.2, NFR3.1] **Every route, whatever its lens**, shaped
+    like the staff-field walk. A field named ``username`` or
+    ``username_key`` is a leak unless its (schema, field) pair is in
+    :data:`OWN_ACCOUNT_FIELDS` AND every method of the route is in
+    ``LENS_EXEMPT_AUTHENTICATED`` -- the routes that act on the
+    authenticated account alone. ``username_key`` has no pair, so it
+    leaks everywhere.
+
+    :param app: The application whose generated schema is checked
+    :return: ``(method, path, component, field)`` per leak, empty when clean
+    """
+    document = app.openapi()
+    definitions: dict[str, dict[str, object]] = (
+        document.get("components", {}).get("schemas", {}) or {}
+    )
+    leaks: list[tuple[str, str, str, str]] = []
+    for route in _api_routes(app):
+        if route.response_model is None:
+            continue
+        name = getattr(route.response_model, "__name__", "?")
+        component = definitions.get(name)
+        if component is None:
+            continue
+        found = _walk(component, definitions, {name}, _account_private_field)
+        for method in sorted(route.methods or set()):
+            owners_route = (method, route.path) in LENS_EXEMPT_AUTHENTICATED
+            for schema_name, field in found:
+                if owners_route and (str(schema_name), field) in OWN_ACCOUNT_FIELDS:
+                    continue
+                leaks.append((method, route.path, str(schema_name), field))
     return leaks
 
 

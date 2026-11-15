@@ -32,13 +32,14 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from app.accounts import usernames
 from app.accounts.identifier import Channel, Identifier
 from app.accounts.matching import contact_key, match_contact
 from app.audit.log import AuthEvent, write_audit
-from app.auth.pending import discard, take_bound_draft
+from app.auth.pending import discard, set_username, take_bound_draft
 from app.authz.rls import set_account_context
 from app.centres.service import create_centre
-from app.db.advisory import lock_keys
+from app.db.advisory import lock_keys, username_key
 from app.db.models import Account, Owner, Profile
 from app.errors import ConflictError
 
@@ -261,6 +262,7 @@ def create_account(
     address: PostalAddress | None = None,
     centre_name: str | None = None,
     now: dt.datetime | None = None,
+    username: str | None = None,
 ) -> AccountCreated:
     """Create an account's rows and commit them, as one transaction.
 
@@ -277,8 +279,10 @@ def create_account(
     :param address: The address, in its four parts, or None
     :param centre_name: The centre's name, for ``COACHING`` only
     :param now: The moment of creation, or None for the clock
+    :param username: The account's username, or None [U1: C3]
     :return: The new account and whether it owns batches
     :raises DuplicateNumber: The number or address already has an account
+    :raises UsernameUnavailable: The username cannot be claimed
     """
     created = create_account_rows(
         session,
@@ -289,6 +293,7 @@ def create_account(
         address=address,
         centre_name=centre_name,
         now=now,
+        username=username,
     )
     session.commit()
     return created
@@ -300,6 +305,7 @@ def complete_signup(
     otp_request_id: uuid.UUID,
     correlation_id: str,
     now: dt.datetime,
+    replacement: usernames.Candidate | None = None,
 ) -> uuid.UUID | None:
     """Create the account a just-verified code's signup draft describes.
 
@@ -308,18 +314,31 @@ def complete_signup(
     together, or none of them happen. The account takes the draft's id,
     which is the ``account_id`` the signup response reported.
 
+    **A replacement username replaces the draft's** before the account is
+    created, inside this same transaction [U1: BR2.5], so if the name
+    still cannot be claimed the whole verify rolls back -- the code
+    unspent, the draft as it was [BR2.4]. A draft saved before usernames
+    existed, with no replacement, creates an account with none [BR2.7].
+
     :param session: The session the verify is running in
     :param otp_request_id: The code just verified
     :param correlation_id: Ties the audit row to this request
     :param now: The moment of verification
+    :param replacement: A judged replacement username, or None
     :return: The new account's id, or None when no live draft is bound
         to the code
     :raises DuplicateNumber: An account appeared for the number since
         the verify read found none
+    :raises UsernameUnavailable: The draft's username, or the
+        replacement, can no longer be claimed
     """
     draft = take_bound_draft(session, otp_request_id=otp_request_id, now=now)
     if draft is None:
         return None
+    username = draft.username
+    if replacement is not None:
+        set_username(session, draft_id=draft.id, username=replacement.text)
+        username = replacement.text
     created = create_account_rows(
         session,
         phone=draft.phone,
@@ -335,6 +354,7 @@ def complete_signup(
         centre_name=draft.centre_name,
         now=now,
         account_id=draft.id,
+        username=username,
     )
     discard(
         session,
@@ -351,6 +371,15 @@ def complete_signup(
         correlation_id,
         occurred_at=now,
     )
+    if username is not None:
+        # By account id only [U1: BR2.8, BR8.4].
+        write_audit(
+            session,
+            created.account_id,
+            AuthEvent.USERNAME_SET,
+            correlation_id,
+            occurred_at=now,
+        )
     return created.account_id
 
 
@@ -365,6 +394,7 @@ def create_account_rows(
     centre_name: str | None = None,
     now: dt.datetime | None = None,
     account_id: uuid.UUID | None = None,
+    username: str | None = None,
 ) -> AccountCreated:
     """Create an account, its profile, and an ``Owner`` only for Teacher.
 
@@ -406,8 +436,11 @@ def create_account_rows(
     :param now: The moment of creation, or None for the clock
     :param account_id: The id to create the account with, or None for a
         fresh one
+    :param username: The username's display form, or None for an account
+        created with none [U1: C3, BR2.7]
     :return: The new account and whether it owns batches
     :raises DuplicateNumber: The number or address already has an account
+    :raises UsernameUnavailable: The username cannot be claimed [BR2.4]
     :raises ValueError: Neither a number nor an address was given
     """
     moment = now or dt.datetime.now(tz=dt.UTC)
@@ -417,10 +450,19 @@ def create_account_rows(
         *([Identifier(Channel.PHONE, phone)] if phone is not None else []),
         *([Identifier(Channel.EMAIL, email)] if email is not None else []),
     ]
+    # A username no longer of FR1 shape, or reserved since the draft was
+    # saved, is one more reason the name cannot be claimed: one answer,
+    # one remedy -- ask for another [U1: BR2.4].
+    claimed = _claimable(username)
     # Each contact's key BEFORE the account row exists [NFR4.2 LO-5], so a
     # concurrent contact add of the same value waits here rather than on
-    # the unique index while holding the key this insert would need.
-    lock_keys(session, [contact_key(contact) for contact in contacts])
+    # the unique index while holding the key this insert would need. The
+    # username key joins the SAME call, last in the order [U1: BR10.1].
+    lock_keys(
+        session,
+        [contact_key(contact) for contact in contacts]
+        + ([username_key(claimed.key)] if claimed is not None else []),
+    )
 
     # Asked before inserting, so the refusal is a clean ConflictError
     # rather than a driver IntegrityError the caller has to classify.
@@ -438,11 +480,34 @@ def create_account_rows(
     if existing is not None:
         raise DuplicateNumber()
 
+    # The one claim rule, under the username key [U1: BR6.9]. The account
+    # being created cannot be a hold's releasing account, so any live
+    # hold refuses it, as any account with the key does.
+    if claimed is not None and not usernames.claim_allowed(
+        session, claimed.key, None, moment
+    ):
+        raise usernames.UsernameUnavailable()
+
     account = Account(
-        id=account_id or uuid.uuid4(), phone=phone, email=email, created_at=moment
+        id=account_id or uuid.uuid4(),
+        phone=phone,
+        email=email,
+        created_at=moment,
+        username=claimed.text if claimed is not None else None,
+        username_key=claimed.key if claimed is not None else None,
     )
     session.add(account)
-    session.flush()
+    try:
+        session.flush()
+    except sa.exc.IntegrityError as error:
+        # A writer that skipped the key meets the backstop [BR10.2].
+        if usernames.is_username_clash(error):
+            raise usernames.UsernameUnavailable() from error
+        raise
+    if claimed is not None:
+        # Only an expired row can be left on the digest: a live one
+        # refused above [BR6.9].
+        usernames.clear_hold(session, claimed.key)
 
     # THE ROW-LEVEL-SECURITY CONTEXT, SET HERE AND NOWHERE ELSE IN THIS
     # UNIT, and it is the one piece of this function that is not
@@ -502,3 +567,17 @@ def create_account_rows(
         match_contact(session, account_id=account.id, contact=contact)
 
     return AccountCreated(account_id=account.id, is_teacher=is_teacher)
+
+
+def _claimable(username: str | None) -> usernames.Candidate | None:
+    """Judge the username an account is to be created with.
+
+    :param username: The display form, or None
+    :return: The candidate, or None when there is no username
+    :raises UsernameUnavailable: It no longer passes FR1 [BR2.4]
+    """
+    if username is None:
+        return None
+    if usernames.refusal_of(username) is not None:
+        raise usernames.UsernameUnavailable()
+    return usernames.judge(username)

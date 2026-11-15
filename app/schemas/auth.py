@@ -8,8 +8,9 @@ is a property of this schema as much as of the handler [BR2.7].
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.accounts.identifier import LoginSubject, classify_login
 from app.auth.passwords import MAX_LENGTH, MIN_LENGTH
 from app.schemas.identifier import IdentifierFields
 
@@ -64,11 +65,22 @@ class VerifyRequest(IdentifierFields):
     :ivar phone: The number the code was issued for, or None
     :ivar email: Or the address it was emailed to
     :ivar code: The six-digit code
+    :ivar username: A replacement username, sent only after the draft's
+        own was answered ``account.username.unavailable`` [U1: BR2.5].
+        Ignored when the destination already has an account
     """
 
     model_config = ConfigDict(extra="forbid")
 
     code: str = Field(min_length=4, max_length=10)
+    username: str | None = Field(
+        default=None,
+        max_length=64,
+        description=(
+            "Optional replacement username, used only after "
+            "account.username.unavailable."
+        ),
+    )
 
 
 class RefreshRequest(BaseModel):
@@ -146,8 +158,17 @@ _PASSWORD_DESCRIPTION = (
 
 
 class PasswordSignInRequest(IdentifierFields):
-    """Sign in with a phone number or an email address, and a password.
+    """Sign in with a username, a phone number or an email, and a password.
 
+    **Exactly one of ``login``, ``phone`` and ``email``** [U1: BR4.1,
+    NFR6.1]. ``login`` is what the person typed into the one field and is
+    classified on the server (ADR-003); ``phone`` and ``email`` keep their
+    meaning, so a client that sends them is unchanged. The inherited
+    exactly-one-of-two validator is overridden BY NAME, so a login-only
+    body is accepted here while :class:`IdentifierFields` itself, which
+    every other request uses, still refuses a body with neither.
+
+    :ivar login: A username, number or address, as typed, or None
     :ivar phone: The account's number, or None
     :ivar email: Or its address
     :ivar password: The password
@@ -155,7 +176,41 @@ class PasswordSignInRequest(IdentifierFields):
 
     model_config = ConfigDict(extra="forbid")
 
+    login: str | None = Field(
+        default=None,
+        max_length=254,
+        description=(
+            "What the person typed: a username, a phone number or an email "
+            "address, classified on the server. Exactly one of login, "
+            "phone and email."
+        ),
+    )
     password: str = Field(min_length=1, max_length=1024)
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> PasswordSignInRequest:
+        """Refuse none, and more than one, of the three [NFR6.1].
+
+        :return: The request
+        :raises ValueError: None, or more than one, was given
+        """
+        given = [
+            value for value in (self.login, self.phone, self.email) if value is not None
+        ]
+        if len(given) != 1:
+            raise ValueError("give exactly one of login, phone and email")
+        return self
+
+    @property
+    def subject(self) -> LoginSubject:
+        """Return who this sign-in names, classified [BR4.2].
+
+        :return: A phone or email identifier, or a username subject
+        :raises ValidationError: ``login`` holds ``@`` and is no address
+        """
+        if self.login is not None:
+            return classify_login(self.login)
+        return self.identifier
 
 
 class PasswordSetupRequest(BaseModel):

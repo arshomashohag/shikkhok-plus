@@ -208,28 +208,37 @@ entities:
   - name: RateLimitCounter
     kind: entity (owned by RateCeilings; existing table, new scope values)
     description: >
-      The shared counter table. This unit adds five scope kinds. No column or
-      constraint changes.
+      The shared counter table. Amended by security-requirements.md NFR2
+      (Amendment 1): this unit adds twelve scope kinds in four families,
+      none reading another's rows. No column or constraint changes.
     attributes:
       - name: scope_kind
         type: enum (string, max 16)
         required: true
         allowed_values:
-          - "un_fail_net_hour (16): failed username sign-ins per username and /64, window one hour, limit 10"
-          - "un_fail_hour (12): failed username sign-ins per username across networks, window one hour, limit 30"
-          - "un_lk_ip_hour (13): availability lookups and sign-up replacement attempts per /64 (IPv4 /24), window one hour"
-          - "un_lk_ip48_hour (15): the same per /48 (IPv4 /24), window one hour"
-          - "un_lk_global_hr (15): the same product-wide, window one hour, alert-only, never refuses"
+          - "un_lk_ip_hour (13): Family A, availability lookups (both forms) per /64 (IPv4 /24), limit 30, refuses 429"
+          - "un_lk_ip48_hour (15): Family A, the same per /48 (IPv4 /24), limit 100, refuses 429"
+          - "un_lk_global_hr (15): every username-existence answer served (lookups, claims, replacements), product-wide, SHIKKHOKPLUS_GLOBAL_HOURLY_USERNAME_LOOKUPS (default 1000), alert-only, never refuses"
+          - "un_cl_acct_hour (15): Family B, PUT /v1/me/username attempts per account, limit 10, refuses 429"
+          - "un_cl_ip_hour (13): Family B, the same per /64, limit 30, refuses 429"
+          - "un_cl_ip48_hr (13): Family B, the same per /48, limit 100, refuses 429"
+          - "un_rp_dest_hour (15): Family C, verifies carrying a replacement username per destination, limit 5, refuses 429"
+          - "un_rp_ip_hour (13): Family C, the same per /64, limit 20, refuses 429"
+          - "un_fail_net_hour (16): Family D, failed username sign-ins per username and /64, limit 10, refuses 409"
+          - "un_fail_ip_hour (15): Family D, failed username sign-ins for any username per /64, limit 20, refuses 409"
+          - "un_fail_ip48_hr (15): Family D, the same per /48, limit 60, refuses 409"
+          - "un_fail_hour (12): Family D, failed username sign-ins per username across networks, limit 20; refuses only a network that has failed that name 3 times (code-generation plan)"
         constraints:
-          - "exact limits for the three un_lk_* scopes are NFR Requirements' (OQ3), no looser than lk_ip_hour 30, lk_ip48_hour 100 and lk_global_hour 1000"
+          - "every window is one fixed UTC hour"
       - name: scope_value
         type: string
         required: true
         max: 64
         constraints:
-          - "un_fail_hour: 'u:' followed by the first 62 hex characters of SHA-256 over the username key"
-          - "un_fail_net_hour: 'u:' followed by the first 62 hex characters of SHA-256 over the key, '|', and the /64 prefix"
-          - "un_lk_ip_hour, un_lk_ip48_hour: the prefix, as the existing lookup scopes"
+          - "un_fail_hour: 'u:' followed by the first 62 hex characters of HMAC-SHA256 under SHIKKHOKPLUS_OTP_HMAC_KEY over 'username-counter:v1:' and the username key (NFR3.3, Amendment 6)"
+          - "un_fail_net_hour: the same over 'username-counter:v1:', the key, '|', and the /64 prefix"
+          - "un_lk_*, un_cl_ip_*, un_rp_ip_hour, un_fail_ip_*: the prefix, as the existing per-network scopes"
+          - "un_cl_acct_hour: the account id; un_rp_dest_hour: the verify's destination counter key (a phone, or 'e:' and an email's hash)"
           - "un_lk_global_hr: the existing 'global' value"
           - "a 'u:' value can never equal a phone value ('+880...'), an email value ('e:...'), an account value ('acct:...') or a prefix"
 
@@ -259,9 +268,11 @@ U1 adds four nullable columns to `account` (`username`, `username_key`,
 is a keyed digest so that no released name is ever stored as text. Two value
 objects exist only in memory: `UsernameCandidate`, the validated (or refused)
 form of what was typed, and `LoginSubject`, the server's classification of the
-single sign-in field. The shared `rate_limit_counter` gains five scope kinds,
-all within its 16-character name and 64-character value columns, and the audit
-log gains two events that carry only an account id.
+single sign-in field. The shared `rate_limit_counter` gains twelve scope kinds
+in four families (amended by the NFR requirements), all within its
+16-character name and 64-character value columns, with username counter
+values keyed rather than plainly hashed; and the audit log gains two events
+that carry only an account id.
 
 Three shape decisions are worth reading before the rules. The account's
 both-or-neither constraint is spelt out because an equality check alone passes

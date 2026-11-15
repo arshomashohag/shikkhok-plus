@@ -113,6 +113,12 @@ class AuthEvent(enum.Enum):
     # code or a username.
     CONTACT_REPLACED = "CONTACT_REPLACED"
     CONTACT_REMOVED = "CONTACT_REMOVED"
+    # Usernames [U1: BR2.8, BR8.4]. The first one set -- at sign-up or by
+    # the first choice -- and every later change: a rename, a reclaim or a
+    # case-only change. By account id and correlation id only, never the
+    # name, its key, a contact or a code.
+    USERNAME_SET = "USERNAME_SET"
+    USERNAME_CHANGED = "USERNAME_CHANGED"
 
 
 def write_audit(

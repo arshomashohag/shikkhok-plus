@@ -34,6 +34,7 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
+from app.accounts import usernames
 from app.accounts.clients import (
     CLIENT_PLATFORM_HEADER,
     CLIENT_VERSION_HEADER,
@@ -70,6 +71,7 @@ from app.schemas.auth import (
     VerifyRequest,
     VerifyResponse,
 )
+from app.schemas.errors import ErrorEnvelope
 
 __all__ = ["router"]
 
@@ -223,7 +225,27 @@ def issue_code(
     return IssueResponse()
 
 
-@router.post("/verify", response_model=VerifyResponse)
+@router.post(
+    "/verify",
+    response_model=VerifyResponse,
+    responses={
+        409: {
+            "model": ErrorEnvelope,
+            "description": (
+                "account.username.unavailable: the draft's username was taken "
+                "since; nothing was consumed, so retry with the same code and "
+                "a replacement username"
+            ),
+        },
+        429: {
+            "model": ErrorEnvelope,
+            "description": (
+                "auth.lookup.too_many: too many replacement usernames; the "
+                "code was not read and still works"
+            ),
+        },
+    },
+)
 def verify_code(
     body: VerifyRequest,
     request: Request,
@@ -249,12 +271,22 @@ def verify_code(
     it in, so both clients' existing "sign up, then type the code" flow
     is unchanged.
 
+    **A name taken since the draft rolls the whole verify back** [U1:
+    BR2.4]: 409 ``account.username.unavailable``, and the route commits
+    nothing on a 4xx, so the code stays unspent, its attempt is not
+    recorded and the draft is as it was. The person sends the same code
+    with a replacement ``username``. Not wrapped in the bounded retry:
+    this path commits code refusals part-way [BR10.3].
+
     :param body: The request body
     :param request: The incoming request
     :param session: The request-scoped session
     :return: The password-setup grant
-    :raises CeilingBreach: A failed-verify ceiling is full
+    :raises CeilingBreach: A failed-verify or replacement ceiling is full
     :raises CodeRefused: The code was refused
+    :raises UsernameRefused: The replacement breaks a username rule
+    :raises UsernameUnavailable: The draft's name, or the replacement,
+        can no longer be claimed
     """
     correlation_id = correlation_of(request)
     checker = CeilingChecker(session)
@@ -267,6 +299,18 @@ def verify_code(
         write_audit(session, None, AuthEvent.VERIFY_CEILING_BREACHED, correlation_id)
         session.commit()
         raise
+
+    # A replacement username [U1: BR2.5, BR2.6]: judged first, so a
+    # malformed one costs nothing; then counted on Family C, COMMITTED,
+    # before the code row is read or locked. The session holds no other
+    # work here, so that commit commits only the counters, and the verify
+    # transaction below can roll back without undoing them.
+    replacement: usernames.Candidate | None = None
+    if body.username is not None:
+        replacement = usernames.judge(body.username)
+        checker.check_and_consume_username_replacement(
+            destination=body.identifier.rate_key, ip_prefix=ip_prefix
+        )
 
     def complete(
         verifying: Session, otp_request_id: uuid.UUID, moment: dt.datetime
@@ -283,6 +327,7 @@ def verify_code(
             otp_request_id=otp_request_id,
             correlation_id=correlation_id,
             now=moment,
+            replacement=replacement,
         )
 
     try:
@@ -314,13 +359,19 @@ def sign_in_with_password(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
 ) -> VerifyResponse:
-    """Sign in with a phone number or an email address and a password.
+    """Sign in with a username, phone number or email address and a password.
 
     **One refusal for every failure** [BR2.7]: an unknown destination, an
     account with no password yet and a wrong password all answer
     ``auth.password.wrong``, after the same work. The person who has no
     password yet is pointed at the code flow by the client's static
-    hint, not by a response that would say their account exists.
+    hint, not by a response that would say their account exists. A
+    username's three failures are that same response [U1: BR4.4].
+
+    **A username is bounded per network, not across networks** [U1:
+    NFR2.4]: a stranger who fills its across-networks count cannot lock
+    its owner out of a network that has not failed it three times, and a
+    username's counters never refuse a phone, email or code sign-in.
 
     Bounded per identifier and per network, with the per-prefix failure
     ceilings shared with codes. Failures across the whole product alert
@@ -336,7 +387,11 @@ def sign_in_with_password(
     correlation_id = correlation_of(request)
     account_id = sign_in(
         session,
-        body.identifier,
+        # Classified on the server: email, then phone, then username
+        # [U1: BR4.2]. A ``login`` holding ``@`` that is no address is the
+        # one refusal here that is not the uniform one, and it depends on
+        # no account.
+        body.subject,
         body.password,
         ip_prefix=ip_prefix_of(request),
         coarse_prefix=coarse_prefix_of(request),

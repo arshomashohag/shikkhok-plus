@@ -532,8 +532,10 @@ def verify(
         session.commit()
         raise CodeRefused(message_key="auth.otp.not_valid")
 
-    # Activate if dormant. This is what lets a student or guardian claim
-    # a record a teacher created, without being invited [AC1.2.1].
+    # Stamp the first successful verify. Seats a teacher recorded reach
+    # the account by linking on its contacts, not by claiming it [U2:
+    # BR3.1]; this statement only records when the account was first
+    # proved.
     session.execute(
         sa.text(
             "UPDATE account SET activated_at = coalesce(activated_at, :now) "

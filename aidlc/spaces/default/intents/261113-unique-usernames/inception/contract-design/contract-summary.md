@@ -45,8 +45,20 @@ and no partner API exists.
 ## C1 — Usernames API (U1 → clients)
 
 Changes to existing operations are additive: new optional request fields and
-new response fields. Two operations are new. Every error uses the existing
-`ErrorEnvelope` (`code`, `retryable`, `message_key`).
+new response fields, except `SignupRequest.username`, which is required
+(accepted under the 2026-11-14 direction: app versions installed before this
+change are not a compatibility constraint). Three operations are new. Every
+error uses the existing `ErrorEnvelope` (`code`, `retryable`, `message_key`).
+
+**Amended at Code Generation** by U1's NFR requirements
+(`construction/usernames-backend/nfr-requirements/security-requirements.md`
+§ Amendments) and its functional design: both lookups are `POST` with a JSON
+body, so no username reaches a URL (NFR3.5); statuses are the built ones --
+400 for a taxonomy refusal, 422 for a schema refusal (functional-spec § 10
+issue 1); `account.username.retry_limit` is removed and
+`account.username.password_required` added (Q1, R-05); `POST /v1/accounts`
+gains a 409, `POST /v1/auth/verify` and `PUT /v1/me/username` a 429. The
+committed `openapi.json` is the authoritative copy of this block.
 
 ```yaml
 openapi: 3.1.0
@@ -62,7 +74,9 @@ paths:
             schema: { $ref: '#/components/schemas/SignupRequest' }
       responses:
         '201': { description: Draft stored and code sent; identical whether or not the contact has an account }
-        '422': { description: "Validation; message_key in account.username.* for a username refusal (FR1.6)" }
+        '400': { description: "A username rule refused it: account.username.* (FR1.6); judged before the contact is read" }
+        '409': { description: "account.username.unavailable: taken or held; identical whether or not the contact has an account (BR2.2, NFR1.7)" }
+        '422': { description: Schema refusal, including a missing username }
   /v1/auth/verify:                   # existing
     post:
       requestBody:
@@ -73,11 +87,11 @@ paths:
         '200': { description: As today (password-setup token); the account now has the draft's username }
         '409':
           description: >
-            account.username.unavailable — the draft's username was taken after
-            the draft was stored. Nothing was consumed: the code still works.
-            Retry this call with the same code and a replacement `username`
-            (ADR-011). After the draft's replacement limit,
-            account.username.retry_limit and the draft must be started again.
+            account.username.unavailable — the draft's username (or the
+            replacement) can no longer be claimed. Nothing was consumed: the
+            code still works. Retry this call with the same code and a
+            replacement `username` (ADR-011).
+        '429': { description: "auth.lookup.too_many — the replacement ceilings (Family C, 5 per destination per hour); the code was not read and still works without a replacement" }
   /v1/auth/password:                 # existing: password sign-in
     post:
       requestBody:
@@ -86,11 +100,14 @@ paths:
             schema: { $ref: '#/components/schemas/PasswordSignInRequest' }
       responses:
         '200': { description: As today (VerifyResponse with tokens, or the MFA challenge) }
-        '422': { description: "auth.password.wrong for unknown, password-less and wrong alike (NFR1); auth.password.too_many_attempts at a ceiling" }
+        '400': { description: "auth.password.wrong for unknown, password-less and wrong alike (NFR1.1); email.invalid for a login holding @ that is no address" }
+        '409': { description: "auth.password.too_many_attempts at a ceiling (Family D for a username)" }
   /v1/accounts/username-availability:   # NEW, public, allowlisted (FR3.3)
-    get:
-      parameters:
-        - { name: username, in: query, required: true, schema: { type: string, maxLength: 64 } }
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UsernameAvailabilityRequest' }
       responses:
         '200':
           content:
@@ -98,18 +115,21 @@ paths:
               schema: { $ref: '#/components/schemas/UsernameAvailabilityResponse' }
         '429': { description: "auth.lookup.too_many — availability ceilings (FR3.2); the form can still be submitted" }
   /v1/me/username-availability:      # NEW, authenticated, lens-exempt
-    get:
-      description: As the public lookup, except a name held by the caller's own account answers available (reclaim, ADR-012). Used in Settings.
-      parameters:
-        - { name: username, in: query, required: true, schema: { type: string, maxLength: 64 } }
+    post:
+      description: As the public lookup, except a name the caller's own account holds (its current key, or a live hold it released) answers available (reclaim, ADR-012). Used in Settings.
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UsernameAvailabilityRequest' }
       responses:
         '200':
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UsernameAvailabilityResponse' }
+        '429': { description: "auth.lookup.too_many — availability ceilings" }
   /v1/me/username:                   # NEW, authenticated, lens-exempt
     put:
-      description: Choose the first username (no password needed, no limit), rename, or reclaim.
+      description: Choose the first username (no password needed, no limit), rename, reclaim, or change only its case.
       requestBody:
         content:
           application/json:
@@ -119,8 +139,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UsernameChangeResponse' }
-        '409': { description: "account.username.unavailable, or account.username.change_too_soon (with next_change_at in the response body's details)" }
-        '422': { description: "account.username.* format refusals; auth.password.current_wrong when a rename's password is wrong" }
+        '400': { description: "account.username.* format refusals; account.username.password_required (none sent, or the account has none); auth.password.current_wrong when a rename's password is wrong" }
+        '409': { description: "account.username.unavailable, or account.username.change_too_soon (with next_change_at in the response body's details); auth.password.too_many_attempts" }
+        '429': { description: "auth.lookup.too_many — the claim ceilings (Family B, 10 per account per hour)" }
   /v1/me:                            # existing
     get:
       responses:
@@ -140,6 +161,10 @@ components:
       description: Exactly one of login, phone, email (Q1). phone and email keep their meaning.
       properties:
         login: { type: [string, 'null'], maxLength: 254, description: "What the person typed: username, phone or email; classified on the server (ADR-003)" }
+    UsernameAvailabilityRequest:
+      required: [username]
+      properties:
+        username: { type: string, maxLength: 64 }
     UsernameAvailabilityResponse:
       required: [status]
       properties:
@@ -161,13 +186,14 @@ components:
         username_required: { type: boolean, description: "True while the account has no username (FR5.1, ADR-008)" }
 ```
 
-New `message_key` values (added to `message-keys.json` and to both clients'
-Bangla and English bundles in U1): `account.username.too_short`,
+New `message_key` values (added to `message-keys.json` in U1, and to both
+clients' Bangla and English bundles by U3 and U4): `account.username.too_short`,
 `account.username.too_long`, `account.username.invalid_character`,
 `account.username.must_start_with_letter`, `account.username.bad_dot`,
 `account.username.reserved`, `account.username.unavailable`,
-`account.username.change_too_soon`, `account.username.retry_limit`,
-`auth.lookup.too_many`.
+`account.username.change_too_soon`, `account.username.password_required`.
+`auth.lookup.too_many` already existed (U2). `account.username.retry_limit` is
+not added: nothing emits it (Q1).
 
 Behaviour the shapes do not show:
 

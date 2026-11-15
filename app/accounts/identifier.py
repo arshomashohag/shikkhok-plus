@@ -33,7 +33,10 @@ __all__ = [
     "EMAIL_MAX_LENGTH",
     "Channel",
     "Identifier",
+    "LoginSubject",
+    "UsernameSubject",
     "canonical_email",
+    "classify_login",
     "optional_email",
     "resolve_link_target",
 ]
@@ -128,6 +131,49 @@ class Identifier:
             "phone": self.value if self.is_phone else None,
             "email": None if self.is_phone else self.value,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class UsernameSubject:
+    """A sign-in typed as a username [U1: BR4.2, ADR-003].
+
+    Kept apart from :class:`Identifier`, which stays phone-or-email: a
+    username is never a destination a code can be sent to, so widening
+    that type would let a username reach a function that sends one.
+
+    :ivar key: The trimmed, lowercased text. **Not judged against FR1**:
+        a malformed one is a key no account has, refused like any unknown
+        name, so a format rule cannot tell a real name from a typo
+    """
+
+    key: str
+
+
+#: What the single sign-in field was classified as.
+LoginSubject = Identifier | UsernameSubject
+
+
+def classify_login(raw: str) -> LoginSubject:
+    """Classify what was typed into the sign-in field [U1: BR4.2, FR4.1].
+
+    Email if it contains ``@``; else a phone if it is a Bangladeshi
+    mobile number in any accepted spelling; else a username. The three
+    are disjoint because a username starts with a letter and holds no
+    ``@`` (ADR-003). A mistyped number falls through to a username
+    nobody has, and gets the one uniform refusal.
+
+    :param raw: The ``login`` field, as typed
+    :return: The canonical email, the canonical phone, or the username key
+    :raises ValidationError: It contains ``@`` and is not an address --
+        the one answer here that depends on no account
+    """
+    text = raw.strip()
+    if "@" in text:
+        return Identifier.email(text)
+    try:
+        return Identifier.phone(text)
+    except ValidationError:
+        return UsernameSubject(key=text.lower())
 
 
 def canonical_email(raw: str) -> str:

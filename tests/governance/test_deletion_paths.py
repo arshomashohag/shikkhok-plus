@@ -149,11 +149,13 @@ def test_the_public_route_count_is_unchanged_by_this_unit() -> None:
     "pre-declared D6 scope", precisely so the public-route allowlist is
     not edited in the same commit that adds a public route. D6 left the
     count at eight; the admin and app MFA sign-in routes later moved it to
-    twelve [0028], with no deletion route among them.
+    twelve [0028], password sign-in and setup to fourteen [0032], and the
+    public username lookup to fifteen [U1: BR3.5], with no deletion route
+    among them.
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 14
+    assert len(PUBLIC_ROUTES) == 15
     assert ("GET", "/account-deletion") in PUBLIC_ROUTES
     assert ("POST", "/account-deletion") in PUBLIC_ROUTES
 
@@ -1066,3 +1068,85 @@ def test_a_contact_added_while_the_account_is_deleted_is_still_covered(
         sa.text("SELECT count(*) FROM otp_request WHERE email = :e"), {"e": email}
     ).scalar_one()
     assert left == 0
+
+
+# ---------------------------------------------------------------------------
+# The deletion hold [U1: BR7.5, NFR3.8]. Written FIRST: whether a just-
+# deleted name can be taken by someone else is an authorization answer.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("path", ["external", "in_app"])
+def test_both_paths_leave_a_thirty_day_digest_only_hold_for_nobody(
+    client: TestClient, owner_session: Session, path: str
+) -> None:
+    """One hold row: the keyed digest, 30 days, no releasing account.
+
+    [BR7.5, NFR3.8] Placed inside the deletion's one transaction, before
+    the account row goes. The row stores no part of the name, and the
+    name then reads as unavailable to anyone.
+
+    :param client: The test client
+    :param owner_session: An arranging session, and the reader
+    :param path: Which deletion route to drive
+    :return: None
+    """
+    import datetime as dt
+
+    from app.accounts import usernames
+    from tests.accounts.signup_support import named_account
+
+    name = f"Zq_Del_{uuid.uuid4().hex[:8]}"
+    account_id, phone = named_account(owner_session, name)
+    before = dt.datetime.now(tz=dt.UTC)
+
+    if path == "external":
+        _delete_externally(client, owner_session, phone)
+    else:
+        _delete_in_app(client, owner_session, account_id)
+
+    after = dt.datetime.now(tz=dt.UTC)
+    owner_session.expire_all()
+    rows = owner_session.execute(sa.text("SELECT * FROM username_hold")).all()
+    assert len(rows) == 1
+    hold = rows[0]
+    assert hold.key_digest == usernames.hold_digest(name.lower())
+    assert hold.releasing_account_id is None
+    thirty = dt.timedelta(days=30)
+    assert before + thirty <= hold.held_until <= after + thirty
+    assert name.lower() not in repr(rows).lower()
+    lookup = client.post("/v1/accounts/username-availability", json={"username": name})
+    assert lookup.json()["status"] == "unavailable"
+
+
+def test_the_deletion_routes_take_no_login_field(client: TestClient) -> None:
+    """Deletion stays phone-or-email [BR9.1, NFR3.9] (test-after).
+
+    :param client: The test client
+    :return: None
+    """
+    refused = client.post("/account-deletion", json={"login": "rahim_01"})
+
+    assert refused.status_code == 422
+
+
+def test_an_account_with_no_username_leaves_no_hold(
+    client: TestClient, owner_session: Session
+) -> None:
+    """Nothing to hold, nothing written [BR7.5].
+
+    :param client: The test client
+    :param owner_session: An arranging session, and the reader
+    :return: None
+    """
+    from tests.accounts.signup_support import named_account
+
+    account_id, _ = named_account(owner_session)
+
+    _delete_in_app(client, owner_session, account_id)
+
+    owner_session.expire_all()
+    holds = owner_session.execute(
+        sa.text("SELECT count(*) FROM username_hold")
+    ).scalar_one()
+    assert holds == 0

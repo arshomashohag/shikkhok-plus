@@ -84,6 +84,19 @@ victim's number stopped that number signing up for a day -- the student
 or guardian a teacher had just enrolled, in the middle of acceptance.
 The lookup now counts per /64, per /48 and against a separate, higher
 per-number allowance, and spends nothing signup needs.
+
+**Usernames add four families, none reading another's rows** [U1:
+NFR2]. A, the typing lookups, per /64 and per /48; B, claims, per
+account, /64 and /48; C, sign-up replacements at verify, per destination
+and per /64 -- each a committing cascade over :meth:`_consume`, and each
+counted product-wide in one alert-only scope. Their refusals are the
+lookup's own 429. D, failed username sign-ins, is **peeked, never
+consumed**, like the password scopes: per username and /64, per /64, per
+/48, and per username across networks -- and that last one refuses only
+a network that has already failed the name three times, so a stranger
+filling it from elsewhere cannot lock the owner out of their own
+network. Family D refuses in sign-in's words, and never reads or writes
+the codes' ``vf_*`` scopes or ``pw_fail_id_hour``.
 """
 
 from __future__ import annotations
@@ -123,6 +136,19 @@ __all__ = [
     "SIGNUP_PER_COARSE_IP_HOURLY",
     "SIGNUP_PER_IP_HOURLY",
     "SIGNUP_PER_NUMBER_DAILY",
+    "USERNAME_CLAIMS_PER_ACCOUNT_HOURLY",
+    "USERNAME_CLAIMS_PER_COARSE_IP_HOURLY",
+    "USERNAME_CLAIMS_PER_IP_HOURLY",
+    "USERNAME_FAILURES_ACROSS_NETWORKS_HOURLY",
+    "USERNAME_FAILURES_PER_COARSE_IP_HOURLY",
+    "USERNAME_FAILURES_PER_IP_HOURLY",
+    "USERNAME_FAILURES_PER_NAME_AND_NETWORK_HOURLY",
+    "USERNAME_FAILURES_TO_BLOCK_A_NETWORK",
+    "USERNAME_LOOKUPS_GLOBAL_HOURLY",
+    "USERNAME_LOOKUPS_PER_COARSE_IP_HOURLY",
+    "USERNAME_LOOKUPS_PER_IP_HOURLY",
+    "USERNAME_REPLACEMENTS_PER_DESTINATION_HOURLY",
+    "USERNAME_REPLACEMENTS_PER_IP_HOURLY",
     "VERIFY_FAILURES_GLOBAL_HOURLY",
     "VERIFY_FAILURES_PER_COARSE_IP_HOURLY",
     "VERIFY_FAILURES_PER_IP_HOURLY",
@@ -308,6 +334,62 @@ DEAD_CODES_PER_NUMBER_DAILY: Final = 2
 #: deliberate, rare act; a loop opening many is not.
 CENTRES_PER_ACCOUNT_DAILY: Final = 3
 
+# Usernames [U1: NFR2]. Each limit is the NFR2 table's; the lookup ones
+# equal the already-added lookup's, so they are no looser [NFR2.1].
+
+#: Family A: availability checks from one /64 (IPv4: /24) in an hour.
+USERNAME_LOOKUPS_PER_IP_HOURLY: Final = 30
+
+#: Family A: the same from one /48 (IPv4: /24).
+USERNAME_LOOKUPS_PER_COARSE_IP_HOURLY: Final = 100
+
+#: Every username-existence answer served across the product in an hour
+#: -- both lookups, every claim, every replacement -- at which the
+#: operator is alerted. **Alert only**, on the lookup's own reasoning. **A
+#: value, not a decision**, configured at deployment.
+USERNAME_LOOKUPS_GLOBAL_HOURLY: Final = int(
+    os.environ.get("SHIKKHOKPLUS_GLOBAL_HOURLY_USERNAME_LOOKUPS", "1000")
+)
+
+#: Family B: ``PUT /v1/me/username`` attempts per account in an hour
+#: [NFR1.6, NFR2.2]. A person choosing or renaming tries a few names.
+USERNAME_CLAIMS_PER_ACCOUNT_HOURLY: Final = 10
+
+#: Family B: the same from one /64, bounding one caller holding several
+#: accounts.
+USERNAME_CLAIMS_PER_IP_HOURLY: Final = 30
+
+#: Family B: the same from one /48.
+USERNAME_CLAIMS_PER_COARSE_IP_HOURLY: Final = 100
+
+#: Family C: verify requests carrying a replacement username, per
+#: destination, in an hour [NFR2.3].
+USERNAME_REPLACEMENTS_PER_DESTINATION_HOURLY: Final = 5
+
+#: Family C: the same from one /64.
+USERNAME_REPLACEMENTS_PER_IP_HOURLY: Final = 20
+
+#: Family D: failed sign-ins on one username from one /64 in an hour
+#: [NFR2.4].
+USERNAME_FAILURES_PER_NAME_AND_NETWORK_HOURLY: Final = 10
+
+#: Family D: failed username sign-ins for ANY username from one /64.
+USERNAME_FAILURES_PER_IP_HOURLY: Final = 20
+
+#: Family D: the same from one /48.
+USERNAME_FAILURES_PER_COARSE_IP_HOURLY: Final = 60
+
+#: Family D: failed sign-ins on one username across every network in an
+#: hour. Reaching it refuses only a network that has failed that name
+#: :data:`USERNAME_FAILURES_TO_BLOCK_A_NETWORK` times or more.
+USERNAME_FAILURES_ACROSS_NETWORKS_HOURLY: Final = 20
+
+#: How many failures on a name a network must already have before a full
+#: across-networks count refuses it [this plan's decision; NFR2.4]. Three,
+#: not one: an owner who mistypes once or twice on their own network is
+#: not locked out by a stranger who fills the across-networks count.
+USERNAME_FAILURES_TO_BLOCK_A_NETWORK: Final = 3
+
 _HOUR = dt.timedelta(hours=1)
 _DAY = dt.timedelta(days=1)
 
@@ -399,6 +481,25 @@ class ScopeKind(enum.Enum):
     # [U2: BR5.6]. Fifteen characters, inside `String(16)`. Consumed only
     # by the NON-committing consume, inside the change's own transaction.
     CONTACT_CHANGE_DAILY = "contact_chg_day"
+    # Usernames [U1: NFR2], four families that read none of each other's
+    # rows, every name inside `String(16)` (lengths in the NFR2 table).
+    # Family A, the typing lookups.
+    USERNAME_LOOKUP_IP_HOURLY = "un_lk_ip_hour"
+    USERNAME_LOOKUP_IP48_HOURLY = "un_lk_ip48_hour"
+    # Alert-only, shared by A, B and C: every existence answer served.
+    USERNAME_LOOKUP_GLOBAL_HOURLY = "un_lk_global_hr"
+    # Family B, claims.
+    USERNAME_CLAIM_ACCOUNT_HOURLY = "un_cl_acct_hour"
+    USERNAME_CLAIM_IP_HOURLY = "un_cl_ip_hour"
+    USERNAME_CLAIM_IP48_HOURLY = "un_cl_ip48_hr"
+    # Family C, replacements at verify.
+    USERNAME_REPLACE_DEST_HOURLY = "un_rp_dest_hour"
+    USERNAME_REPLACE_IP_HOURLY = "un_rp_ip_hour"
+    # Family D, failed username sign-ins: peeked, never consumed.
+    USERNAME_FAIL_NET_HOURLY = "un_fail_net_hour"
+    USERNAME_FAIL_IP_HOURLY = "un_fail_ip_hour"
+    USERNAME_FAIL_IP48_HOURLY = "un_fail_ip48_hr"
+    USERNAME_FAIL_HOURLY = "un_fail_hour"
 
 
 #: The scopes whose breach reaches a human. Declared beside the enum
@@ -415,6 +516,17 @@ _ALERTING_SCOPES: Final = frozenset(
         ScopeKind.EMAIL_GLOBAL_DAILY,
         ScopeKind.PASSWORD_FAIL_GLOBAL_HOURLY,
         ScopeKind.LOOKUP_GLOBAL_HOURLY,
+        ScopeKind.USERNAME_LOOKUP_GLOBAL_HOURLY,
+    }
+)
+
+#: Family D, whose refusal is a SIGN-IN refusal [U1: BR4.6, NFR2.6].
+_USERNAME_FAILURE_SCOPES: Final = frozenset(
+    {
+        ScopeKind.USERNAME_FAIL_NET_HOURLY,
+        ScopeKind.USERNAME_FAIL_IP_HOURLY,
+        ScopeKind.USERNAME_FAIL_IP48_HOURLY,
+        ScopeKind.USERNAME_FAIL_HOURLY,
     }
 )
 
@@ -509,11 +621,25 @@ class CeilingBreach(ConflictError):
     #: retry-after hint, for the phone and the email form alike [U2:
     #: BR4.4]. It used to read in signup's words with a 409; the lookup
     #: contracts fix 429, and keeping the class keeps "do not retry".
+    #:
+    #: Usernames' Families A, B and C join it [U1: NFR2.6]: a typing
+    #: lookup, a claim and a sign-up replacement are each an existence
+    #: question, refused alike. The alert-only global scope is listed too,
+    #: though it never refuses, so no ``un_`` member can fall through to
+    #: the OTP path's words.
     _LOOKUP_SCOPES: Final = frozenset(
         {
             ScopeKind.LOOKUP_NUMBER_DAILY,
             ScopeKind.LOOKUP_IP_HOURLY,
             ScopeKind.LOOKUP_IP48_HOURLY,
+            ScopeKind.USERNAME_LOOKUP_IP_HOURLY,
+            ScopeKind.USERNAME_LOOKUP_IP48_HOURLY,
+            ScopeKind.USERNAME_LOOKUP_GLOBAL_HOURLY,
+            ScopeKind.USERNAME_CLAIM_ACCOUNT_HOURLY,
+            ScopeKind.USERNAME_CLAIM_IP_HOURLY,
+            ScopeKind.USERNAME_CLAIM_IP48_HOURLY,
+            ScopeKind.USERNAME_REPLACE_DEST_HOURLY,
+            ScopeKind.USERNAME_REPLACE_IP_HOURLY,
         }
     )
 
@@ -557,6 +683,14 @@ class CeilingBreach(ConflictError):
                 message_key="auth.verify.temporarily_unavailable",
             )
         elif scope is ScopeKind.PASSWORD_FAIL_ID_HOURLY:
+            super().__init__(
+                code="TEMPORARILY_UNAVAILABLE",
+                message_key="auth.password.too_many_attempts",
+            )
+        elif scope in _USERNAME_FAILURE_SCOPES:
+            # Family D answers in sign-in's words, as its own literal
+            # [U1: BR4.6, NFR2.6], rather than falling through to the OTP
+            # path's text.
             super().__init__(
                 code="TEMPORARILY_UNAVAILABLE",
                 message_key="auth.password.too_many_attempts",
@@ -742,6 +876,306 @@ class CeilingChecker:
         moment = now or dt.datetime.now(tz=dt.UTC)
         if self._increment(alerting, GLOBAL_SCOPE_VALUE, moment) == alerting.limit:
             fire_ceiling_alert(alerting.kind.value)
+
+    def check_and_consume_username_lookup(
+        self,
+        ip_prefix: str,
+        coarse_prefix: str,
+        now: dt.datetime | None = None,
+    ) -> None:
+        """Consume one availability check, refusing at the narrowest breach.
+
+        **Family A** [U1: BR3.3, NFR2.1]: both lookups, public and signed
+        in, on one counter per network, consumed for every candidate --
+        valid or not -- before it is judged, so the refusal cannot depend
+        on the answer. No per-account scope: the same caller can use the
+        public lookup, so one would bound nothing. A refusal never blocks
+        the form; the submission's own check decides [BR3.4].
+
+        :param ip_prefix: The caller's /64 (IPv4: /24)
+        :param coarse_prefix: The caller's /48 (IPv4: /24)
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: A lookup ceiling refused this request
+        """
+        self._consume(
+            [
+                (
+                    _Scope(
+                        ScopeKind.USERNAME_LOOKUP_IP_HOURLY,
+                        USERNAME_LOOKUPS_PER_IP_HOURLY,
+                        _HOUR,
+                    ),
+                    ip_prefix,
+                ),
+                (
+                    _Scope(
+                        ScopeKind.USERNAME_LOOKUP_IP48_HOURLY,
+                        USERNAME_LOOKUPS_PER_COARSE_IP_HOURLY,
+                        _HOUR,
+                    ),
+                    coarse_prefix,
+                ),
+            ],
+            now,
+        )
+        self._count_username_answer(now)
+
+    def check_and_consume_username_claim(
+        self,
+        account_id: uuid.UUID,
+        ip_prefix: str,
+        coarse_prefix: str,
+        now: dt.datetime | None = None,
+    ) -> None:
+        """Consume one ``PUT /v1/me/username``, refusing at the narrowest breach.
+
+        **Family B** [U1: NFR1.6, NFR2.2]: consumed after the format
+        check and before the password check, any lock, or any read of
+        another account or hold, so an authenticated claim is never an
+        unmetered oracle. Separate from Family A, so people typing on a
+        shared network never stop someone finishing the choose-username
+        screen. Committing, so the bounded retry never re-counts it.
+
+        :param account_id: The claiming account
+        :param ip_prefix: The caller's /64 (IPv4: /24)
+        :param coarse_prefix: The caller's /48 (IPv4: /24)
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: A claim ceiling refused this request
+        """
+        self._consume(
+            [
+                (
+                    _Scope(
+                        ScopeKind.USERNAME_CLAIM_ACCOUNT_HOURLY,
+                        USERNAME_CLAIMS_PER_ACCOUNT_HOURLY,
+                        _HOUR,
+                    ),
+                    str(account_id),
+                ),
+                (
+                    _Scope(
+                        ScopeKind.USERNAME_CLAIM_IP_HOURLY,
+                        USERNAME_CLAIMS_PER_IP_HOURLY,
+                        _HOUR,
+                    ),
+                    ip_prefix,
+                ),
+                (
+                    _Scope(
+                        ScopeKind.USERNAME_CLAIM_IP48_HOURLY,
+                        USERNAME_CLAIMS_PER_COARSE_IP_HOURLY,
+                        _HOUR,
+                    ),
+                    coarse_prefix,
+                ),
+            ],
+            now,
+        )
+        self._count_username_answer(now)
+
+    def check_and_consume_username_replacement(
+        self,
+        destination: str,
+        ip_prefix: str,
+        now: dt.datetime | None = None,
+    ) -> None:
+        """Consume one verify carrying a replacement username.
+
+        **Family C** [U1: BR2.6, NFR2.3]. Called before the code row is
+        read, while the session holds nothing else, so the cascade's
+        commit commits only the counters and the verify that follows can
+        roll back without undoing them. A correct code can therefore try
+        at most :data:`USERNAME_REPLACEMENTS_PER_DESTINATION_HOURLY`
+        names an hour for its destination. No /48 scope: the destinations
+        one caller can hold live codes for are already bounded by the
+        signup ceilings.
+
+        :param destination: The verify's destination counter key (a
+            phone, or ``e:`` and an email's hash)
+        :param ip_prefix: The caller's /64 (IPv4: /24)
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: A replacement ceiling refused this request
+        """
+        self._consume(
+            [
+                (
+                    _Scope(
+                        ScopeKind.USERNAME_REPLACE_DEST_HOURLY,
+                        USERNAME_REPLACEMENTS_PER_DESTINATION_HOURLY,
+                        _HOUR,
+                    ),
+                    destination,
+                ),
+                (
+                    _Scope(
+                        ScopeKind.USERNAME_REPLACE_IP_HOURLY,
+                        USERNAME_REPLACEMENTS_PER_IP_HOURLY,
+                        _HOUR,
+                    ),
+                    ip_prefix,
+                ),
+            ],
+            now,
+        )
+        self._count_username_answer(now)
+
+    def check_username_sign_in_allowed(
+        self,
+        *,
+        name_value: str,
+        network_value: str,
+        ip_prefix: str,
+        coarse_prefix: str,
+        now: dt.datetime | None = None,
+    ) -> None:
+        """Refuse a username sign-in while a Family D ceiling is full.
+
+        [U1: BR4.5, BR4.6, NFR2.4] **Read, never incremented**, in this
+        order, refusing at the first match: the name on this network at
+        10; any name from this /64 at 20; from this /48 at 60; and the
+        name across networks at 20 -- **only when this network has failed
+        that name three times already**. That last condition is what
+        keeps a stranger who fills the across-networks count from
+        refusing the owner on the owner's own network.
+
+        Never reads ``pw_fail_id_hour`` or the codes' ``vf_*`` scopes, so
+        a phone, email or code sign-in is never refused by a username's
+        counters, and the reverse.
+
+        :param name_value: The name's across-networks counter value
+        :param network_value: The name-and-network counter value
+        :param ip_prefix: The caller's /64 (IPv4: /24)
+        :param coarse_prefix: The caller's /48 (IPv4: /24)
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: A Family D ceiling is full
+        """
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        per_network = self._peek(
+            _Scope(
+                ScopeKind.USERNAME_FAIL_NET_HOURLY,
+                USERNAME_FAILURES_PER_NAME_AND_NETWORK_HOURLY,
+                _HOUR,
+            ),
+            network_value,
+            moment,
+        )
+        if per_network >= USERNAME_FAILURES_PER_NAME_AND_NETWORK_HOURLY:
+            raise CeilingBreach(ScopeKind.USERNAME_FAIL_NET_HOURLY)
+        for scope, value in self._username_prefix_scopes(ip_prefix, coarse_prefix):
+            if self._peek(scope, value, moment) >= scope.limit:
+                raise CeilingBreach(scope.kind)
+        across = self._username_across_scope()
+        if (
+            self._peek(across, name_value, moment) >= across.limit
+            and per_network >= USERNAME_FAILURES_TO_BLOCK_A_NETWORK
+        ):
+            raise CeilingBreach(across.kind)
+
+    def record_username_failure(
+        self,
+        *,
+        name_value: str,
+        network_value: str,
+        ip_prefix: str,
+        coarse_prefix: str,
+        now: dt.datetime | None = None,
+    ) -> None:
+        """Count one failed username sign-in, each scope committed [BR4.5].
+
+        Counted identically for a username nobody has, so the counters say
+        nothing about who exists. The product-wide count is the password
+        path's own alert-only scope [SEC-1].
+
+        :param name_value: The name's across-networks counter value
+        :param network_value: The name-and-network counter value
+        :param ip_prefix: The caller's /64 (IPv4: /24)
+        :param coarse_prefix: The caller's /48 (IPv4: /24)
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        """
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        self._increment(
+            _Scope(
+                ScopeKind.USERNAME_FAIL_NET_HOURLY,
+                USERNAME_FAILURES_PER_NAME_AND_NETWORK_HOURLY,
+                _HOUR,
+            ),
+            network_value,
+            moment,
+        )
+        for scope, value in self._username_prefix_scopes(ip_prefix, coarse_prefix):
+            self._increment(scope, value, moment)
+        self._increment(self._username_across_scope(), name_value, moment)
+        alerting = _Scope(
+            ScopeKind.PASSWORD_FAIL_GLOBAL_HOURLY,
+            PASSWORD_FAILURES_GLOBAL_HOURLY,
+            _HOUR,
+        )
+        if self._increment(alerting, GLOBAL_SCOPE_VALUE, moment) == alerting.limit:
+            fire_ceiling_alert(alerting.kind.value)
+
+    def _count_username_answer(self, now: dt.datetime | None) -> None:
+        """Count one username-existence answer product-wide, alert-only.
+
+        Alerts on the answer that fills the hour's scope, once, and never
+        refuses [U1: NFR2.1].
+
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        """
+        alerting = _Scope(
+            ScopeKind.USERNAME_LOOKUP_GLOBAL_HOURLY,
+            USERNAME_LOOKUPS_GLOBAL_HOURLY,
+            _HOUR,
+        )
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        if self._increment(alerting, GLOBAL_SCOPE_VALUE, moment) == alerting.limit:
+            fire_ceiling_alert(alerting.kind.value)
+
+    @staticmethod
+    def _username_prefix_scopes(
+        ip_prefix: str, coarse_prefix: str
+    ) -> list[tuple[_Scope, str]]:
+        """Build Family D's per-network scopes, narrowest first.
+
+        :param ip_prefix: The caller's /64 (IPv4: /24)
+        :param coarse_prefix: The caller's /48 (IPv4: /24)
+        :return: Each scope paired with the value it counts against
+        """
+        return [
+            (
+                _Scope(
+                    ScopeKind.USERNAME_FAIL_IP_HOURLY,
+                    USERNAME_FAILURES_PER_IP_HOURLY,
+                    _HOUR,
+                ),
+                ip_prefix,
+            ),
+            (
+                _Scope(
+                    ScopeKind.USERNAME_FAIL_IP48_HOURLY,
+                    USERNAME_FAILURES_PER_COARSE_IP_HOURLY,
+                    _HOUR,
+                ),
+                coarse_prefix,
+            ),
+        ]
+
+    @staticmethod
+    def _username_across_scope() -> _Scope:
+        """Return Family D's per-username, across-networks scope.
+
+        :return: The scope
+        """
+        return _Scope(
+            ScopeKind.USERNAME_FAIL_HOURLY,
+            USERNAME_FAILURES_ACROSS_NETWORKS_HOURLY,
+            _HOUR,
+        )
 
     def check_verify_allowed(
         self,

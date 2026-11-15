@@ -76,6 +76,9 @@ class RetentionClass(enum.Enum):
     HOURS_48 = "48_hours"
     MONTHS_12 = "12_months"
     UNTIL_EXPIRY_PLUS_30_DAYS = "until_expiry_plus_30_days"
+    #: Kept until the row's own expiry and no longer [U1: BR7.6]: the
+    #: purge's window is zero, measured from the expiry column.
+    UNTIL_EXPIRY = "until_expiry"
     LIFE_OF_ACCOUNT = "life_of_account"
 
 
@@ -129,7 +132,10 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "with their account links cleared by the database "
             "constraint rather than by the deletion code, so a new "
             "account registering the same number or address later "
-            "inherits nothing from the deleted one."
+            "inherits nothing from the deleted one. The username is "
+            "removed with the account; for 30 days afterwards nobody may "
+            "take it, which is recorded only as a keyed digest of the "
+            "name."
         ),
     ),
     "profile": TableGovernance(
@@ -194,14 +200,32 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         basis=(
             "A deletion request does nothing to these rows, and that is "
             "deliberate rather than an omission. The counters are keyed "
-            "on a scope VALUE -- for two of the seven scopes a phone "
-            "number -- and they are the abuse control itself, so "
-            "clearing a number's counters on request would make the "
-            "public deletion route the way to reset the ceilings "
-            "protecting it. They are not a record about a person; they "
-            "are a count of recent attempts, and they expire on their "
-            "own 48-hour window, which is longer than the longest "
-            "counting window with room to spare."
+            "on a scope VALUE -- for some scopes a phone number, or a "
+            "keyed or one-way digest of an email address or a username "
+            "-- and they are the abuse control itself, so clearing a "
+            "number's counters on request would make the public deletion "
+            "route the way to reset the ceilings protecting it. They are "
+            "not a record about a person; they are a count of recent "
+            "attempts, and they expire on their own 48-hour window, which "
+            "is longer than the longest counting window with room to "
+            "spare."
+        ),
+    ),
+    # [U1: BR7.7] Retained with its basis, until its own expiry: it is a
+    # record about a released name, kept so the name cannot be taken
+    # over, and it holds no name to remove.
+    "username_hold": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.UNTIL_EXPIRY,
+        basis=(
+            "When a username is changed or its account is deleted, the old "
+            "name is held for 30 days so nobody else can take it and pass "
+            "themselves off as its owner. The hold stores a keyed digest "
+            "of the lowercase name, never the name itself, and its expiry; "
+            "while the account that changed it still exists, the hold "
+            "also names that account, so it alone can take the name back, "
+            "and that link is cleared when the account is deleted. A hold "
+            "is removed when it expires."
         ),
     ),
     "auth_audit_log": TableGovernance(

@@ -29,7 +29,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import Session
 
-from app.accounts import decisions, service
+from app.accounts import decisions, service, usernames
 from app.accounts.identifier import EMAIL_MAX_LENGTH, Channel, Identifier
 from app.api.auth import (
     coarse_prefix_of,
@@ -61,9 +61,14 @@ from app.schemas.accounts import (
     SignupRequest,
     SignupResponse,
 )
+from app.schemas.errors import ErrorEnvelope
 from app.schemas.identifier import EmailField
 from app.schemas.money import Money as WireMoney
 from app.schemas.phone import PhoneField
+from app.schemas.usernames import (
+    UsernameAvailabilityRequest,
+    UsernameAvailabilityResponse,
+)
 
 __all__ = ["router"]
 
@@ -141,6 +146,19 @@ def _as_response(row: InvitationRow) -> InvitationResponse:
     "/accounts",
     response_model=SignupResponse,
     status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {
+            "model": ErrorEnvelope,
+            "description": "A username rule refused it (account.username.*)",
+        },
+        409: {
+            "model": ErrorEnvelope,
+            "description": (
+                "account.username.unavailable: the name is taken or held; "
+                "identical whether or not the contact has an account"
+            ),
+        },
+    },
 )
 def sign_up(
     body: SignupRequest,
@@ -204,7 +222,16 @@ def sign_up(
         write_audit(session, None, AuthEvent.SIGNUP_CEILING_BREACHED, correlation_id)
         raise
 
+    # The username, judged and found available BEFORE anything reads the
+    # contact [U1: BR2.1, BR2.2, BR2.9], so a username answer says
+    # nothing about whether this number or address has an account. Not
+    # counted against the availability ceilings: the signup ceilings,
+    # consumed above, are tighter. The draft reserves nothing [BR2.3].
+    candidate = usernames.judge(body.username)
     moment = dt.datetime.now(tz=dt.UTC)
+    if not usernames.claim_allowed(session, candidate.key, None, moment):
+        raise usernames.UsernameUnavailable()
+
     draft_id = pending.save_draft(
         session,
         identifier=identifier,
@@ -216,6 +243,7 @@ def sign_up(
         address_postcode=body.address_postcode,
         centre_name=body.centre_name,
         now=moment,
+        username=candidate.text,
     )
     # Never the account id, known or not: saying which is the oracle.
     write_audit(
@@ -320,6 +348,54 @@ def lookup_already_added(
         # and pre-fills nothing, which is the behaviour wanted.
         display_name="" if found.exists else None,
         role=_ROLE_NAMES[found.role] if found.role is not None else None,
+    )
+
+
+@router.post(
+    "/accounts/username-availability",
+    response_model=UsernameAvailabilityResponse,
+    responses={
+        429: {
+            "model": ErrorEnvelope,
+            "description": (
+                "auth.lookup.too_many: the availability ceilings; the form "
+                "can still be submitted"
+            ),
+        },
+    },
+)
+def check_username_availability(
+    body: UsernameAvailabilityRequest,
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> UsernameAvailabilityResponse:
+    """Say whether a name could be taken, and nothing more [U1: BR3.1].
+
+    **Public, and in ``PUBLIC_ROUTES``**: it is called while the sign-up
+    form is typed into, before any account exists [BR3.5]. **A POST with
+    a body**, so no username reaches a URL or an access log [NFR3.5].
+
+    Four answers -- ``available``, ``unavailable``, ``invalid`` with the
+    rule's key, ``reserved`` -- and a held name is ``unavailable`` exactly
+    as a taken one is [ADR-007]. Bounded by its own ceilings, consumed for
+    every candidate before it is judged, so the refusal cannot depend on
+    the answer [BR3.3]; a refusal never blocks the form, whose submission
+    is judged on its own [BR3.4].
+
+    :param body: The candidate
+    :param request: The incoming request
+    :param session: The request-scoped session
+    :return: The status, and for ``invalid`` the rule it broke
+    :raises CeilingBreach: A lookup ceiling refused this request
+    """
+    CeilingChecker(session).check_and_consume_username_lookup(
+        ip_prefix=ip_prefix_of(request), coarse_prefix=coarse_prefix_of(request)
+    )
+    answer = usernames.availability(
+        session, body.username, caller=None, now=usernames.utc_now()
+    )
+    return UsernameAvailabilityResponse(
+        status=answer.status, message_key=answer.message_key
     )
 
 

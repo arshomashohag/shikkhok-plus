@@ -8,6 +8,13 @@ authorization error (who may sign in, who may take a name, who may see it).
 Those tests are written first. The other rules are test-after, written from
 the rule and never from the implementation.
 
+**Amended at Code Generation** by `nfr-requirements/security-requirements.md`
+§ Amendments (items 1 to 6) and by the code-generation plan's one added
+decision: in Family D the across-networks count refuses a network only once
+that network has failed the name 3 times (not 1). The amended rules say so
+in their own logic; BR2.6, BR3.1 to BR3.5, BR4.5 to BR4.7, BR6.1 and BR10.1
+changed.
+
 HTTP statuses follow the built taxonomy handler (`app/errors/handler.py`):
 `ValidationError` renders 400, `ConflictError` 409 (or 429 for a lookup
 ceiling), and a request the schema itself rejects (a missing required field,
@@ -231,22 +238,28 @@ rules:
     test_first: true
 
   - id: BR2.6
-    statement: Each replacement attempt is counted against the availability lookup's ceilings, committed before the verify reads the code, so no rollback can undo the count.
+    statement: Each replacement attempt is counted against the replacement ceilings (Family C), committed before the verify reads the code, so no rollback can undo the count.
     category: policy
-    applies_to: [POST /v1/auth/verify, RateLimitCounter un_lk_*]
+    applies_to: [POST /v1/auth/verify, RateLimitCounter un_rp_*, un_lk_global_hr]
     trigger: A verify request carrying a valid replacement username
     logic: >
-      After the existing failed-verify ceiling check and the BR1 judgement, and
-      BEFORE the code row is read or locked, consume one unit of un_lk_ip_hour
-      (caller's /64) and un_lk_ip48_hour (caller's /48) through the committing
-      cascade, then count un_lk_global_hr (alert-only). At that point the
-      session holds no other uncommitted work, so the cascade's commit commits
-      only the counters. The verify transaction that follows can roll back
-      without touching them. A correct code can therefore try exactly as many
-      names as the public lookup allows anyone to check, and no more. There is
-      no per-draft cap and no username_replacements column (Q1); a verify with
-      no replacement consumes nothing here.
-    violation: auth.lookup.too_many (ConflictError status 429, code TEMPORARILY_UNAVAILABLE, retryable false, no retry-after hint). Nothing else happens - the code is not read, no attempt is recorded, and the code still works from another network or after the window turns.
+      Amended by security-requirements.md NFR2.3 (Amendment 1). After the
+      existing failed-verify ceiling check and the BR1 judgement, and BEFORE
+      the code row is read or locked, consume one unit of un_rp_dest_hour
+      (the verify's destination counter key: the phone, or "e:" and the
+      email's hash; limit 5) and un_rp_ip_hour (caller's /64; limit 20)
+      through the committing cascade, then count un_lk_global_hr
+      (alert-only). At that point the session holds no other uncommitted
+      work, so the cascade's commit commits only the counters. The verify
+      transaction that follows can roll back without touching them. A
+      correct code can therefore try at most 5 names an hour for its
+      destination, fewer than the public lookup allows, and typing lookups
+      never spend this budget. There is no per-draft cap and no
+      username_replacements column (Q1); a verify with no replacement
+      consumes nothing here. Residual, stated plainly (NFR2.3): the count
+      precedes the code check, so a stranger can spend a destination's 5;
+      the person can still submit a new draft with another username.
+    violation: auth.lookup.too_many (ConflictError status 429, code TEMPORARILY_UNAVAILABLE, retryable false, no retry-after hint). Nothing else happens - the code is not read, no attempt is recorded, and the code still works without a replacement or after the window turns.
     source: [FR2.2, FR3.2]
     test_first: true
 
@@ -294,8 +307,8 @@ rules:
   - id: BR3.1
     statement: The public availability lookup answers only available, unavailable, invalid or reserved, and a held name is unavailable.
     category: authorization
-    applies_to: [GET /v1/accounts/username-availability, UsernameAvailabilityResponse]
-    trigger: An unauthenticated lookup
+    applies_to: [POST /v1/accounts/username-availability, UsernameAvailabilityResponse]
+    trigger: An unauthenticated lookup (a POST with the candidate in a JSON body, NFR3.5)
     logic: >
       After BR3.3's ceilings: IF the candidate fails BR1.1-BR1.5 THEN
       "invalid" with that rule's message_key; ELSE IF BR1.8 THEN "reserved";
@@ -311,8 +324,8 @@ rules:
   - id: BR3.2
     statement: The authenticated availability check differs from the public one only for names the caller itself holds.
     category: authorization
-    applies_to: [GET /v1/me/username-availability]
-    trigger: A signed-in lookup, used in Settings
+    applies_to: [POST /v1/me/username-availability]
+    trigger: A signed-in lookup, used in Settings (a POST with a body, NFR3.5)
     logic: >
       As BR3.1, except: IF the key is under a live hold whose releasing account
       is the caller THEN "available" (a rename would take it back, BR6.4 or
@@ -327,18 +340,23 @@ rules:
   - id: BR3.3
     statement: Both availability lookups are bounded by their own ceilings, counted before anything is read.
     category: policy
-    applies_to: [GET /v1/accounts/username-availability, GET /v1/me/username-availability]
+    applies_to: [POST /v1/accounts/username-availability, POST /v1/me/username-availability]
     trigger: Every lookup request that passes schema validation
     logic: >
-      Consume un_lk_ip_hour (/64) and un_lk_ip48_hour (/48) through the
-      committing cascade, narrowest first, refusing at the first breach with
-      nothing consumed; then count un_lk_global_hr product-wide, alerting once
-      on the request that fills it and never refusing. Counted for every
-      candidate, valid or not, before the candidate is judged, so the refusal
-      cannot depend on the answer. These counters are the availability
-      lookup's own and never the already-added lookup's (lk_*). The sign-up
-      replacement (BR2.6) consumes the same scopes. Limits are NFR
-      Requirements' (OQ3), no looser than the lk_* values.
+      Amended by security-requirements.md NFR2.1 (Amendment 1): Family A of
+      four. Consume un_lk_ip_hour (/64, limit 30) and un_lk_ip48_hour (/48,
+      limit 100) through the committing cascade, narrowest first, refusing
+      at the first breach with nothing consumed; then count un_lk_global_hr
+      product-wide (SHIKKHOKPLUS_GLOBAL_HOURLY_USERNAME_LOOKUPS, default
+      1000), alerting once on the request that fills it and never refusing.
+      Counted for every candidate, valid or not, before the candidate is
+      judged, so the refusal cannot depend on the answer. These counters are
+      the availability lookups' own and never the already-added lookup's
+      (lk_*). Claims (Family B: un_cl_acct_hour 10, un_cl_ip_hour 30,
+      un_cl_ip48_hr 100, consumed by PUT /v1/me/username after the format
+      check and before the password, NFR1.6) and sign-up replacements
+      (Family C, BR2.6) have their own scopes; no family reads another's
+      rows. All three count in un_lk_global_hr.
     violation: auth.lookup.too_many (429, TEMPORARILY_UNAVAILABLE, retryable false).
     source: [FR3.2]
     test_first: false
@@ -349,10 +367,14 @@ rules:
     applies_to: [the availability lookups, POST /v1/accounts, PUT /v1/me/username]
     trigger: A lookup is refused by BR3.3, or answers from a state that changes before submission
     logic: >
-      No sign-up or rename reads the lookup counters. A person refused by the
-      lookup can still submit; the submission is judged by BR2.2, BR2.4 or
-      BR6.9 at that moment, and an "available" answer that has gone stale is
-      refused there.
+      Amended by security-requirements.md NFR2.2 and NFR2.3 (Amendment 2).
+      No sign-up or rename reads the lookup counters (Family A). A person
+      refused by the lookup can still submit; the submission is judged by
+      BR2.2, BR2.4 or BR6.9 at that moment, and an "available" answer that
+      has gone stale is refused there. A claim refusal (Family B) and a
+      replacement refusal (Family C) do refuse that submission, by design:
+      the claimer tries again in the next window; the person replacing a
+      name can submit a new draft.
     violation: None.
     source: [FR3.2]
     test_first: false
@@ -363,13 +385,15 @@ rules:
     applies_to: [PUBLIC_ROUTES, LENS_EXEMPT_AUTHENTICATED]
     trigger: The routes are registered
     logic: >
-      ("GET", "/v1/accounts/username-availability") is added to PUBLIC_ROUTES
-      with a justification comment; the comment's stated count moves from
-      fourteen to fifteen, and every assertion of that count moves with it in
-      the same change. ("GET", "/v1/me/username-availability") and ("PUT",
-      "/v1/me/username") are added to LENS_EXEMPT_AUTHENTICATED, each on GET
-      /v1/me's reasoning: they act on the authenticated account alone and read
-      nothing another account owns beyond a yes or no.
+      Amended by security-requirements.md NFR3.5 (Amendment 5): both lookups
+      are POST with a body. ("POST", "/v1/accounts/username-availability") is
+      added to PUBLIC_ROUTES with a justification comment; the comment's
+      stated count moves from fourteen to fifteen, and every assertion of
+      that count moves with it in the same change. ("POST",
+      "/v1/me/username-availability") and ("PUT", "/v1/me/username") are
+      added to LENS_EXEMPT_AUTHENTICATED, each on GET /v1/me's reasoning:
+      they act on the authenticated account alone and read nothing another
+      account owns beyond a yes or no.
     violation: The route-enumeration gate fails CI for an unlisted route; a count assertion fails CI for a stale count.
     source: [FR3.3]
     test_first: true
@@ -442,21 +466,27 @@ rules:
     test_first: true
 
   - id: BR4.5
-    statement: Username sign-in failures are counted per username and network and per username across networks, on keys that cannot collide with any other counter.
+    statement: Username sign-in failures are counted per username and network, per network, and per username across networks (Family D), on keyed values that cannot collide with any other counter.
     category: policy
-    applies_to: [RateLimitCounter un_fail_net_hour, un_fail_hour]
+    applies_to: [RateLimitCounter un_fail_net_hour, un_fail_ip_hour, un_fail_ip48_hr, un_fail_hour]
     trigger: Every username sign-in, before the lookup and after a failure
     logic: >
-      Before the account is looked up, peek (read, never increment)
-      un_fail_net_hour on 'u:'+62 hex of SHA-256(key + '|' + /64) at limit 10,
-      un_fail_hour on 'u:'+62 hex of SHA-256(key) at limit 30, and the existing
-      shared per-/64 and per-/48 failed-verify scopes; refuse at the first full
-      one. On a failure (BR4.4), increment the two username scopes, the two
-      shared prefix scopes, and the alert-only global password scope, each
-      committed. A username subject never reads or writes pw_fail_id_hour, so a
-      username key and a phone or email key never share a counter; a 'u:' value
-      cannot equal a phone, an 'e:' email value or an 'acct:' value. Counted
-      identically for unknown and known usernames.
+      Amended by security-requirements.md NFR2.4 and NFR3.3 (Amendments 3 and
+      6), with the code-generation plan's three-failure rule. Before the
+      account is looked up, peek (read, never increment), in this order,
+      refusing at the first match: un_fail_net_hour >= 10; un_fail_ip_hour
+      (any username from this /64) >= 20; un_fail_ip48_hr (this /48) >= 60;
+      un_fail_hour >= 20 AND this network's un_fail_net_hour >= 3. On a
+      failure (BR4.4), increment all four and the existing alert-only
+      pwf_global_hour, each committed. Values are keyed: un_fail_hour is
+      'u:' + the first 62 hex of HMAC-SHA256 under SHIKKHOKPLUS_OTP_HMAC_KEY
+      over "username-counter:v1:" + key; un_fail_net_hour the same over
+      "username-counter:v1:" + key + "|" + /64. A username subject never
+      reads or writes pw_fail_id_hour, vf_ip_hour, vf_ip48_hour or
+      vf_global_hour, so a username key and a phone or email key never share
+      a counter and username failures never refuse a code verify; a 'u:'
+      value cannot equal a phone, an 'e:' email value or an 'acct:' value.
+      Counted identically for unknown and known usernames.
     violation: BR4.6.
     source: [FR4.4, FR4]
     test_first: true
@@ -468,10 +498,10 @@ rules:
     trigger: BR4.5's peek finds a full scope
     logic: >
       Refuse before any lookup or password work, write
-      PASSWORD_CEILING_BREACHED with no account id, commit. Both new scopes
-      answer the same key as pw_fail_id_hour; the ceiling refusal maps each by
-      a literal key, so a new scope cannot fall through to the OTP refusal
-      text.
+      PASSWORD_CEILING_BREACHED with no account id, commit. All four Family D
+      scopes answer the same key as pw_fail_id_hour; the ceiling refusal maps
+      them by a literal key, so a new scope cannot fall through to the OTP
+      refusal text (NFR2.6).
     violation: auth.password.too_many_attempts (ConflictError, 409, code TEMPORARILY_UNAVAILABLE).
     source: [FR4.4]
     test_first: true
@@ -480,13 +510,21 @@ rules:
     statement: A stranger cannot lock the owner out of username sign-in from another network, and never out of phone, email or code sign-in.
     category: authorization
     applies_to: [POST /v1/auth/password]
-    trigger: An attacker fills un_fail_net_hour for a known username from network N
+    trigger: An attacker fills un_fail_net_hour or un_fail_hour for a known username
     logic: >
-      A further attempt from N is refused (BR4.6). An attempt with the right
-      password from network M succeeds, because M's un_fail_net_hour counter is
-      separate, until un_fail_hour (30, all networks) is full. A full username
-      counter of either kind never refuses a sign-in by the same account's
-      phone or email (BR4.3) or a code verify, which do not read it.
+      Amended by security-requirements.md NFR2.4 (Amendment 3) and the
+      code-generation plan's three-failure rule. A further attempt from a
+      network N that has failed the name 10 times is refused (BR4.6). A
+      stranger who fills un_fail_hour (20, all networks) from their own
+      networks cannot refuse the owner's username sign-in from any network
+      on which that name has failed fewer than 3 times this window, so an
+      owner who mistyped once or twice on their own network still signs in.
+      A stranger sharing the owner's /64 (on IPv4 the /24) can refuse
+      username sign-in from that network for the rest of the window, by 10
+      failures on that name or 20 on any names; that residual is stated, not
+      removed. No username counter ever refuses a sign-in by the same
+      account's phone or email (BR4.3) or a code verify, which do not read
+      them.
     violation: None.
     source: [FR4.4]
     test_first: true
@@ -551,14 +589,18 @@ rules:
     applies_to: [PUT /v1/me/username, UsernameChangeRequest.password]
     trigger: The signed-in account already has a username
     logic: >
-      IF the account has no password THEN refuse with password_required (Q4;
-      the client reads has_password from GET /v1/me and routes to setting
-      one). ELSE IF the request carries no password THEN refuse with
-      password_required. ELSE check it under the existing current-password
-      ceilings (pw_fail_id_hour on 'acct:'+id, plus the shared per-prefix
-      scopes): a full ceiling refuses, a wrong password counts a failure,
-      commits it, and refuses. Only a confirmed password proceeds to the
-      unit of work.
+      Amended by security-requirements.md NFR1.6 (Amendment 4): the claim
+      cascade (Family B) is consumed first, after the BR1 format check and
+      before this password check. Then: IF the account has no password THEN
+      refuse with password_required (Q4; the client reads has_password from
+      GET /v1/me and routes to setting one). ELSE IF the request carries no
+      password THEN refuse with password_required. ELSE check it under the
+      existing current-password ceilings (pw_fail_id_hour on 'acct:'+id,
+      plus the shared per-prefix scopes): a full ceiling refuses, a wrong
+      password counts a failure, commits it, and refuses. Only a confirmed
+      password proceeds to the unit of work, which takes the account key,
+      re-reads the row, then takes the username keys (NFR4.2), and judges
+      the window BEFORE availability (NFR1.6).
     violation: account.username.password_required (ValidationError, 400, code USERNAME_PASSWORD_REQUIRED, new key); auth.password.current_wrong (400, PASSWORD_NOT_VALID); auth.password.too_many_attempts (409).
     source: [FR7.1]
     test_first: true
@@ -877,7 +919,9 @@ rules:
       A new namespace "username" is appended to the lock order (student,
       account, contact, username), with a helper naming "username:<key>".
       Account creation takes its contact keys and the username key in one call.
-      Rename takes the account key, the new key and the old key in one call.
+      First choice and rename take the account key, re-read the row FOR
+      UPDATE, then take the new key and the old key (from that locked
+      re-read) in a second call (reliability-requirements.md NFR4.2, R-06).
       Deletion takes the account key, then (after its re-read) the contact keys
       and the username key in one call. Because every path takes username keys
       last and the helper sorts within a call, no two paths can wait on each
@@ -933,22 +977,22 @@ rules:
 | BR2.3 | Drafts never reserve | policy | yes |
 | BR2.4 | Taken at verify rolls everything back | constraint | yes |
 | BR2.5 | Replacement at verify, authorised by the code | authorization | yes |
-| BR2.6 | Replacements counted on committed lookup ceilings (R-09) | policy | yes |
+| BR2.6 | Replacements counted on committed Family C ceilings (R-09, NFR2.3) | policy | yes |
 | BR2.7 | Pre-deploy draft creates no username | policy | no |
 | BR2.8 | USERNAME_SET by account id | policy | no |
 | BR2.9 | Sign-up response stays contact-independent | authorization | yes |
 | BR3.1 | Public lookup: four answers, held reads unavailable | authorization | yes |
 | BR3.2 | Authenticated lookup: own holds read available | authorization | yes |
-| BR3.3 | Lookup ceilings before reading | policy | no |
-| BR3.4 | Ceiling never blocks the form | policy | no |
+| BR3.3 | Family A lookup ceilings before reading | policy | no |
+| BR3.4 | A lookup ceiling never blocks the form; claim and replacement ceilings refuse | policy | no |
 | BR3.5 | Allowlists and counts updated | authorization | yes |
 | BR4.1 | Exactly one of login, phone, email | validation | no |
 | BR4.2 | Classify email, phone, username | calculation | no |
 | BR4.3 | Phone and email sign-in permanent | policy | yes |
 | BR4.4 | Uniform refusal | authorization | yes |
-| BR4.5 | Per-username-and-/64 and per-username counters | policy | yes |
+| BR4.5 | Family D: per name and /64, per /64, per /48, per name across networks; keyed values | policy | yes |
 | BR4.6 | Ceiling refusal in sign-in's words | policy | yes |
-| BR4.7 | No cross-network lockout | authorization | yes |
+| BR4.7 | No cross-network lockout of a network with fewer than 3 failures | authorization | yes |
 | BR4.8 | Success continues as today | policy | no |
 | BR5.1 | `username_required` = no username | calculation | yes |
 | BR5.2 | No route refused for lacking one | policy | no |

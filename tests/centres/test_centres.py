@@ -571,7 +571,14 @@ def test_deleting_an_account_ends_its_memberships(
 
     signed = api_client.post(
         "/v1/accounts",
-        json={"phone": phone, "role": "teacher", "self_name": "Back", **ADDRESS},
+        json={
+            "phone": phone,
+            "role": "teacher",
+            "self_name": "Back",
+            # Required since U1 [BR2.1]; nothing here is about it.
+            "username": "back_" + phone[-8:],
+            **ADDRESS,
+        },
     )
     assert signed.status_code == 201, signed.text
     owner_session.refresh(member)

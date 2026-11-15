@@ -37,7 +37,7 @@ from app.auth.ceilings import (
 )
 from app.auth.client_address import TRUSTED_CLIENT_IP_HEADER_ENV
 from app.db.models import Account, Enrollment, RateLimitCounter
-from tests.accounts.signup_support import sign_up
+from tests.accounts.signup_support import sign_up, unique_username
 from tests.batches.conftest import make_teacher
 from tests.students_support import student_for
 
@@ -302,6 +302,8 @@ def test_signup_is_refused_through_the_endpoint(
         "address_road": "Road 5",
         "address_city": "Dhaka",
         "address_postcode": "1205",
+        # One name for every attempt: a draft reserves nothing [U1: BR2.3].
+        "username": unique_username(),
     }
 
     # Asserted on signup itself. It used to be asserted through the
@@ -345,7 +347,8 @@ def test_a_repeated_signup_is_not_refused_as_a_duplicate(
 
     sign_up(client, body)
 
-    again = client.post("/v1/accounts", json=body)
+    # Another name: the first is the account's now [U1: BR2.2].
+    again = client.post("/v1/accounts", json={**body, "username": unique_username()})
 
     assert again.status_code == 201
     assert "ACCOUNT_EXISTS" not in again.text
@@ -406,6 +409,7 @@ def test_the_draft_exists_before_the_code_is_sent_and_the_account_does_not(
                 "address_road": "Road 5",
                 "address_city": "Dhaka",
                 "address_postcode": "1205",
+                "username": unique_username(),
             },
         )
     finally:
@@ -474,6 +478,7 @@ def test_lookups_do_not_spend_the_signup_allowance(
             "address_road": "Road 5",
             "address_city": "Dhaka",
             "address_postcode": "1205",
+            "username": unique_username(),
         },
     )
 

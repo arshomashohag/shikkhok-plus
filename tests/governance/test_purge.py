@@ -275,9 +275,10 @@ def test_every_finite_retention_class_has_a_window(
         f"these tables carry a finite retention class but no purge "
         f"window: {sorted(finite - set(WINDOWS))}"
     )
-    # 9 since 0031 added `pending_signup`, a signup draft kept 48 hours.
-    assert len(finite) == 9, (
-        f"the manifest now carries {len(finite)} finite windows, not 9."
+    # 9 since 0031 added `pending_signup`, a signup draft kept 48 hours;
+    # 10 since 0035 added `username_hold`, kept until its own expiry.
+    assert len(finite) == 10, (
+        f"the manifest now carries {len(finite)} finite windows, not 10."
     )
 
 
@@ -300,8 +301,8 @@ def _plant(
 ) -> uuid.UUID:
     """Insert one row into a purgeable table, dated exactly ``at``.
 
-    **Every purgeable table gets a hand-written insert**, because the
-    seven differ in required columns and foreign keys and there is no
+    **Every purgeable table gets a hand-written insert**, because they
+    differ in required columns and foreign keys and there is no
     generic shape covering them. The age column is passed in from
     ``WINDOWS`` rather than named here, so a table whose age column
     changes is planted at the new one.
@@ -412,6 +413,17 @@ def _plant(
             ),
             shared | {"phone": f"+88017{row_id.int % 10**8:08d}"},
         )
+    elif table == "username_hold":
+        # Keyed by digest, not by `id`: the row's 64-hex identifier is
+        # derived from the planted id, so `_exists` can find it again.
+        session.execute(
+            sa.text(
+                "INSERT INTO username_hold "
+                "(key_digest, held_until, releasing_account_id, created_at) "
+                "VALUES (:digest, :at, NULL, :at)"
+            ),
+            {"digest": _hold_digest_of(row_id), "at": at},
+        )
     else:  # pragma: no cover - guarded by the assertion below
         raise AssertionError(
             f"{table} is purgeable but this file has no way to plant a "
@@ -427,8 +439,18 @@ def _plant(
         "sent_at",
         "expires_at",
         "created_at",
+        "held_until",
     }, f"{table} is planted at an age column this helper does not set"
     return row_id
+
+
+def _hold_digest_of(row_id: uuid.UUID) -> str:
+    """Derive a planted hold's 64-hex identifier from its planted id.
+
+    :param row_id: The id the planting helper returned
+    :return: The ``key_digest`` the hold row was given
+    """
+    return row_id.hex * 2
 
 
 @dataclass(frozen=True)
@@ -562,6 +584,14 @@ def _exists(session: Session, table: str, row_id: uuid.UUID) -> bool:
     :param row_id: The row's primary key
     :return: True when the row is present
     """
+    if table == "username_hold":
+        return (
+            session.execute(
+                sa.text("SELECT 1 FROM username_hold WHERE key_digest = :d"),
+                {"d": _hold_digest_of(row_id)},
+            ).first()
+            is not None
+        )
     return (
         session.execute(
             sa.text(f'SELECT 1 FROM "{table}" WHERE id = :id'),  # noqa: S608
@@ -575,7 +605,7 @@ def test_every_window_deletes_past_its_horizon_and_keeps_inside_it(
     owner_session: Session,
     rows_either_side: dict[str, _Planted],
 ) -> None:
-    """Each of the seven windows removes the old row and keeps the new.
+    """Each window removes the old row and keeps the new.
 
     **Both halves are asserted for every table**, which is what makes
     this a test of the boundary rather than of deletion. A purge that

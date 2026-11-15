@@ -24,7 +24,7 @@ import pytest
 from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 
-from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
+from app.authz.lenses import GuardianLens, PlatformAdminLens, StudentLens, TeacherLens
 from app.contract.privacy import (
     FORBIDDEN_ACCOUNT_ID_FIELDS,
     OWNER_PRIVATE_FIELDS,
@@ -554,3 +554,231 @@ def test_the_application_serves_staff_fields_only_in_the_console(
     from app.main import create_app
 
     assert staff_field_leaks(create_app()) == []
+
+
+# ------------------------------------------------ usernames [U1: BR8.1-BR8.3]
+#
+# Written FIRST: who may read a child's username is an authorization
+# answer. The teacher-facing walk alone would let a guardian, student,
+# membership or admin response carry one with CI green (functional-spec
+# § 10 issue 4), so a second walk covers EVERY route, and its one
+# exemption is tied to the route set as well as to the schema pair.
+
+
+def _admin_lens() -> PlatformAdminLens:
+    """Stand in for the platform administrator's lens resolver.
+
+    :return: An admin lens
+    """
+    return PlatformAdminLens(account_id=UUID(int=1))
+
+
+class MeResponse(BaseModel):
+    """A response NAMED like the owner's own, to test the route half.
+
+    :ivar username: The owner's username
+    """
+
+    username: str | None = None
+
+
+class UsernameChangeResponse(BaseModel):
+    """The rename answer's name, likewise.
+
+    :ivar username: The new username
+    """
+
+    username: str
+
+
+class SeatCard(BaseModel):
+    """Any other response carrying a username.
+
+    :ivar display_name: Allowed
+    :ivar username: Not allowed, on any route
+    """
+
+    display_name: str
+    username: str
+
+
+class KeyedCard(BaseModel):
+    """A response carrying the key, which no route may serve.
+
+    :ivar username_key: Never served
+    """
+
+    username_key: str
+
+
+@pytest.mark.parametrize(
+    "lens", [_teacher_lens, _guardian_lens, _student_lens, _admin_lens]
+)
+def test_a_username_on_any_lens_is_reported(lens: object) -> None:
+    """A teacher, guardian, student and admin schema each fail [BR8.2].
+
+    :param lens: The lens resolver the planted route depends on
+    :return: None
+    """
+    from app.contract.privacy import account_private_leaks
+
+    leaks = account_private_leaks(_app_with(SeatCard, lens))
+
+    assert leaks == [("GET", "/v1/probe", "SeatCard", "username")]
+
+
+def test_a_teacher_facing_username_also_fails_the_profile_gate() -> None:
+    """``username`` is owner-private, like a profile field [BR8.2].
+
+    :return: None
+    """
+    violations = forbidden_fields(_app_with(SeatCard, _teacher_lens))
+
+    assert [(v.field, v.field_set) for v in violations] == [
+        ("username", "owner-private")
+    ]
+
+
+def test_the_owner_schema_is_allowed_only_on_a_lens_exempt_route() -> None:
+    """``MeResponse.username`` passes on ``GET /v1/me``, fails elsewhere.
+
+    [BR8.1, BR8.2] The exemption is the (schema, field) pair AND the
+    route, so ``MeResponse`` reused on a non-owner route still fails.
+
+    :return: None
+    """
+    from app.contract.privacy import account_private_leaks
+
+    owner = FastAPI()
+
+    @owner.get("/v1/me", response_model=MeResponse)
+    def _me() -> dict[str, str]:
+        return {}
+
+    @owner.put("/v1/me/username", response_model=UsernameChangeResponse)
+    def _rename() -> dict[str, str]:
+        return {}
+
+    elsewhere = _app_with(MeResponse, _guardian_lens)
+
+    assert account_private_leaks(owner) == []
+    assert account_private_leaks(elsewhere) == [
+        ("GET", "/v1/probe", "MeResponse", "username")
+    ]
+
+
+def test_the_key_is_served_nowhere_not_even_to_the_owner() -> None:
+    """``username_key`` fails on every route, ``/v1/me`` included [BR8.1].
+
+    :return: None
+    """
+    from app.contract.privacy import account_private_leaks
+
+    owner = FastAPI()
+
+    @owner.get("/v1/me", response_model=KeyedCard)
+    def _me() -> dict[str, str]:
+        return {}
+
+    assert account_private_leaks(owner) == [
+        ("GET", "/v1/me", "KeyedCard", "username_key")
+    ]
+
+
+def test_the_application_serves_the_username_only_to_its_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The real application passes the every-route walk [BR8.1, NFR3.1].
+
+    :param monkeypatch: The patcher
+    :return: None
+    """
+    from app.contract.privacy import account_private_leaks
+
+    monkeypatch.setenv("SHIKKHOKPLUS_OTP_HMAC_KEY", "x")
+    monkeypatch.setenv(
+        "SHIKKHOKPLUS_JWT_KEYS", "k1:test-signing-key-padded-to-thirty-two"
+    )
+    monkeypatch.setenv("SHIKKHOKPLUS_JWT_ACTIVE_KID", "k1")
+    from app.main import create_app
+
+    app = create_app()
+    assert account_private_leaks(app) == []
+    # `username_required` is the flag, not a name: a boolean the owner reads.
+    assert _username_fields(app.openapi()) == {
+        ("MeResponse", "username"),
+        ("MeResponse", "username_required"),
+        ("UsernameChangeResponse", "username"),
+    }
+
+
+def _username_fields(document: dict[str, object]) -> set[tuple[str, str]]:
+    """Name every component property containing ``username``.
+
+    :param document: The generated OpenAPI document
+    :return: ``(component, property)`` pairs
+    """
+    components = document.get("components", {})
+    schemas = components.get("schemas", {}) if isinstance(components, dict) else {}
+    return {
+        (str(name), str(field))
+        for name, schema in schemas.items()
+        if isinstance(schema, dict) and not name.endswith("Request")
+        for field in (schema.get("properties") or {})
+        if "username" in str(field)
+    }
+
+
+def test_no_operation_takes_a_username_or_login_in_its_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only bodies carry them, so no access log can [NFR3.5] (test-after).
+
+    :param monkeypatch: The patcher
+    :return: None
+    """
+    monkeypatch.setenv("SHIKKHOKPLUS_OTP_HMAC_KEY", "x")
+    monkeypatch.setenv(
+        "SHIKKHOKPLUS_JWT_KEYS", "k1:test-signing-key-padded-to-thirty-two"
+    )
+    monkeypatch.setenv("SHIKKHOKPLUS_JWT_ACTIVE_KID", "k1")
+    from app.main import create_app
+
+    document = create_app().openapi()
+    in_url = [
+        (path, method, parameter.get("name"), parameter.get("in"))
+        for path, operations in document["paths"].items()
+        for method, operation in operations.items()
+        for parameter in operation.get("parameters", [])
+        if parameter.get("name") in {"username", "login"}
+    ]
+    assert in_url == []
+    assert "post" in document["paths"]["/v1/accounts/username-availability"]
+    assert "post" in document["paths"]["/v1/me/username-availability"]
+
+
+def test_every_username_column_is_enrolled_in_every_gate() -> None:
+    """A username column outside the gates' sets fails CI [BR8.3, ADR-010].
+
+    Named and matched: ``username`` and ``username_key`` by name, and
+    every account column whose name contains ``username`` by pattern,
+    except the two timestamps, which carry no name and are exempt by
+    name too.
+
+    :return: None
+    """
+    from app.contract.privacy import ACCOUNT_PRIVATE_FIELDS
+    from app.db.models import Account
+    from tests.contract.test_admin_contract import FORBIDDEN_TOKENS
+
+    exempt = {"username_changed_at", "username_reclaimed_at"}
+    columns = {
+        column.name for column in Account.__table__.columns if "username" in column.name
+    }
+    named = {"username", "username_key"}
+
+    assert named <= columns
+    for column in (columns - exempt) | named:
+        assert column in OWNER_PRIVATE_FIELDS, column
+        assert column in ACCOUNT_PRIVATE_FIELDS, column
+    assert "username" in FORBIDDEN_TOKENS

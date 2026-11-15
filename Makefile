@@ -257,6 +257,16 @@ test:
 		--include='app/accounts/matching.py,app/db/advisory.py' \
 		--fail-under=100 --show-missing --rcfile=.coveragerc-backend
 	@echo ""
+	@echo "==> usernames coverage (100% branch)"
+	@# The Usernames module decides who may take a name, what a hold is,
+	@# and every rename and reclaim [U1: NFR5.2], so its defects live in
+	@# branches and it carries the matcher's floor, from the same data
+	@# file. Its username namespace in app/db/advisory.py is already under
+	@# the pass above.
+	$(PY) -m coverage report \
+		--include='app/accounts/usernames.py' \
+		--fail-under=100 --show-missing --rcfile=.coveragerc-backend
+	@echo ""
 	@echo "==> backend coverage floor (80% line) for the rest of app/"
 	@# **`--omit`, not a shorter `--include` list.** Scoping this report
 	@# by omission means a package added to the run above is measured
