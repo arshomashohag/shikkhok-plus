@@ -68,8 +68,29 @@ def canonical_phone(raw: str) -> str:
 #: to hold a whole mobile number.
 _DIGIT_RUN: Final = re.compile(r"\+?\d(?:[\s\-().]*\d){9,}")
 
-#: A mobile number inside a bare digit string, with or without the country code.
-_EMBEDDED_MOBILE: Final = re.compile(r"(?:880|0)1[3-9][0-9]{8}")
+#: A mobile number inside a bare digit string, with or without the country
+#: code, built from the same pattern sign-in uses.
+_EMBEDDED_MOBILE: Final = re.compile(r"(?:880|0)" + _LOCAL_MOBILE.pattern[1:])
+
+
+def _group_starts(run: str) -> tuple[str, list[int]]:
+    """Strip a digit run of separators and note where each digit group begins.
+
+    :param run: A run of digits and the separators typed between them
+    :return: The bare digits, and the index in them where each group starts
+    """
+    digits: list[str] = []
+    starts: list[int] = []
+    fresh = True
+    for char in run:
+        if char.isdigit():
+            if fresh:
+                starts.append(len(digits))
+                fresh = False
+            digits.append(char)
+        elif char in " \t\n-().":
+            fresh = True
+    return "".join(digits), starts
 
 
 def contains_phone(text: str) -> bool:
@@ -77,15 +98,18 @@ def contains_phone(text: str) -> bool:
 
     Uses the same reading of digits and separators as
     :func:`canonical_phone`, so a number written in Bangla digits, with
-    dashes, or with the country code is found as readily as a plain one.
+    dashes, or with the country code is found as readily as a plain one. A
+    match must begin at the start of a digit group, so a list of years or
+    fees whose digits merely happen to contain a number is not flagged.
 
     :param text: Any free text
     :return: True when a mobile number appears anywhere in it
     """
-    return any(
-        _EMBEDDED_MOBILE.search(_SEPARATORS.sub("", run).lstrip("+"))
-        for run in _DIGIT_RUN.findall(_latin_digits(text))
-    )
+    for run in _DIGIT_RUN.findall(_latin_digits(text)):
+        digits, starts = _group_starts(run)
+        if any(_EMBEDDED_MOBILE.match(digits, start) for start in starts):
+            return True
+    return False
 
 
 def _latin_digits(text: str) -> str:

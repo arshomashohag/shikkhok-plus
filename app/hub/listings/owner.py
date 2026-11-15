@@ -14,7 +14,8 @@ from dataclasses import dataclass
 from typing import Final
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, object_session
 
 from app.accounts.phone import canonical_phone, contains_phone
 from app.authz.lenses import TeacherLens
@@ -217,7 +218,7 @@ def update(
     listing = _load(session, lens)
     _refuse_suspended(listing)
 
-    for name in _FREE_TEXT:
+    for name in (*_FREE_TEXT, "slug"):
         value = getattr(changes, name)
         if value is not None and contains_phone(value):
             raise ValidationError(
@@ -267,8 +268,39 @@ def update(
             else None
         )
     listing.updated_at = dt.datetime.now(tz=dt.UTC)
+    if listing.status != "draft":
+        _require_complete(listing)
+    try:
+        with session.begin_nested():
+            session.flush()
+    except IntegrityError as error:
+        if "uq_owner_listing_slug" not in str(error.orig):
+            raise
+        session.rollback()
+        raise ConflictError(
+            code="HUB_SLUG_TAKEN", message_key="hub.slug_taken"
+        ) from error
     session.commit()
     return listing
+
+
+def _require_complete(listing: OwnerListing) -> None:
+    """Refuse a listing that would be live but incomplete.
+
+    :param listing: The listing, with any edits applied
+    :raises ValidationError: Something required is missing; the rejected
+        edits are rolled back
+    """
+    missing = [i.key for i in owner_checklist(listing) if not i.done]
+    if missing:
+        session = object_session(listing)
+        if session is not None:
+            session.rollback()
+        raise ValidationError(
+            code="HUB_LISTING_INCOMPLETE",
+            message_key="hub.listing_incomplete",
+            details={"missing": ",".join(missing)},
+        )
 
 
 def publish(
@@ -291,13 +323,15 @@ def publish(
         raise ValidationError(
             code="HUB_CONSENT_OUTDATED", message_key="hub.consent_outdated"
         )
-    missing = [i.key for i in owner_checklist(listing) if not i.done]
-    if missing:
-        raise ValidationError(
-            code="HUB_LISTING_INCOMPLETE",
-            message_key="hub.listing_incomplete",
-            details={"missing": ",".join(missing)},
-        )
+    for name in _FREE_TEXT:
+        value = getattr(listing, name)
+        if value and contains_phone(value):
+            raise ValidationError(
+                code="HUB_TEXT_CONTAINS_CONTACT",
+                message_key="hub.text_contains_contact",
+                details={"field": name},
+            )
+    _require_complete(listing)
     listing.status = "published"
     listing.consent_version = consent_version
     listing.consent_at = now

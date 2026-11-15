@@ -465,6 +465,9 @@ def test_never_published_owner_is_draft_everywhere(
         "Classes 6 to 10, batch of 25",
         "Fee 1500 per month, since 2015",
         "A+ results",
+        "Batches 2013 - 2014 - 2015",
+        "Fee 1500 1600 1700 1800 taka",
+        "2010-2015 2016-2020",
     ],
 )
 def test_ordinary_numbers_are_not_mistaken_for_a_phone(text: str) -> None:
@@ -474,3 +477,101 @@ def test_ordinary_numbers_are_not_mistaken_for_a_phone(text: str) -> None:
     :return: None
     """
     assert contains_phone(text) is False
+
+
+def test_slug_cannot_carry_a_phone_number(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A number may not be smuggled into the web address.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    owner.get_or_draft(restricted_session, lens)
+
+    with pytest.raises(ValidationError) as raised:
+        owner.update(
+            restricted_session, lens, OwnerListingUpdate(slug="rahim-01711234567")
+        )
+    assert raised.value.code == "HUB_TEXT_CONTAINS_CONTACT"
+
+
+def test_live_listing_cannot_be_edited_into_incompleteness(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """Blanking a required field on a live listing is refused and not saved.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    _complete(restricted_session, lens)
+    owner.publish(restricted_session, lens, HUB_CONSENT_VERSION, NOW)
+
+    with pytest.raises(ValidationError) as raised:
+        owner.update(restricted_session, lens, OwnerListingUpdate(headline_en=""))
+    assert raised.value.code == "HUB_LISTING_INCOMPLETE"
+    assert raised.value.details == {"missing": "headline"}
+    assert owner.get_or_draft(restricted_session, lens).headline_en is not None
+
+
+def test_publish_scans_the_prefilled_name_for_a_phone(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A number in a name prefilled from a batch is caught at publish.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    _complete(restricted_session, lens)
+    owner_session.execute(
+        sa.text(
+            "UPDATE owner_listing SET public_name = 'Rahim 01711234567' "
+            "WHERE owner_id = :o"
+        ),
+        {"o": lens.owner_id},
+    )
+    owner_session.commit()
+
+    with pytest.raises(ValidationError) as raised:
+        owner.publish(restricted_session, lens, HUB_CONSENT_VERSION, NOW)
+    assert raised.value.code == "HUB_TEXT_CONTAINS_CONTACT"
+
+
+def test_racing_slug_claim_is_a_conflict(
+    owner_session: Session,
+    restricted_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A rival claiming the slug after the availability check still loses cleanly.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :param monkeypatch: Used to slip the rival in after the check
+    :return: None
+    """
+    rival = solo_lens(owner_session)
+    lens = solo_lens(owner_session)
+    owner.get_or_draft(restricted_session, lens)
+    owner.get_or_draft(restricted_session, rival)
+    real = owner.slug_available
+
+    def check_then_lose(session: Session, slug: str, who) -> bool:
+        answer = real(session, slug, who)
+        owner_session.execute(
+            sa.text("UPDATE owner_listing SET slug = :s WHERE owner_id = :o"),
+            {"s": slug, "o": rival.owner_id},
+        )
+        owner_session.commit()
+        return answer
+
+    monkeypatch.setattr(owner, "slug_available", check_then_lose)
+
+    with pytest.raises(ConflictError) as raised:
+        owner.update(restricted_session, lens, OwnerListingUpdate(slug="rahim-sir"))
+    assert raised.value.code == "HUB_SLUG_TAKEN"

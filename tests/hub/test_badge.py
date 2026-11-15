@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import datetime as dt
 
+import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.hub.listings.badge import runs_classes
+from app.local_time import DHAKA
 from tests.hub.support import add_attendance, solo_lens
 
 TODAY = dt.date(2026, 11, 14)
@@ -83,3 +85,76 @@ def test_badge_false_without_any_attendance(
     add_attendance(owner_session, lens, seats=5, accepted=5, last_recorded=None)
 
     assert runs_classes(restricted_session, lens.owner_id, TODAY) is False
+
+
+def test_guardian_only_accepted_seats_earn_the_badge(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A seat the guardian accepted counts as accepted.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    add_attendance(owner_session, lens, seats=5, accepted=0, last_recorded=_at(2))
+    owner_session.execute(
+        sa.text(
+            "UPDATE enrollment SET guardian_decision = 'accepted' WHERE batch_id "
+            "IN (SELECT id FROM batch WHERE owner_id = :o)"
+        ),
+        {"o": lens.owner_id},
+    )
+    owner_session.commit()
+
+    assert runs_classes(restricted_session, lens.owner_id, TODAY) is True
+
+
+def test_inactive_batch_and_departed_seats_do_not_count(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """Seats in an inactive batch, or past ``inactive_from``, are not counted.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    add_attendance(owner_session, lens, seats=5, accepted=5, last_recorded=_at(2))
+    assert runs_classes(restricted_session, lens.owner_id, TODAY) is True
+
+    owner_session.execute(
+        sa.text(
+            "UPDATE enrollment SET inactive_from = :d WHERE id = "
+            "(SELECT e.id FROM enrollment e JOIN batch b ON b.id = e.batch_id "
+            "WHERE b.owner_id = :o LIMIT 1)"
+        ),
+        {"d": TODAY - dt.timedelta(days=1), "o": lens.owner_id},
+    )
+    owner_session.commit()
+    assert runs_classes(restricted_session, lens.owner_id, TODAY) is False
+
+    owner_session.execute(sa.text("UPDATE enrollment SET inactive_from = NULL"))
+    owner_session.execute(
+        sa.text("UPDATE batch SET active = false WHERE owner_id = :o"),
+        {"o": lens.owner_id},
+    )
+    owner_session.commit()
+    assert runs_classes(restricted_session, lens.owner_id, TODAY) is False
+
+
+def test_window_starts_at_dhaka_midnight(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """00:30 Dhaka time on the first day of the window counts.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    first_day = TODAY - dt.timedelta(days=30)
+    dhaka_0030 = dt.datetime.combine(first_day, dt.time(0, 30), tzinfo=DHAKA)
+    add_attendance(owner_session, lens, seats=5, accepted=5, last_recorded=dhaka_0030)
+
+    assert runs_classes(restricted_session, lens.owner_id, TODAY) is True
