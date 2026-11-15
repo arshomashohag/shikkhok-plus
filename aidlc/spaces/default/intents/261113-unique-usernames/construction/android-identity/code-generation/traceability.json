@@ -143,32 +143,32 @@
     {
       "id": "FR7.1",
       "status": "OK",
-      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/Contacts.kt, feature/account/ui/ContactsScreen.kt"
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/Username.kt, feature/account/ui/UsernameScreen.kt"
     },
     {
       "id": "FR7.2",
       "status": "OK",
-      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/ReplaceContact.kt, feature/account/ui/ReplaceContactScreen.kt"
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpAccountRepository.kt (PUT /v1/me/username)"
     },
     {
       "id": "FR7.5",
       "status": "OK",
-      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/RemoveContact.kt, feature/account/ui/RemoveContactSheet.kt"
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/Username.kt (rename window and hold messages)"
     },
     {
       "id": "FR8.1",
       "status": "OK",
-      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/Username.kt, feature/account/ui/UsernameScreen.kt"
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/Contacts.kt, feature/account/ui/ContactsScreen.kt"
     },
     {
       "id": "FR8.2",
       "status": "OK",
-      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpAccountRepository.kt (PUT /v1/me/username)"
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/ReplaceContact.kt, feature/account/ui/ReplaceContactScreen.kt"
     },
     {
       "id": "FR8.4",
       "status": "OK",
-      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/Username.kt (rename window and hold messages)"
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/RemoveContact.kt, feature/account/ui/RemoveContactSheet.kt"
     },
     {
       "id": "FR10.1",

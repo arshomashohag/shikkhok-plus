@@ -241,7 +241,13 @@ class UsernameGateRoutingTest {
         const val SIGN_IN = "test_sign_in"
         const val GATE = "gate"
         const val PICKER = "picker"
-        const val TIMEOUT_MS = 5_000L
+        // Real time, not the paused clock: the account reads run on a real
+        // background thread, so a loaded machine (a CI runner, or Gradle
+        // beside the backend suite) can take several seconds to answer. A
+        // wait ends as soon as its condition holds, so this bound costs a
+        // passing run nothing; it only decides how long a failing one
+        // waits. Build and Test saw a 5 s bound expire once under load.
+        const val TIMEOUT_MS = 20_000L
         const val HALF_INTERVAL_MS = 15_000L
 
         const val REQUIRED_ONE_LENS =
