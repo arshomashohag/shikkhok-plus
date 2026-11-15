@@ -51,6 +51,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Computed,
     Date,
     DateTime,
     ForeignKey,
@@ -64,7 +65,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -991,6 +992,10 @@ class OwnerMember(Base):
         DateTime(timezone=True), nullable=True
     )
     revoked_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # [0036] When the member agreed to be named on the centre's public page.
+    public_name_consent_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
@@ -3348,3 +3353,394 @@ class BdArea(Base):
     name_bn: Mapped[str] = mapped_column(Text, nullable=False)
 
     __table_args__ = (Index("ix_bd_area_parent_code", "parent_code"),)
+
+
+#: The hub's enum vocabularies [0036], each created by its migration.
+HUB_LISTING_STATUS_VALUES: tuple[str, ...] = (
+    "draft",
+    "published",
+    "hidden",
+    "suspended",
+)
+HUB_ADMISSIONS_VALUES: tuple[str, ...] = ("open", "waitlist", "closed")
+HUB_TEACHING_MODE_VALUES: tuple[str, ...] = ("in_person", "home_visit", "online")
+HUB_REPORT_REASON_VALUES: tuple[str, ...] = (
+    "inaccurate",
+    "inappropriate",
+    "spam",
+    "impersonation",
+    "child_safety",
+    "other",
+)
+HUB_REPORT_TARGET_VALUES: tuple[str, ...] = ("listing", "media", "review", "reply")
+HUB_REPORT_STATUS_VALUES: tuple[str, ...] = ("open", "upheld", "dismissed")
+HUB_MODERATION_EVENT_VALUES: tuple[str, ...] = (
+    "report_filed",
+    "report_upheld",
+    "report_dismissed",
+    "listing_suspended",
+    "listing_unsuspended",
+)
+
+_HUB_LISTING_STATUS = PgEnum(
+    *HUB_LISTING_STATUS_VALUES, name="hub_listing_status", create_type=False
+)
+_HUB_ADMISSIONS = PgEnum(
+    *HUB_ADMISSIONS_VALUES, name="hub_admissions", create_type=False
+)
+_HUB_TEACHING_MODE = PgEnum(
+    *HUB_TEACHING_MODE_VALUES, name="hub_teaching_mode", create_type=False
+)
+_HUB_REPORT_REASON = PgEnum(
+    *HUB_REPORT_REASON_VALUES, name="hub_report_reason", create_type=False
+)
+_HUB_REPORT_TARGET = PgEnum(
+    *HUB_REPORT_TARGET_VALUES, name="hub_report_target", create_type=False
+)
+_HUB_REPORT_STATUS = PgEnum(
+    *HUB_REPORT_STATUS_VALUES, name="hub_report_status", create_type=False
+)
+_HUB_MODERATION_EVENT = PgEnum(
+    *HUB_MODERATION_EVENT_VALUES, name="hub_moderation_event_kind", create_type=False
+)
+
+#: A slug: lower-case words joined by single hyphens, 3 to 60 characters.
+_SLUG_CHECK = (
+    "slug IS NULL OR (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$' "
+    "AND char_length(slug) BETWEEN 3 AND 60)"
+)
+
+#: The class levels and curricula a batch listing may carry.
+HUB_CLASS_LEVELS: tuple[str, ...] = (
+    *(f"class_{n}" for n in range(1, 13)),
+    "ssc",
+    "hsc",
+    "admission",
+    "o_level",
+    "a_level",
+    "other",
+)
+HUB_CURRICULA: tuple[str, ...] = (
+    "national_bangla",
+    "national_english",
+    "english_medium",
+    "madrasah",
+    "other",
+)
+
+
+def _hub_len(column: str, limit: int, table: str) -> CheckConstraint:
+    """Build a length check on a nullable hub text column.
+
+    :param column: The column
+    :param limit: The most characters it may hold
+    :param table: The table, to name the constraint
+    :return: The constraint
+    """
+    return CheckConstraint(
+        f"{column} IS NULL OR char_length({column}) <= {limit}",
+        name=conv(f"ck_{table}_{column}"),
+    )
+
+
+class OwnerListing(Base):
+    """What an owner chooses to publish about themselves [0036].
+
+    Dark until H2's views grant the hub reader anything. A draft needs no
+    slug and may carry an empty name; a live listing needs both.
+    ``street_address`` is for a centre only, enforced by trigger.
+
+    :ivar owner_id: The owner, the key
+    :ivar slug: The public path segment, unique, NULL while a draft
+    :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
+    :ivar public_name: The name shown publicly
+    :ivar search_text: The indexed text, computed by the database
+    """
+
+    __tablename__ = "owner_listing"
+
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner.id", ondelete="CASCADE", name=conv("fk_owner_listing_owner")),
+        primary_key=True,
+    )
+    slug: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    status: Mapped[str] = mapped_column(
+        _HUB_LISTING_STATUS, nullable=False, server_default=text("'draft'")
+    )
+    public_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    headline_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+    headline_bn: Mapped[str | None] = mapped_column(Text, nullable=True)
+    bio_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+    bio_bn: Mapped[str | None] = mapped_column(Text, nullable=True)
+    qualifications: Mapped[str | None] = mapped_column(Text, nullable=True)
+    teaching_mode: Mapped[list[str]] = mapped_column(
+        ARRAY(_HUB_TEACHING_MODE), nullable=False, server_default=text("'{}'")
+    )
+    district_code: Mapped[str | None] = mapped_column(
+        String(12),
+        ForeignKey("bd_area.code", name=conv("fk_owner_listing_district_code")),
+        nullable=True,
+    )
+    upazila_code: Mapped[str | None] = mapped_column(
+        String(12),
+        ForeignKey("bd_area.code", name=conv("fk_owner_listing_upazila_code")),
+        nullable=True,
+    )
+    street_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    public_contact_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    consent_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    consent_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    consent_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_owner_listing_consent_by_account_id"),
+        ),
+        nullable=True,
+    )
+    published_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    suspended_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    suspension_reason_code: Mapped[str | None] = mapped_column(
+        String(40), nullable=True
+    )
+    search_text: Mapped[str | None] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "to_tsvector('simple', coalesce(public_name, '') || ' ' || "
+            "coalesce(headline_en, '') || ' ' || coalesce(headline_bn, ''))",
+            persisted=True,
+        ),
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    __table_args__ = (
+        UniqueConstraint("slug", name=conv("uq_owner_listing_slug")),
+        CheckConstraint(_SLUG_CHECK, name=conv("ck_owner_listing_slug")),
+        CheckConstraint(
+            "status = 'draft' OR slug IS NOT NULL",
+            name=conv("ck_owner_listing_slug_when_live"),
+        ),
+        CheckConstraint(
+            "status = 'draft' OR length(trim(public_name)) > 0",
+            name=conv("ck_owner_listing_name_when_live"),
+        ),
+        _hub_len("headline_en", 140, "owner_listing"),
+        _hub_len("headline_bn", 140, "owner_listing"),
+        _hub_len("bio_en", 4000, "owner_listing"),
+        _hub_len("bio_bn", 4000, "owner_listing"),
+        _hub_len("qualifications", 1000, "owner_listing"),
+        _hub_len("street_address", 200, "owner_listing"),
+        Index("ix_owner_listing_status", "status"),
+        Index("ix_owner_listing_district_code", "district_code"),
+        Index("ix_owner_listing_search_text", "search_text", postgresql_using="gin"),
+    )
+
+
+class BatchListing(Base):
+    """What an owner chooses to publish about one batch [0036].
+
+    ``show_fee`` and ``show_schedule`` have no default, so omitting one is
+    an error. ``owner_id`` is kept equal to the batch's owner by trigger.
+
+    :ivar batch_id: The batch, the key
+    :ivar owner_id: The batch's owner
+    :ivar slug: The public path segment, unique per owner
+    :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
+    :ivar show_fee: Whether the fee is shown publicly
+    :ivar show_schedule: Whether the weekly timetable is shown publicly
+    """
+
+    __tablename__ = "batch_listing"
+
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("batch.id", ondelete="CASCADE", name=conv("fk_batch_listing_batch")),
+        primary_key=True,
+    )
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner.id", ondelete="CASCADE", name=conv("fk_batch_listing_owner")),
+        nullable=False,
+    )
+    slug: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    status: Mapped[str] = mapped_column(
+        _HUB_LISTING_STATUS, nullable=False, server_default=text("'draft'")
+    )
+    description_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_bn: Mapped[str | None] = mapped_column(Text, nullable=True)
+    syllabus_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+    syllabus_bn: Mapped[str | None] = mapped_column(Text, nullable=True)
+    class_levels: Mapped[list[str]] = mapped_column(
+        ARRAY(String(20)), nullable=False, server_default=text("'{}'")
+    )
+    curriculum: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    subject_tags: Mapped[list[str]] = mapped_column(
+        ARRAY(String(40)), nullable=False, server_default=text("'{}'")
+    )
+    mode: Mapped[str | None] = mapped_column(_HUB_TEACHING_MODE, nullable=True)
+    admissions: Mapped[str] = mapped_column(
+        _HUB_ADMISSIONS, nullable=False, server_default=text("'open'")
+    )
+    show_fee: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    show_schedule: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    published_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    __table_args__ = (
+        CheckConstraint(_SLUG_CHECK, name=conv("ck_batch_listing_slug")),
+        CheckConstraint(
+            "status = 'draft' OR slug IS NOT NULL",
+            name=conv("ck_batch_listing_slug_when_live"),
+        ),
+        CheckConstraint(
+            "class_levels <@ ARRAY["
+            + ", ".join(f"'{v}'" for v in HUB_CLASS_LEVELS)
+            + "]::varchar[]",
+            name=conv("ck_batch_listing_class_levels"),
+        ),
+        CheckConstraint(
+            "curriculum IS NULL OR curriculum IN ("
+            + ", ".join(repr(c) for c in HUB_CURRICULA)
+            + ")",
+            name=conv("ck_batch_listing_curriculum"),
+        ),
+        _hub_len("description_en", 4000, "batch_listing"),
+        _hub_len("description_bn", 4000, "batch_listing"),
+        _hub_len("syllabus_en", 4000, "batch_listing"),
+        _hub_len("syllabus_bn", 4000, "batch_listing"),
+        Index(
+            "uq_batch_listing_owner_slug",
+            "owner_id",
+            "slug",
+            unique=True,
+            postgresql_where=text("slug IS NOT NULL"),
+        ),
+        Index("ix_batch_listing_owner_id", "owner_id"),
+        Index("ix_batch_listing_status", "status"),
+    )
+
+
+class HubReport(Base):
+    """One reader's complaint about one hub target [0036].
+
+    :ivar id: Surrogate key
+    :ivar target_kind: ``listing``, ``media``, ``review`` or ``reply``
+    :ivar target_id: The target's id
+    :ivar reporter_account_id: Who reported; the row goes with them
+    :ivar reason: A closed reason
+    :ivar note: An optional note of up to 500 characters
+    :ivar status: ``open``, ``upheld`` or ``dismissed``
+    """
+
+    __tablename__ = "hub_report"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    target_kind: Mapped[str] = mapped_column(_HUB_REPORT_TARGET, nullable=False)
+    target_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    reporter_account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="CASCADE",
+            name=conv("fk_hub_report_reporter_account_id"),
+        ),
+        nullable=False,
+    )
+    reason: Mapped[str] = mapped_column(_HUB_REPORT_REASON, nullable=False)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status: Mapped[str] = mapped_column(
+        _HUB_REPORT_STATUS, nullable=False, server_default=text("'open'")
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    decided_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decided_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_hub_report_decided_by_account_id"),
+        ),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "target_kind",
+            "target_id",
+            "reporter_account_id",
+            name=conv("uq_hub_report_target_reporter"),
+        ),
+        Index("ix_hub_report_status_created_at", "status", "created_at"),
+        Index("ix_hub_report_reporter_account_id", "reporter_account_id"),
+    )
+
+
+class HubModerationEvent(Base):
+    """What moderation did, in closed vocabularies and no free text [0036].
+
+    Append-only for the application role: no ``UPDATE``, and ``DELETE``
+    only past the twelve-month retention floor.
+
+    :ivar id: Surrogate key
+    :ivar event: What happened
+    :ivar target_kind: What it happened to
+    :ivar target_id: The target's id
+    :ivar actor_admin_account_id: The admin, cleared if their account goes
+    :ivar decision_code: A closed code, never prose
+    :ivar correlation_id: The request that caused it
+    :ivar at: When it happened
+    """
+
+    __tablename__ = "hub_moderation_event"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    event: Mapped[str] = mapped_column(_HUB_MODERATION_EVENT, nullable=False)
+    target_kind: Mapped[str] = mapped_column(_HUB_REPORT_TARGET, nullable=False)
+    target_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    actor_admin_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_hub_moderation_event_actor_admin_account_id"),
+        ),
+        nullable=True,
+    )
+    decision_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    correlation_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "decision_code IS NULL OR decision_code ~ '^[a-z][a-z0-9_]*$'",
+            name=conv("ck_hub_moderation_event_decision_code"),
+        ),
+        Index("ix_hub_moderation_event_at", "at"),
+        Index("ix_hub_moderation_event_target", "target_kind", "target_id"),
+    )

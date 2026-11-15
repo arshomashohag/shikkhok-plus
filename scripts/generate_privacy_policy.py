@@ -137,6 +137,18 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
     "rate_limit_counter": "Counters that limit sign-in attempts",
     "auth_audit_log": "A sign-in audit record carrying no name or code",
     "bd_area": "The fixed list of Bangladesh divisions, districts and upazilas",
+    "owner_listing": (
+        "What a solo teacher chose to publish about themselves on the public hub"
+    ),
+    "batch_listing": (
+        "What a solo teacher chose to publish about one of their classes on the "
+        "public hub"
+    ),
+    "hub_report": "A complaint you filed about something on the public hub",
+    "hub_moderation_event": (
+        "A record that moderation acted on a hub listing or report; it holds "
+        "no free text and names nobody"
+    ),
     "staging_sms_outbox": "Test-only message records, never used in production",
     "owner": "The link between a class and the teacher who runs it",
     "batch": "A class a teacher runs",

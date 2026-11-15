@@ -144,6 +144,7 @@ actually does, and our build fails if the two stop matching.
 
 | Data | Removed anyway after |
 |---|---|
+| A complaint you filed about something on the public hub | no time limit |
 | A place a teacher accepts payment, such as a number | no time limit |
 | A record that a teacher sent a fee reminder | 12 months |
 | A sign-up form you submitted, kept until you enter the code we sent | 48 hours |
@@ -154,6 +155,8 @@ actually does, and our build fails if the two stop matching.
 | Session tokens, stored only as hashes | 30 days after it expires |
 | Test-only message records, never used in production | 7 days |
 | The messages in your Help centre questions, yours and our replies | no time limit |
+| What a solo teacher chose to publish about one of their classes on the public hub | no time limit |
+| What a solo teacher chose to publish about themselves on the public hub | no time limit |
 | Which app you use (Android or web), its version, and when you last used it | no time limit |
 | Which classes you have hidden from your own view | no time limit |
 | Your authenticator recovery codes, stored only as hashes | no time limit |
@@ -198,6 +201,7 @@ These records are about how the service itself is running, not about any person.
 | Data | Removed anyway after |
 |---|---|
 | A coaching centre's names for the places its classes meet | no time limit |
+| A record that moderation acted on a hub listing or report; it holds no free text and names nobody | 12 months |
 | Counters that limit sign-in attempts | 48 hours |
 | The fixed list of Bangladesh divisions, districts and upazilas | no time limit |
 | When our scheduled jobs last ran; it names nobody | no time limit |
@@ -206,7 +210,7 @@ These records are about how the service itself is running, not about any person.
 
 **A teacher's classes stay with their students.** If you are a teacher and delete your account, your sign-in, your own name and address are removed, and so are your name and payment number on each of your classes. The classes themselves stay as read-only history for your students and their guardians: their record of who came to each class, their results and fee records are theirs too. No new fees fall due on those classes, and amounts already recorded as owed stay on the records, where nobody can collect them.
 
-<!-- governance manifest digest: 4d3573eb8da00c1309dbb0f9537291aa007bac6bcdb0edb4ac34e4e4795b5b9d
+<!-- governance manifest digest: f8cc21a198713588ad4c9b6b6bb9a9abe13f335b2b3ce4381f278676f38c452d
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->
