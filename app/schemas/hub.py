@@ -23,6 +23,7 @@ __all__ = [
     "AreaOption",
     "BatchListingResponse",
     "BatchListingUpdateRequest",
+    "CentreMembershipResponse",
     "ChecklistItemWire",
     "ConsentRequest",
     "OwnerListingResponse",
@@ -108,6 +109,8 @@ class OwnerListingResponse(BaseModel):
     :ivar publishable: Whether every requirement is met
     :ivar runs_classes: Whether the owner earns the Runs classes badge
     :ivar consent_version_current: The consent text version to agree to now
+    :ivar is_centre: Whether the owner is a coaching centre, the only kind
+        that may show a street address
     """
 
     status: ListingStatus
@@ -129,6 +132,7 @@ class OwnerListingResponse(BaseModel):
     publishable: bool
     runs_classes: bool
     consent_version_current: str
+    is_centre: bool
 
 
 class PublishRequest(BaseModel):
@@ -263,3 +267,20 @@ class ConsentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     consent: bool
+
+
+class CentreMembershipResponse(BaseModel):
+    """One accepted centre membership of the caller, with its name consent.
+
+    :ivar member_id: The membership
+    :ivar centre_id: The centre, for the consent route's path
+    :ivar centre_name: The centre's name
+    :ivar role: ``manager`` or ``teacher``
+    :ivar public_name_consent: Whether the member agreed to be named publicly
+    """
+
+    member_id: uuid.UUID
+    centre_id: uuid.UUID
+    centre_name: str
+    role: Literal["manager", "teacher"]
+    public_name_consent: bool

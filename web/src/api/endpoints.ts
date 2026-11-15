@@ -343,6 +343,10 @@ export const publishBatchListing = (batchId: string) =>
 export const unpublishBatchListing = (batchId: string) =>
   request<Schemas['BatchListingResponse']>('POST', `/v1/batches/${enc(batchId)}/listing/unpublish`)
 
+/** The caller's own accepted centre memberships, with their name consent. */
+export const listCentreMemberships = (signal?: AbortSignal) =>
+  request<Schemas['CentreMembershipResponse'][]>('GET', '/v1/me/centre-memberships', { signal })
+
 export const setPublicNameConsent = (centreId: string, consent: boolean) =>
   request<undefined>('PUT', `/v1/centres/${enc(centreId)}/members/me/public-name-consent`, {
     body: { consent },

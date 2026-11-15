@@ -16,6 +16,7 @@ import datetime as dt
 import uuid
 from typing import Annotated, Final
 
+import sqlalchemy as sa
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
@@ -38,7 +39,10 @@ from app.hub.listings.checklist import (
     owner_publishable,
 )
 from app.hub.listings.consent import HUB_CONSENT_VERSION
-from app.hub.listings.member_consent import set_public_name_consent
+from app.hub.listings.member_consent import (
+    list_own_memberships,
+    set_public_name_consent,
+)
 from app.hub.listings.names import teacher_names
 from app.hub.listings.owner import OwnerListingUpdate
 from app.local_time import bangladesh_today
@@ -49,6 +53,7 @@ from app.schemas.hub import (
     AreaOption,
     BatchListingResponse,
     BatchListingUpdateRequest,
+    CentreMembershipResponse,
     ChecklistItemWire,
     ConsentRequest,
     OwnerListingResponse,
@@ -94,6 +99,19 @@ def _checklist(items: list[ChecklistItem]) -> list[ChecklistItemWire]:
     return [ChecklistItemWire(key=i.key, done=i.done) for i in items]
 
 
+def _is_centre(session: Session, lens: TeacherLens) -> bool:
+    """Say whether the workspace's owner is a coaching centre.
+
+    :param session: The session
+    :param lens: The owner's lens
+    :return: True for an organisation owner
+    """
+    kind = session.execute(
+        sa.text("SELECT kind::text FROM owner WHERE id = :o"), {"o": lens.owner_id}
+    ).scalar_one()
+    return kind == "organisation"
+
+
 def _owner_response(
     session: Session, lens: TeacherLens, listing: OwnerListing
 ) -> OwnerListingResponse:
@@ -126,6 +144,7 @@ def _owner_response(
             "publishable": owner_publishable(items),
             "runs_classes": runs_classes(session, lens.owner_id, bangladesh_today()),
             "consent_version_current": HUB_CONSENT_VERSION,
+            "is_centre": _is_centre(session, lens),
         }
     )
 
@@ -461,3 +480,27 @@ def file_report(
         str(getattr(request.state, "correlation_id", "unknown"))[:64],
     )
     return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.get(
+    "/me/centre-memberships",
+    response_model=list[CentreMembershipResponse],
+    responses=_AUTH_ERRORS,
+)
+def list_centre_memberships(
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+    session: Annotated[Session, Depends(get_session)],
+) -> list[CentreMembershipResponse]:
+    """List the caller's own accepted centre memberships and name consent.
+
+    Scoped to the authenticated account in SQL; it takes no id from the
+    request, so it can reach nobody else's membership.
+
+    :param account_id: The authenticated account
+    :param session: The request-scoped session
+    :return: One entry per accepted, unrevoked membership, oldest first
+    """
+    return [
+        CentreMembershipResponse.model_validate(row)
+        for row in list_own_memberships(session, account_id)
+    ]

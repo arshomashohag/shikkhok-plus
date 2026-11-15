@@ -45,7 +45,6 @@
   "web_hub_field_upazila": "Upazila",
   "web_hub_area_choose": "Choose…",
   "web_hub_field_street": "Street address",
-  "web_hub_street_help": "Only coaching centres can show a street address.",
   "web_hub_field_phone": "Public phone number",
   "web_hub_phone_help": "The one number shown on your page. Leave empty to show none.",
   "web_hub_save": "Save changes",
@@ -93,5 +92,11 @@
   "web_hub_batch_show_fee": "Show the fee publicly",
   "web_hub_batch_show_schedule": "Show the weekly timetable publicly",
   "web_hub_batch_flags_help": "Say whether to show the fee and the timetable before the first save.",
-  "web_inbox_hub_listing_suspended_title": "Listing suspended · {1}"
+  "web_inbox_hub_listing_suspended_title": "Listing suspended · {1}",
+  "web_hub_centre_faculty": "Centre faculty",
+  "web_hub_areas_failed": "Areas could not be loaded.",
+  "web_hub_consent_title": "Your name on a centre’s page",
+  "web_hub_consent_toggle": "Show my name on the centre’s public listing",
+  "web_hub_consent_help": "If you do not agree, the centre’s page says “Centre faculty” instead of your name. You can change this at any time.",
+  "web_hub_consent_failed": "This was not saved."
 }

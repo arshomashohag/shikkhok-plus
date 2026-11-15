@@ -2355,6 +2355,46 @@
         "title": "CentreCreateRequest",
         "type": "object"
       },
+      "CentreMembershipResponse": {
+        "description": "One accepted centre membership of the caller, with its name consent.\n\n:ivar member_id: The membership\n:ivar centre_id: The centre, for the consent route's path\n:ivar centre_name: The centre's name\n:ivar role: ``manager`` or ``teacher``\n:ivar public_name_consent: Whether the member agreed to be named publicly",
+        "properties": {
+          "centre_id": {
+            "format": "uuid",
+            "title": "Centre Id",
+            "type": "string"
+          },
+          "centre_name": {
+            "title": "Centre Name",
+            "type": "string"
+          },
+          "member_id": {
+            "format": "uuid",
+            "title": "Member Id",
+            "type": "string"
+          },
+          "public_name_consent": {
+            "title": "Public Name Consent",
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "manager",
+              "teacher"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "centre_id",
+          "centre_name",
+          "member_id",
+          "public_name_consent",
+          "role"
+        ],
+        "title": "CentreMembershipResponse",
+        "type": "object"
+      },
       "CentreResponse": {
         "description": "The centre just opened.\n\n:ivar owner_id: The workspace id, sent as ``X-Workspace-Id`` to act on it\n:ivar name: Its name",
         "properties": {
@@ -7195,7 +7235,7 @@
         "type": "object"
       },
       "OwnerListingResponse": {
-        "description": "The owner's listing, with what publishing still needs.\n\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment, or None while a draft\n:ivar public_name: The name shown publicly\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly\n:ivar consent_version: The consent text the owner last agreed to\n:ivar published_at: When it was last published\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met\n:ivar runs_classes: Whether the owner earns the Runs classes badge\n:ivar consent_version_current: The consent text version to agree to now",
+        "description": "The owner's listing, with what publishing still needs.\n\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment, or None while a draft\n:ivar public_name: The name shown publicly\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly\n:ivar consent_version: The consent text the owner last agreed to\n:ivar published_at: When it was last published\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met\n:ivar runs_classes: Whether the owner earns the Runs classes badge\n:ivar consent_version_current: The consent text version to agree to now\n:ivar is_centre: Whether the owner is a coaching centre, the only kind\n    that may show a street address",
         "properties": {
           "bio_bn": {
             "anyOf": [
@@ -7273,6 +7313,10 @@
               }
             ],
             "title": "Headline En"
+          },
+          "is_centre": {
+            "title": "Is Centre",
+            "type": "boolean"
           },
           "public_contact_phone": {
             "anyOf": [
@@ -7385,6 +7429,7 @@
           "district_code",
           "headline_bn",
           "headline_en",
+          "is_centre",
           "public_contact_phone",
           "public_name",
           "publishable",
@@ -22950,6 +22995,72 @@
         "summary": "Read My Batch Teaching",
         "tags": [
           "teaching"
+        ]
+      }
+    },
+    "/v1/me/centre-memberships": {
+      "get": {
+        "description": "List the caller's own accepted centre memberships and name consent.\n\nScoped to the authenticated account in SQL; it takes no id from the\nrequest, so it can reach nobody else's membership.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: One entry per accepted, unrevoked membership, oldest first",
+        "operationId": "list_centre_memberships_v1_me_centre_memberships_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CentreMembershipResponse"
+                  },
+                  "title": "Response List Centre Memberships V1 Me Centre Memberships Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "List Centre Memberships",
+        "tags": [
+          "hub"
         ]
       }
     },

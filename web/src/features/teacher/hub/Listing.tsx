@@ -84,14 +84,26 @@ function AreaPickers({
   const [division, setDivision] = useState<string | null>(null)
   const [districts, setDistricts] = useState<Area[]>([])
   const [upazilas, setUpazilas] = useState<Area[]>([])
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+
+  /** Load one level; a failure is shown with Retry, never as an empty list. */
+  function load(parent: string | undefined, into: (a: Area[]) => void, signal: AbortSignal) {
+    listHubAreas(parent, signal)
+      .then((a) => {
+        setFailed(false)
+        into(a)
+      })
+      .catch((e: unknown) => {
+        if (!(e instanceof DOMException && e.name === 'AbortError')) setFailed(true)
+      })
+  }
 
   useEffect(() => {
     const ctl = new AbortController()
-    listHubAreas(undefined, ctl.signal)
-      .then(setDivisions)
-      .catch(() => undefined)
+    load(undefined, setDivisions, ctl.signal)
     return () => ctl.abort()
-  }, [])
+  }, [attempt])
 
   // Until the person picks one, the division is the one the saved district sits in.
   const chosen =
@@ -107,11 +119,9 @@ function AreaPickers({
       return
     }
     const ctl = new AbortController()
-    listHubAreas(chosen, ctl.signal)
-      .then(setDistricts)
-      .catch(() => undefined)
+    load(chosen, setDistricts, ctl.signal)
     return () => ctl.abort()
-  }, [chosen])
+  }, [chosen, attempt])
 
   useEffect(() => {
     if (!draft.districtCode) {
@@ -119,14 +129,15 @@ function AreaPickers({
       return
     }
     const ctl = new AbortController()
-    listHubAreas(draft.districtCode, ctl.signal)
-      .then(setUpazilas)
-      .catch(() => undefined)
+    load(draft.districtCode, setUpazilas, ctl.signal)
     return () => ctl.abort()
-  }, [draft.districtCode])
+  }, [draft.districtCode, attempt])
 
   return (
     <>
+      {failed ? (
+        <FailureBanner text={t('web_hub_areas_failed')} onRetry={() => setAttempt((n) => n + 1)} />
+      ) : null}
       <AreaSelect
         id="hub-division"
         label={t('web_hub_field_division')}
@@ -412,15 +423,16 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
             </div>
           </div>
           <AreaPickers draft={draft} readOnly={suspended} set={set} />
-          <Field
-            id="hub-street"
-            label={t('web_hub_field_street')}
-            value={draft.streetAddress}
-            maxLength={300}
-            disabled={suspended}
-            help={t('web_hub_street_help')}
-            onChange={(v) => set({ streetAddress: v })}
-          />
+          {saved.is_centre ? (
+            <Field
+              id="hub-street"
+              label={t('web_hub_field_street')}
+              value={draft.streetAddress}
+              maxLength={300}
+              disabled={suspended}
+              onChange={(v) => set({ streetAddress: v })}
+            />
+          ) : null}
           <Field
             id="hub-phone"
             label={t('web_hub_field_phone')}

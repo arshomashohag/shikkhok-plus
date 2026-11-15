@@ -186,6 +186,9 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             # listing reports which membership lenses exist [0022].
             ("POST", "/v1/centres"),
             ("GET", "/v1/memberships"),
+            # The caller's own accepted memberships and name consent, scoped
+            # by account id in SQL and taking no id from the request [0036].
+            ("GET", "/v1/me/centre-memberships"),
             # A centre teacher's own classes; the per-class routes each
             # resolve a ClassTeacherLens [C4].
             ("GET", "/v1/me/classes"),

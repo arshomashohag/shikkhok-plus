@@ -189,3 +189,11 @@ export function batchBody(d: BatchDraft): Schemas['BatchListingUpdateRequest'] {
     show_schedule: d.showSchedule,
   }
 }
+
+/** The exact fallback label the server sends for a member who has not agreed to be named. */
+export const CENTRE_FACULTY = 'Centre faculty'
+
+/** Teacher names for display; the server's fallback label is shown in the reader's language. */
+export function teacherLine(names: readonly string[], t: (key: string) => string): string {
+  return names.map((n) => (n === CENTRE_FACULTY ? t('web_hub_centre_faculty') : n)).join(', ')
+}

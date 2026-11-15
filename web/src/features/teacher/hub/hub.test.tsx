@@ -11,6 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { json, renderScreen } from '../../../test/render'
 import { BatchListings } from './BatchListings'
 import { HubListing } from './Listing'
+import { NameConsent } from './NameConsent'
+import { translate } from '../../../i18n/i18n'
 
 const fetchMock = vi.fn()
 beforeEach(() => vi.stubGlobal('fetch', fetchMock))
@@ -45,6 +47,7 @@ const listing = (over: Record<string, unknown> = {}) => ({
   publishable: true,
   runs_classes: false,
   consent_version_current: '2026-11-14',
+  is_centre: false,
   ...over,
 })
 
@@ -231,5 +234,120 @@ describe('BatchListings', () => {
     renderScreen(<BatchListings />)
     const title = await screen.findByText(name)
     expect(title).toHaveStyle({ overflowWrap: 'anywhere' })
+  })
+})
+
+describe('street address', () => {
+  it('is shown only when the server says the owner is a centre', async () => {
+    serve(listing({ is_centre: false }))
+    const solo = renderScreen(<HubListing />)
+    await screen.findByLabelText('Public name')
+    expect(screen.queryByLabelText('Street address')).toBeNull()
+    solo.unmount()
+    serve(listing({ is_centre: true }))
+    renderScreen(<HubListing />)
+    expect(await screen.findByLabelText('Street address')).toBeInTheDocument()
+  })
+})
+
+describe('area load failure', () => {
+  it('shows an error with Retry instead of empty pickers', async () => {
+    let fail = true
+    serve(listing(), (url) => {
+      if (!url.includes('/v1/hub/areas')) return undefined
+      if (fail)
+        return json(500, {
+          error: { code: 'X', message_key: 'error.unexpected', retryable: true },
+        })
+      return json(200, [
+        { code: 'BD20', kind: 'division', name_en: 'Dhaka Division', name_bn: 'ঢাকা' },
+      ])
+    })
+    renderScreen(<HubListing />)
+    const alert = await screen.findByText('Areas could not be loaded.')
+    fail = false
+    await userEvent.click(
+      within(alert.closest('[role="alert"]') as HTMLElement).getByRole('button', { name: 'Retry' }),
+    )
+    expect(await screen.findByRole('option', { name: 'Dhaka Division' })).toBeInTheDocument()
+  })
+})
+
+describe('Centre faculty wording', () => {
+  it('localizes the server fallback and uses a natural Bangla form', () => {
+    expect(translate('bn', 'web_hub_batch_teachers', 'ক')).toBe('শিক্ষক: ক')
+    expect(translate('bn', 'web_hub_centre_faculty')).toBe('সেন্টারের শিক্ষকবৃন্দ')
+  })
+})
+
+describe('NameConsent', () => {
+  const memberships = (consent: boolean) => [
+    {
+      member_id: 'm1',
+      centre_id: 'c1',
+      centre_name: 'Udoy Coaching',
+      role: 'teacher',
+      public_name_consent: consent,
+    },
+  ]
+
+  it('reflects the server state and calls the endpoint when toggled', async () => {
+    let put: unknown = null
+    fetchMock.mockImplementation(async (url: string, init: RequestInit = {}) => {
+      if (url.endsWith('/v1/me/centre-memberships')) return json(200, memberships(false))
+      if (url.endsWith('/centres/c1/members/me/public-name-consent') && init.method === 'PUT') {
+        put = JSON.parse(init.body as string)
+        return new Response(null, { status: 204 })
+      }
+      return json(404, {})
+    })
+    renderScreen(<NameConsent />)
+    const box = await screen.findByRole('checkbox', {
+      name: /Show my name on the centre’s public listing/,
+    })
+    expect(screen.getByText('Udoy Coaching')).toBeInTheDocument()
+    expect(box).not.toBeChecked()
+    await userEvent.click(box)
+    await waitFor(() => expect(put).toEqual({ consent: true }))
+    expect(box).toBeChecked()
+  })
+
+  it('shows Retry on failure and keeps the previous state', async () => {
+    let puts = 0
+    fetchMock.mockImplementation(async (url: string, init: RequestInit = {}) => {
+      if (url.endsWith('/v1/me/centre-memberships')) return json(200, memberships(true))
+      if (init.method === 'PUT') {
+        puts += 1
+        if (puts === 1) throw new TypeError('Failed to fetch')
+        return new Response(null, { status: 204 })
+      }
+      return json(404, {})
+    })
+    renderScreen(<NameConsent />)
+    const box = await screen.findByRole('checkbox')
+    expect(box).toBeChecked()
+    await userEvent.click(box)
+    const alert = await screen.findByRole('alert')
+    expect(box).toBeChecked()
+    await userEvent.click(within(alert).getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(puts).toBe(2))
+    await waitFor(() => expect(box).not.toBeChecked())
+  })
+
+  it('renders nothing for an account with no accepted memberships', async () => {
+    fetchMock.mockResolvedValue(json(200, []))
+    const { container } = renderScreen(<NameConsent />)
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    expect(container.querySelector('input')).toBeNull()
+  })
+})
+
+describe('publish sheet focus', () => {
+  it('opens with focus inside the sheet', async () => {
+    serve(listing())
+    renderScreen(<HubListing />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Publish' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog.contains(document.activeElement)).toBe(true)
   })
 })

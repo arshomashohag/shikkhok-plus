@@ -220,6 +220,10 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # exist, and the two per-offer routes beneath it each resolve a
         # MembershipLens.
         ("GET", "/v1/memberships"),
+        # The caller's own accepted memberships and name consent [0036]:
+        # scoped by account id in SQL, taking no id from the request, and
+        # a centre teacher holds no teacher lens to resolve it through.
+        ("GET", "/v1/me/centre-memberships"),
         # A centre teacher's own classes [C4], exempt on GET
         # /v1/invitations's reasoning: it REPORTS which classes the
         # account's memberships are assigned, derived in the query from

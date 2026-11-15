@@ -26,7 +26,13 @@ import {
   StaleBanner,
   TopBar,
 } from '../../../ui/components'
-import { batchBody, batchDraftOf, type BatchDraft, type BatchListing } from './hub.mappers'
+import {
+  batchBody,
+  batchDraftOf,
+  teacherLine,
+  type BatchDraft,
+  type BatchListing,
+} from './hub.mappers'
 import { Checklist, failureText, FailureBanner, StatusChip } from './hubUi'
 
 function BatchEditor({
@@ -275,7 +281,7 @@ export function BatchListings() {
                     <>
                       <br />
                       <span className="meta">
-                        {t('web_hub_batch_teachers', b.teacher_names.join(', '))}
+                        {t('web_hub_batch_teachers', teacherLine(b.teacher_names, t))}
                       </span>
                     </>
                   ) : null}

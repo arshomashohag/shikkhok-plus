@@ -7,7 +7,7 @@
  * seen is the server's decision: a reporter is an opaque reference, and
  * nothing about a student or guardian is in the queue [TC-14] [D-6].
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useResource } from '../../core/useResource'
 import { useT } from '../../i18n/i18n'
@@ -46,6 +46,25 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
   const [reason, setReason] = useState<Reason>('other')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
+  const confirmButton = useRef<HTMLButtonElement>(null)
+  const row = useRef<HTMLLIElement>(null)
+  /** Which trigger opened the confirmation, so Cancel can hand focus back to it. */
+  const opener = useRef<string | null>(null)
+
+  // Opening a confirmation moves focus to Confirm; closing it without acting
+  // returns focus to the button that opened it (which was unmounted meanwhile).
+  useEffect(() => {
+    if (act) confirmButton.current?.focus()
+    else if (opener.current) {
+      row.current?.querySelector<HTMLElement>(`[data-act="${opener.current}"]`)?.focus()
+      opener.current = null
+    }
+  }, [act])
+
+  function open(next: Act) {
+    opener.current = next.kind
+    setAct(next)
+  }
 
   async function confirm() {
     if (!act) return
@@ -79,7 +98,7 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
       : t('web_admin_hub_kind_listing')
 
   return (
-    <li>
+    <li ref={row}>
       <div className="row" style={{ alignItems: 'flex-start' }}>
         <span className="grow" style={{ minWidth: 0 }}>
           <span className="meta">{heading}</span>
@@ -140,6 +159,7 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
           </div>
           <div className="button-row">
             <button
+              ref={confirmButton}
               type="button"
               className="btn btn-primary btn-small"
               disabled={busy}
@@ -164,14 +184,16 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
               <button
                 type="button"
                 className="btn btn-outline btn-small"
-                onClick={() => setAct({ kind: 'uphold' })}
+                data-act="uphold"
+                onClick={() => open({ kind: 'uphold' })}
               >
                 {t('web_admin_hub_uphold')}
               </button>
               <button
                 type="button"
                 className="btn btn-outline btn-small"
-                onClick={() => setAct({ kind: 'dismiss' })}
+                data-act="dismiss"
+                onClick={() => open({ kind: 'dismiss' })}
               >
                 {t('web_admin_hub_dismiss')}
               </button>
@@ -194,7 +216,8 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
                   <button
                     type="button"
                     className="btn btn-text btn-small"
-                    onClick={() => setAct({ kind: 'suspend', reason })}
+                    data-act="suspend"
+                    onClick={() => open({ kind: 'suspend', reason })}
                   >
                     {t('web_admin_hub_suspend')}
                   </button>
@@ -205,7 +228,8 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
             <button
               type="button"
               className="btn btn-outline btn-small"
-              onClick={() => setAct({ kind: 'lift' })}
+              data-act="lift"
+              onClick={() => open({ kind: 'lift' })}
             >
               {t('web_admin_hub_lift')}
             </button>

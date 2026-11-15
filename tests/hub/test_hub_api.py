@@ -517,3 +517,55 @@ def test_listing_refusals_surface_with_their_own_codes(
     assert suspended.status_code == 409
     assert suspended.json()["error"]["code"] == "HUB_LISTING_SUSPENDED"
     assert other != district
+
+
+def test_listing_says_whether_the_owner_is_a_centre(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """``is_centre`` follows the owner's kind, so only centres get an address field."""
+    solo_account, _, _ = _solo(owner_session)
+    centre = centre_with_manager(owner_session)
+
+    solo = api_client.get(
+        "/v1/hub/listing", headers=bearer(owner_session, solo_account)
+    )
+    organisation = api_client.get(
+        "/v1/hub/listing",
+        headers={
+            **bearer(owner_session, centre.manager_account_id),
+            "X-Workspace-Id": str(centre.owner_id),
+        },
+    )
+
+    assert solo.json()["is_centre"] is False
+    assert organisation.json()["is_centre"] is True
+
+
+def test_centre_memberships_list_only_my_accepted_live_ones_with_consent(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """The caller sees their own accepted, unrevoked memberships and consent state."""
+    centre = centre_with_manager(owner_session, name="Udoy Coaching")
+    other = centre_with_manager(owner_session, name="Other Centre")
+    member, account = add_member(owner_session, centre.owner_id, consented=True)
+    add_member(owner_session, other.owner_id, account_id=account, consented=False)
+    add_member(owner_session, centre.owner_id, decision="pending", account_id=account)
+    add_member(owner_session, other.owner_id, revoked=True, account_id=account)
+    # Someone else's membership never appears.
+    add_member(owner_session, centre.owner_id, consented=True)
+
+    response = api_client.get(
+        "/v1/me/centre-memberships", headers=bearer(owner_session, account)
+    )
+
+    assert response.status_code == 200, response.text
+    rows = {r["centre_name"]: r for r in response.json()}
+    assert set(rows) == {"Udoy Coaching", "Other Centre"}
+    assert rows["Udoy Coaching"] == {
+        "member_id": str(member),
+        "centre_id": str(centre.owner_id),
+        "centre_name": "Udoy Coaching",
+        "role": "teacher",
+        "public_name_consent": True,
+    }
+    assert rows["Other Centre"]["public_name_consent"] is False

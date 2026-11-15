@@ -35,6 +35,7 @@ import { accountPaths } from '../family/reader'
 import { useUnreadCount } from './area/unread'
 import { helpPaths, useNewReplies } from '../help'
 import { WorkspaceSection } from './Workspaces'
+import { NameConsent } from '../teacher/hub/NameConsent'
 import { MfaEntry } from './security'
 
 /** One More row: a link when there is somewhere to go, else greyed. */
@@ -191,6 +192,8 @@ export function More() {
       )}
 
       <WorkspaceSection online={online} />
+
+      {session.lens === 'teacher' || session.lens === 'class_teacher' ? <NameConsent /> : null}
 
       {session.lens === 'teacher' ? (
         <>

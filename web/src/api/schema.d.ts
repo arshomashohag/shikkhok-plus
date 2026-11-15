@@ -3114,6 +3114,33 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/me/centre-memberships': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Centre Memberships
+     * @description List the caller's own accepted centre memberships and name consent.
+     *
+     *     Scoped to the authenticated account in SQL; it takes no id from the
+     *     request, so it can reach nobody else's membership.
+     *
+     *     :param account_id: The authenticated account
+     *     :param session: The request-scoped session
+     *     :return: One entry per accepted, unrevoked membership, oldest first
+     */
+    get: operations['list_centre_memberships_v1_me_centre_memberships_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/me/classes': {
     parameters: {
       query?: never
@@ -5973,6 +6000,37 @@ export interface components {
       name: string
     }
     /**
+     * CentreMembershipResponse
+     * @description One accepted centre membership of the caller, with its name consent.
+     *
+     *     :ivar member_id: The membership
+     *     :ivar centre_id: The centre, for the consent route's path
+     *     :ivar centre_name: The centre's name
+     *     :ivar role: ``manager`` or ``teacher``
+     *     :ivar public_name_consent: Whether the member agreed to be named publicly
+     */
+    CentreMembershipResponse: {
+      /**
+       * Centre Id
+       * Format: uuid
+       */
+      centre_id: string
+      /** Centre Name */
+      centre_name: string
+      /**
+       * Member Id
+       * Format: uuid
+       */
+      member_id: string
+      /** Public Name Consent */
+      public_name_consent: boolean
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: 'manager' | 'teacher'
+    }
+    /**
      * CentreResponse
      * @description The centre just opened.
      *
@@ -8780,6 +8838,8 @@ export interface components {
      *     :ivar publishable: Whether every requirement is met
      *     :ivar runs_classes: Whether the owner earns the Runs classes badge
      *     :ivar consent_version_current: The consent text version to agree to now
+     *     :ivar is_centre: Whether the owner is a coaching centre, the only kind
+     *         that may show a street address
      */
     OwnerListingResponse: {
       /** Bio Bn */
@@ -8798,6 +8858,8 @@ export interface components {
       headline_bn: string | null
       /** Headline En */
       headline_en: string | null
+      /** Is Centre */
+      is_centre: boolean
       /** Public Contact Phone */
       public_contact_phone: string | null
       /** Public Name */
@@ -19628,6 +19690,62 @@ export interface operations {
       }
       /** @description The request could not be parsed */
       422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  list_centre_memberships_v1_me_centre_memberships_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CentreMembershipResponse'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
         headers: {
           [name: string]: unknown
         }

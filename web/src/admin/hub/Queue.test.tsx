@@ -125,4 +125,18 @@ describe('Admin hub queue', () => {
       }),
     )
   })
+
+  it('moves focus to Confirm, and back to the trigger on Cancel', async () => {
+    serveAdmin((_m, url) =>
+      url.includes('/v1/admin/hub/queue')
+        ? json(200, { kind: 'report', items: [report(1, 5)] })
+        : undefined,
+    )
+    renderAdmin('/hub')
+    const dismiss = await screen.findByRole('button', { name: 'Dismiss' })
+    await userEvent.click(dismiss)
+    expect(screen.getByRole('button', { name: 'Confirm' })).toHaveFocus()
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'Dismiss' })).toHaveFocus()
+  })
 })

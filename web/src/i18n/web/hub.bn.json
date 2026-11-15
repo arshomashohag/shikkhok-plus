@@ -45,7 +45,6 @@
   "web_hub_field_upazila": "উপজেলা",
   "web_hub_area_choose": "বেছে নিন…",
   "web_hub_field_street": "রাস্তার ঠিকানা",
-  "web_hub_street_help": "শুধু কোচিং সেন্টার রাস্তার ঠিকানা দেখাতে পারে।",
   "web_hub_field_phone": "পাবলিক ফোন নম্বর",
   "web_hub_phone_help": "আপনার পেজে এই একটি নম্বরই দেখানো হয়। কিছু না দিলে কোনো নম্বর দেখানো হবে না।",
   "web_hub_save": "পরিবর্তন সংরক্ষণ করুন",
@@ -72,7 +71,7 @@
   "web_hub_batches_owner_first": "আগে আপনার নিজের লিস্টিং প্রকাশ করুন, তারপর ব্যাচ প্রকাশ করুন।",
   "web_hub_batch_fee": "ফি ৳{1}",
   "web_hub_batch_fee_hidden": "ফি সবার সামনে দেখানো হয় না",
-  "web_hub_batch_teachers": "পড়ান {1}",
+  "web_hub_batch_teachers": "শিক্ষক: {1}",
   "web_hub_batch_edit": "সম্পাদনা",
   "web_hub_batch_edit_title": "ব্যাচ লিস্টিং সম্পাদনা",
   "web_hub_batch_field_description_en": "বিবরণ (ইংরেজি)",
@@ -93,5 +92,11 @@
   "web_hub_batch_show_fee": "ফি সবার সামনে দেখান",
   "web_hub_batch_show_schedule": "সাপ্তাহিক রুটিন সবার সামনে দেখান",
   "web_hub_batch_flags_help": "প্রথমবার সংরক্ষণের আগে ঠিক করুন ফি ও রুটিন দেখানো হবে কি না।",
-  "web_inbox_hub_listing_suspended_title": "লিস্টিং স্থগিত · {1}"
+  "web_inbox_hub_listing_suspended_title": "লিস্টিং স্থগিত · {1}",
+  "web_hub_centre_faculty": "সেন্টারের শিক্ষকবৃন্দ",
+  "web_hub_areas_failed": "এলাকার তালিকা আনা যায়নি।",
+  "web_hub_consent_title": "সেন্টারের পেজে আপনার নাম",
+  "web_hub_consent_toggle": "সেন্টারের পাবলিক লিস্টিংয়ে আমার নাম দেখান",
+  "web_hub_consent_help": "রাজি না হলে সেন্টারের পেজে আপনার নামের জায়গায় “সেন্টারের শিক্ষকবৃন্দ” লেখা থাকবে। যেকোনো সময় এটি বদলাতে পারবেন।",
+  "web_hub_consent_failed": "এটি সংরক্ষণ হয়নি।"
 }
