@@ -7078,3 +7078,115 @@
 **Context**: construction > usernames-backend > code-generation > source-manifest.json
 
 ---
+
+## Unit Started
+**Timestamp**: 2026-11-15T06:47:15Z
+**Event**: UNIT_STARTED
+**Stage**: code-generation
+**Unit**: usernames-backend
+**Run floor**: WORKFLOW_STARTED:2026-11-13T04:15:10Z#1
+
+---
+
+## Unit Completed
+**Timestamp**: 2026-11-15T06:47:15Z
+**Event**: UNIT_COMPLETED
+**Stage**: code-generation
+**Unit**: usernames-backend
+**Run floor**: WORKFLOW_STARTED:2026-11-13T04:15:10Z#1
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-11-15T06:47:38Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: functional-design
+**Unit**: usernames-backend
+**Checkpoint**: review-receipt
+**Changed**: aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/rules.md, aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/entities.md, aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md
+**Recorded**: sha256:9162403818629971feda2947f0e40c645b26c56d2f8e1c7a8e8e6656b120c3b2
+**Current**: sha256:7c482e508e3fdba9fe8df99548f58f5b834d996aeec8f58ef0270178f4658333
+**Details**: aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/rules.md, aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/entities.md, aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/functional-design/functional-spec.md changed after the usernames backend Unit was reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-11-15T06:47:38Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: nfr-requirements
+**Unit**: usernames-backend
+**Checkpoint**: review-receipt
+**Changed**: aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/nfr-requirements/security-requirements.md
+**Recorded**: sha256:7b029c1767ff81340ec735594d688cc007cca0e440defc0485e182522b089945
+**Current**: sha256:0f4e449cde90a3c1a19aeebfcd6a0056cf357df8715d224fcd0c3bb6b731929c
+**Details**: aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/nfr-requirements/security-requirements.md changed after the usernames backend Unit was reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-11-15T06:47:38Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: code-generation
+**Unit**: usernames-backend
+**Checkpoint**: review-receipt
+**Changed**: aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/code-generation/code-summary.md
+**Recorded**: sha256:9bf1e6d497c4622f4f5c394c0f625c250cd96137784d69590394397027fae6c6
+**Current**: sha256:3734a1e5646e80009dec0a41f07e0c8f6e138c3e8d2ca2a77278cfab2122e26d
+**Details**: aidlc/spaces/default/intents/261113-unique-usernames/construction/usernames-backend/code-generation/code-summary.md changed after the usernames backend Unit was reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-11-15T06:47:38Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: code-generation
+**Unit**: usernames-backend
+**Checkpoint**: review-receipt
+**Changed**: app/accounts/identifier.py, app/accounts/passwords.py, app/auth/hashing.py, app/governance/deletion.py, tests/accounts/test_username_claims.py, tests/auth/test_username_sign_in.py, tests/contract/test_analytics_contract.py, tests/governance/test_purge.py
+**Recorded**: sha256:1d190b7acf29dea5f13c6569b826d667b221d5fe4e55e5aa077f0a49fbfb6200
+**Current**: sha256:edac12ec9f85ef786259dad5124fefbaed6b7585f1cde7f2a89d2ec36f44becf
+**Details**: app/accounts/identifier.py, app/accounts/passwords.py, app/auth/hashing.py, app/governance/deletion.py, tests/accounts/test_username_claims.py, tests/auth/test_username_sign_in.py, tests/contract/test_analytics_contract.py, tests/governance/test_purge.py changed after the usernames backend Unit was reviewed; carrying on.
+
+---
+
+## Checkpoint Verification Recorded
+**Timestamp**: 2026-11-15T07:05:09Z
+**Event**: CHECKPOINT_VERIFICATION_RECORDED
+**Unit**: usernames-backend
+**Kind**: unit
+**Stage**: code-generation
+**Stages**: functional-design, nfr-requirements, code-generation
+**Verification Id**: 85beed2a-1fb2-49a2-82d2-6f7095a4875f
+**Fingerprint**: sha256:4e03f0f9b851ddfd89e53c570eba1886244a20ac51504f868a580a3c0bc5c7ff
+**Command SHA-256**: f34cb6e436f7d1bbefecbf959cc816a6a70f1be124303316a74cda6d99dda52c
+**Exit Code**: 0
+**Verified**: true
+**Run floor**: WORKFLOW_STARTED:2026-11-13T04:15:10Z#1
+
+---
+
+## Human Turn
+**Timestamp**: 2026-11-15T07:05:23Z
+**Event**: HUMAN_TURN
+**Session**: 841b27a4-4a63-5bf8-86b7-1ba6e35cddbc
+
+---
+
+## Gate Approved
+**Timestamp**: 2026-11-15T07:05:36Z
+**Event**: GATE_APPROVED
+**Unit**: usernames-backend
+**Stage**: code-generation
+**Stages**: functional-design, nfr-requirements, code-generation
+**Gate Stages**: functional-design, nfr-requirements, code-generation
+**Gate Scope**: unit-end
+**Checkpoint**: construction-unit
+**Fingerprint**: sha256:4e03f0f9b851ddfd89e53c570eba1886244a20ac51504f868a580a3c0bc5c7ff
+**Run floor**: WORKFLOW_STARTED:2026-11-13T04:15:10Z#1
+**Run floors**: {"functional-design":"WORKFLOW_STARTED:2026-11-13T04:15:10Z#1","nfr-requirements":"WORKFLOW_STARTED:2026-11-13T04:15:10Z#1","code-generation":"WORKFLOW_STARTED:2026-11-13T04:15:10Z#1"}
+**Verification Command SHA-256**: f34cb6e436f7d1bbefecbf959cc816a6a70f1be124303316a74cda6d99dda52c
+**Verification Id**: 85beed2a-1fb2-49a2-82d2-6f7095a4875f
+**Approved Evidence**: {"functional-design":["sha256:9162403818629971feda2947f0e40c645b26c56d2f8e1c7a8e8e6656b120c3b2",null],"nfr-requirements":["sha256:7b029c1767ff81340ec735594d688cc007cca0e440defc0485e182522b089945",null],"code-generation":["sha256:9bf1e6d497c4622f4f5c394c0f625c250cd96137784d69590394397027fae6c6","sha256:1d190b7acf29dea5f13c6569b826d667b221d5fe4e55e5aa077f0a49fbfb6200"]}
+**Autonomous**: true
+
+---
