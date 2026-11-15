@@ -13,7 +13,7 @@ differences.
 main.tsx
 └─ SessionProvider                     (changed: 'username-required' state, visibility re-read)
    └─ App                              (changed)
-      ├─ RouteErrorBoundary            (new, keyed on pathname; functional-spec § 10 item 2)
+      ├─ RouteErrorBoundary            (new, resets on pathname change; functional-spec § 10 item 2)
       ├─ signed-out routes
       │  ├─ SignIn                     (changed: LoginField, no KindToggle, no route state)
       │  ├─ SignUp                     (changed: UsernameField + hint, email already-added lookup;
@@ -132,7 +132,12 @@ sessionFromMe(me: Me, remembered: Lens | null, workspaces): Session   // new, pu
   and otherwise publishes `resolving`. It must keep `ready` **and**
   `username-required`.
 - New `reread(): Promise<void>`. It starts the same read as `refresh()` and
-  settles when that read settles, whatever it published. `refresh()` is kept
+  settles when that read settles, whatever it published. A read the
+  provider supersedes with a newer one does not strand its caller:
+  `reread()` resolves with the newest read's settlement, so every pending
+  `reread()` settles when the latest read does (review 2, minor). A test
+  starts a `reread()`, starts a `refresh()` before it answers, and asserts
+  the first `reread()` settles. `refresh()` is kept
   for its existing callers. The gate uses `reread()`, so it never infers a
   read's completion from a changed `me` object (review R-05).
 - The visibility re-read (W4 step 8) lives in the gate, not the provider,
@@ -256,8 +261,14 @@ JSON body, except U2's already-added query.
 - `App`: after the `failed` branch, `if (session.state === 'username-required')
   return <ChooseUsernameGate me={session.me} />`, before `session.choosing`.
 - `RouteErrorBoundary` is a class component (React has no hook form). It
-  wraps everything `App` returns and is rendered with
-  `key={location.pathname}`, so navigation mounts a fresh boundary. On a
+  wraps everything `App` returns. It is **not** keyed on the path, since a
+  key would remount the whole shell on every navigation (review 2, minor).
+  Instead it records the pathname at the time of the error and clears its
+  error state when `location.pathname` differs (`componentDidUpdate` on a
+  `pathname` prop), so navigating away recovers without remounting
+  anything that did not fail. A test renders a throwing route, navigates
+  to another, and asserts the other renders and the shell was not
+  remounted. On a
   render error it shows `ErrorCard` with
   `new ApiError(500, 'UNEXPECTED', UNEXPECTED_KEY, true)`, which renders
   `error_unexpected` and `auth_retry`. Retry clears the boundary's error

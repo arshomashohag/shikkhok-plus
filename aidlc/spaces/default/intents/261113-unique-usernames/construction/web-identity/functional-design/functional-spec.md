@@ -975,8 +975,8 @@ Raised here as the team's practice requires (structural, not naming).
 2. **The web has no error boundary.** Defect 2 blanks the whole app because
    any render-time throw unmounts the root. U4 fixes the null phone. It also
    recommends, and frontend-components § 5 includes, one boundary in `App`.
-   It is keyed on `location.pathname`, so navigating to another route mounts
-   a fresh boundary. It renders the existing `ErrorCard`, given a fabricated
+   It clears its error when `location.pathname` changes, without a `key`
+   that would remount the shell on every navigation. It renders the existing `ErrorCard`, given a fabricated
    `ApiError(500, 'UNEXPECTED', 'error.unexpected', true)`. That shows
    `error_unexpected` and `auth_retry`; Retry resets the boundary and renders
    the route again. A render error therefore fails the page it is on, and
