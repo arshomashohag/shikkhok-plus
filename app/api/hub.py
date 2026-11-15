@@ -143,7 +143,7 @@ def _batch_response(
             else None
         )
         fields: dict[str, object] = {
-            "status": "none",
+            "status": "draft",
             "slug": None,
             "description_en": None,
             "description_bn": None,

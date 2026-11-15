@@ -33,6 +33,8 @@ __all__ = [
 
 TeachingMode = Literal["in_person", "home_visit", "online"]
 ListingStatus = Literal["draft", "published", "hidden", "suspended"]
+BatchMode = Literal["in_person", "home_visit", "online"]
+Admissions = Literal["open", "waitlist", "closed"]
 
 #: A subject tag, as the column bounds it.
 _Tag = Annotated[str, Field(max_length=40)]
@@ -197,8 +199,8 @@ class BatchListingUpdateRequest(BaseModel):
     )
     curriculum: str | None = Field(default=None, max_length=30)
     subject_tags: list[_Tag] | None = Field(default=None, max_length=20)
-    mode: str | None = Field(default=None, max_length=20)
-    admissions: str | None = Field(default=None, max_length=20)
+    mode: BatchMode | Literal[""] | None = None
+    admissions: Admissions | None = None
     show_fee: bool | None = None
     show_schedule: bool | None = None
 
@@ -206,13 +208,12 @@ class BatchListingUpdateRequest(BaseModel):
 class BatchListingResponse(BaseModel):
     """One of the owner's batches with its listing, if it has one yet.
 
-    ``status`` is ``none`` before a listing is drafted.
+    ``status`` is ``draft`` before any listing row exists.
 
     :ivar batch_id: The batch
     :ivar batch_name: Its name
     :ivar subjects: Its subject names
-    :ivar status: ``none``, ``draft``, ``published``, ``hidden`` or
-        ``suspended``
+    :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
     :ivar slug: The public path segment
     :ivar description_en: The English description
     :ivar description_bn: The Bangla description
@@ -234,7 +235,7 @@ class BatchListingResponse(BaseModel):
     batch_id: uuid.UUID
     batch_name: str
     subjects: list[str]
-    status: Literal["none", "draft", "published", "hidden", "suspended"]
+    status: ListingStatus
     slug: str | None
     description_en: str | None
     description_bn: str | None
@@ -243,8 +244,8 @@ class BatchListingResponse(BaseModel):
     class_levels: list[str]
     curriculum: str | None
     subject_tags: list[str]
-    mode: str | None
-    admissions: str | None
+    mode: BatchMode | None
+    admissions: Admissions | None
     show_fee: bool | None
     show_schedule: bool | None
     fee: MoneyField | None

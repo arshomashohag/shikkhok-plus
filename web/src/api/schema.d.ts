@@ -5425,13 +5425,12 @@ export interface components {
      * BatchListingResponse
      * @description One of the owner's batches with its listing, if it has one yet.
      *
-     *     ``status`` is ``none`` before a listing is drafted.
+     *     ``status`` is ``draft`` before any listing row exists.
      *
      *     :ivar batch_id: The batch
      *     :ivar batch_name: Its name
      *     :ivar subjects: Its subject names
-     *     :ivar status: ``none``, ``draft``, ``published``, ``hidden`` or
-     *         ``suspended``
+     *     :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
      *     :ivar slug: The public path segment
      *     :ivar description_en: The English description
      *     :ivar description_bn: The Bangla description
@@ -5451,7 +5450,7 @@ export interface components {
      */
     BatchListingResponse: {
       /** Admissions */
-      admissions: string | null
+      admissions: ('closed' | 'open' | 'waitlist') | null
       /**
        * Batch Id
        * Format: uuid
@@ -5471,7 +5470,7 @@ export interface components {
       description_en: string | null
       fee: components['schemas']['Money'] | null
       /** Mode */
-      mode: string | null
+      mode: ('home_visit' | 'in_person' | 'online') | null
       /** Publishable */
       publishable: boolean
       /** Show Fee */
@@ -5484,7 +5483,7 @@ export interface components {
        * Status
        * @enum {string}
        */
-      status: 'draft' | 'hidden' | 'none' | 'published' | 'suspended'
+      status: 'draft' | 'hidden' | 'published' | 'suspended'
       /** Subject Tags */
       subject_tags: string[]
       /** Subjects */
@@ -5517,7 +5516,7 @@ export interface components {
      */
     BatchListingUpdateRequest: {
       /** Admissions */
-      admissions?: string | null
+      admissions?: ('closed' | 'open' | 'waitlist') | null
       /** Class Levels */
       class_levels?: string[] | null
       /** Curriculum */
@@ -5527,7 +5526,7 @@ export interface components {
       /** Description En */
       description_en?: string | null
       /** Mode */
-      mode?: string | null
+      mode?: ('home_visit' | 'in_person' | 'online') | '' | null
       /** Show Fee */
       show_fee?: boolean | null
       /** Show Schedule */

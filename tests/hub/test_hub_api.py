@@ -235,7 +235,7 @@ def test_batch_listing_lifecycle(
     listed = api_client.get("/v1/hub/batch-listings", headers=headers)
     assert listed.status_code == 200, listed.text
     assert [row["batch_id"] for row in listed.json()] == [str(batch_id)]
-    assert listed.json()[0]["status"] == "none"
+    assert listed.json()[0]["status"] == "draft"
     assert listed.json()[0]["subjects"] == ["Maths"]
 
     saved = api_client.put(
@@ -469,3 +469,51 @@ def test_consent_route_refuses_pending_or_revoked_member(
         .where(OwnerMember.public_name_consent_at.is_not(None))
     ).scalar_one()
     assert stamped == 0
+
+
+def test_listing_refusals_surface_with_their_own_codes(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """Area, phone-in-text and suspension refusals reach the client by code."""
+    account, owner_id, _ = _solo(owner_session)
+    headers = bearer(owner_session, account)
+    district, _, other = areas(owner_session)
+    upazila_elsewhere = owner_session.execute(
+        sa.text(
+            "SELECT code FROM bd_area WHERE kind = 'upazila' "
+            "AND parent_code <> :d ORDER BY code LIMIT 1"
+        ),
+        {"d": district},
+    ).scalar_one()
+
+    mismatch = api_client.put(
+        "/v1/hub/listing",
+        json={"district_code": district, "upazila_code": upazila_elsewhere},
+        headers=headers,
+    )
+    assert mismatch.status_code == 400
+    assert mismatch.json()["error"]["code"] == "HUB_AREA_MISMATCH"
+
+    contact = api_client.put(
+        "/v1/hub/listing",
+        json={"bio_en": "Call me on 01711234567"},
+        headers=headers,
+    )
+    assert contact.status_code == 400
+    assert contact.json()["error"]["code"] == "HUB_TEXT_CONTAINS_CONTACT"
+
+    api_client.put("/v1/hub/listing", json=_FILL_OWNER, headers=headers)
+    owner_session.execute(
+        sa.text(
+            "UPDATE owner_listing SET status = 'suspended', suspended_at = now(), "
+            "suspension_reason_code = 'fake' WHERE owner_id = :o"
+        ),
+        {"o": owner_id},
+    )
+    owner_session.commit()
+    suspended = api_client.put(
+        "/v1/hub/listing", json={"headline_en": "x"}, headers=headers
+    )
+    assert suspended.status_code == 409
+    assert suspended.json()["error"]["code"] == "HUB_LISTING_SUSPENDED"
+    assert other != district

@@ -1329,11 +1329,16 @@
         "type": "object"
       },
       "BatchListingResponse": {
-        "description": "One of the owner's batches with its listing, if it has one yet.\n\n``status`` is ``none`` before a listing is drafted.\n\n:ivar batch_id: The batch\n:ivar batch_name: Its name\n:ivar subjects: Its subject names\n:ivar status: ``none``, ``draft``, ``published``, ``hidden`` or\n    ``suspended``\n:ivar slug: The public path segment\n:ivar description_en: The English description\n:ivar description_bn: The Bangla description\n:ivar syllabus_en: The English syllabus\n:ivar syllabus_bn: The Bangla syllabus\n:ivar class_levels: The class levels taught\n:ivar curriculum: The curriculum\n:ivar subject_tags: Public subject tags\n:ivar mode: How the batch is taught\n:ivar admissions: ``open``, ``waitlist`` or ``closed``\n:ivar show_fee: Whether the fee is public, or None before a listing\n:ivar show_schedule: Whether the timetable is public, or None\n:ivar fee: The batch fee, only while ``show_fee`` is set\n:ivar teacher_names: The teachers the page may name\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met",
+        "description": "One of the owner's batches with its listing, if it has one yet.\n\n``status`` is ``draft`` before any listing row exists.\n\n:ivar batch_id: The batch\n:ivar batch_name: Its name\n:ivar subjects: Its subject names\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment\n:ivar description_en: The English description\n:ivar description_bn: The Bangla description\n:ivar syllabus_en: The English syllabus\n:ivar syllabus_bn: The Bangla syllabus\n:ivar class_levels: The class levels taught\n:ivar curriculum: The curriculum\n:ivar subject_tags: Public subject tags\n:ivar mode: How the batch is taught\n:ivar admissions: ``open``, ``waitlist`` or ``closed``\n:ivar show_fee: Whether the fee is public, or None before a listing\n:ivar show_schedule: Whether the timetable is public, or None\n:ivar fee: The batch fee, only while ``show_fee`` is set\n:ivar teacher_names: The teachers the page may name\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met",
         "properties": {
           "admissions": {
             "anyOf": [
               {
+                "enum": [
+                  "closed",
+                  "open",
+                  "waitlist"
+                ],
                 "type": "string"
               },
               {
@@ -1411,6 +1416,11 @@
           "mode": {
             "anyOf": [
               {
+                "enum": [
+                  "home_visit",
+                  "in_person",
+                  "online"
+                ],
                 "type": "string"
               },
               {
@@ -1460,7 +1470,6 @@
             "enum": [
               "draft",
               "hidden",
-              "none",
               "published",
               "suspended"
             ],
@@ -1543,7 +1552,11 @@
           "admissions": {
             "anyOf": [
               {
-                "maxLength": 20,
+                "enum": [
+                  "closed",
+                  "open",
+                  "waitlist"
+                ],
                 "type": "string"
               },
               {
@@ -1607,7 +1620,15 @@
           "mode": {
             "anyOf": [
               {
-                "maxLength": 20,
+                "enum": [
+                  "home_visit",
+                  "in_person",
+                  "online"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "",
                 "type": "string"
               },
               {
