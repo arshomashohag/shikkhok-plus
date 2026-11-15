@@ -35,12 +35,14 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
+from typing import Final
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 MONEY = ROOT / "app" / "money"
 ERRORS = ROOT / "app" / "errors"
+HUB_PUBLIC = ROOT / "app" / "hub" / "public"
 FIXTURES = Path(__file__).parent / "fixtures"
 
 #: Layers the error handler may never import from. [NFR17.2]
@@ -69,6 +71,21 @@ FORBIDDEN_PREFIXES = (
     "app.repositories",
     "app.authz",
     "app.schemas",
+)
+
+#: The only ``app.`` modules the public hub may import. The hub serves
+#: anonymous, cacheable reads through a restricted database role, so it must
+#: not reach the full ORM model layer, the authorization layer or the
+#: repositories: an import is how a public page would come to read a private
+#: table.
+HUB_PUBLIC_IMPORT_ALLOWLIST: Final[frozenset[str]] = frozenset(
+    {
+        "app.hub.public",
+        "app.db.roles",
+        "app.money",
+        "app.api.html",
+        "app.errors",
+    }
 )
 
 #: The only path where raw decimal arithmetic is permitted. [BR6.2, NFR9.5]
@@ -366,6 +383,54 @@ class TestGate2Inward:
                 "The money module's entry should carry no rule exemptions; "
                 "its decimal permission comes from being the module itself."
             )
+
+
+def _hub_public_offenders(sources: list[Path]) -> list[str]:
+    """
+    List every ``app.`` import outside the public hub's allowlist.
+
+    An import is allowed when its module equals, or is a submodule of, an
+    allowlist entry. Non-``app`` imports (third-party, standard library)
+    are not this gate's concern.
+
+    :param sources: The files to parse.
+    :return: One description per offending import.
+    """
+    offenders: list[str] = []
+    for source in sources:
+        for module in _imported_modules(source):
+            if not module.startswith("app."):
+                continue
+            allowed = any(
+                module == entry or module.startswith(f"{entry}.")
+                for entry in HUB_PUBLIC_IMPORT_ALLOWLIST
+            )
+            if not allowed:
+                offenders.append(f"{source.name} imports {module}")
+    return offenders
+
+
+class TestHubPublicImportGate:
+    """``app/hub/public`` imports only its allowlist."""
+
+    def test_hub_public_imports_only_its_allowlist(self) -> None:
+        """The real tree is clean, and the walk is not vacuous.
+
+        :return: None
+        """
+        sources = list(HUB_PUBLIC.rglob("*.py"))
+        assert (HUB_PUBLIC / "__init__.py") in sources, "gate walks nothing"
+        assert not _hub_public_offenders(sources)
+
+    def test_hub_public_import_gate_fires_on_fixture(self) -> None:
+        """A module importing ``app.db.models`` is refused.
+
+        :return: None
+        """
+        fixture = FIXTURES / "hub_public_bad_import" / "bad_module.py.txt"
+        assert _hub_public_offenders([fixture]) == [
+            "bad_module.py.txt imports app.db.models"
+        ]
 
 
 def _ruff_or_skip() -> list[str]:

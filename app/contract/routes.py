@@ -27,12 +27,19 @@ __all__ = [
     "CLASS_TEACHER_ROUTES",
     "LENS_EXEMPT_AUTHENTICATED",
     "PLATFORM_ADMIN_ROUTES",
+    "PUBLIC_CACHEABLE_ROUTES",
     "PUBLIC_ROUTES",
     "RouteViolation",
+    "authenticated_cacheable_routes",
     "class_teacher_routes",
     "platform_admin_routes",
     "unlensed_routes",
 ]
+
+#: Public routes whose responses a shared cache may serve to anyone. A
+#: subset of :data:`PUBLIC_ROUTES`, GET only, and none may depend on an
+#: authenticated account: :func:`authenticated_cacheable_routes` enforces it.
+PUBLIC_CACHEABLE_ROUTES: frozenset[tuple[str, str]] = frozenset()
 
 #: Routes reachable with no authentication at all. **Exactly fourteen**,
 #: and the count IS asserted: a fifteenth entry is a diff against a
@@ -400,6 +407,46 @@ def unlensed_routes(app: FastAPI) -> list[RouteViolation]:
                 violations.append(RouteViolation(method=method, path=route.path))
 
     return violations
+
+
+def authenticated_cacheable_routes(
+    app: FastAPI,
+    cacheable: frozenset[tuple[str, str]] = PUBLIC_CACHEABLE_ROUTES,
+) -> list[tuple[str, str]]:
+    """List every cacheable route that depends on authentication.
+
+    A node is authenticating when its callable is ``authenticated_account``
+    or ``token_subject``, or its return annotation resolves to a lens.
+    The two callables are resolved lazily, because ``app.api.deps`` sits
+    above this module in the import graph.
+
+    :param app: The application to enumerate
+    :param cacheable: The ``(method, path)`` pairs treated as cacheable
+    :return: Each offending ``(method, path)``, empty when clean
+    """
+    from app.api.deps import authenticated_account, token_subject
+
+    authenticating = (authenticated_account, token_subject)
+
+    def authenticates(dependant: Dependant) -> bool:
+        """Report whether this dependency tree requires authentication.
+
+        :param dependant: The dependency node
+        :return: True if any node authenticates or yields a lens
+        """
+        call = dependant.call
+        if call is not None and (
+            call in authenticating or resolve_lens_type(call) is not None
+        ):
+            return True
+        return any(authenticates(sub) for sub in dependant.dependencies)
+
+    found: list[tuple[str, str]] = []
+    for route in _api_routes(app):
+        for method in sorted(route.methods or set()):
+            if (method, route.path) in cacheable and authenticates(route.dependant):
+                found.append((method, route.path))
+    return found
 
 
 def class_teacher_routes(app: FastAPI) -> set[tuple[str, str]]:
