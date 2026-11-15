@@ -228,7 +228,7 @@ test:
 		--cov=app.batches --cov=app.centres --cov=app.payroll --cov=app.staff \
 		--cov=app.config --cov=app.contract --cov=app.db --cov=app.errors \
 		--cov=app.fees \
-		--cov=app.gateway --cov=app.governance \
+		--cov=app.gateway --cov=app.governance --cov=app.moderation \
 		--cov=app.local_time --cov=app.logging_setup --cov=app.main \
 		--cov=app.request_scope \
 		--cov=app.marks \

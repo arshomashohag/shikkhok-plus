@@ -1880,6 +1880,10 @@
     <string name="hub_address_centre_only">Only coaching centres can show a street address.</string>
     <string name="hub_batch_flags_required">Say whether to show the fee and the schedule publicly before saving this listing.</string>
     <string name="hub_write_ceiling">You have changed your listing a lot today. Try again tomorrow.</string>
+    <string name="hub_report_target_not_found">That listing cannot be reported.</string>
+    <string name="hub_report_already_filed">You have already reported this listing.</string>
+    <string name="hub_report_already_decided">This report has already been decided.</string>
+    <string name="hub_report_reason_invalid">Choose one of the listed reasons.</string>
     <string name="hub_batch_inactive">This batch is retired, so its listing cannot be published.</string>
     <string name="hub_owner_not_published">Publish your own listing first, then publish this batch.</string>
     <string name="hub_batch_value_invalid">One of the chosen options is not allowed. Pick from the list.</string>

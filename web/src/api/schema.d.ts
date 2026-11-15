@@ -391,6 +391,85 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/admin/hub/owners/{owner_id}/suspension': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Set Suspension
+     * @description Suspend or restore an owner's public listing.
+     *
+     *     :param owner_id: The owner
+     *     :param body: Whether to suspend, and why
+     *     :param request: The incoming request
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The owner and whether the listing is suspended now
+     */
+    put: operations['set_suspension_v1_admin_hub_owners__owner_id__suspension_put']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/hub/queue': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Queue
+     * @description List open reports, or suspended listings, oldest first.
+     *
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :param kind: ``report`` or ``listing``
+     *     :return: The queue; a reporter appears only as an opaque label
+     */
+    get: operations['hub_queue_v1_admin_hub_queue_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/hub/reports/{report_id}/decision': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Decide Report
+     * @description Uphold or dismiss a report.
+     *
+     *     :param report_id: The report
+     *     :param body: The decision
+     *     :param request: The incoming request
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The report and its new status
+     */
+    post: operations['decide_report_v1_admin_hub_reports__report_id__decision_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/admin/overview': {
     parameters: {
       query?: never
@@ -2783,6 +2862,32 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/hub/reports': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * File Report
+     * @description Report a published hub listing; nothing about the listing changes.
+     *
+     *     :param body: The target, the reason and an optional note
+     *     :param request: The incoming request, for its correlation id
+     *     :param account_id: The authenticated reporter
+     *     :param session: The request-scoped session
+     *     :return: An empty 202
+     */
+    post: operations['file_report_v1_hub_reports_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/hub/slugs/{slug}': {
     parameters: {
       query?: never
@@ -4781,6 +4886,132 @@ export interface components {
       otpauth_uri: string
       /** Secret */
       secret: string
+    }
+    /**
+     * AdminHubDecisionRequest
+     * @description An administrator's decision on a report.
+     *
+     *     :ivar decision: ``upheld`` or ``dismissed``
+     */
+    AdminHubDecisionRequest: {
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: 'dismissed' | 'upheld'
+    }
+    /**
+     * AdminHubQueueItem
+     * @description One row of the moderation queue.
+     *
+     *     :ivar kind: ``report`` or ``listing``
+     *     :ivar report_id: The report, for a report row
+     *     :ivar target_kind: What was reported or suspended
+     *     :ivar target_id: The target's id
+     *     :ivar owner_id: The owner the listing belongs to, when known
+     *     :ivar title: The target's public name
+     *     :ivar text: The target's public text
+     *     :ivar reason: The report reason or the suspension reason code
+     *     :ivar note: The reporter's note, for a report row
+     *     :ivar reporter_ref: The opaque reporter label, for a report row
+     *     :ivar waited_hours: Whole hours since the report or the suspension
+     */
+    AdminHubQueueItem: {
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'listing' | 'report'
+      /** Note */
+      note: string | null
+      /** Owner Id */
+      owner_id: string | null
+      /** Reason */
+      reason: string | null
+      /** Report Id */
+      report_id: string | null
+      /** Reporter Ref */
+      reporter_ref: string | null
+      /**
+       * Target Id
+       * Format: uuid
+       */
+      target_id: string
+      /** Target Kind */
+      target_kind: string
+      /** Text */
+      text: string | null
+      /** Title */
+      title: string | null
+      /** Waited Hours */
+      waited_hours: number
+    }
+    /**
+     * AdminHubQueueResponse
+     * @description The moderation queue, oldest first.
+     *
+     *     :ivar kind: Which queue this is
+     *     :ivar items: Its rows
+     */
+    AdminHubQueueResponse: {
+      /** Items */
+      items: components['schemas']['AdminHubQueueItem'][]
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'listing' | 'report'
+    }
+    /**
+     * AdminHubReportDecided
+     * @description A report after its decision.
+     *
+     *     :ivar report_id: The report
+     *     :ivar status: ``upheld`` or ``dismissed``
+     */
+    AdminHubReportDecided: {
+      /**
+       * Report Id
+       * Format: uuid
+       */
+      report_id: string
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'dismissed' | 'upheld'
+    }
+    /**
+     * AdminHubSuspensionRequest
+     * @description Suspend or restore an owner's listing.
+     *
+     *     :ivar suspended: True to suspend, False to lift
+     *     :ivar reason_code: A closed reason
+     */
+    AdminHubSuspensionRequest: {
+      /**
+       * Reason Code
+       * @enum {string}
+       */
+      reason_code: 'abusive' | 'child_safety' | 'fake' | 'misleading' | 'other' | 'personal_info'
+      /** Suspended */
+      suspended: boolean
+    }
+    /**
+     * AdminHubSuspensionState
+     * @description An owner's listing after a suspension change.
+     *
+     *     :ivar owner_id: The owner
+     *     :ivar suspended: Whether the listing is suspended now
+     */
+    AdminHubSuspensionState: {
+      /**
+       * Owner Id
+       * Format: uuid
+       */
+      owner_id: string
+      /** Suspended */
+      suspended: boolean
     }
     /**
      * AdminMfaRequest
@@ -7505,6 +7736,34 @@ export interface components {
       status: 'approved_full' | 'approved_partial' | 'pending' | 'rejected'
     }
     /**
+     * HubReportRequest
+     * @description A reader's report about one hub target.
+     *
+     *     :ivar target_kind: ``listing``, ``media``, ``review`` or ``reply``
+     *     :ivar target_id: The target's id
+     *     :ivar reason: A closed reason
+     *     :ivar note: An optional note; it may not carry a phone number
+     */
+    HubReportRequest: {
+      /** Note */
+      note?: string | null
+      /**
+       * Reason
+       * @enum {string}
+       */
+      reason: 'abusive' | 'child_safety' | 'fake' | 'misleading' | 'other' | 'personal_info'
+      /**
+       * Target Id
+       * Format: uuid
+       */
+      target_id: string
+      /**
+       * Target Kind
+       * @enum {string}
+       */
+      target_kind: 'listing' | 'media' | 'reply' | 'review'
+    }
+    /**
      * InactiveFromRequest
      * @description Mark a seat inactive from a date, or clear it [AC2.4.1].
      *
@@ -8314,6 +8573,7 @@ export interface components {
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
+        | 'hub_listing_suspended'
         | 'marks_available'
         | 'notice'
         | 'payment_approved'
@@ -8389,6 +8649,7 @@ export interface components {
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
+        | 'hub_listing_suspended'
         | 'marks_available'
         | 'notice'
         | 'payment_approved'
@@ -11681,6 +11942,161 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['AdminTicketDetailResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  set_suspension_v1_admin_hub_owners__owner_id__suspension_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        owner_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminHubSuspensionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminHubSuspensionState']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  hub_queue_v1_admin_hub_queue_get: {
+    parameters: {
+      query?: {
+        kind?: 'listing' | 'report'
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminHubQueueResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  decide_report_v1_admin_hub_reports__report_id__decision_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        report_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminHubDecisionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminHubReportDecided']
         }
       }
       /** @description The request could not be parsed */
@@ -18672,6 +19088,100 @@ export interface operations {
       }
       /** @description Valid request; current state forbids it. Refetch and decide. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  file_report_v1_hub_reports_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubReportRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
         headers: {
           [name: string]: unknown
         }

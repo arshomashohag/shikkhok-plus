@@ -266,6 +266,15 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         ("POST", "/v1/me/password"),
         ("POST", "/v1/me/contact"),
         ("POST", "/v1/me/contact/verify"),
+        # Reporting a public hub listing [0036], exempt on DELETE /v1/me's
+        # reasoning: it acts as the authenticated account alone, takes no
+        # owner from the request, and any signed-in reader -- student,
+        # guardian or someone holding no lens at all -- may report what
+        # they see. A lens would scope nothing here. What bounds it is that
+        # only a PUBLISHED listing is reportable, every other target
+        # answers one identical refusal, a report changes no listing, and
+        # an account may file ten a day.
+        ("POST", "/v1/hub/reports"),
     }
 )
 
@@ -285,6 +294,11 @@ PLATFORM_ADMIN_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/v1/admin/help/tickets/{ticket_id}"),
         ("POST", "/v1/admin/help/tickets/{ticket_id}/messages"),
         ("PUT", "/v1/admin/help/tickets/{ticket_id}/status"),
+        # The public hub's moderation [0036]: the queue, a decision on a
+        # report, and suspending or restoring an owner's listing.
+        ("GET", "/v1/admin/hub/queue"),
+        ("POST", "/v1/admin/hub/reports/{report_id}/decision"),
+        ("PUT", "/v1/admin/hub/owners/{owner_id}/suspension"),
     }
 )
 

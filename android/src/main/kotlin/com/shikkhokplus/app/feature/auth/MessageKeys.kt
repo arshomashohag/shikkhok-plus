@@ -81,6 +81,10 @@ object MessageKeys {
         "hub.batch_value_invalid" to R.string.hub_batch_value_invalid,
         "hub.address_centre_only" to R.string.hub_address_centre_only,
         "hub.write_ceiling" to R.string.hub_write_ceiling,
+        "hub.report_target_not_found" to R.string.hub_report_target_not_found,
+        "hub.report_already_filed" to R.string.hub_report_already_filed,
+        "hub.report_already_decided" to R.string.hub_report_already_decided,
+        "hub.report_reason_invalid" to R.string.hub_report_reason_invalid,
         // Adding a phone or an email to an account.
         "account.contact.already_set" to R.string.account_contact_already_set,
         "account.contact.taken" to R.string.account_contact_taken,

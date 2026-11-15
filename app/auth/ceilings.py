@@ -110,6 +110,7 @@ __all__ = [
     "DEL_PER_NUMBER_HOURLY",
     "GLOBAL_DAILY",
     "HUB_LISTING_OWNER_DAILY",
+    "HUB_REPORT_ACCOUNT_DAILY",
     "LOOKUP_GLOBAL_HOURLY",
     "LOOKUP_PER_COARSE_IP_HOURLY",
     "LOOKUP_PER_IP_HOURLY",
@@ -307,6 +308,11 @@ CENTRES_PER_ACCOUNT_DAILY: Final = 3
 #: written a handful of times; a loop rewriting it is not an editor.
 HUB_LISTING_OWNER_DAILY: Final = 50
 
+#: Public-hub reports one account may file in a day. A reader reports a
+#: handful of listings at most; a loop filing more is probing or flooding
+#: the moderation queue, and the cap also bounds target-existence probing.
+HUB_REPORT_ACCOUNT_DAILY: Final = 10
+
 _HOUR = dt.timedelta(hours=1)
 _DAY = dt.timedelta(days=1)
 
@@ -386,6 +392,8 @@ class ScopeKind(enum.Enum):
     CENTRE_ACCOUNT_DAILY = "centre_acct_day"
     # The public hub's listing editor [0036], one counter per owner.
     HUB_OWNER_DAILY = "hub_owner_day"
+    # The public hub's reports, one counter per reporting account.
+    HUB_REPORT_DAILY = "hub_report_day"
     # Email and passwords [0032], inside `String(16)` like the rest.
     EMAIL_GLOBAL_DAILY = "em_global_day"
     PASSWORD_FAIL_ID_HOURLY = "pw_fail_id_hour"  # noqa: S105 -- a name, not a password
@@ -547,7 +555,7 @@ class CeilingBreach(ConflictError):
                 code="TEMPORARILY_UNAVAILABLE",
                 message_key="centre.temporarily_unavailable",
             )
-        elif scope is ScopeKind.HUB_OWNER_DAILY:
+        elif scope in (ScopeKind.HUB_OWNER_DAILY, ScopeKind.HUB_REPORT_DAILY):
             super().__init__(
                 code="HUB_WRITE_CEILING",
                 message_key="hub.write_ceiling",
@@ -884,6 +892,20 @@ class CeilingChecker:
         """
         scope = _Scope(ScopeKind.HUB_OWNER_DAILY, HUB_LISTING_OWNER_DAILY, _DAY)
         self._consume([(scope, str(owner_id))], now)
+
+    def check_and_consume_hub_report(
+        self, account_id: uuid.UUID, now: dt.datetime | None = None
+    ) -> None:
+        """Consume one report from the account's daily allowance.
+
+        :param account_id: The reporting account
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: The account has filed today's allowance of
+            reports; its code is ``HUB_WRITE_CEILING``
+        """
+        scope = _Scope(ScopeKind.HUB_REPORT_DAILY, HUB_REPORT_ACCOUNT_DAILY, _DAY)
+        self._consume([(scope, str(account_id))], now)
 
     def check_and_consume_deletion(
         self,

@@ -187,6 +187,243 @@
         "title": "AdminEnrollment",
         "type": "object"
       },
+      "AdminHubDecisionRequest": {
+        "additionalProperties": false,
+        "description": "An administrator's decision on a report.\n\n:ivar decision: ``upheld`` or ``dismissed``",
+        "properties": {
+          "decision": {
+            "enum": [
+              "dismissed",
+              "upheld"
+            ],
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "AdminHubDecisionRequest",
+        "type": "object"
+      },
+      "AdminHubQueueItem": {
+        "description": "One row of the moderation queue.\n\n:ivar kind: ``report`` or ``listing``\n:ivar report_id: The report, for a report row\n:ivar target_kind: What was reported or suspended\n:ivar target_id: The target's id\n:ivar owner_id: The owner the listing belongs to, when known\n:ivar title: The target's public name\n:ivar text: The target's public text\n:ivar reason: The report reason or the suspension reason code\n:ivar note: The reporter's note, for a report row\n:ivar reporter_ref: The opaque reporter label, for a report row\n:ivar waited_hours: Whole hours since the report or the suspension",
+        "properties": {
+          "kind": {
+            "enum": [
+              "listing",
+              "report"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "report_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Id"
+          },
+          "reporter_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reporter Ref"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_kind": {
+            "title": "Target Kind",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "waited_hours": {
+            "title": "Waited Hours",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "note",
+          "owner_id",
+          "reason",
+          "report_id",
+          "reporter_ref",
+          "target_id",
+          "target_kind",
+          "text",
+          "title",
+          "waited_hours"
+        ],
+        "title": "AdminHubQueueItem",
+        "type": "object"
+      },
+      "AdminHubQueueResponse": {
+        "description": "The moderation queue, oldest first.\n\n:ivar kind: Which queue this is\n:ivar items: Its rows",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminHubQueueItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "listing",
+              "report"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "kind"
+        ],
+        "title": "AdminHubQueueResponse",
+        "type": "object"
+      },
+      "AdminHubReportDecided": {
+        "description": "A report after its decision.\n\n:ivar report_id: The report\n:ivar status: ``upheld`` or ``dismissed``",
+        "properties": {
+          "report_id": {
+            "format": "uuid",
+            "title": "Report Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "dismissed",
+              "upheld"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_id",
+          "status"
+        ],
+        "title": "AdminHubReportDecided",
+        "type": "object"
+      },
+      "AdminHubSuspensionRequest": {
+        "additionalProperties": false,
+        "description": "Suspend or restore an owner's listing.\n\n:ivar suspended: True to suspend, False to lift\n:ivar reason_code: A closed reason",
+        "properties": {
+          "reason_code": {
+            "enum": [
+              "abusive",
+              "child_safety",
+              "fake",
+              "misleading",
+              "other",
+              "personal_info"
+            ],
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "suspended": {
+            "title": "Suspended",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reason_code",
+          "suspended"
+        ],
+        "title": "AdminHubSuspensionRequest",
+        "type": "object"
+      },
+      "AdminHubSuspensionState": {
+        "description": "An owner's listing after a suspension change.\n\n:ivar owner_id: The owner\n:ivar suspended: Whether the listing is suspended now",
+        "properties": {
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "suspended": {
+            "title": "Suspended",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "owner_id",
+          "suspended"
+        ],
+        "title": "AdminHubSuspensionState",
+        "type": "object"
+      },
       "AdminMfaRequest": {
         "additionalProperties": false,
         "description": "Finish signing in: exactly one of the two codes.\n\n:ivar challenge: From the SMS step\n:ivar code: Six digits from the authenticator app\n:ivar recovery_code: A recovery code, only after setup",
@@ -5183,6 +5420,58 @@
         "title": "HistoryLineResponse",
         "type": "object"
       },
+      "HubReportRequest": {
+        "additionalProperties": false,
+        "description": "A reader's report about one hub target.\n\n:ivar target_kind: ``listing``, ``media``, ``review`` or ``reply``\n:ivar target_id: The target's id\n:ivar reason: A closed reason\n:ivar note: An optional note; it may not carry a phone number",
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason": {
+            "enum": [
+              "abusive",
+              "child_safety",
+              "fake",
+              "misleading",
+              "other",
+              "personal_info"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_kind": {
+            "enum": [
+              "listing",
+              "media",
+              "reply",
+              "review"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "target_id",
+          "target_kind"
+        ],
+        "title": "HubReportRequest",
+        "type": "object"
+      },
       "InactiveFromRequest": {
         "additionalProperties": false,
         "description": "Mark a seat inactive from a date, or clear it [AC2.4.1].\n\n:ivar inactive_from: The date, or null to reactivate the seat",
@@ -6505,6 +6794,7 @@
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
+              "hub_listing_suspended",
               "marks_available",
               "notice",
               "payment_approved",
@@ -6693,6 +6983,7 @@
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
+              "hub_listing_suspended",
               "marks_available",
               "notice",
               "payment_approved",
@@ -12955,6 +13246,222 @@
           }
         },
         "summary": "Change Status",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/hub/owners/{owner_id}/suspension": {
+      "put": {
+        "description": "Suspend or restore an owner's public listing.\n\n:param owner_id: The owner\n:param body: Whether to suspend, and why\n:param request: The incoming request\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:return: The owner and whether the listing is suspended now",
+        "operationId": "set_suspension_v1_admin_hub_owners__owner_id__suspension_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Owner Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminHubSuspensionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHubSuspensionState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Set Suspension",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/hub/queue": {
+      "get": {
+        "description": "List open reports, or suspended listings, oldest first.\n\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param kind: ``report`` or ``listing``\n:return: The queue; a reporter appears only as an opaque label",
+        "operationId": "hub_queue_v1_admin_hub_queue_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "report",
+              "enum": [
+                "listing",
+                "report"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHubQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Queue",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/hub/reports/{report_id}/decision": {
+      "post": {
+        "description": "Uphold or dismiss a report.\n\n:param report_id: The report\n:param body: The decision\n:param request: The incoming request\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:return: The report and its new status",
+        "operationId": "decide_report_v1_admin_hub_reports__report_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminHubDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHubReportDecided"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Decide Report",
         "tags": [
           "admin"
         ]
@@ -21789,6 +22296,111 @@
           }
         },
         "summary": "Unpublish Listing",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/reports": {
+      "post": {
+        "description": "Report a published hub listing; nothing about the listing changes.\n\n:param body: The target, the reason and an optional note\n:param request: The incoming request, for its correlation id\n:param account_id: The authenticated reporter\n:param session: The request-scoped session\n:return: An empty 202",
+        "operationId": "file_report_v1_hub_reports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HubReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "File Report",
         "tags": [
           "hub"
         ]

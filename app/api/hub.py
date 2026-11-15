@@ -16,10 +16,15 @@ import datetime as dt
 import uuid
 from typing import Annotated, Final
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import centre_member_lens, get_session, teacher_lens
+from app.api.deps import (
+    authenticated_account,
+    centre_member_lens,
+    get_session,
+    teacher_lens,
+)
 from app.auth.ceilings import CeilingChecker
 from app.authz.lenses import CentreMemberLens, TeacherLens
 from app.db.models import OwnerListing
@@ -37,6 +42,7 @@ from app.hub.listings.member_consent import set_public_name_consent
 from app.hub.listings.names import teacher_names
 from app.hub.listings.owner import OwnerListingUpdate
 from app.local_time import bangladesh_today
+from app.moderation import reports
 from app.money.wire import to_wire
 from app.schemas.errors import ErrorEnvelope
 from app.schemas.hub import (
@@ -50,6 +56,7 @@ from app.schemas.hub import (
     PublishRequest,
     SlugAvailability,
 )
+from app.schemas.moderation import HubReportRequest
 from app.schemas.money import Money as WireMoney
 
 __all__ = ["router"]
@@ -421,3 +428,36 @@ def put_public_name_consent(
     """
     set_public_name_consent(session, lens, body.consent, dt.datetime.now(tz=dt.UTC))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/hub/reports",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_class=Response,
+    responses=_WRITE_ERRORS,
+)
+def file_report(
+    body: HubReportRequest,
+    request: Request,
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    """Report a published hub listing; nothing about the listing changes.
+
+    :param body: The target, the reason and an optional note
+    :param request: The incoming request, for its correlation id
+    :param account_id: The authenticated reporter
+    :param session: The request-scoped session
+    :return: An empty 202
+    """
+    reports.file(
+        session,
+        account_id,
+        body.target_kind,
+        body.target_id,
+        body.reason,
+        body.note,
+        dt.datetime.now(tz=dt.UTC),
+        str(getattr(request.state, "correlation_id", "unknown"))[:64],
+    )
+    return Response(status_code=status.HTTP_202_ACCEPTED)
