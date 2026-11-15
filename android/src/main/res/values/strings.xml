@@ -1882,6 +1882,7 @@
     <string name="hub_write_ceiling">You have changed your listing a lot today. Try again tomorrow.</string>
     <string name="hub_report_target_not_found">That listing cannot be reported.</string>
     <string name="hub_report_already_filed">You have already reported this listing.</string>
+    <string name="hub_report_ceiling">You have sent a lot of reports today. Try again tomorrow.</string>
     <string name="hub_report_already_decided">This report has already been decided.</string>
     <string name="hub_admin_target_not_found">Nothing to act on: no such report or listing.</string>
     <string name="hub_report_reason_invalid">Choose one of the listed reasons.</string>

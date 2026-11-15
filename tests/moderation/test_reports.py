@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
+from typing import get_args
 
 import pytest
 import sqlalchemy as sa
@@ -13,9 +14,12 @@ from sqlalchemy.orm import Session
 from app.auth.ceilings import HUB_REPORT_ACCOUNT_DAILY, CeilingBreach
 from app.authz.admin import PLATFORM_ADMIN_PHONES_ENV
 from app.authz.lenses import PlatformAdminLens
+from app.db.models import HUB_REPORT_TARGET_VALUES
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.help.identity import requester_ref
 from app.moderation import reports
+from app.moderation.vocab import TARGET_KINDS, TargetKind
+from app.schemas.moderation import AdminHubFieldKey
 from tests.batches.conftest import make_teacher
 from tests.conftest import bearer
 from tests.help.conftest import People, phone_of
@@ -44,10 +48,22 @@ def test_report_never_changes_listing_status(
     reporter = _reporter(owner_session)
 
     reports.file(
-        restricted_session, reporter, "listing", target.owner_id, "abusive", None, NOW
+        restricted_session,
+        reporter,
+        "owner_listing",
+        target.owner_id,
+        "abusive",
+        None,
+        NOW,
     )
     reports.file(
-        restricted_session, reporter, "listing", target.batch_id, "fake", "no", NOW
+        restricted_session,
+        reporter,
+        "batch_listing",
+        target.batch_id,
+        "fake",
+        "no",
+        NOW,
     )
 
     assert status_of(owner_session, "owner_listing", "owner_id", target.owner_id) == (
@@ -73,8 +89,9 @@ def test_report_on_draft_or_missing_listing_is_identical_refusal(
     reporter = _reporter(owner_session)
     refusals = []
     for kind, target_id in (
-        ("listing", target.owner_id),
-        ("listing", uuid.uuid4()),
+        ("owner_listing", target.owner_id),
+        ("owner_listing", uuid.uuid4()),
+        ("batch_listing", uuid.uuid4()),
         ("media", target.owner_id),
         ("review", uuid.uuid4()),
         ("reply", uuid.uuid4()),
@@ -108,14 +125,20 @@ def test_second_report_same_target_is_conflict(
     publish_owner(owner_session, target.owner_id)
     reporter = _reporter(owner_session)
     reports.file(
-        restricted_session, reporter, "listing", target.owner_id, "fake", None, NOW
+        restricted_session,
+        reporter,
+        "owner_listing",
+        target.owner_id,
+        "fake",
+        None,
+        NOW,
     )
 
     with pytest.raises(ConflictError) as caught:
         reports.file(
             restricted_session,
             reporter,
-            "listing",
+            "owner_listing",
             target.owner_id,
             "abusive",
             None,
@@ -129,25 +152,41 @@ def test_second_report_same_target_is_conflict(
 def test_eleventh_report_in_a_day_is_ceiling(
     owner_session: Session, restricted_session: Session
 ) -> None:
-    """Ten reports a day per account; the eleventh is HUB_WRITE_CEILING."""
+    """Ten reports a day per account; the eleventh is HUB_REPORT_CEILING.
+
+    It carries its own message, not the listing editor's "you have changed
+    your listing a lot today", which would be nonsense to a reader.
+    """
     assert HUB_REPORT_ACCOUNT_DAILY == 10
     reporter = _reporter(owner_session)
     for _ in range(HUB_REPORT_ACCOUNT_DAILY):
         target = make_teacher(owner_session)
         publish_owner(owner_session, target.owner_id)
         reports.file(
-            restricted_session, reporter, "listing", target.owner_id, "fake", None, NOW
+            restricted_session,
+            reporter,
+            "owner_listing",
+            target.owner_id,
+            "fake",
+            None,
+            NOW,
         )
     last = make_teacher(owner_session)
     publish_owner(owner_session, last.owner_id)
 
     with pytest.raises(CeilingBreach) as caught:
         reports.file(
-            restricted_session, reporter, "listing", last.owner_id, "fake", None, NOW
+            restricted_session,
+            reporter,
+            "owner_listing",
+            last.owner_id,
+            "fake",
+            None,
+            NOW,
         )
 
-    assert caught.value.code == "HUB_WRITE_CEILING"
-    assert caught.value.message_key == "hub.write_ceiling"
+    assert caught.value.code == "HUB_REPORT_CEILING"
+    assert caught.value.message_key == "hub.report_ceiling"
 
 
 def test_report_note_with_phone_number_is_refused(
@@ -162,7 +201,7 @@ def test_report_note_with_phone_number_is_refused(
         reports.file(
             restricted_session,
             reporter,
-            "listing",
+            "owner_listing",
             target.owner_id,
             "personal_info",
             "call me on 01712345678",
@@ -189,7 +228,7 @@ def test_admin_queue_has_no_reporter_phone_or_name(
     response = api_client.post(
         "/v1/hub/reports",
         json={
-            "target_kind": "listing",
+            "target_kind": "owner_listing",
             "target_id": str(target.owner_id),
             "reason": "misleading",
             "note": "Not who they say",
@@ -234,7 +273,7 @@ def test_report_route_returns_202_and_conflicts_on_repeat(
     owner_session.commit()
     headers = bearer(owner_session, people.student)
     body = {
-        "target_kind": "listing",
+        "target_kind": "owner_listing",
         "target_id": str(target.owner_id),
         "reason": "fake",
     }
@@ -263,7 +302,13 @@ def test_decide_sets_status_and_second_decision_conflicts(
     reporter = _reporter(owner_session)
     admin_id = _reporter(owner_session)
     reports.file(
-        restricted_session, reporter, "listing", target.owner_id, "fake", None, NOW
+        restricted_session,
+        reporter,
+        "owner_listing",
+        target.owner_id,
+        "fake",
+        None,
+        NOW,
     )
     report_id = owner_session.execute(sa.text("SELECT id FROM hub_report")).scalar_one()
     admin = PlatformAdminLens(account_id=admin_id)
@@ -305,10 +350,132 @@ def test_batch_listing_under_a_hidden_owner_listing_is_not_reportable(
         reports.file(
             restricted_session,
             _reporter(owner_session),
-            "listing",
+            "batch_listing",
             target.batch_id,
             "fake",
             None,
             NOW,
         )
     assert caught.value.code == "REPORT_TARGET_NOT_FOUND"
+
+
+def test_the_target_kind_decides_which_listing_is_looked_up(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """An owner id is no batch listing, and a batch id is no owner listing.
+
+    Resolution reads the kind, so a published target named under the other
+    listing kind is the same not-found as a missing one.
+    """
+    target = make_teacher(owner_session)
+    publish_owner(owner_session, target.owner_id)
+    publish_batch(owner_session, target.owner_id, target.batch_id)
+    reporter = _reporter(owner_session)
+    for kind, target_id in (
+        ("batch_listing", target.owner_id),
+        ("owner_listing", target.batch_id),
+    ):
+        with pytest.raises(AuthorizationError) as caught:
+            reports.file(
+                restricted_session, reporter, kind, target_id, "fake", None, NOW
+            )
+        restricted_session.rollback()
+        assert caught.value.code == "REPORT_TARGET_NOT_FOUND"
+
+
+def test_admin_queue_shows_every_public_field_of_an_owner_listing(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """The administrator reads everything the owner submitted for display."""
+    target = make_teacher(owner_session)
+    publish_owner(owner_session, target.owner_id, name="Rahim Sir")
+    owner_session.execute(
+        sa.text(
+            "UPDATE owner_listing SET headline_bn = 'গণিত', bio_en = 'Bio EN', "
+            "bio_bn = 'বায়ো', qualifications = 'MSc', "
+            "public_contact_phone = '+8801711000000', district_code = d.code, "
+            "upazila_code = u.code FROM bd_area u JOIN bd_area d "
+            "ON d.code = u.parent_code WHERE u.kind = 'upazila' "
+            "AND u.code = (SELECT min(code) FROM bd_area WHERE kind = 'upazila') "
+            "AND owner_listing.owner_id = :o"
+        ),
+        {"o": target.owner_id},
+    )
+    owner_session.commit()
+    reports.file(
+        restricted_session,
+        _reporter(owner_session),
+        "owner_listing",
+        target.owner_id,
+        "fake",
+        None,
+        NOW,
+    )
+
+    [item] = reports.queue(restricted_session, "report", NOW)
+
+    fields = dict(item.fields)
+    assert item.title == "Rahim Sir"
+    assert fields["public_name"] == "Rahim Sir"
+    assert fields["headline_en"] == "Maths for SSC"
+    assert fields["headline_bn"] == "গণিত"
+    assert fields["bio_en"] == "Bio EN"
+    assert fields["bio_bn"] == "বায়ো"
+    assert fields["qualifications"] == "MSc"
+    assert fields["public_contact_phone"] == "+8801711000000"
+    assert fields["area_en"] and "," in fields["area_en"]
+    assert fields["area_bn"] and "," in fields["area_bn"]
+    assert "street_address" not in fields
+
+
+def test_admin_queue_names_a_batch_by_its_public_title_never_its_name(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """``batch.name`` is the teacher's own label and never reaches the admin."""
+    target = make_teacher(owner_session, name="Karim family home visit")
+    publish_owner(owner_session, target.owner_id)
+    publish_batch(owner_session, target.owner_id, target.batch_id)
+    owner_session.execute(
+        sa.text(
+            "UPDATE batch_listing SET description_bn = 'বিবরণ', "
+            "syllabus_en = 'Syllabus', syllabus_bn = 'সিলেবাস', "
+            "subject_tags = ARRAY['physics', 'maths'] WHERE batch_id = :b"
+        ),
+        {"b": target.batch_id},
+    )
+    owner_session.commit()
+    reports.file(
+        restricted_session,
+        _reporter(owner_session),
+        "batch_listing",
+        target.batch_id,
+        "fake",
+        None,
+        NOW,
+    )
+
+    [item] = reports.queue(restricted_session, "report", NOW)
+
+    fields = dict(item.fields)
+    assert item.title == "HSC Physics"
+    assert item.owner_id == target.owner_id
+    assert fields == {
+        "public_title": "HSC Physics",
+        "description_en": "Weekend batch",
+        "description_bn": "বিবরণ",
+        "syllabus_en": "Syllabus",
+        "syllabus_bn": "সিলেবাস",
+        "subject_tags": "physics, maths",
+    }
+    assert "Karim" not in repr(item)
+
+
+def test_the_wire_field_keys_are_exactly_the_submitted_fields() -> None:
+    """Every key the queue can send has a wire name, and nothing else does."""
+    assert get_args(AdminHubFieldKey) == reports.OWNER_FIELDS + reports.BATCH_FIELDS
+
+
+def test_report_target_kinds_match_the_database_enum() -> None:
+    """The route's vocabulary is the column's, in the same order."""
+    assert TARGET_KINDS == HUB_REPORT_TARGET_VALUES
+    assert get_args(TargetKind) == TARGET_KINDS

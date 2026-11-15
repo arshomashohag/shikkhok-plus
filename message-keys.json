@@ -107,6 +107,7 @@
     "hub.owner_not_published",
     "hub.report_already_decided",
     "hub.report_already_filed",
+    "hub.report_ceiling",
     "hub.report_reason_invalid",
     "hub.report_target_not_found",
     "hub.slug_invalid",

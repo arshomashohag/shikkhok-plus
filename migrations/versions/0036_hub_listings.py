@@ -14,6 +14,10 @@ did.
 
 * A live listing has a slug and a name; a draft needs neither. The slug is
   three to sixty lower-case ASCII letters, digits or hyphens.
+* A live batch listing has its own ``public_title`` of three to 120
+  characters. ``batch.name`` is the teacher's private label -- a home-visit
+  batch is often named after the family -- so nothing public or
+  administrative reads it.
 * ``street_address`` is for a coaching centre only. A trigger refuses it
   for a solo teacher, because a teacher's address is their home.
 * ``batch_listing.owner_id`` must equal its batch's owner; a trigger keeps
@@ -59,7 +63,13 @@ ENUMS: Final[dict[str, tuple[str, ...]]] = {
         "misleading",
         "other",
     ),
-    "hub_report_target": ("listing", "media", "review", "reply"),
+    "hub_report_target": (
+        "owner_listing",
+        "batch_listing",
+        "media",
+        "review",
+        "reply",
+    ),
     "hub_report_status": ("open", "upheld", "dismissed"),
     "hub_moderation_event_kind": (
         "report_filed",
@@ -72,6 +82,11 @@ ENUMS: Final[dict[str, tuple[str, ...]]] = {
 
 #: A slug: 3 to 60 lower-case ASCII letters, digits or hyphens.
 SLUG_CHECK: Final[str] = "slug IS NULL OR slug ~ '^[a-z0-9-]{3,60}$'"
+
+#: A live batch listing's public title: three characters or more, not blank.
+TITLE_WHEN_LIVE: Final[str] = (
+    "status = 'draft' OR char_length(trim(coalesce(public_title, ''))) >= 3"
+)
 
 #: The class levels a batch may teach.
 CLASS_LEVELS: Final[tuple[str, ...]] = (
@@ -282,6 +297,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("'draft'"),
         ),
+        sa.Column("public_title", sa.String(120), nullable=True),
         sa.Column("description_en", sa.Text(), nullable=True),
         sa.Column("description_bn", sa.Text(), nullable=True),
         sa.Column("syllabus_en", sa.Text(), nullable=True),
@@ -325,6 +341,10 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "status = 'draft' OR slug IS NOT NULL",
             name=conv("ck_batch_listing_slug_when_live"),
+        ),
+        sa.CheckConstraint(
+            TITLE_WHEN_LIVE,
+            name=conv("ck_batch_listing_public_title_when_live"),
         ),
         sa.CheckConstraint(
             f"class_levels <@ {_quoted(CLASS_LEVELS)}",

@@ -138,7 +138,7 @@ def set(
     session.add(
         HubModerationEvent(
             event=event,
-            target_kind="listing",
+            target_kind="owner_listing",
             target_id=owner_id,
             actor_admin_account_id=admin.account_id,
             decision_code=reason_code,

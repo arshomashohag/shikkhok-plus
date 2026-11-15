@@ -1815,6 +1815,7 @@
     <string name="hub_write_ceiling">আজ আপনি তালিকায় অনেকবার পরিবর্তন করেছেন। কাল আবার চেষ্টা করুন।</string>
     <string name="hub_report_target_not_found">এই তালিকাটি রিপোর্ট করা যাবে না।</string>
     <string name="hub_report_already_filed">আপনি ইতিমধ্যে এই তালিকাটি রিপোর্ট করেছেন।</string>
+    <string name="hub_report_ceiling">আজ আপনি অনেকগুলো রিপোর্ট পাঠিয়েছেন। কাল আবার চেষ্টা করুন।</string>
     <string name="hub_report_already_decided">এই রিপোর্টের সিদ্ধান্ত আগেই নেওয়া হয়েছে।</string>
     <string name="hub_admin_target_not_found">কিছু করার নেই: এমন কোনো রিপোর্ট বা তালিকা নেই।</string>
     <string name="hub_report_reason_invalid">তালিকা থেকে একটি কারণ বেছে নিন।</string>

@@ -83,6 +83,7 @@ object MessageKeys {
         "hub.write_ceiling" to R.string.hub_write_ceiling,
         "hub.report_target_not_found" to R.string.hub_report_target_not_found,
         "hub.report_already_filed" to R.string.hub_report_already_filed,
+        "hub.report_ceiling" to R.string.hub_report_ceiling,
         "hub.report_already_decided" to R.string.hub_report_already_decided,
         "hub.admin_target_not_found" to R.string.hub_admin_target_not_found,
         "hub.report_reason_invalid" to R.string.hub_report_reason_invalid,

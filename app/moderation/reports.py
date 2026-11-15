@@ -25,7 +25,6 @@ from sqlalchemy.orm import Session
 from app.auth.ceilings import CeilingChecker
 from app.authz.lenses import PlatformAdminLens
 from app.db.models import (
-    Batch,
     BatchListing,
     HubModerationEvent,
     HubReport,
@@ -36,9 +35,55 @@ from app.help.identity import requester_ref
 from app.hub.listings.shared import refuse_phone_in
 from app.moderation.vocab import REASONS
 
-__all__ = ["QueueItem", "admin_not_found", "decide", "file", "not_found", "queue"]
+__all__ = [
+    "BATCH_FIELDS",
+    "OWNER_FIELDS",
+    "QueueItem",
+    "admin_not_found",
+    "decide",
+    "file",
+    "not_found",
+    "queue",
+]
 
 _SECONDS_PER_HOUR: Final = 3600
+
+#: What an owner submitted for display, in the order the queue shows it.
+#: ``area_en`` and ``area_bn`` are the upazila and district names.
+OWNER_FIELDS: Final[tuple[str, ...]] = (
+    "public_name",
+    "headline_en",
+    "headline_bn",
+    "bio_en",
+    "bio_bn",
+    "qualifications",
+    "street_address",
+    "public_contact_phone",
+    "area_en",
+    "area_bn",
+)
+
+#: What an owner submitted for display about one batch, in queue order.
+#: ``batch.name`` is the teacher's private label and is never among them.
+BATCH_FIELDS: Final[tuple[str, ...]] = (
+    "public_title",
+    "description_en",
+    "description_bn",
+    "syllabus_en",
+    "syllabus_bn",
+    "subject_tags",
+)
+
+#: One target's submitted fields: ``(key, value)`` pairs, empty ones left out.
+Fields = tuple[tuple[str, str], ...]
+
+_AREA_NAMES: Final = sa.text(
+    "SELECT l.owner_id, d.name_en AS d_en, d.name_bn AS d_bn, "
+    "u.name_en AS u_en, u.name_bn AS u_bn FROM owner_listing l "
+    "LEFT JOIN bd_area d ON d.code = l.district_code "
+    "LEFT JOIN bd_area u ON u.code = l.upazila_code "
+    "WHERE l.owner_id = ANY(:owners)"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,8 +95,10 @@ class QueueItem:
     :ivar target_kind: What was reported or suspended
     :ivar target_id: The target's id
     :ivar owner_id: The owner a listing belongs to, when known
-    :ivar title: The target's public name
-    :ivar text: The target's public text
+    :ivar title: The target's public name: an owner's ``public_name`` or a
+        batch's ``public_title``
+    :ivar fields: Everything the owner submitted for display on the target,
+        as ``(key, value)`` pairs
     :ivar reason: The report reason, or the suspension reason code
     :ivar note: The reporter's note, for a report row
     :ivar reporter_ref: The opaque reporter label, for a report row
@@ -64,7 +111,7 @@ class QueueItem:
     target_id: uuid.UUID
     owner_id: uuid.UUID | None
     title: str | None
-    text: str | None
+    fields: Fields
     reason: str | None
     note: str | None
     reporter_ref: str | None
@@ -96,25 +143,24 @@ def admin_not_found() -> AuthorizationError:
 
 
 def _reportable(session: Session, target_kind: str, target_id: uuid.UUID) -> bool:
-    """Say whether a target is a published listing.
+    """Say whether a target is a published listing of the kind named.
 
-    A batch listing counts only while its owner listing is published too.
-
-    An owner listing is tried first by owner id, then a batch listing by batch
-    id; the ids are globally unique, so at most one matches.
+    The kind decides the one table looked in: an owner listing by owner id,
+    a batch listing by batch id. A batch listing counts only while its owner
+    listing is published too.
 
     :param session: The session
     :param target_kind: The reported kind
     :param target_id: The reported id
     :return: True only for a published owner or batch listing
     """
-    if target_kind != "listing":
+    if target_kind == "owner_listing":
+        status = session.scalar(
+            sa.select(OwnerListing.status).where(OwnerListing.owner_id == target_id)
+        )
+        return status == "published"
+    if target_kind != "batch_listing":
         return False
-    owner_status = session.scalar(
-        sa.select(OwnerListing.status).where(OwnerListing.owner_id == target_id)
-    )
-    if owner_status is not None:
-        return owner_status == "published"
     batch = session.execute(
         sa.select(BatchListing.status, BatchListing.owner_id).where(
             BatchListing.batch_id == target_id
@@ -142,7 +188,8 @@ def file(
 
     :param session: The session
     :param account_id: The reporter
-    :param target_kind: ``listing``, ``media``, ``review`` or ``reply``
+    :param target_kind: ``owner_listing``, ``batch_listing``, ``media``,
+        ``review`` or ``reply``
     :param target_id: The target
     :param reason: A closed reason
     :param note: An optional note of up to 500 characters
@@ -206,33 +253,100 @@ def _hours(since: dt.datetime, now: dt.datetime) -> int:
     return max(0, int((now - since).total_seconds() // _SECONDS_PER_HOUR))
 
 
-def _target_texts(
-    session: Session, target_ids: list[uuid.UUID]
-) -> dict[uuid.UUID, tuple[uuid.UUID, str | None, str | None]]:
-    """Look up the public text of listing targets.
+def _present(pairs: list[tuple[str, str | None]]) -> Fields:
+    """Keep the pairs that hold something.
+
+    :param pairs: ``(key, value)`` pairs
+    :return: The pairs with a non-blank value
+    """
+    return tuple((key, value) for key, value in pairs if value and value.strip())
+
+
+def _area(upazila: str | None, district: str | None) -> str | None:
+    """Join an upazila and a district name, either of which may be absent.
+
+    :param upazila: The upazila's name
+    :param district: The district's name
+    :return: ``"upazila, district"``, one of them, or None
+    """
+    return ", ".join(n for n in (upazila, district) if n) or None
+
+
+def _owner_fields(
+    session: Session, listings: list[OwnerListing]
+) -> dict[uuid.UUID, Fields]:
+    """Read every submitted public field of some owner listings.
 
     :param session: The session
-    :param target_ids: Owner ids and batch ids
-    :return: ``{target id: (owner id, title, text)}`` for those that exist
+    :param listings: The listings
+    :return: ``{owner id: fields}``
     """
-    found: dict[uuid.UUID, tuple[uuid.UUID, str | None, str | None]] = {}
-    for owner_listing in session.scalars(
-        sa.select(OwnerListing).where(OwnerListing.owner_id.in_(target_ids))
-    ):
-        found[owner_listing.owner_id] = (
-            owner_listing.owner_id,
-            owner_listing.public_name,
-            owner_listing.headline_en or owner_listing.headline_bn,
+    areas = {
+        row.owner_id: row
+        for row in session.execute(
+            _AREA_NAMES, {"owners": [listing.owner_id for listing in listings]}
         )
-    for batch_listing, name in session.execute(
-        sa.select(BatchListing, Batch.name)
-        .join(Batch, Batch.id == BatchListing.batch_id)
-        .where(BatchListing.batch_id.in_(target_ids))
+    }
+    found: dict[uuid.UUID, Fields] = {}
+    for listing in listings:
+        area = areas.get(listing.owner_id)
+        values: dict[str, str | None] = {
+            name: getattr(listing, name) for name in OWNER_FIELDS[:-2]
+        }
+        values["area_en"] = _area(area.u_en, area.d_en) if area else None
+        values["area_bn"] = _area(area.u_bn, area.d_bn) if area else None
+        found[listing.owner_id] = _present([(k, values[k]) for k in OWNER_FIELDS])
+    return found
+
+
+def _batch_fields(listing: BatchListing) -> Fields:
+    """Read every submitted public field of one batch listing.
+
+    :param listing: The batch listing
+    :return: Its fields
+    """
+    values: dict[str, str | None] = {
+        name: getattr(listing, name) for name in BATCH_FIELDS[:-1]
+    }
+    values["subject_tags"] = ", ".join(listing.subject_tags)
+    return _present([(k, values[k]) for k in BATCH_FIELDS])
+
+
+def _targets(
+    session: Session, reports: list[HubReport]
+) -> dict[tuple[str, uuid.UUID], tuple[uuid.UUID, str | None, Fields]]:
+    """Look up the submitted public text of reported listings.
+
+    Each report's kind names its table, so an owner id is never read as a
+    batch id or the reverse.
+
+    :param session: The session
+    :param reports: The reports
+    :return: ``{(kind, id): (owner id, title, fields)}`` for those that exist
+    """
+    wanted: dict[str, list[uuid.UUID]] = {}
+    for report in reports:
+        wanted.setdefault(report.target_kind, []).append(report.target_id)
+    found: dict[tuple[str, uuid.UUID], tuple[uuid.UUID, str | None, Fields]] = {}
+    owners = list(
+        session.scalars(
+            sa.select(OwnerListing).where(
+                OwnerListing.owner_id.in_(wanted.get("owner_listing", []))
+            )
+        )
+    )
+    for owner_id, fields in _owner_fields(session, owners).items():
+        title = next((v for k, v in fields if k == "public_name"), None)
+        found["owner_listing", owner_id] = (owner_id, title, fields)
+    for batch in session.scalars(
+        sa.select(BatchListing).where(
+            BatchListing.batch_id.in_(wanted.get("batch_listing", []))
+        )
     ):
-        found[batch_listing.batch_id] = (
-            batch_listing.owner_id,
-            name,
-            batch_listing.description_en or batch_listing.description_bn,
+        found["batch_listing", batch.batch_id] = (
+            batch.owner_id,
+            batch.public_title,
+            _batch_fields(batch),
         )
     return found
 
@@ -254,20 +368,23 @@ def queue(
     """
     moment = now or dt.datetime.now(tz=dt.UTC)
     if kind == "listing":
-        suspended = session.scalars(
-            sa.select(OwnerListing)
-            .where(OwnerListing.status == "suspended")
-            .order_by(OwnerListing.suspended_at, OwnerListing.owner_id)
-        ).all()
+        suspended = list(
+            session.scalars(
+                sa.select(OwnerListing)
+                .where(OwnerListing.status == "suspended")
+                .order_by(OwnerListing.suspended_at, OwnerListing.owner_id)
+            )
+        )
+        submitted = _owner_fields(session, suspended)
         return [
             QueueItem(
                 kind="listing",
                 report_id=None,
-                target_kind="listing",
+                target_kind="owner_listing",
                 target_id=listing.owner_id,
                 owner_id=listing.owner_id,
                 title=listing.public_name,
-                text=listing.headline_en or listing.headline_bn,
+                fields=submitted[listing.owner_id],
                 reason=listing.suspension_reason_code,
                 note=None,
                 reporter_ref=None,
@@ -275,15 +392,19 @@ def queue(
             )
             for listing in suspended
         ]
-    open_reports = session.scalars(
-        sa.select(HubReport)
-        .where(HubReport.status == "open")
-        .order_by(HubReport.created_at, HubReport.id)
-    ).all()
-    texts = _target_texts(session, [r.target_id for r in open_reports])
+    open_reports = list(
+        session.scalars(
+            sa.select(HubReport)
+            .where(HubReport.status == "open")
+            .order_by(HubReport.created_at, HubReport.id)
+        )
+    )
+    targets = _targets(session, open_reports)
     items = []
     for report in open_reports:
-        owner_id, title, text = texts.get(report.target_id, (None, None, None))
+        owner_id, title, fields = targets.get(
+            (report.target_kind, report.target_id), (None, None, ())
+        )
         items.append(
             QueueItem(
                 kind="report",
@@ -292,7 +413,7 @@ def queue(
                 target_id=report.target_id,
                 owner_id=owner_id,
                 title=title,
-                text=text,
+                fields=fields,
                 reason=report.reason,
                 note=report.note,
                 reporter_ref=requester_ref(report.reporter_account_id),

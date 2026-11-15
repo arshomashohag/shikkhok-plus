@@ -69,6 +69,7 @@ def _full(slug: str = "class-9-maths") -> BatchListingUpdate:
     """
     return BatchListingUpdate(
         slug=slug,
+        public_title="Class 9 Maths",
         description_en="Weekly maths",
         class_levels=["class_9"],
         mode="in_person",
@@ -114,7 +115,9 @@ def test_publish_requires_description_class_level_subject_and_both_flags(
     with pytest.raises(ValidationError) as raised:
         batches.publish(restricted_session, lens, teacher.batch_id, NOW)
     assert raised.value.code == "HUB_LISTING_INCOMPLETE"
-    assert raised.value.details["missing"] == "description,class_levels,subjects,mode"
+    assert raised.value.details["missing"] == (
+        "public_title,description,class_levels,subjects,mode"
+    )
 
     owner_session.add(BatchSubject(batch_id=teacher.batch_id, name="Maths"))
     owner_session.commit()
@@ -123,7 +126,10 @@ def test_publish_requires_description_class_level_subject_and_both_flags(
         lens,
         teacher.batch_id,
         BatchListingUpdate(
-            description_bn="গণিত", class_levels=["class_9"], mode="online"
+            public_title="নবম শ্রেণির গণিত",
+            description_bn="গণিত",
+            class_levels=["class_9"],
+            mode="online",
         ),
     )
     published = batches.publish(restricted_session, lens, teacher.batch_id, NOW)
@@ -132,6 +138,7 @@ def test_publish_requires_description_class_level_subject_and_both_flags(
 
     items = {i.key: i.done for i in batch_checklist(published, subject_count=1)}
     assert items == {
+        "public_title": True,
         "slug": True,
         "description": True,
         "class_levels": True,
@@ -462,3 +469,60 @@ def test_subject_tags_are_scanned_for_phone_numbers(
         )
     assert raised.value.code == "HUB_TEXT_CONTAINS_CONTACT"
     assert raised.value.details["field"] == "subject_tags"
+
+
+@pytest.mark.parametrize("title", [None, "", "  ", "ab"])
+def test_public_title_is_required_and_at_least_three_characters(
+    owner_session: Session, restricted_session: Session, title: str | None
+) -> None:
+    """A batch goes public under its own title, never under ``batch.name``.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :param title: A missing, blank or too-short title
+    :return: None
+    """
+    lens, batch_id = _teacher(owner_session)
+    _publish_owner(restricted_session, lens)
+    edits = _full()
+    batches.upsert(
+        restricted_session,
+        lens,
+        batch_id,
+        BatchListingUpdate(**{**_as_dict(edits), "public_title": title}),
+    )
+    with pytest.raises(ValidationError) as raised:
+        batches.publish(restricted_session, lens, batch_id, NOW)
+    assert raised.value.details["missing"] == "public_title"
+
+
+def test_public_title_is_scanned_for_phone_numbers(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A title carrying a number is refused like any other public text.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens, batch_id = _teacher(owner_session)
+    with pytest.raises(ValidationError) as raised:
+        batches.upsert(
+            restricted_session,
+            lens,
+            batch_id,
+            BatchListingUpdate(
+                public_title="Call 01711234567", show_fee=True, show_schedule=True
+            ),
+        )
+    assert raised.value.code == "HUB_TEXT_CONTAINS_CONTACT"
+    assert raised.value.details["field"] == "public_title"
+
+
+def _as_dict(edits: BatchListingUpdate) -> dict[str, object]:
+    """Copy an update's fields into a dict.
+
+    :param edits: The update
+    :return: Its fields by name
+    """
+    return {f: getattr(edits, f) for f in BatchListingUpdate.__dataclass_fields__}

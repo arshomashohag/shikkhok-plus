@@ -33,6 +33,33 @@ __all__ = [
 ]
 
 TeachingMode = Literal["in_person", "home_visit", "online"]
+#: The class levels a batch may teach; the same closed set the database
+#: checks (``HUB_CLASS_LEVELS``), so the contract tells a client what to
+#: offer instead of letting it send free text the database then refuses.
+ClassLevel = Literal[
+    "class_1",
+    "class_2",
+    "class_3",
+    "class_4",
+    "class_5",
+    "class_6",
+    "class_7",
+    "class_8",
+    "class_9",
+    "class_10",
+    "class_11",
+    "class_12",
+    "ssc",
+    "hsc",
+    "admission",
+    "o_level",
+    "a_level",
+    "other",
+]
+#: The curricula a batch may follow (``HUB_CURRICULA``).
+Curriculum = Literal[
+    "national_bangla", "national_english", "english_medium", "madrasah", "other"
+]
 ListingStatus = Literal["draft", "published", "hidden", "suspended"]
 BatchMode = Literal["in_person", "home_visit", "online"]
 Admissions = Literal["open", "waitlist", "closed"]
@@ -75,15 +102,15 @@ class OwnerListingUpdateRequest(BaseModel):
 
     slug: str | None = Field(default=None, max_length=60)
     public_name: str | None = Field(default=None, max_length=120)
-    headline_en: str | None = Field(default=None, max_length=200)
-    headline_bn: str | None = Field(default=None, max_length=200)
-    bio_en: str | None = Field(default=None, max_length=5000)
-    bio_bn: str | None = Field(default=None, max_length=5000)
+    headline_en: str | None = Field(default=None, max_length=140)
+    headline_bn: str | None = Field(default=None, max_length=140)
+    bio_en: str | None = Field(default=None, max_length=4000)
+    bio_bn: str | None = Field(default=None, max_length=4000)
     qualifications: str | None = Field(default=None, max_length=1000)
     teaching_mode: list[TeachingMode] | None = Field(default=None, max_length=3)
     district_code: str | None = Field(default=None, max_length=12)
     upazila_code: str | None = Field(default=None, max_length=12)
-    street_address: str | None = Field(default=None, max_length=300)
+    street_address: str | None = Field(default=None, max_length=200)
     public_contact_phone: str | None = Field(default=None, max_length=40)
 
 
@@ -178,6 +205,7 @@ class BatchListingUpdateRequest(BaseModel):
     The first save must carry ``show_fee`` and ``show_schedule``.
 
     :ivar slug: The public path segment, unique per owner
+    :ivar public_title: The batch's public name; empty clears it
     :ivar description_en: The English description
     :ivar description_bn: The Bangla description
     :ivar syllabus_en: The English syllabus
@@ -194,14 +222,13 @@ class BatchListingUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     slug: str | None = Field(default=None, max_length=60)
-    description_en: str | None = Field(default=None, max_length=5000)
-    description_bn: str | None = Field(default=None, max_length=5000)
-    syllabus_en: str | None = Field(default=None, max_length=10000)
-    syllabus_bn: str | None = Field(default=None, max_length=10000)
-    class_levels: list[Annotated[str, Field(max_length=20)]] | None = Field(
-        default=None, max_length=30
-    )
-    curriculum: str | None = Field(default=None, max_length=30)
+    public_title: str | None = Field(default=None, max_length=120)
+    description_en: str | None = Field(default=None, max_length=4000)
+    description_bn: str | None = Field(default=None, max_length=4000)
+    syllabus_en: str | None = Field(default=None, max_length=4000)
+    syllabus_bn: str | None = Field(default=None, max_length=4000)
+    class_levels: list[ClassLevel] | None = Field(default=None, max_length=30)
+    curriculum: Curriculum | Literal[""] | None = None
     subject_tags: list[_Tag] | None = Field(default=None, max_length=20)
     mode: BatchMode | Literal[""] | None = None
     admissions: Admissions | None = None
@@ -215,10 +242,12 @@ class BatchListingResponse(BaseModel):
     ``status`` is ``draft`` before any listing row exists.
 
     :ivar batch_id: The batch
-    :ivar batch_name: Its name
+    :ivar batch_name: Its name in the owner's own records, shown only to the
+        owner; the public page uses ``public_title``
     :ivar subjects: Its subject names
     :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
     :ivar slug: The public path segment
+    :ivar public_title: The batch's public name
     :ivar description_en: The English description
     :ivar description_bn: The Bangla description
     :ivar syllabus_en: The English syllabus
@@ -241,12 +270,13 @@ class BatchListingResponse(BaseModel):
     subjects: list[str]
     status: ListingStatus
     slug: str | None
+    public_title: str | None
     description_en: str | None
     description_bn: str | None
     syllabus_en: str | None
     syllabus_bn: str | None
-    class_levels: list[str]
-    curriculum: str | None
+    class_levels: list[ClassLevel]
+    curriculum: Curriculum | None
     subject_tags: list[str]
     mode: BatchMode | None
     admissions: Admissions | None
@@ -277,6 +307,8 @@ class CentreMembershipResponse(BaseModel):
     :ivar centre_name: The centre's name
     :ivar role: ``manager`` or ``teacher``
     :ivar public_name_consent: Whether the member agreed to be named publicly
+    :ivar name_shown: The exact name the centre's page shows once they agree:
+        the name the centre entered for them, which is theirs to see
     """
 
     member_id: uuid.UUID
@@ -284,3 +316,4 @@ class CentreMembershipResponse(BaseModel):
     centre_name: str
     role: Literal["manager", "teacher"]
     public_name_consent: bool
+    name_shown: str

@@ -66,6 +66,7 @@ def publish_batch(
             owner_id=owner_id,
             slug=f"b-{uuid.uuid4().hex[:12]}",
             status=status,
+            public_title="HSC Physics",
             description_en="Weekend batch",
             show_fee=False,
             show_schedule=False,

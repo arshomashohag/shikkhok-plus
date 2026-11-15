@@ -16,6 +16,7 @@ from app.moderation.vocab import Reason, TargetKind
 
 __all__ = [
     "AdminHubDecisionRequest",
+    "AdminHubField",
     "AdminHubQueueItem",
     "AdminHubQueueResponse",
     "AdminHubReportDecided",
@@ -28,8 +29,10 @@ __all__ = [
 class HubReportRequest(BaseModel):
     """A reader's report about one hub target.
 
-    :ivar target_kind: ``listing``, ``media``, ``review`` or ``reply``
-    :ivar target_id: The target's id
+    :ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,
+        ``review`` or ``reply``
+    :ivar target_id: The target's id: an owner id for an owner listing, a
+        batch id for a batch listing
     :ivar reason: A closed reason
     :ivar note: An optional note; it may not carry a phone number
     """
@@ -42,6 +45,39 @@ class HubReportRequest(BaseModel):
     note: str | None = Field(default=None, max_length=500)
 
 
+#: Every field a queue item may show; each is something an owner submitted
+#: for display on the hub, never anything a teacher keeps privately.
+AdminHubFieldKey = Literal[
+    "public_name",
+    "headline_en",
+    "headline_bn",
+    "bio_en",
+    "bio_bn",
+    "qualifications",
+    "street_address",
+    "public_contact_phone",
+    "area_en",
+    "area_bn",
+    "public_title",
+    "description_en",
+    "description_bn",
+    "syllabus_en",
+    "syllabus_bn",
+    "subject_tags",
+]
+
+
+class AdminHubField(BaseModel):
+    """One submitted public field of a moderated target.
+
+    :ivar key: Which field
+    :ivar value: What the owner submitted
+    """
+
+    key: AdminHubFieldKey
+    value: str
+
+
 class AdminHubQueueItem(BaseModel):
     """One row of the moderation queue.
 
@@ -50,8 +86,9 @@ class AdminHubQueueItem(BaseModel):
     :ivar target_kind: What was reported or suspended
     :ivar target_id: The target's id
     :ivar owner_id: The owner the listing belongs to, when known
-    :ivar title: The target's public name
-    :ivar text: The target's public text
+    :ivar title: The target's public name: an owner's public name or a
+        batch's public title
+    :ivar fields: Everything the owner submitted for display on the target
     :ivar reason: The report reason or the suspension reason code
     :ivar note: The reporter's note, for a report row
     :ivar reporter_ref: The opaque reporter label, for a report row
@@ -64,7 +101,7 @@ class AdminHubQueueItem(BaseModel):
     target_id: uuid.UUID
     owner_id: uuid.UUID | None
     title: str | None
-    text: str | None
+    fields: list[AdminHubField]
     reason: str | None
     note: str | None
     reporter_ref: str | None

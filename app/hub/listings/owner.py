@@ -193,6 +193,33 @@ def _check_area(session: Session, district: str | None, upazila: str | None) -> 
         raise ValidationError(code="HUB_AREA_MISMATCH", message_key="hub.area_mismatch")
 
 
+def _next_area(
+    listing: OwnerListing, changes: OwnerListingUpdate
+) -> tuple[str | None, str | None]:
+    """Work out the area an edit leaves the listing in.
+
+    An omitted code keeps its value and an empty one clears it. A district
+    that changes without an upazila being given drops the old upazila, which
+    lay in the old district.
+
+    :param listing: The listing before the edit
+    :param changes: The edits
+    :return: ``(district, upazila)``, either of which may be None
+    """
+    district = (
+        listing.district_code
+        if changes.district_code is None
+        else changes.district_code or None
+    )
+    if changes.upazila_code is not None:
+        upazila = changes.upazila_code or None
+    elif district != listing.district_code:
+        upazila = None
+    else:
+        upazila = listing.upazila_code
+    return district, upazila
+
+
 def update(
     session: Session, lens: TeacherLens, changes: OwnerListingUpdate
 ) -> OwnerListing:
@@ -218,8 +245,7 @@ def update(
         listing.slug = changes.slug
 
     if changes.district_code is not None or changes.upazila_code is not None:
-        district = changes.district_code or listing.district_code
-        upazila = changes.upazila_code or listing.upazila_code
+        district, upazila = _next_area(listing, changes)
         _check_area(session, district, upazila)
         listing.district_code = district
         listing.upazila_code = upazila

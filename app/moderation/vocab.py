@@ -13,7 +13,7 @@ __all__ = ["REASONS", "TARGET_KINDS", "Reason", "TargetKind"]
 Reason = Literal[
     "personal_info", "child_safety", "abusive", "fake", "misleading", "other"
 ]
-TargetKind = Literal["listing", "media", "review", "reply"]
+TargetKind = Literal["owner_listing", "batch_listing", "media", "review", "reply"]
 
 #: Every reason a report or a suspension may carry.
 REASONS: Final[tuple[str, ...]] = (
@@ -26,4 +26,10 @@ REASONS: Final[tuple[str, ...]] = (
 )
 
 #: Every report target kind.
-TARGET_KINDS: Final[tuple[str, ...]] = ("listing", "media", "review", "reply")
+TARGET_KINDS: Final[tuple[str, ...]] = (
+    "owner_listing",
+    "batch_listing",
+    "media",
+    "review",
+    "reply",
+)

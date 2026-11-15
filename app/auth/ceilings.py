@@ -487,10 +487,12 @@ class CeilingBreach(ConflictError):
     and "invalid number" tells a legitimate teacher their account is
     broken while telling an attacker which numbers exist [BR2.6].
 
-    **The message key follows the cascade, the code does not**, with one
-    exception: the public hub's listing editor answers ``HUB_WRITE_CEILING``,
-    a code of its own, because its client is an owner editing a page and
-    not a person waiting for a code. Every other cascade answers the same
+    **The message key follows the cascade, the code does not**, with two
+    exceptions: the public hub's listing editor answers
+    ``HUB_WRITE_CEILING`` and its report form ``HUB_REPORT_CEILING``, codes
+    of their own, because their clients are an owner editing a page and a
+    reader filing a report, not a person waiting for a code. Every other
+    cascade answers the same
     contentless ``TEMPORARILY_UNAVAILABLE``,
     so a client switching on the code treats them identically; what
     differs is the string the person reads, because a signup refusal
@@ -555,10 +557,15 @@ class CeilingBreach(ConflictError):
                 code="TEMPORARILY_UNAVAILABLE",
                 message_key="centre.temporarily_unavailable",
             )
-        elif scope in (ScopeKind.HUB_OWNER_DAILY, ScopeKind.HUB_REPORT_DAILY):
+        elif scope is ScopeKind.HUB_OWNER_DAILY:
             super().__init__(
                 code="HUB_WRITE_CEILING",
                 message_key="hub.write_ceiling",
+            )
+        elif scope is ScopeKind.HUB_REPORT_DAILY:
+            super().__init__(
+                code="HUB_REPORT_CEILING",
+                message_key="hub.report_ceiling",
             )
         else:
             super().__init__(
@@ -902,7 +909,7 @@ class CeilingChecker:
         :param now: The moment to count against, or None for the clock
         :return: None
         :raises CeilingBreach: The account has filed today's allowance of
-            reports; its code is ``HUB_WRITE_CEILING``
+            reports; its code is ``HUB_REPORT_CEILING``
         """
         scope = _Scope(ScopeKind.HUB_REPORT_DAILY, HUB_REPORT_ACCOUNT_DAILY, _DAY)
         self._consume([(scope, str(account_id))], now)

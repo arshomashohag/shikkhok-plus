@@ -206,9 +206,53 @@
         "title": "AdminHubDecisionRequest",
         "type": "object"
       },
-      "AdminHubQueueItem": {
-        "description": "One row of the moderation queue.\n\n:ivar kind: ``report`` or ``listing``\n:ivar report_id: The report, for a report row\n:ivar target_kind: What was reported or suspended\n:ivar target_id: The target's id\n:ivar owner_id: The owner the listing belongs to, when known\n:ivar title: The target's public name\n:ivar text: The target's public text\n:ivar reason: The report reason or the suspension reason code\n:ivar note: The reporter's note, for a report row\n:ivar reporter_ref: The opaque reporter label, for a report row\n:ivar waited_hours: Whole hours since the report or the suspension",
+      "AdminHubField": {
+        "description": "One submitted public field of a moderated target.\n\n:ivar key: Which field\n:ivar value: What the owner submitted",
         "properties": {
+          "key": {
+            "enum": [
+              "area_bn",
+              "area_en",
+              "bio_bn",
+              "bio_en",
+              "description_bn",
+              "description_en",
+              "headline_bn",
+              "headline_en",
+              "public_contact_phone",
+              "public_name",
+              "public_title",
+              "qualifications",
+              "street_address",
+              "subject_tags",
+              "syllabus_bn",
+              "syllabus_en"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ],
+        "title": "AdminHubField",
+        "type": "object"
+      },
+      "AdminHubQueueItem": {
+        "description": "One row of the moderation queue.\n\n:ivar kind: ``report`` or ``listing``\n:ivar report_id: The report, for a report row\n:ivar target_kind: What was reported or suspended\n:ivar target_id: The target's id\n:ivar owner_id: The owner the listing belongs to, when known\n:ivar title: The target's public name: an owner's public name or a\n    batch's public title\n:ivar fields: Everything the owner submitted for display on the target\n:ivar reason: The report reason or the suspension reason code\n:ivar note: The reporter's note, for a report row\n:ivar reporter_ref: The opaque reporter label, for a report row\n:ivar waited_hours: Whole hours since the report or the suspension",
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/AdminHubField"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
           "kind": {
             "enum": [
               "listing",
@@ -283,17 +327,6 @@
             "title": "Target Kind",
             "type": "string"
           },
-          "text": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Text"
-          },
           "title": {
             "anyOf": [
               {
@@ -311,6 +344,7 @@
           }
         },
         "required": [
+          "fields",
           "kind",
           "note",
           "owner_id",
@@ -319,7 +353,6 @@
           "reporter_ref",
           "target_id",
           "target_kind",
-          "text",
           "title",
           "waited_hours"
         ],
@@ -1566,7 +1599,7 @@
         "type": "object"
       },
       "BatchListingResponse": {
-        "description": "One of the owner's batches with its listing, if it has one yet.\n\n``status`` is ``draft`` before any listing row exists.\n\n:ivar batch_id: The batch\n:ivar batch_name: Its name\n:ivar subjects: Its subject names\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment\n:ivar description_en: The English description\n:ivar description_bn: The Bangla description\n:ivar syllabus_en: The English syllabus\n:ivar syllabus_bn: The Bangla syllabus\n:ivar class_levels: The class levels taught\n:ivar curriculum: The curriculum\n:ivar subject_tags: Public subject tags\n:ivar mode: How the batch is taught\n:ivar admissions: ``open``, ``waitlist`` or ``closed``\n:ivar show_fee: Whether the fee is public, or None before a listing\n:ivar show_schedule: Whether the timetable is public, or None\n:ivar fee: The batch fee, only while ``show_fee`` is set\n:ivar teacher_names: The teachers the page may name\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met",
+        "description": "One of the owner's batches with its listing, if it has one yet.\n\n``status`` is ``draft`` before any listing row exists.\n\n:ivar batch_id: The batch\n:ivar batch_name: Its name in the owner's own records, shown only to the\n    owner; the public page uses ``public_title``\n:ivar subjects: Its subject names\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment\n:ivar public_title: The batch's public name\n:ivar description_en: The English description\n:ivar description_bn: The Bangla description\n:ivar syllabus_en: The English syllabus\n:ivar syllabus_bn: The Bangla syllabus\n:ivar class_levels: The class levels taught\n:ivar curriculum: The curriculum\n:ivar subject_tags: Public subject tags\n:ivar mode: How the batch is taught\n:ivar admissions: ``open``, ``waitlist`` or ``closed``\n:ivar show_fee: Whether the fee is public, or None before a listing\n:ivar show_schedule: Whether the timetable is public, or None\n:ivar fee: The batch fee, only while ``show_fee`` is set\n:ivar teacher_names: The teachers the page may name\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met",
         "properties": {
           "admissions": {
             "anyOf": [
@@ -1602,6 +1635,26 @@
           },
           "class_levels": {
             "items": {
+              "enum": [
+                "a_level",
+                "admission",
+                "class_1",
+                "class_10",
+                "class_11",
+                "class_12",
+                "class_2",
+                "class_3",
+                "class_4",
+                "class_5",
+                "class_6",
+                "class_7",
+                "class_8",
+                "class_9",
+                "hsc",
+                "o_level",
+                "other",
+                "ssc"
+              ],
               "type": "string"
             },
             "title": "Class Levels",
@@ -1610,6 +1663,13 @@
           "curriculum": {
             "anyOf": [
               {
+                "enum": [
+                  "english_medium",
+                  "madrasah",
+                  "national_bangla",
+                  "national_english",
+                  "other"
+                ],
                 "type": "string"
               },
               {
@@ -1665,6 +1725,17 @@
               }
             ],
             "title": "Mode"
+          },
+          "public_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Title"
           },
           "publishable": {
             "title": "Publishable",
@@ -1768,6 +1839,7 @@
           "description_en",
           "fee",
           "mode",
+          "public_title",
           "publishable",
           "show_fee",
           "show_schedule",
@@ -1784,7 +1856,7 @@
       },
       "BatchListingUpdateRequest": {
         "additionalProperties": false,
-        "description": "Edit one batch's listing; an omitted field is left alone.\n\nThe first save must carry ``show_fee`` and ``show_schedule``.\n\n:ivar slug: The public path segment, unique per owner\n:ivar description_en: The English description\n:ivar description_bn: The Bangla description\n:ivar syllabus_en: The English syllabus\n:ivar syllabus_bn: The Bangla syllabus\n:ivar class_levels: The class levels taught\n:ivar curriculum: The curriculum; empty clears it\n:ivar subject_tags: Public subject tags\n:ivar mode: How the batch is taught; empty clears it\n:ivar admissions: ``open``, ``waitlist`` or ``closed``\n:ivar show_fee: Whether the fee is public\n:ivar show_schedule: Whether the weekly timetable is public",
+        "description": "Edit one batch's listing; an omitted field is left alone.\n\nThe first save must carry ``show_fee`` and ``show_schedule``.\n\n:ivar slug: The public path segment, unique per owner\n:ivar public_title: The batch's public name; empty clears it\n:ivar description_en: The English description\n:ivar description_bn: The Bangla description\n:ivar syllabus_en: The English syllabus\n:ivar syllabus_bn: The Bangla syllabus\n:ivar class_levels: The class levels taught\n:ivar curriculum: The curriculum; empty clears it\n:ivar subject_tags: Public subject tags\n:ivar mode: How the batch is taught; empty clears it\n:ivar admissions: ``open``, ``waitlist`` or ``closed``\n:ivar show_fee: Whether the fee is public\n:ivar show_schedule: Whether the weekly timetable is public",
         "properties": {
           "admissions": {
             "anyOf": [
@@ -1806,7 +1878,26 @@
             "anyOf": [
               {
                 "items": {
-                  "maxLength": 20,
+                  "enum": [
+                    "a_level",
+                    "admission",
+                    "class_1",
+                    "class_10",
+                    "class_11",
+                    "class_12",
+                    "class_2",
+                    "class_3",
+                    "class_4",
+                    "class_5",
+                    "class_6",
+                    "class_7",
+                    "class_8",
+                    "class_9",
+                    "hsc",
+                    "o_level",
+                    "other",
+                    "ssc"
+                  ],
                   "type": "string"
                 },
                 "maxItems": 30,
@@ -1821,7 +1912,17 @@
           "curriculum": {
             "anyOf": [
               {
-                "maxLength": 30,
+                "enum": [
+                  "english_medium",
+                  "madrasah",
+                  "national_bangla",
+                  "national_english",
+                  "other"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "",
                 "type": "string"
               },
               {
@@ -1833,7 +1934,7 @@
           "description_bn": {
             "anyOf": [
               {
-                "maxLength": 5000,
+                "maxLength": 4000,
                 "type": "string"
               },
               {
@@ -1845,7 +1946,7 @@
           "description_en": {
             "anyOf": [
               {
-                "maxLength": 5000,
+                "maxLength": 4000,
                 "type": "string"
               },
               {
@@ -1873,6 +1974,18 @@
               }
             ],
             "title": "Mode"
+          },
+          "public_title": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Title"
           },
           "show_fee": {
             "anyOf": [
@@ -1927,7 +2040,7 @@
           "syllabus_bn": {
             "anyOf": [
               {
-                "maxLength": 10000,
+                "maxLength": 4000,
                 "type": "string"
               },
               {
@@ -1939,7 +2052,7 @@
           "syllabus_en": {
             "anyOf": [
               {
-                "maxLength": 10000,
+                "maxLength": 4000,
                 "type": "string"
               },
               {
@@ -2356,7 +2469,7 @@
         "type": "object"
       },
       "CentreMembershipResponse": {
-        "description": "One accepted centre membership of the caller, with its name consent.\n\n:ivar member_id: The membership\n:ivar centre_id: The centre, for the consent route's path\n:ivar centre_name: The centre's name\n:ivar role: ``manager`` or ``teacher``\n:ivar public_name_consent: Whether the member agreed to be named publicly",
+        "description": "One accepted centre membership of the caller, with its name consent.\n\n:ivar member_id: The membership\n:ivar centre_id: The centre, for the consent route's path\n:ivar centre_name: The centre's name\n:ivar role: ``manager`` or ``teacher``\n:ivar public_name_consent: Whether the member agreed to be named publicly\n:ivar name_shown: The exact name the centre's page shows once they agree:\n    the name the centre entered for them, which is theirs to see",
         "properties": {
           "centre_id": {
             "format": "uuid",
@@ -2370,6 +2483,10 @@
           "member_id": {
             "format": "uuid",
             "title": "Member Id",
+            "type": "string"
+          },
+          "name_shown": {
+            "title": "Name Shown",
             "type": "string"
           },
           "public_name_consent": {
@@ -2389,6 +2506,7 @@
           "centre_id",
           "centre_name",
           "member_id",
+          "name_shown",
           "public_name_consent",
           "role"
         ],
@@ -5462,7 +5580,7 @@
       },
       "HubReportRequest": {
         "additionalProperties": false,
-        "description": "A reader's report about one hub target.\n\n:ivar target_kind: ``listing``, ``media``, ``review`` or ``reply``\n:ivar target_id: The target's id\n:ivar reason: A closed reason\n:ivar note: An optional note; it may not carry a phone number",
+        "description": "A reader's report about one hub target.\n\n:ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,\n    ``review`` or ``reply``\n:ivar target_id: The target's id: an owner id for an owner listing, a\n    batch id for a batch listing\n:ivar reason: A closed reason\n:ivar note: An optional note; it may not carry a phone number",
         "properties": {
           "note": {
             "anyOf": [
@@ -5495,8 +5613,9 @@
           },
           "target_kind": {
             "enum": [
-              "listing",
+              "batch_listing",
               "media",
+              "owner_listing",
               "reply",
               "review"
             ],
@@ -7452,7 +7571,7 @@
           "bio_bn": {
             "anyOf": [
               {
-                "maxLength": 5000,
+                "maxLength": 4000,
                 "type": "string"
               },
               {
@@ -7464,7 +7583,7 @@
           "bio_en": {
             "anyOf": [
               {
-                "maxLength": 5000,
+                "maxLength": 4000,
                 "type": "string"
               },
               {
@@ -7488,7 +7607,7 @@
           "headline_bn": {
             "anyOf": [
               {
-                "maxLength": 200,
+                "maxLength": 140,
                 "type": "string"
               },
               {
@@ -7500,7 +7619,7 @@
           "headline_en": {
             "anyOf": [
               {
-                "maxLength": 200,
+                "maxLength": 140,
                 "type": "string"
               },
               {
@@ -7560,7 +7679,7 @@
           "street_address": {
             "anyOf": [
               {
-                "maxLength": 300,
+                "maxLength": 200,
                 "type": "string"
               },
               {

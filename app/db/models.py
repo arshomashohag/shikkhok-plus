@@ -3372,7 +3372,13 @@ HUB_REPORT_REASON_VALUES: tuple[str, ...] = (
     "misleading",
     "other",
 )
-HUB_REPORT_TARGET_VALUES: tuple[str, ...] = ("listing", "media", "review", "reply")
+HUB_REPORT_TARGET_VALUES: tuple[str, ...] = (
+    "owner_listing",
+    "batch_listing",
+    "media",
+    "review",
+    "reply",
+)
 HUB_REPORT_STATUS_VALUES: tuple[str, ...] = ("open", "upheld", "dismissed")
 HUB_MODERATION_EVENT_VALUES: tuple[str, ...] = (
     "report_filed",
@@ -3556,6 +3562,8 @@ class BatchListing(Base):
     :ivar owner_id: The batch's owner
     :ivar slug: The public path segment, unique per owner
     :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
+    :ivar public_title: The batch's public name, required once live; the
+        teacher's own ``batch.name`` is never shown publicly
     :ivar show_fee: Whether the fee is shown publicly
     :ivar show_schedule: Whether the weekly timetable is shown publicly
     """
@@ -3576,6 +3584,7 @@ class BatchListing(Base):
     status: Mapped[str] = mapped_column(
         _HUB_LISTING_STATUS, nullable=False, server_default=text("'draft'")
     )
+    public_title: Mapped[str | None] = mapped_column(String(120), nullable=True)
     description_en: Mapped[str | None] = mapped_column(Text, nullable=True)
     description_bn: Mapped[str | None] = mapped_column(Text, nullable=True)
     syllabus_en: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -3610,6 +3619,10 @@ class BatchListing(Base):
             name=conv("ck_batch_listing_slug_when_live"),
         ),
         CheckConstraint(
+            "status = 'draft' OR char_length(trim(coalesce(public_title, ''))) >= 3",
+            name=conv("ck_batch_listing_public_title_when_live"),
+        ),
+        CheckConstraint(
             "class_levels <@ ARRAY["
             + ", ".join(f"'{v}'" for v in HUB_CLASS_LEVELS)
             + "]::varchar[]",
@@ -3641,7 +3654,8 @@ class HubReport(Base):
     """One reader's complaint about one hub target [0036].
 
     :ivar id: Surrogate key
-    :ivar target_kind: ``listing``, ``media``, ``review`` or ``reply``
+    :ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,
+        ``review`` or ``reply``
     :ivar target_id: The target's id
     :ivar reporter_account_id: Who reported; the row goes with them
     :ivar reason: A closed reason

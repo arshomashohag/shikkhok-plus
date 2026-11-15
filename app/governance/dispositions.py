@@ -665,7 +665,9 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         basis=(
             "What a solo teacher chose to publish about one of their "
             "classes on the public hub. It goes with the teacher's account, "
-            "while the class itself stays as its students' history."
+            "while the class itself stays as its students' history. A "
+            "coaching centre's class listings belong to the centre, so "
+            "they stay when a manager's account is deleted."
         ),
     ),
     "hub_report": TableGovernance(

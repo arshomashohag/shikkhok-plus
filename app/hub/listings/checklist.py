@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Final
 
 from app.db.models import BatchListing, OwnerListing
 
@@ -35,6 +36,21 @@ def _filled(value: str | None) -> bool:
     :return: True when it has content
     """
     return value is not None and value.strip() != ""
+
+
+#: The fewest characters a batch's public title may have, as the database
+#: checks it (``ck_batch_listing_public_title_when_live``).
+TITLE_MIN: Final = 3
+
+
+def _titled(value: str | None) -> bool:
+    """Say whether a public title is long enough to publish under.
+
+    :param value: The title
+    :return: True when it has at least :data:`TITLE_MIN` characters once
+        trimmed
+    """
+    return value is not None and len(value.strip()) >= TITLE_MIN
 
 
 def owner_checklist(listing: OwnerListing) -> list[ChecklistItem]:
@@ -70,6 +86,7 @@ def owner_publishable(items: Iterable[ChecklistItem]) -> bool:
 
 #: The batch checklist keys that block publishing, in order: every item.
 BATCH_REQUIRED: tuple[str, ...] = (
+    "public_title",
     "slug",
     "description",
     "class_levels",
@@ -89,6 +106,7 @@ def batch_checklist(
     """
     if listing is None:
         return [
+            ChecklistItem("public_title", False),
             ChecklistItem("slug", False),
             ChecklistItem("description", False),
             ChecklistItem("class_levels", False),
@@ -96,6 +114,7 @@ def batch_checklist(
             ChecklistItem("mode", False),
         ]
     return [
+        ChecklistItem("public_title", _titled(listing.public_title)),
         ChecklistItem("slug", _filled(listing.slug)),
         ChecklistItem(
             "description",

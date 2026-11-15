@@ -106,7 +106,7 @@ def _is_centre(session: Session, lens: TeacherLens) -> bool:
     :param lens: The owner's lens
     :return: True for an organisation owner
     """
-    kind = session.execute(
+    kind: str = session.execute(
         sa.text("SELECT kind::text FROM owner WHERE id = :o"), {"o": lens.owner_id}
     ).scalar_one()
     return kind == "organisation"
@@ -171,6 +171,7 @@ def _batch_response(
         fields: dict[str, object] = {
             "status": "draft",
             "slug": None,
+            "public_title": None,
             "description_en": None,
             "description_bn": None,
             "syllabus_en": None,

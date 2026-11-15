@@ -575,3 +575,107 @@ def test_racing_slug_claim_is_a_conflict(
     with pytest.raises(ConflictError) as raised:
         owner.update(restricted_session, lens, OwnerListingUpdate(slug="rahim-sir"))
     assert raised.value.code == "HUB_SLUG_TAKEN"
+
+
+def test_changing_only_the_district_clears_the_old_upazila(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A new district with no upazila given drops the old district's upazila.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    district, upazila, other = areas(restricted_session)
+    owner.get_or_draft(restricted_session, lens)
+    owner.update(
+        restricted_session,
+        lens,
+        OwnerListingUpdate(district_code=district, upazila_code=upazila),
+    )
+
+    listing = owner.update(
+        restricted_session, lens, OwnerListingUpdate(district_code=other)
+    )
+
+    assert (listing.district_code, listing.upazila_code) == (other, None)
+
+
+def test_an_empty_upazila_clears_it_and_keeps_the_district(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """``upazila_code=""`` clears the upazila alone.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    district, upazila, _ = areas(restricted_session)
+    owner.get_or_draft(restricted_session, lens)
+    owner.update(
+        restricted_session,
+        lens,
+        OwnerListingUpdate(district_code=district, upazila_code=upazila),
+    )
+
+    listing = owner.update(
+        restricted_session,
+        lens,
+        OwnerListingUpdate(district_code=district, upazila_code=""),
+    )
+
+    assert (listing.district_code, listing.upazila_code) == (district, None)
+
+
+def test_empty_codes_clear_the_whole_area(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """``district_code=""`` and ``upazila_code=""`` clear both.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    district, upazila, _ = areas(restricted_session)
+    owner.get_or_draft(restricted_session, lens)
+    owner.update(
+        restricted_session,
+        lens,
+        OwnerListingUpdate(district_code=district, upazila_code=upazila),
+    )
+
+    listing = owner.update(
+        restricted_session,
+        lens,
+        OwnerListingUpdate(district_code="", upazila_code=""),
+    )
+
+    assert (listing.district_code, listing.upazila_code) == (None, None)
+
+
+def test_an_empty_district_alone_clears_the_upazila_too(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """Clearing the district never leaves an orphaned upazila behind.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    district, upazila, _ = areas(restricted_session)
+    owner.get_or_draft(restricted_session, lens)
+    owner.update(
+        restricted_session,
+        lens,
+        OwnerListingUpdate(district_code=district, upazila_code=upazila),
+    )
+
+    listing = owner.update(
+        restricted_session, lens, OwnerListingUpdate(district_code="")
+    )
+
+    assert (listing.district_code, listing.upazila_code) == (None, None)

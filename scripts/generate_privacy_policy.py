@@ -53,6 +53,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
+from app.governance.deletion import HARD_DELETE_SCOPES, Scope
 from app.governance.dispositions import (
     DISPOSITIONS,
     Disposition,
@@ -301,6 +302,37 @@ def teacher_disclosure() -> str:
     )
 
 
+def centre_listing_disclosure() -> str:
+    """Say that a coaching centre's public listing outlives a manager.
+
+    **Derived from the deletion scope, like :func:`teacher_disclosure`.**
+    The listing tables are listed under "deleted outright", which is true
+    of a solo teacher's listing only: they are deleted through
+    ``Scope.SOLO_OWNER``, and a centre's owner row belongs to no account,
+    so a manager's deletion never reaches it. Were the scope ever an
+    account's own, the listings would go with any deleting manager and
+    this paragraph would say so instead.
+
+    :return: The paragraph
+    :raises KeyError: If the deletion manifest has no ``owner_listing``
+    """
+    if HARD_DELETE_SCOPES["owner_listing"].scope is not Scope.SOLO_OWNER:
+        return (
+            "When the person who runs a public listing deletes their "
+            "account, the listing is removed with it."
+        )
+
+    return (
+        "**A coaching centre's public listing stays with the centre.** If "
+        "you are a manager of a coaching centre and delete your account, "
+        "what the centre published on the public hub -- its own page and "
+        "its class pages -- is kept, because it belongs to the centre and "
+        "not to you, and the centre's other managers may still run it. "
+        "Your own account is removed as described above. A solo teacher's "
+        "public listing is not kept: it is deleted with their account."
+    )
+
+
 def manifest_digest() -> str:
     """Hash every field of the manifest, including each ``basis``.
 
@@ -440,7 +472,16 @@ def render() -> str:
         ]
         lines.append("")
 
-    lines += [disclosure(), "", teacher_disclosure(), "", _manifest_digest_line(), ""]
+    lines += [
+        disclosure(),
+        "",
+        teacher_disclosure(),
+        "",
+        centre_listing_disclosure(),
+        "",
+        _manifest_digest_line(),
+        "",
+    ]
     return "\n".join(lines)
 
 

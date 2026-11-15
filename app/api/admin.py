@@ -53,6 +53,7 @@ from app.schemas.admin import (
 from app.schemas.admin import AdminTicket as AdminTicketWire
 from app.schemas.moderation import (
     AdminHubDecisionRequest,
+    AdminHubField,
     AdminHubQueueItem,
     AdminHubQueueResponse,
     AdminHubReportDecided,
@@ -347,7 +348,10 @@ def hub_queue(
                 target_id=i.target_id,
                 owner_id=i.owner_id,
                 title=i.title,
-                text=i.text,
+                fields=[
+                    AdminHubField.model_validate({"key": k, "value": v})
+                    for k, v in i.fields
+                ],
                 reason=i.reason,
                 note=i.note,
                 reporter_ref=i.reporter_ref,

@@ -41,13 +41,17 @@ def list_own_memberships(
 
     :param session: The session
     :param account_id: The authenticated account; no other id is accepted
-    :return: One mapping per membership, oldest first
+    :return: One mapping per membership, oldest first, each carrying
+        ``name_shown``: the name the centre's page publishes once the member
+        agrees, exactly as :func:`app.hub.listings.names.teacher_names`
+        reads it
     """
     rows = session.execute(
         sa.text(
             "SELECT m.id AS member_id, m.owner_id AS centre_id, "
             "o.name AS centre_name, m.role::text AS role, "
-            "(m.public_name_consent_at IS NOT NULL) AS public_name_consent "
+            "(m.public_name_consent_at IS NOT NULL) AS public_name_consent, "
+            "m.display_name AS name_shown "
             "FROM owner_member m JOIN owner o ON o.id = m.owner_id "
             "WHERE m.account_id = :a AND m.decision = 'accepted' "
             "AND m.revoked_at IS NULL ORDER BY m.created_at, m.id"
@@ -61,6 +65,7 @@ def list_own_memberships(
             "centre_name": r.centre_name or "",
             "role": r.role,
             "public_name_consent": r.public_name_consent,
+            "name_shown": r.name_shown,
         }
         for r in rows
     ]

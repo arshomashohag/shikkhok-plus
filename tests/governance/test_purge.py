@@ -420,7 +420,7 @@ def _plant(
             sa.text(
                 "INSERT INTO hub_moderation_event "
                 "(id, event, target_kind, target_id, correlation_id, at) "
-                "VALUES (:id, 'report_filed', 'listing', :id, :cid, :at)"
+                "VALUES (:id, 'report_filed', 'owner_listing', :id, :cid, :at)"
             ),
             shared | {"cid": row_id.hex},
         )

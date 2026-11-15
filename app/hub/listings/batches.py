@@ -52,8 +52,15 @@ __all__ = [
     "view_one",
 ]
 
-#: Nullable text columns, where an empty string clears the value.
-_CLEARABLE = ("description_en", "description_bn", "syllabus_en", "syllabus_bn")
+#: Nullable text columns, where an empty string clears the value. Every one
+#: is public text, so every one is scanned for a phone number.
+_CLEARABLE = (
+    "public_title",
+    "description_en",
+    "description_bn",
+    "syllabus_en",
+    "syllabus_bn",
+)
 
 _UNIQUE_SLUG = "uq_batch_listing_owner_slug"
 
@@ -65,6 +72,7 @@ class BatchListingUpdate:
     An empty string clears a nullable text column or the mode/curriculum.
 
     :ivar slug: The public path segment, unique per owner
+    :ivar public_title: The batch's public name, never ``batch.name``
     :ivar description_en: The English description
     :ivar description_bn: The Bangla description
     :ivar syllabus_en: The English syllabus
@@ -79,6 +87,7 @@ class BatchListingUpdate:
     """
 
     slug: str | None = None
+    public_title: str | None = None
     description_en: str | None = None
     description_bn: str | None = None
     syllabus_en: str | None = None

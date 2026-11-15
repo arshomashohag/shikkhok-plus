@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.auth.ceilings import HUB_LISTING_OWNER_DAILY
-from app.db.models import BatchSubject, OwnerMember
+from app.db.models import HUB_CLASS_LEVELS, HUB_CURRICULA, BatchSubject, OwnerMember
 from app.hub.listings.consent import HUB_CONSENT_VERSION
 from tests.batches.conftest import make_teacher
 from tests.conftest import bearer
@@ -86,6 +86,7 @@ def _publish_owner(
 
 _BATCH_FILL = {
     "slug": "class-9-maths",
+    "public_title": "Class 9 Maths",
     "description_en": "Weekly maths",
     "class_levels": ["class_9"],
     "mode": "in_person",
@@ -244,6 +245,7 @@ def test_batch_listing_lifecycle(
     assert saved.status_code == 200, saved.text
     assert saved.json()["status"] == "draft"
     assert saved.json()["slug"] == "class-9-maths"
+    assert saved.json()["public_title"] == "Class 9 Maths"
 
     published = api_client.post(
         f"/v1/batches/{batch_id}/listing/publish", headers=headers
@@ -567,5 +569,51 @@ def test_centre_memberships_list_only_my_accepted_live_ones_with_consent(
         "centre_name": "Udoy Coaching",
         "role": "teacher",
         "public_name_consent": True,
+        "name_shown": "Karim Sir",
     }
     assert rows["Other Centre"]["public_name_consent"] is False
+
+
+def test_batch_vocabularies_are_closed_in_the_contract(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """Class levels and curriculum are enums on the wire, and "9" is refused.
+
+    A free-text "9, 10" would pass any client and fail the database's
+    closed vocabulary, so the contract carries the vocabulary itself.
+    """
+    schema = api_client.get("/openapi.json").json()["components"]["schemas"]
+    request = schema["BatchListingUpdateRequest"]["properties"]
+    levels = request["class_levels"]["anyOf"][0]["items"]
+    assert tuple(_enum_of(schema, levels)) == HUB_CLASS_LEVELS
+    curricula = {
+        value
+        for option in request["curriculum"]["anyOf"]
+        for value in _enum_of(schema, option)
+    }
+    assert curricula == {*HUB_CURRICULA, ""}
+
+    account, _, batch_id = _solo(owner_session)
+    headers = bearer(owner_session, account)
+    for bad in ({"class_levels": ["9"]}, {"curriculum": "ib"}):
+        refused = api_client.put(
+            f"/v1/batches/{batch_id}/listing",
+            json={**_BATCH_FILL, **bad},
+            headers=headers,
+        )
+        assert refused.status_code == 422, refused.text
+        assert refused.json()["error"]["code"] == "REQUEST_INVALID"
+
+
+def _enum_of(schema: dict[str, dict], node: dict) -> list[str]:
+    """Read the enum values of a schema node, following a reference.
+
+    :param schema: The document's component schemas
+    :param node: A property schema
+    :return: Its enum values, or none
+    """
+    if "$ref" in node:
+        node = schema[node["$ref"].rsplit("/", 1)[-1]]
+    if "const" in node:
+        return [node["const"]]
+    return list(node.get("enum", []))

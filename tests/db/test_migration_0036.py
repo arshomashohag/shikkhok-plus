@@ -183,7 +183,7 @@ def _batch_listing(
     :param session: The session to write through
     :param batch_id: The batch
     :param owner_id: The owner the row claims
-    :param extra: Column overrides, such as ``slug`` or ``status``
+    :param extra: Column overrides, such as ``slug``, ``status`` or ``title``
     :return: None
     """
     values: dict[str, object] = {
@@ -193,12 +193,13 @@ def _batch_listing(
         "sched": False,
         "slug": None,
         "status": "draft",
+        "title": "HSC Physics",
     } | extra
     session.execute(
         sa.text(
             "INSERT INTO batch_listing (batch_id, owner_id, show_fee, "
-            "show_schedule, slug, status) VALUES (:b, :o, :fee, :sched, :slug, "
-            "CAST(:status AS hub_listing_status))"
+            "show_schedule, slug, status, public_title) VALUES (:b, :o, :fee, "
+            ":sched, :slug, CAST(:status AS hub_listing_status), :title)"
         ),
         values,
     )
@@ -263,6 +264,61 @@ def test_live_batch_listing_needs_a_slug(owner_session: Session) -> None:
             owner_session, teacher.batch_id, teacher.owner_id, status="published"
         )
     owner_session.rollback()
+
+
+def test_live_batch_listing_needs_a_public_title(owner_session: Session) -> None:
+    """A live batch listing carries a public title of 3 to 120 characters.
+
+    A draft may hold none, so a batch never published needs nothing typed.
+
+    :param owner_session: An arranging session
+    :return: None
+    """
+    teacher = make_teacher(owner_session)
+    _batch_listing(owner_session, teacher.batch_id, teacher.owner_id)
+    owner_session.commit()
+    for title in (None, "   ", "ab", "  ab  "):
+        with pytest.raises(
+            sa.exc.IntegrityError, match="ck_batch_listing_public_title_when_live"
+        ):
+            owner_session.execute(
+                sa.text(
+                    "UPDATE batch_listing SET status = 'published', "
+                    "slug = 'hsc-physics', public_title = :t WHERE batch_id = :b"
+                ),
+                {"t": title, "b": teacher.batch_id},
+            )
+        owner_session.rollback()
+    with pytest.raises(sa.exc.DataError):
+        owner_session.execute(
+            sa.text("UPDATE batch_listing SET public_title = :t WHERE batch_id = :b"),
+            {"t": "x" * 121, "b": teacher.batch_id},
+        )
+    owner_session.rollback()
+    owner_session.execute(
+        sa.text(
+            "UPDATE batch_listing SET status = 'published', slug = 'hsc-physics', "
+            "public_title = 'HSC Physics' WHERE batch_id = :b"
+        ),
+        {"b": teacher.batch_id},
+    )
+    owner_session.commit()
+
+
+def test_report_targets_name_the_listing_kind(owner_session: Session) -> None:
+    """An owner listing and a batch listing are distinct report targets.
+
+    :param owner_session: An arranging session
+    :return: None
+    """
+    labels = owner_session.execute(
+        sa.text(
+            "SELECT array_agg(e.enumlabel ORDER BY e.enumsortorder) FROM pg_enum e "
+            "JOIN pg_type t ON t.oid = e.enumtypid "
+            "WHERE t.typname = 'hub_report_target'"
+        )
+    ).scalar_one()
+    assert labels == ["owner_listing", "batch_listing", "media", "review", "reply"]
 
 
 def test_show_fee_has_no_default(owner_session: Session) -> None:
@@ -341,7 +397,7 @@ def test_report_is_unique_per_reporter_and_target(owner_session: Session) -> Non
     params = {"t": uuid.uuid4(), "a": teacher.account_id}
     insert = sa.text(
         "INSERT INTO hub_report (id, target_kind, target_id, reporter_account_id, "
-        "reason) VALUES (gen_random_uuid(), 'listing', :t, :a, 'abusive')"
+        "reason) VALUES (gen_random_uuid(), 'owner_listing', :t, :a, 'abusive')"
     )
     owner_session.execute(insert, params)
     owner_session.commit()
@@ -363,7 +419,7 @@ def test_moderation_event_is_append_only(
     restricted_session.execute(
         sa.text(
             "INSERT INTO hub_moderation_event (id, event, target_kind, target_id, "
-            "correlation_id) VALUES (:id, 'report_filed', 'listing', :t, 'c1')"
+            "correlation_id) VALUES (:id, 'report_filed', 'owner_listing', :t, 'c1')"
         ),
         {"id": event_id, "t": uuid.uuid4()},
     )
@@ -389,8 +445,8 @@ def test_moderation_event_is_append_only(
     owner_session.execute(
         sa.text(
             "INSERT INTO hub_moderation_event (id, event, target_kind, target_id, "
-            "correlation_id, at) VALUES (:id, 'report_filed', 'listing', :t, 'c2', "
-            ":at)"
+            "correlation_id, at) VALUES (:id, 'report_filed', 'owner_listing', "
+            ":t, 'c2', :at)"
         ),
         {
             "id": old,

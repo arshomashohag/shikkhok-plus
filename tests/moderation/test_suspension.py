@@ -91,7 +91,7 @@ def test_suspension_hides_batches_notifies_managers_and_logs_event(
     ).one()
     assert tuple(event) == (
         "listing_suspended",
-        "listing",
+        "owner_listing",
         centre.owner_id,
         admin.account_id,
         "child_safety",
@@ -240,7 +240,7 @@ def test_admin_suspends_decides_and_lists_over_http(
     filed = api_client.post(
         "/v1/hub/reports",
         json={
-            "target_kind": "listing",
+            "target_kind": "owner_listing",
             "target_id": str(target.owner_id),
             "reason": "child_safety",
         },
