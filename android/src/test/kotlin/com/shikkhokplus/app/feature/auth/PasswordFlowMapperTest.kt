@@ -223,6 +223,27 @@ class PasswordFlowMapperTest {
     }
 
     @Test
+    fun `a sign-in never prints its login either`() {
+        // U3 [NFR3.2]: the login may be a username, a phone or an email.
+        val text = PasswordSignInRequest(password = "sentinel-pass", login = "sentinel_user_7").toString()
+
+        assertFalse("sentinel_user_7" in text)
+        assertFalse("sentinel-pass" in text)
+    }
+
+    @Test
+    fun `a one-field sign-in body carries the login and no phone or email`() {
+        // U3 [FR4.1, NFR1.2].
+        val body =
+            ApiClient.json.encodeToString(
+                PasswordSignInRequest.serializer(),
+                PasswordSignInRequest(password = "correct horse", login = "Rahim.Uddin"),
+            )
+
+        assertEquals("""{"password":"correct horse","login":"Rahim.Uddin"}""", body)
+    }
+
+    @Test
     fun `a sign-in body carries exactly one identifier`() {
         val body =
             ApiClient.json.encodeToString(
@@ -266,7 +287,10 @@ class PasswordFlowMapperTest {
         assertFalse(emailIsWellFormed("@example.com"))
         assertFalse(emailIsWellFormed("rafi@@example.com"))
         assertFalse(emailIsWellFormed("rafi ahmed@example.com"))
-        assertFalse(emailIsWellFormed("rafi@example.com."))
+        // Accepted since U3: the server's pattern takes a trailing dot, and
+        // the client may not be stricter than the server [Q5, NFR3.10].
+        // EmailShapeTest pins the corners.
+        assertTrue(emailIsWellFormed("rafi@example.com."))
         assertFalse(emailIsWellFormed("a@" + "b".repeat(250) + ".com"))
     }
 }

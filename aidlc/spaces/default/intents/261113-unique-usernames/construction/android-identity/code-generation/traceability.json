@@ -1,0 +1,344 @@
+{
+  "stage": "code-generation",
+  "unit": "android-identity",
+  "upstream_ids": [
+    "FR1.6",
+    "FR2.1",
+    "FR2.2",
+    "FR3.1",
+    "FR3.2",
+    "FR4.1",
+    "FR4.2",
+    "FR5.1",
+    "FR5.2",
+    "FR5.3",
+    "FR5.4",
+    "FR6.1",
+    "FR6.2",
+    "FR6.3",
+    "FR6.4",
+    "FR6.7",
+    "FR7.1",
+    "FR7.2",
+    "FR7.5",
+    "FR8.1",
+    "FR8.2",
+    "FR8.4",
+    "FR10.1",
+    "FR11",
+    "FR11.1",
+    "FR11.2",
+    "FR11.3",
+    "NFR1.1",
+    "NFR1.2",
+    "NFR1.4",
+    "NFR2.1",
+    "NFR2.3",
+    "NFR3.1",
+    "NFR3.2",
+    "NFR3.3",
+    "NFR3.4",
+    "NFR3.5",
+    "NFR3.7",
+    "NFR3.9",
+    "NFR3.10",
+    "NFR3.11",
+    "NFR3.12",
+    "NFR3.13",
+    "NFR3.14",
+    "NFR5.1",
+    "NFR5.4",
+    "NFR6.1",
+    "NFR6.2",
+    "NFR6.3",
+    "NFR8.1",
+    "NFR8.2",
+    "NFR8.3",
+    "NFR8.4",
+    "NFR8.5",
+    "NFR8.6",
+    "NFR9.1"
+  ],
+  "coverage": [
+    {
+      "id": "FR1.6",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/UsernameField.kt; res/values*/strings.xml"
+    },
+    {
+      "id": "FR2.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/SignupViewModel.kt, feature/auth/ui/SignupScreen.kt"
+    },
+    {
+      "id": "FR2.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/AuthViewModel.kt, feature/auth/ReplacementStateMapper.kt, feature/auth/ui/ReplaceUsernameStep.kt"
+    },
+    {
+      "id": "FR3.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/UsernameAvailability.kt, core/ui/AvailabilityHint.kt, core/network/HttpSignupRepository.kt"
+    },
+    {
+      "id": "FR3.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/UsernameAvailability.kt (debounce, latest-wins, 3 s bound)"
+    },
+    {
+      "id": "FR4.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/LoginField.kt, feature/auth/AuthViewModel.kt, core/network/AuthDto.kt (login)"
+    },
+    {
+      "id": "FR4.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/ui/AuthScreen.kt"
+    },
+    {
+      "id": "FR5.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/network/ProfileDto.kt (username_required)"
+    },
+    {
+      "id": "FR5.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/session/SessionUiState.kt (UsernameRequired), SessionStateMapper.kt, SessionViewModel.kt, navigation/RootRoute.kt, MainActivity.kt, feature/account/ChooseUsername.kt, feature/account/ui/ChooseUsernameGate.kt"
+    },
+    {
+      "id": "FR5.3",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/session/SessionViewModel.kt (recheck, recheckNow)"
+    },
+    {
+      "id": "FR5.4",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpAccountRepository.kt, feature/account/ChooseUsername.kt"
+    },
+    {
+      "id": "FR6.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/network/TeacherStudentDto.kt, core/network/HttpTeacherStudentsRepository.kt, feature/students/*"
+    },
+    {
+      "id": "FR6.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/model/EmailEdit.kt, StudentUpdateBody serializer"
+    },
+    {
+      "id": "FR6.3",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/students/StudentsStateMapper.kt, feature/students/ui/StudentsScreen.kt"
+    },
+    {
+      "id": "FR6.4",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/network/CentreDto.kt (phone nullable, invited_email), HttpCentresRepository.kt, feature/centres/*"
+    },
+    {
+      "id": "FR6.7",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpSignupRepository.kt (email lookup), feature/auth/SignupStateMapper.kt"
+    },
+    {
+      "id": "FR7.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/Username.kt, feature/account/ui/UsernameScreen.kt"
+    },
+    {
+      "id": "FR7.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpAccountRepository.kt (PUT /v1/me/username)"
+    },
+    {
+      "id": "FR7.5",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/Username.kt (rename window and hold messages)"
+    },
+    {
+      "id": "FR8.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/Contacts.kt, feature/account/ui/ContactsScreen.kt"
+    },
+    {
+      "id": "FR8.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/ReplaceContact.kt, feature/account/ui/ReplaceContactScreen.kt"
+    },
+    {
+      "id": "FR8.4",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/RemoveContact.kt, feature/account/ui/RemoveContactSheet.kt"
+    },
+    {
+      "id": "FR10.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/AuthViewModel.kt (sign-in with any identifier)"
+    },
+    {
+      "id": "FR11",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/account/ui/*, feature/auth/ui/*"
+    },
+    {
+      "id": "FR11.1",
+      "status": "OK",
+      "target": "android/src/main/res/values/strings.xml, values-bn/strings.xml"
+    },
+    {
+      "id": "FR11.2",
+      "status": "Deferred",
+      "target": "docs/delivery/bangla-layout-check.md (manual rows, not yet checked; nothing automated discharges them)"
+    },
+    {
+      "id": "FR11.3",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/MessageKeys.kt"
+    },
+    {
+      "id": "NFR1.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/LoginField.kt"
+    },
+    {
+      "id": "NFR1.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/network/AuthDto.kt"
+    },
+    {
+      "id": "NFR1.4",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/AuthViewModel.kt (heldCode)"
+    },
+    {
+      "id": "NFR2.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/UsernameAvailability.kt"
+    },
+    {
+      "id": "NFR2.3",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/UsernameAvailability.kt (stop after 429)"
+    },
+    {
+      "id": "NFR3.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpSignupRepository.kt (POST body lookups)"
+    },
+    {
+      "id": "NFR3.2",
+      "status": "OK",
+      "target": "masked toString overrides; android/src/test/.../IdentifierToStringTest.kt"
+    },
+    {
+      "id": "NFR3.3",
+      "status": "OK",
+      "target": "android/detekt.yml ForbiddenImport; NoLoggingTest.kt"
+    },
+    {
+      "id": "NFR3.4",
+      "status": "OK",
+      "target": "NoSavedSecretsTest.kt"
+    },
+    {
+      "id": "NFR3.5",
+      "status": "OK",
+      "target": "UsernameDeclarationScanTest.kt"
+    },
+    {
+      "id": "NFR3.7",
+      "status": "OK",
+      "target": "android/lint.xml (unchanged)"
+    },
+    {
+      "id": "NFR3.9",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/AutofillHint.kt"
+    },
+    {
+      "id": "NFR3.10",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/MessageKeys.kt"
+    },
+    {
+      "id": "NFR3.11",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/students/StudentsStateMapper.kt"
+    },
+    {
+      "id": "NFR3.12",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/navigation/RootRoute.kt"
+    },
+    {
+      "id": "NFR3.13",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/navigation/RootRoute.kt (FailedRecheckEffect)"
+    },
+    {
+      "id": "NFR3.14",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/session/SessionStateMapper.kt"
+    },
+    {
+      "id": "NFR5.1",
+      "status": "OK",
+      "target": "android/coverage-floor.txt unchanged; verifyCoverageRatchet"
+    },
+    {
+      "id": "NFR5.4",
+      "status": "OK",
+      "target": "code-summary.md test list"
+    },
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/network/*Dto.kt"
+    },
+    {
+      "id": "NFR6.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/network/CentreDto.kt"
+    },
+    {
+      "id": "NFR6.3",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/network/UsernameDto.kt"
+    },
+    {
+      "id": "NFR8.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/UsernameAvailability.kt"
+    },
+    {
+      "id": "NFR8.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/ui/UsernameAvailability.kt"
+    },
+    {
+      "id": "NFR8.3",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpAuthRepository.kt, HttpRosterRepository.kt (cancellation rethrow)"
+    },
+    {
+      "id": "NFR8.4",
+      "status": "Deferred",
+      "target": "docs/delivery/bangla-layout-check.md timing table (manual, not yet checked; nothing automated discharges it)"
+    },
+    {
+      "id": "NFR8.5",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/navigation/RootRoute.kt"
+    },
+    {
+      "id": "NFR8.6",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/navigation/RootRoute.kt"
+    },
+    {
+      "id": "NFR9.1",
+      "status": "OK",
+      "target": "WriteContractTest.kt, ContractConformanceTest.kt, CentreDtoTest.kt"
+    }
+  ]
+}

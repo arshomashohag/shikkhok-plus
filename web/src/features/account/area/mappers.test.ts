@@ -266,6 +266,7 @@ describe('profile', () => {
     address_postcode: '1205',
     lenses: [],
     has_password: true,
+    username_required: false,
   }
 
   it('shows the four parts on one line, else the legacy address', () => {

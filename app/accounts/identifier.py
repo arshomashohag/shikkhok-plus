@@ -19,8 +19,12 @@ from __future__ import annotations
 import enum
 import hashlib
 import re
+import uuid
 from dataclasses import dataclass
 from typing import Final, Literal
+
+import sqlalchemy as sa
+from sqlalchemy.orm import Session
 
 from app.accounts.phone import canonical_phone
 from app.errors import ValidationError
@@ -29,7 +33,12 @@ __all__ = [
     "EMAIL_MAX_LENGTH",
     "Channel",
     "Identifier",
+    "LoginSubject",
+    "UsernameSubject",
     "canonical_email",
+    "classify_login",
+    "optional_email",
+    "resolve_link_target",
 ]
 
 #: RFC 5321's limit on a forward path; nothing longer can receive mail.
@@ -124,6 +133,49 @@ class Identifier:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class UsernameSubject:
+    """A sign-in typed as a username [U1: BR4.2, ADR-003].
+
+    Kept apart from :class:`Identifier`, which stays phone-or-email: a
+    username is never a destination a code can be sent to, so widening
+    that type would let a username reach a function that sends one.
+
+    :ivar key: The trimmed, lowercased text. **Not judged against FR1**:
+        a malformed one is a key no account has, refused like any unknown
+        name, so a format rule cannot tell a real name from a typo
+    """
+
+    key: str
+
+
+#: What the single sign-in field was classified as.
+LoginSubject = Identifier | UsernameSubject
+
+
+def classify_login(raw: str) -> LoginSubject:
+    """Classify what was typed into the sign-in field [U1: BR4.2, FR4.1].
+
+    Email if it contains ``@``; else a phone if it is a Bangladeshi
+    mobile number in any accepted spelling; else a username. The three
+    are disjoint because a username starts with a letter and holds no
+    ``@`` (ADR-003). A mistyped number falls through to a username
+    nobody has, and gets the one uniform refusal.
+
+    :param raw: The ``login`` field, as typed
+    :return: The canonical email, the canonical phone, or the username key
+    :raises ValidationError: It contains ``@`` and is not an address --
+        the one answer here that depends on no account
+    """
+    text = raw.strip()
+    if "@" in text:
+        return Identifier.email(text)
+    try:
+        return Identifier.phone(text)
+    except ValidationError:
+        return UsernameSubject(key=text.lower())
+
+
 def canonical_email(raw: str) -> str:
     """Return the one stored form of an email address.
 
@@ -132,7 +184,69 @@ def canonical_email(raw: str) -> str:
     :raises ValidationError: It is not an email address
     """
     text = raw.strip().lower()
-    if len(text) > EMAIL_MAX_LENGTH or not _EMAIL.fullmatch(text):
+    # `isprintable` refuses NUL, other control characters and lone
+    # surrogates, none of which an address holds and none of which the
+    # database can store: refused here, not as a server error [review-01].
+    if (
+        len(text) > EMAIL_MAX_LENGTH
+        or not text.isprintable()
+        or not _EMAIL.fullmatch(text)
+    ):
         # Literal key, for the message-key contract gate (see phone.py).
         raise ValidationError(code="EMAIL_INVALID", message_key="email.invalid")
     return text
+
+
+def optional_email(raw: str | None) -> str | None:
+    """Canonicalise a teacher-recorded address, reading blank as absent.
+
+    A form field left empty, or holding only spaces, records nobody
+    [BR1.1]; anything else must be an address.
+
+    :param raw: The address as typed, or None
+    :return: The canonical address, or None for absent or blank
+    :raises ValidationError: It is not an email address
+    """
+    if raw is None or not raw.strip():
+        return None
+    return canonical_email(raw)
+
+
+#: The account a phone number, or else an address, signs in with.
+_HOLDER: Final = {
+    "phone": sa.text("SELECT id FROM account WHERE phone = :value"),
+    "email": sa.text("SELECT id FROM account WHERE email = :value"),
+}
+
+
+def resolve_link_target(
+    session: Session, *, phone: str | None, email: str | None
+) -> uuid.UUID | None:
+    """Return the account a link's recorded contacts send it to [BR2.1].
+
+    **The one precedence rule.** A link that records a phone belongs to
+    the account holding that phone, or to nobody yet -- never to the
+    account holding the email beside it, because the teacher addressed
+    that person by both and only the phone is the identity seats have
+    always followed. The email decides only when no phone is recorded.
+    A save is never refused because the two belong to different
+    accounts, so the teacher learns nothing about who holds which.
+
+    The caller decides first whether the link is relink-blocked, which
+    sends it to nobody whatever is recorded.
+
+    :param session: The session to read through
+    :param phone: The link's recorded number, canonical, or None
+    :param email: The link's recorded address, canonical, or None
+    :return: The target account, or None
+    """
+    if phone:
+        kind, value = "phone", phone
+    elif email:
+        kind, value = "email", email
+    else:
+        return None
+    target: uuid.UUID | None = session.execute(
+        _HOLDER[kind], {"value": value}
+    ).scalar_one_or_none()
+    return target

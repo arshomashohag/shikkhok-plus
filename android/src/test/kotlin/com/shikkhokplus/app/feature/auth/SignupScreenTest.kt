@@ -10,6 +10,12 @@ import com.shikkhokplus.app.core.model.Identifier
 import com.shikkhokplus.app.core.ui.TAG_KIND_EMAIL
 import com.shikkhokplus.app.feature.auth.ui.TAG_SIGNUP_CONFIRM
 import com.shikkhokplus.app.feature.auth.ui.TAG_SIGNUP_PASSWORD
+import com.shikkhokplus.app.feature.auth.ui.TAG_SIGNUP_USERNAME
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.junit4.StateRestorationTester
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -283,8 +289,12 @@ class SignupScreenTest {
         compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsEnabled()
     }
 
-    /** Type the password and its second copy. */
+    /**
+     * Type the sign-in credentials: the username (required since U3), the
+     * password and its second copy.
+     */
     private fun typePasswords(confirm: String = "correct horse") {
+        compose.onNodeWithTag(TAG_SIGNUP_USERNAME).performScrollTo().performTextInput("rahim_math")
         compose.onNodeWithTag(TAG_SIGNUP_PASSWORD).performScrollTo().performTextInput("correct horse")
         compose.onNodeWithTag(TAG_SIGNUP_CONFIRM).performScrollTo().performTextInput(confirm)
     }
@@ -321,6 +331,8 @@ class SignupScreenTest {
         compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rahim")
         compose.onNodeWithTag(TAG_SIGNUP_PHONE).performTextInput("01711-234567")
         typeAddress()
+        // Required since U3; typed first so only the passwords are missing.
+        compose.onNodeWithTag(TAG_SIGNUP_USERNAME).performScrollTo().performTextInput("rahim_math")
 
         compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsNotEnabled()
         compose.onNodeWithTag(TAG_SIGNUP_PASSWORD).performScrollTo().performTextInput("correct horse")
@@ -377,5 +389,61 @@ class SignupScreenTest {
         compose.onNodeWithTag(TAG_KIND_EMAIL).performScrollTo().performClick()
 
         compose.onNodeWithText("Enter an email address, like name@example.com.").performScrollTo().assertIsDisplayed()
+    }
+
+    // --- U3: the username [W1] ------------------------------------------------
+
+    @Test
+    fun `the username field renders with its help line, and its text is submitted`() {
+        var submitted: String? = null
+        render(SignupUiState.Empty, onSubmit = { submitted = it.username })
+        compose.onNodeWithTag(TAG_SIGNUP_USERNAME).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("You will sign in with this. Letters, numbers, _ and .").performScrollTo()
+            .assertIsDisplayed()
+
+        compose.onNodeWithText("Student").performScrollTo().performClick()
+        compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_SIGNUP_PHONE).performTextInput("01711-234567")
+        typeAddress()
+        typePasswords()
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().performClick()
+
+        assertEquals("rahim_math", submitted)
+    }
+
+    @Test
+    fun `send code waits for a username`() {
+        render(SignupUiState.Empty)
+        compose.onNodeWithText("Student").performClick()
+        compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_SIGNUP_PHONE).performTextInput("01711-234567")
+        typeAddress()
+        compose.onNodeWithTag(TAG_SIGNUP_PASSWORD).performScrollTo().performTextInput("correct horse")
+        compose.onNodeWithTag(TAG_SIGNUP_CONFIRM).performScrollTo().performTextInput("correct horse")
+
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a taken username is named under the username field`() {
+        render(SignupUiState.Failed("account.username.unavailable", retryable = false))
+
+        compose.onNodeWithText("This username is not available.").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `after recreation the username survives and both passwords are empty`() {
+        val restore = StateRestorationTester(compose)
+        restore.setContent { SignupScreen(state = SignupUiState.Empty, onSubmit = {}, onGoToLogin = {}, onRetry = {}) }
+        typePasswords()
+
+        restore.emulateSavedInstanceStateRestore()
+
+        compose.onNodeWithTag(TAG_SIGNUP_USERNAME).performScrollTo()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("rahim_math")))
+        listOf(TAG_SIGNUP_PASSWORD, TAG_SIGNUP_CONFIRM).forEach {
+            compose.onNodeWithTag(it).performScrollTo()
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
+        }
     }
 }

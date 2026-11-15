@@ -46,6 +46,9 @@ import kotlinx.serialization.Serializable
  *   carry — the erasure markers [BR7.1] — so a derivation would offer
  *   removal on an erased seat, whose decisions both read `pending`.
  * @property inactiveFrom The recorded date, if any
+ * @property studentEmail The teacher-typed student address, or null [FR6.1]
+ * @property guardianEmail The teacher-typed guardian address, or null;
+ *   shown where the guardian's phone would be when none is recorded
  */
 @Serializable
 data class RosterRowDto(
@@ -58,7 +61,14 @@ data class RosterRowDto(
     @SerialName("guardian_state") val guardianState: String,
     @SerialName("is_removable") val isRemovable: Boolean,
     @SerialName("inactive_from") val inactiveFrom: String? = null,
-)
+    @SerialName("student_email") val studentEmail: String? = null,
+    @SerialName("guardian_email") val guardianEmail: String? = null,
+) {
+    // Someone else's contacts, typed by a teacher [NFR3.2].
+    override fun toString(): String =
+        "RosterRowDto(enrollmentId=$enrollmentId, feeAmount=$feeAmount, status=$status, studentState=$studentState, " +
+            "guardianState=$guardianState, guardianPhone=***, studentEmail=***, guardianEmail=***)"
+}
 
 /**
  * One batch as its owner sees it.

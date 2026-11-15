@@ -9,6 +9,7 @@ import { clearTokens } from '../../../api/tokens'
 import { json } from '../../../test/render'
 import { mockSignedIn, renderRoutes, type Call } from '../../../test/signedIn'
 import { More } from '../More'
+import { AccountEntries } from './AccountEntries'
 import { MfaPrompt, PROMPT_DISMISSED_KEY } from './MfaPrompt'
 import { securityRoutes } from './index'
 import { resetMfaStatus, type MfaStatus } from './status'
@@ -308,5 +309,63 @@ describe('the home prompt', () => {
     await waitFor(() => expect(reads().length).toBeGreaterThan(0))
     await new Promise((r) => setTimeout(r, 20))
     expect(screen.queryByText(title)).toBeNull()
+  })
+})
+
+// Settings → Account [W5 step 1] [W6 step 1]. The two Add rows are
+// replaced by one Phone and email row (plan correction 1).
+describe('the sign-in rows in Settings', () => {
+  const entries = (offline: string | null = null) => [
+    {
+      path: '/entries',
+      element: (
+        <ul>
+          <AccountEntries offline={offline} />
+        </ul>
+      ),
+    },
+  ]
+  const ENTRIES = entries()
+
+  function signedInAs(me: Record<string, unknown>) {
+    mockSignedIn(
+      () => undefined,
+      'student',
+      () => me,
+    )
+  }
+
+  it('a Username row shows the username as stored and opens /settings/username', async () => {
+    signedInAs({ username: 'Rahim.Uddin', phone: '+8801711234567', email: null })
+    renderRoutes(ENTRIES, '/entries')
+    const row = await screen.findByRole('link', { name: /Username/ })
+    expect(row).toHaveAttribute('href', '/settings/username')
+    expect(row).toHaveTextContent('Rahim.Uddin')
+  })
+
+  it('a missing username reads "Choose a username"', async () => {
+    signedInAs({ username: null, phone: '+8801711234567' })
+    renderRoutes(ENTRIES, '/entries')
+    expect(await screen.findByRole('link', { name: /Username/ })).toHaveTextContent(
+      'Choose a username',
+    )
+  })
+
+  it('one Phone and email row replaces the two Add rows', async () => {
+    signedInAs({ username: 'nadia_k', phone: null, email: null })
+    renderRoutes(ENTRIES, '/entries')
+    const row = await screen.findByRole('link', { name: /Phone and email/ })
+    expect(row).toHaveAttribute('href', '/settings/contacts')
+    expect(row).toHaveTextContent('No phone number or email')
+    expect(screen.queryByRole('link', { name: /Add phone number/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Add email/ })).toBeNull()
+  })
+
+  it('offline, both rows are greyed and say why', async () => {
+    signedInAs({ username: 'nadia_k', phone: '+8801711234567' })
+    renderRoutes(entries('Needs a connection'), '/entries')
+    await waitFor(() => expect(screen.getAllByText('Needs a connection').length).toBe(2))
+    expect(screen.queryByRole('link', { name: /Username/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Phone and email/ })).toBeNull()
   })
 })

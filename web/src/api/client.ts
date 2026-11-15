@@ -58,6 +58,9 @@ async function send(
       cache: 'no-store',
     })
   } catch (e) {
+    // The caller cancelled: superseded, timed out, or unmounted, with or
+    // without a reason. That is never "offline" [NFR8.8].
+    if (options.signal?.aborted) throw e
     if (e instanceof DOMException && e.name === 'AbortError') throw e
     throw networkError()
   }

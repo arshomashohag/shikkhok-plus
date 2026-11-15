@@ -28,7 +28,10 @@ export interface PasswordSetup {
   expiresAt: number
   /** The account has an authenticator app on; its code is needed too. */
   mfaRequired: boolean
-  /** The phone or email the code went to, for the password manager. */
+  /**
+   * What the password manager files the password under: the username
+   * chosen at sign-up, else the phone or email the code went to.
+   */
   username: string
 }
 
@@ -48,16 +51,21 @@ const MFA_KEYS = new Set(['mfa.code_required', 'mfa.code_wrong', 'mfa.locked'])
 /**
  * The setup a `/verify` answer bought.
  *
+ * @param username The username chosen at sign-up, when there is one
  * @throws ApiError `error.unexpected` when the answer carries no token
  */
-export function setupFrom(answer: VerifyResponse, identifier: Identifier): PasswordSetup {
+export function setupFrom(
+  answer: VerifyResponse,
+  identifier: Identifier,
+  username?: string,
+): PasswordSetup {
   const token = answer.password_setup_token
   if (!token) throw new ApiError(200, 'UNEXPECTED', UNEXPECTED_KEY, false)
   return {
     token,
     expiresAt: Date.now() + (answer.password_setup_expires_in ?? SETUP_S) * 1000,
     mfaRequired: answer.mfa_required,
-    username: 'phone' in identifier ? identifier.phone : identifier.email,
+    username: username ?? ('phone' in identifier ? identifier.phone : identifier.email),
   }
 }
 

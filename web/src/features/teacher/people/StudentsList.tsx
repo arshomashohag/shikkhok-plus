@@ -11,20 +11,30 @@ import { listBatches } from '../../../api/endpoints'
 import { useDebounced, useResource } from '../../../core/useResource'
 import { useWide } from '../../../core/useWide'
 import { useT } from '../../../i18n/i18n'
-import { formatPhone, initial } from '../../../core/format'
+import { initial } from '../../../core/format'
 import { Avatar, EmptyState, ErrorCard, Loading, StaleBanner, TopBar } from '../../../ui/components'
 import { PlusIcon } from '../../../ui/icons'
 import { paths } from '../paths'
 import { listStudents, type StudentFilter } from './api'
-import { linkKey, mapStudent, type LinkState, type Student } from './mappers'
+import {
+  guardianCellLine,
+  linkKey,
+  mapStudent,
+  studentContactLine,
+  type LinkState,
+  type Student,
+} from './mappers'
 
-/** A phone number with its invitation state under it, or "No phone". */
-function PhoneCell({ phone, state }: { phone: string | null; state: LinkState }) {
+/**
+ * A contact — the phone, else the email, as the mappers chose — with its
+ * invitation state under it, or "No contact" [W7 step 7].
+ */
+function PhoneCell({ contact, state }: { contact: string | null; state: LinkState }) {
   const { t } = useT()
-  if (!phone) return <span className="meta">{t('web_students_no_phone')}</span>
+  if (!contact) return <span className="meta">{t('web_students_no_phone')}</span>
   return (
     <>
-      <div>{formatPhone(phone)}</div>
+      <div style={{ overflowWrap: 'anywhere' }}>{contact}</div>
       <div className="meta">{t(linkKey(state))}</div>
     </>
   )
@@ -67,10 +77,10 @@ function StudentsTable({ students }: { students: Student[] }) {
                 </div>
               </td>
               <td>
-                <PhoneCell phone={s.studentPhone} state={s.studentState} />
+                <PhoneCell contact={studentContactLine(s)} state={s.studentState} />
               </td>
               <td>
-                <PhoneCell phone={s.guardianPhone} state={s.guardianState} />
+                <PhoneCell contact={guardianCellLine(s)} state={s.guardianState} />
               </td>
               <td>
                 {s.seats.length === 0 ? (

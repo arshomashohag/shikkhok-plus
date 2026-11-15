@@ -162,12 +162,13 @@ actually does, and our build fails if the two stop matching.
 | Your authenticator recovery codes, stored only as hashes | no time limit |
 | Your authenticator-app setup, with its secret encrypted, if you turned it on | no time limit |
 | Your own name, photo and address | no time limit |
-| Your phone number and account record | no time limit |
+| Your phone number, username and account record | no time limit |
 
 ### Kept even after you delete your account, because the same record is someone else's too
 
 | Data | Removed anyway after |
 |---|---|
+| A changed or deleted username, held for 30 days so nobody else can take it, stored only as a keyed digest | 30 days, when the hold expires |
 | A class a teacher runs | no time limit |
 | A class that was held, on a date | no time limit |
 | A class's weekly timetable | no time limit |
@@ -212,7 +213,7 @@ These records are about how the service itself is running, not about any person.
 
 **A coaching centre's public listing stays with the centre.** If you are a manager of a coaching centre and delete your account, what the centre published on the public hub -- its own page and its class pages -- is kept, because it belongs to the centre and not to you, and the centre's other managers may still run it. Your own account is removed as described above. A solo teacher's public listing is not kept: it is deleted with their account.
 
-<!-- governance manifest digest: e1d71d49a9d6226e03abfd709ab7bfd3d468d0e23e72bec847d86ad0260b2576
+<!-- governance manifest digest: 94d3adf5b3f32bc5d72c68351c5ce8bafa1b857782d3d3f954805947efdabb41
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

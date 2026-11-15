@@ -32,6 +32,7 @@ import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.SkeletonBlock
 import com.shikkhokplus.app.core.format.Numerals
+import com.shikkhokplus.app.core.model.EmailEdit
 import com.shikkhokplus.app.core.ui.PhoneNumberField
 import com.shikkhokplus.app.core.ui.phoneError
 import com.shikkhokplus.app.core.ui.phoneIsValid
@@ -52,6 +53,12 @@ const val TAG_STUDENT_REMOVE: String = "student_remove"
 /** The refusal of the last action. */
 const val TAG_STUDENT_ACTION_ERROR: String = "student_action_error"
 
+/** The student's email in the edit dialog [W7.5]. */
+const val TAG_EDIT_STUDENT_EMAIL: String = "edit_student_email"
+
+/** The guardian's email in the edit dialog. */
+const val TAG_EDIT_GUARDIAN_EMAIL: String = "edit_guardian_email"
+
 /**
  * What the student screen can be asked to do.
  *
@@ -62,7 +69,7 @@ const val TAG_STUDENT_ACTION_ERROR: String = "student_action_error"
  * @property onLeave Called with a seat id: the student left that batch
  * @property onRemoveSeat Called with a seat id nobody accepted
  * @property onEdit Called with a new name, student number and guardian
- *   number, each null to keep it
+ *   number, each null to keep it, and what to do with each email
  * @property onRemove Called to remove the student
  */
 data class StudentDetailActions(
@@ -72,7 +79,7 @@ data class StudentDetailActions(
     val onEnroll: (String) -> Unit,
     val onLeave: (String) -> Unit,
     val onRemoveSeat: (String) -> Unit,
-    val onEdit: (String?, String?, String?) -> Unit,
+    val onEdit: (String?, String?, String?, EmailEdit, EmailEdit) -> Unit,
     val onRemove: () -> Unit,
 )
 
@@ -97,7 +104,7 @@ fun StudentDetailScreen(
     val loaded = (state as? StudentDetailUiState.Loaded)?.student
     ScreenScaffold(
         title = loaded?.let { Numerals.freeText(it.name) } ?: stringResource(R.string.students_title),
-        subtitle = loaded?.studentPhone,
+        subtitle = loaded?.studentContactLine,
         onBack = actions.onBack,
         modifier = modifier,
     ) {
@@ -197,9 +204,9 @@ private fun StudentBody(student: StudentDetail, actionError: String?, actions: S
     if (editing) {
         EditStudentDialog(
             student = student,
-            onSave = { name, phone, guardian ->
+            onSave = { name, phone, guardian, studentEmail, guardianEmail ->
                 editing = false
-                actions.onEdit(name, phone, guardian)
+                actions.onEdit(name, phone, guardian, studentEmail, guardianEmail)
             },
             onDismiss = { editing = false },
         )
@@ -217,7 +224,7 @@ private fun LinksCard(student: StudentDetail) {
         LabelValue(stringResource(R.string.student_detail_student_link), linkLabel(student.studentState))
         LabelValue(
             label =
-                student.guardianPhone?.let { stringResource(R.string.student_detail_guardian_link) + " · " + it }
+                student.guardianContactLine?.let { stringResource(R.string.student_detail_guardian_link) + " · " + it }
                     ?: stringResource(R.string.student_detail_guardian_link),
             value =
                 if (student.guardianState == ABSENT) {
@@ -351,21 +358,30 @@ private fun RemoveStudent(removable: Boolean, onRemove: () -> Unit) {
  * A number someone accepted cannot be changed; the server refuses and
  * the refusal is shown on the screen.
  *
+ * **The emails can be cleared; the phones cannot** [W7.5]. An emptied
+ * email is sent as a clear; an emptied phone is still "unchanged", today's
+ * rule, which U3 does not change.
+ *
  * @param student The student as loaded
- * @param onSave Called with the changed values, each null when unchanged
+ * @param onSave Called with the changed values, each null when unchanged,
+ *   and an [EmailEdit] per email
  * @param onDismiss Called to close without saving
  */
 @Composable
 private fun EditStudentDialog(
     student: StudentDetail,
-    onSave: (String?, String?, String?) -> Unit,
+    onSave: (String?, String?, String?, EmailEdit, EmailEdit) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf(student.name) }
     var phone by remember { mutableStateOf(student.studentPhone.orEmpty()) }
     var guardian by remember { mutableStateOf(student.guardianPhone.orEmpty()) }
+    var studentEmail by remember { mutableStateOf(student.studentEmail.orEmpty()) }
+    var guardianEmail by remember { mutableStateOf(student.guardianEmail.orEmpty()) }
     val ready =
-        name.isNotBlank() && (phone.isBlank() || phoneIsValid(phone)) && (guardian.isBlank() || phoneIsValid(guardian))
+        name.isNotBlank() && (phone.isBlank() || phoneIsValid(phone)) &&
+            (guardian.isBlank() || phoneIsValid(guardian)) &&
+            optionalEmailOk(studentEmail) && optionalEmailOk(guardianEmail)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.student_detail_edit)) },
@@ -385,12 +401,24 @@ private fun EditStudentDialog(
                     error = phoneError(phone),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                OptionalEmailField(
+                    value = studentEmail,
+                    onValueChange = { studentEmail = it },
+                    label = stringResource(R.string.student_add_student_email),
+                    tag = TAG_EDIT_STUDENT_EMAIL,
+                )
                 PhoneNumberField(
                     value = guardian,
                     onValueChange = { guardian = it },
                     label = stringResource(R.string.student_add_guardian),
                     error = phoneError(guardian),
                     modifier = Modifier.fillMaxWidth(),
+                )
+                OptionalEmailField(
+                    value = guardianEmail,
+                    onValueChange = { guardianEmail = it },
+                    label = stringResource(R.string.student_add_guardian_email),
+                    tag = TAG_EDIT_GUARDIAN_EMAIL,
                 )
             }
         },
@@ -402,6 +430,8 @@ private fun EditStudentDialog(
                         name.trim().takeIf { it != student.name },
                         phone.trim().takeIf { it.isNotBlank() && it != student.studentPhone },
                         guardian.trim().takeIf { it.isNotBlank() && it != student.guardianPhone },
+                        EmailEdit.of(student.studentEmail, studentEmail),
+                        EmailEdit.of(student.guardianEmail, guardianEmail),
                     )
                 },
             ) {

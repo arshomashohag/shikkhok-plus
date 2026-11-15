@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.students
 
+import com.shikkhokplus.app.core.model.EmailEdit
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.BatchDto
 import com.shikkhokplus.app.core.network.ErrorBody
@@ -96,16 +97,27 @@ class StudentDetailViewModelTest {
             guardianPhone: String?,
             seats: List<StudentSeatBody>,
             clientMutationId: String?,
+            studentEmail: String?,
+            guardianEmail: String?,
         ): AuthResult<TeacherStudentDto> = read
+
+        /** Each rename's two email edits. */
+        val emailEdits = mutableListOf<Pair<EmailEdit, EmailEdit>>()
+
+        /** The answer to the next rename, when set; the read otherwise. */
+        var renameResult: AuthResult<TeacherStudentDto>? = null
 
         override suspend fun rename(
             studentId: String,
             displayName: String?,
             studentPhone: String?,
             guardianPhone: String?,
+            studentEmail: EmailEdit,
+            guardianEmail: EmailEdit,
         ): AuthResult<TeacherStudentDto> {
             actions += "rename:$displayName"
-            return read
+            emailEdits += studentEmail to guardianEmail
+            return renameResult ?: read
         }
 
         override suspend fun enroll(studentId: String, batchId: String): AuthResult<TeacherStudentDto> {
@@ -205,5 +217,99 @@ class StudentDetailViewModelTest {
         assertEquals(StudentDetailUiState.Removed, model.state.value)
         model.acknowledgeWrite()
         assertEquals(WriteState.Idle, model.writeState.value)
+    }
+
+    // --- U3: the emails on the edit [W7.5, W7.6, W7.7] ------------------------
+
+    @Test
+    fun `an edit passes each email's change through, kept, set or cleared`() = runTest(dispatcher) {
+        val repository = Fake(AuthResult.Ok(loaded))
+        val model = StudentDetailViewModel(repository)
+        model.load("s-1")
+        advanceUntilIdle()
+
+        model.edit(null, null, null, EmailEdit.Set("rafiq@example.com"), EmailEdit.Clear)
+        advanceUntilIdle()
+        model.edit("Rafiqul", null, null)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                EmailEdit.Set("rafiq@example.com") to EmailEdit.Clear,
+                EmailEdit.Unchanged to EmailEdit.Unchanged,
+            ),
+            repository.emailEdits,
+        )
+        assertEquals(WriteState.Saved, model.writeState.value)
+    }
+
+    @Test
+    fun `a taken email on edit is refused and the student stays`() = runTest(dispatcher) {
+        val repository = Fake(AuthResult.Ok(loaded))
+        repository.renameResult =
+            AuthResult.Refused(ErrorEnvelope(ErrorBody("X", false, "student.email.taken")))
+        val model = StudentDetailViewModel(repository)
+        model.load("s-1")
+        advanceUntilIdle()
+
+        model.edit(null, null, null, EmailEdit.Set("taken@example.com"), EmailEdit.Unchanged)
+        advanceUntilIdle()
+
+        assertEquals(WriteState.Failed("student.email.taken", retryable = false), model.writeState.value)
+        assertIs<StudentDetailUiState.Loaded>(model.state.value)
+    }
+
+    @Test
+    fun `the detail's contact lines are the phone, else the email, both when both`() {
+        val options = emptyList<BatchOption>()
+        val emailOnly = StudentsStateMapper.detail(loaded.copy(studentEmail = "rafiq@example.com"), options)
+        val both =
+            StudentsStateMapper.detail(
+                loaded.copy(guardianPhone = "+8801711223344", guardianEmail = "parent@example.com"),
+                options,
+            )
+        val neither = StudentsStateMapper.detail(loaded, options)
+
+        assertEquals("rafiq@example.com", emailOnly.studentContactLine)
+        assertEquals("+8801711223344 · parent@example.com", both.guardianContactLine)
+        assertEquals(null, neither.studentContactLine)
+        assertEquals(null, neither.guardianContactLine)
+    }
+
+    @Test
+    fun `an emptied email is a clear, an untouched one unchanged, a new one a set`() {
+        assertEquals(EmailEdit.Unchanged, EmailEdit.of("rafiq@example.com", " rafiq@example.com "))
+        assertEquals(EmailEdit.Clear, EmailEdit.of("rafiq@example.com", "  "))
+        assertEquals(EmailEdit.Set("new@example.com"), EmailEdit.of("rafiq@example.com", "new@example.com "))
+        assertEquals(EmailEdit.Unchanged, EmailEdit.of(null, ""))
+        assertTrue("new@example.com" !in EmailEdit.Set("new@example.com").toString())
+    }
+
+    @Test
+    fun `the detail, a row and a new student never print a contact`() {
+        val detail =
+            StudentsStateMapper.detail(
+                loaded.copy(
+                    studentPhone = "+8801999999999",
+                    guardianEmail = "sentinel@example.invalid",
+                ),
+                emptyList(),
+            )
+        val row = StudentListRow("s-1", "Rafiq", "sentinel@example.invalid", emptyList())
+        val new =
+            com.shikkhokplus.app.feature.students.ui.NewStudent(
+                "Rafiq",
+                "+8801999999999",
+                null,
+                emptyList(),
+                "sentinel@example.invalid",
+                null,
+            )
+
+        val withEmail = loaded.copy(studentEmail = "sentinel@example.invalid")
+        listOf(detail.toString(), row.toString(), new.toString(), withEmail.toString())
+            .forEach { printed ->
+                assertTrue("+8801999999999" !in printed && "sentinel@example.invalid" !in printed, printed)
+            }
     }
 }

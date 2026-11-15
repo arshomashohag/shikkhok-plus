@@ -163,8 +163,31 @@ describe('setting and changing the password', () => {
   })
 })
 
+describe('the password manager [W9, functional-spec § 7]', () => {
+  const hidden = () => document.querySelector<HTMLInputElement>('input[name="username"][hidden]')
+
+  it('files the password under the username, the name the person now signs in with', async () => {
+    me = { username: 'Rahim.Uddin', phone: '+8801711234567', email: null, has_password: true }
+    serve(() => undefined)
+    renderRoutes(securityRoutes, '/settings/password')
+    await screen.findByRole('heading', { name: 'Change password' })
+    expect(hidden()?.value).toBe('Rahim.Uddin')
+  })
+
+  it('falls back to the phone, then the email, when there is no username', async () => {
+    me = { username: null, phone: null, email: 'rina@example.com', has_password: true }
+    serve(() => undefined)
+    renderRoutes(securityRoutes, '/settings/password')
+    await screen.findByRole('heading', { name: 'Change password' })
+    expect(hidden()?.value).toBe('rina@example.com')
+  })
+})
+
+// Rewritten from W6 step 1 (was two "Add phone number" / "Add email" row
+// cases): one Phone and email row now opens the contacts screen, where
+// Add, Replace and Remove live.
 describe('the settings rows', () => {
-  it('offer setting a password and adding a phone to an email-only account', async () => {
+  it('offer setting a password, and one Phone and email row, for an email-only account', async () => {
     me = { phone: null, email: 'rina@example.com', has_password: false }
     serve(() => undefined)
     renderRoutes([ENTRIES], '/entries')
@@ -172,22 +195,22 @@ describe('the settings rows', () => {
       'href',
       '/settings/password',
     )
-    const phone = screen.getByRole('link', { name: /Add phone number/ })
-    expect(phone).toHaveAttribute('href', '/settings/contact/phone')
-    expect(phone).toHaveTextContent('Teachers find students and guardians by their mobile number.')
+    const contacts = screen.getByRole('link', { name: /Phone and email/ })
+    expect(contacts).toHaveAttribute('href', '/settings/contacts')
+    expect(contacts).toHaveTextContent('rina@example.com')
+    expect(screen.queryByRole('link', { name: /Add phone number/ })).toBeNull()
     expect(screen.queryByRole('link', { name: /Add email/ })).toBeNull()
   })
 
-  it('offer changing the password and adding an email to a phone account', async () => {
-    me = { phone: '+8801711234567', email: null, has_password: true }
+  it('offer changing the password, and the row shows the phone first', async () => {
+    me = { phone: '+8801711234567', email: 'rina@example.com', has_password: true }
     serve(() => undefined)
     renderRoutes([ENTRIES], '/entries')
     expect(await screen.findByRole('link', { name: /Change password/ })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Add email/ })).toHaveAttribute(
-      'href',
-      '/settings/contact/email',
+    expect(screen.getByRole('link', { name: /Phone and email/ })).toHaveTextContent(
+      '01711-234567 · rina@example.com',
     )
-    expect(screen.queryByRole('link', { name: /Add phone number/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Add email/ })).toBeNull()
   })
 })
 
@@ -207,7 +230,7 @@ describe('adding a phone number or email address', () => {
     expect(field).toHaveAttribute('type', 'tel')
     expect(field).toHaveAttribute('inputmode', 'tel')
     expect(
-      screen.getByText(/Teachers find students and guardians by their mobile number/),
+      screen.getByText(/Teachers find students and guardians by phone number or email/),
     ).toBeVisible()
 
     await userEvent.type(field, '01711-234567')
@@ -217,7 +240,10 @@ describe('adding a phone number or email address', () => {
     const readsBefore = meReads().length
 
     await userEvent.type(screen.getByLabelText('Enter the code'), '123456')
-    expect(await screen.findByTestId('where')).toHaveTextContent('/settings')
+    // Back to the contacts screen with the existing notice [W6 step 3]
+    // (was: back to Settings).
+    expect(await screen.findByText('Your mobile number is added.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Phone and email' })).toBeInTheDocument()
     expect(posts('/v1/me/contact/verify')[0]!.body).toEqual({
       phone: '01711234567',
       code: '123456',
@@ -239,7 +265,8 @@ describe('adding a phone number or email address', () => {
     await userEvent.type(field, 'Rina@Example.com')
     await userEvent.click(screen.getByRole('button', { name: 'Send code' }))
     await userEvent.type(await screen.findByLabelText('Enter the code'), '123456')
-    expect(await screen.findByTestId('where')).toHaveTextContent('/settings')
+    // Back to the contacts screen (was: back to Settings).
+    expect(await screen.findByText('Your email address is added.')).toBeInTheDocument()
     expect(posts('/v1/me/contact/verify')[0]!.body).toEqual({
       email: 'rina@example.com',
       code: '123456',

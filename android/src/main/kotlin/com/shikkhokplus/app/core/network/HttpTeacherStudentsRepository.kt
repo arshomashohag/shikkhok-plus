@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.EmailEdit
 import com.shikkhokplus.app.feature.auth.AuthResult
 import com.shikkhokplus.app.feature.students.StudentFilter
 import com.shikkhokplus.app.feature.students.StudentsRepository
@@ -48,6 +49,8 @@ class HttpTeacherStudentsRepository(
         guardianPhone: String?,
         seats: List<StudentSeatBody>,
         clientMutationId: String?,
+        studentEmail: String?,
+        guardianEmail: String?,
     ): AuthResult<TeacherStudentDto> =
         call {
             client.post("/v1/students") {
@@ -58,6 +61,8 @@ class HttpTeacherStudentsRepository(
                         guardianPhone = guardianPhone?.ifBlank { null },
                         enrollments = seats,
                         clientMutationId = clientMutationId,
+                        studentEmail = studentEmail?.trim()?.ifEmpty { null },
+                        guardianEmail = guardianEmail?.trim()?.ifEmpty { null },
                     ),
                 )
             }
@@ -68,6 +73,8 @@ class HttpTeacherStudentsRepository(
         displayName: String?,
         studentPhone: String?,
         guardianPhone: String?,
+        studentEmail: EmailEdit,
+        guardianEmail: EmailEdit,
     ): AuthResult<TeacherStudentDto> =
         call {
             client.patch("/v1/students/$studentId") {
@@ -76,6 +83,8 @@ class HttpTeacherStudentsRepository(
                         displayName = displayName?.ifBlank { null },
                         studentPhone = studentPhone?.ifBlank { null },
                         guardianPhone = guardianPhone?.ifBlank { null },
+                        studentEmail = studentEmail,
+                        guardianEmail = guardianEmail,
                     ),
                 )
             }

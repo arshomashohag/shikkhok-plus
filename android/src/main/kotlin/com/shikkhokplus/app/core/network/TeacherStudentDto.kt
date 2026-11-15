@@ -1,8 +1,20 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.EmailEdit
 import com.shikkhokplus.app.core.model.Money
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonEncoder
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * One of a student's seats, as the teacher reads it on the student.
@@ -47,6 +59,10 @@ data class StudentSeatDto(
  * @property enrollments The seats, possibly none
  * @property totalOutstanding What the student owes across every seat
  * @property isRemovable Whether removing the student would succeed
+ * @property studentEmail The student's address as the teacher typed it,
+ *   lowercased by the server, or null [FR6.1]. Teacher-written, never an
+ *   account's own
+ * @property guardianEmail The guardian's address, likewise
  */
 @Serializable
 data class TeacherStudentDto(
@@ -59,7 +75,14 @@ data class TeacherStudentDto(
     val enrollments: List<StudentSeatDto> = emptyList(),
     @SerialName("total_outstanding") val totalOutstanding: Money,
     @SerialName("is_removable") val isRemovable: Boolean,
-)
+    @SerialName("student_email") val studentEmail: String? = null,
+    @SerialName("guardian_email") val guardianEmail: String? = null,
+) {
+    // Someone else's contacts, typed by a teacher [NFR3.2].
+    override fun toString(): String =
+        "TeacherStudentDto(studentId=$studentId, studentState=$studentState, guardianState=$guardianState, " +
+            "seats=${enrollments.size}, studentPhone=***, guardianPhone=***, studentEmail=***, guardianEmail=***)"
+}
 
 /**
  * One batch to put a new student in.
@@ -74,8 +97,9 @@ data class StudentSeatBody(
 )
 
 /**
- * The add-student body. Numbers are sent as typed; the server
- * canonicalises them.
+ * The add-student body. Numbers and addresses are sent as typed (the
+ * addresses trimmed); the server canonicalises them. A blank contact is
+ * null, and so left out of the body.
  */
 @Serializable
 internal data class StudentCreateBody(
@@ -84,18 +108,77 @@ internal data class StudentCreateBody(
     @SerialName("guardian_phone") val guardianPhone: String? = null,
     val enrollments: List<StudentSeatBody> = emptyList(),
     @SerialName("client_mutation_id") val clientMutationId: String? = null,
-)
+    @SerialName("student_email") val studentEmail: String? = null,
+    @SerialName("guardian_email") val guardianEmail: String? = null,
+) {
+    override fun toString(): String =
+        "StudentCreateBody(seats=${enrollments.size}, studentPhone=***, guardianPhone=***, " +
+            "studentEmail=***, guardianEmail=***)"
+}
 
 /**
- * The edit body. A null field is omitted by the client's JSON settings,
- * which the server reads as "unchanged".
+ * The edit body.
+ *
+ * **Two encodings in one body, on purpose** [W7.5, C2]. A null name or
+ * phone is omitted by the client's JSON settings, which the server reads
+ * as "unchanged" -- today's rule for those fields, kept. An email is an
+ * [EmailEdit], which can also say "clear": that is sent as an explicit
+ * JSON `null`, which `explicitNulls = false` would otherwise drop. So
+ * this body is written by [StudentUpdateBodySerializer], field by field.
+ *
+ * @property displayName The new name, or null to leave it
+ * @property studentPhone The new student number, or null to leave it
+ * @property guardianPhone The new guardian number, or null to leave it
+ * @property studentEmail What to do with the student's address
+ * @property guardianEmail What to do with the guardian's address
  */
-@Serializable
+@Serializable(with = StudentUpdateBodySerializer::class)
 internal data class StudentUpdateBody(
-    @SerialName("display_name") val displayName: String? = null,
-    @SerialName("student_phone") val studentPhone: String? = null,
-    @SerialName("guardian_phone") val guardianPhone: String? = null,
-)
+    val displayName: String? = null,
+    val studentPhone: String? = null,
+    val guardianPhone: String? = null,
+    val studentEmail: EmailEdit = EmailEdit.Unchanged,
+    val guardianEmail: EmailEdit = EmailEdit.Unchanged,
+) {
+    override fun toString(): String =
+        "StudentUpdateBody(studentPhone=***, guardianPhone=***, studentEmail=$studentEmail, " +
+            "guardianEmail=$guardianEmail)"
+}
+
+/**
+ * Writes [StudentUpdateBody]: omitted, a value, or JSON `null` per field.
+ *
+ * Write-only; the server never sends this shape back.
+ */
+internal object StudentUpdateBodySerializer : KSerializer<StudentUpdateBody> {
+    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("StudentUpdateBody")
+
+    override fun serialize(encoder: Encoder, value: StudentUpdateBody) {
+        val json =
+            encoder as? JsonEncoder
+                ?: throw SerializationException("StudentUpdateBody is written as JSON only")
+        json.encodeJsonElement(
+            buildJsonObject {
+                value.displayName?.let { put("display_name", it) }
+                value.studentPhone?.let { put("student_phone", it) }
+                value.guardianPhone?.let { put("guardian_phone", it) }
+                putEdit("student_email", value.studentEmail)
+                putEdit("guardian_email", value.guardianEmail)
+            },
+        )
+    }
+
+    override fun deserialize(decoder: Decoder): StudentUpdateBody =
+        throw SerializationException("StudentUpdateBody is never read")
+
+    private fun JsonObjectBuilder.putEdit(name: String, edit: EmailEdit) {
+        when (edit) {
+            EmailEdit.Unchanged -> Unit
+            is EmailEdit.Set -> put(name, edit.address.trim())
+            EmailEdit.Clear -> put(name, JsonNull)
+        }
+    }
+}
 
 /** The add-to-one-more-batch body. */
 @Serializable

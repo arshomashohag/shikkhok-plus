@@ -443,8 +443,8 @@ def test_the_counters_are_not_cleared_by_a_deletion(
 ) -> None:
     """Clearing a number's ceilings on request would be the attack.
 
-    ``rate_limit_counter`` keys two of its seven scopes on a phone
-    number, and is still ``NOT_PERSONAL`` for deletion: if a deletion
+    ``rate_limit_counter`` keys some of its scopes on a phone number, and
+    is still ``NOT_PERSONAL`` for deletion: if a deletion
     cleared them, the public deletion route would be the way to reset
     the abuse controls protecting a number. They expire on their own
     48-hour window instead.

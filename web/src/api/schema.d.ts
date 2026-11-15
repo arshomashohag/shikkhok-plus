@@ -151,7 +151,7 @@ export interface paths {
     }
     /**
      * Lookup Already Added
-     * @description Report whether a teacher recorded this number, and nothing more.
+     * @description Report whether a teacher recorded this contact, and nothing more.
      *
      *     **This route discloses that a seat exists, deliberately**
      *     [BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's
@@ -164,17 +164,62 @@ export interface paths {
      *     Public, and in ``PUBLIC_ROUTES``: it is called while the signup
      *     form renders, before any account exists.
      *
+     *     **The email form** [U2: BR4.1 to BR4.4] reports only a seat a teacher
+     *     recorded with that address and no phone, never whether an account
+     *     holds the address, so its answer is the same whether or not one does.
+     *     Both forms share the lookup ceilings, keyed on the contact's counter
+     *     key, and are refused with 429 before anything is read.
+     *
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
      *     :param phone: The number typed into the form, canonicalised on the
      *         way in like every other number, so the ceiling and the lookup
      *         both see one spelling
-     *     :param request: The incoming request
-     *     :param session: The request-scoped session
+     *     :param email: Or the address, trimmed and lowercased on the way in
      *     :return: Existence and the role to lock; never a name
+     *     :raises RequestValidationError: Neither or both were given
      *     :raises CeilingBreach: A lookup ceiling refused this request
      */
     get: operations['lookup_already_added_v1_accounts_already_added_get']
     put?: never
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/accounts/username-availability': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Check Username Availability
+     * @description Say whether a name could be taken, and nothing more [U1: BR3.1].
+     *
+     *     **Public, and in ``PUBLIC_ROUTES``**: it is called while the sign-up
+     *     form is typed into, before any account exists [BR3.5]. **A POST with
+     *     a body**, so no username reaches a URL or an access log [NFR3.5].
+     *
+     *     Four answers -- ``available``, ``unavailable``, ``invalid`` with the
+     *     rule's key, ``reserved`` -- and a held name is ``unavailable`` exactly
+     *     as a taken one is [ADR-007]. Bounded by its own ceilings, consumed for
+     *     every candidate before it is judged, so the refusal cannot depend on
+     *     the answer [BR3.3]; a refusal never blocks the form, whose submission
+     *     is judged on its own [BR3.4].
+     *
+     *     :param body: The candidate
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :return: The status, and for ``invalid`` the rule it broke
+     *     :raises CeilingBreach: A lookup ceiling refused this request
+     */
+    post: operations['check_username_availability_v1_accounts_username_availability_post']
     delete?: never
     options?: never
     head?: never
@@ -720,13 +765,19 @@ export interface paths {
     put?: never
     /**
      * Sign In With Password
-     * @description Sign in with a phone number or an email address and a password.
+     * @description Sign in with a username, phone number or email address and a password.
      *
      *     **One refusal for every failure** [BR2.7]: an unknown destination, an
      *     account with no password yet and a wrong password all answer
      *     ``auth.password.wrong``, after the same work. The person who has no
      *     password yet is pointed at the code flow by the client's static
-     *     hint, not by a response that would say their account exists.
+     *     hint, not by a response that would say their account exists. A
+     *     username's three failures are that same response [U1: BR4.4].
+     *
+     *     **A username is bounded per network, not across networks** [U1:
+     *     NFR2.4]: a stranger who fills its across-networks count cannot lock
+     *     its owner out of a network that has not failed it three times, and a
+     *     username's counters never refuse a phone, email or code sign-in.
      *
      *     Bounded per identifier and per network, with the per-prefix failure
      *     ceilings shared with codes. Failures across the whole product alert
@@ -840,12 +891,22 @@ export interface paths {
      *     it in, so both clients' existing "sign up, then type the code" flow
      *     is unchanged.
      *
+     *     **A name taken since the draft rolls the whole verify back** [U1:
+     *     BR2.4]: 409 ``account.username.unavailable``, and the route commits
+     *     nothing on a 4xx, so the code stays unspent, its attempt is not
+     *     recorded and the draft is as it was. The person sends the same code
+     *     with a replacement ``username``. Not wrapped in the bounded retry:
+     *     this path commits code refusals part-way [BR10.3].
+     *
      *     :param body: The request body
      *     :param request: The incoming request
      *     :param session: The request-scoped session
      *     :return: The password-setup grant
-     *     :raises CeilingBreach: A failed-verify ceiling is full
+     *     :raises CeilingBreach: A failed-verify or replacement ceiling is full
      *     :raises CodeRefused: The code was refused
+     *     :raises UsernameRefused: The replacement breaks a username rule
+     *     :raises UsernameUnavailable: The draft's name, or the replacement,
+     *         can no longer be claimed
      */
     post: operations['verify_code_v1_auth_verify_post']
     delete?: never
@@ -1370,9 +1431,12 @@ export interface paths {
     put?: never
     /**
      * Invite Centre Member
-     * @description Invite a number to the centre; nothing is granted until they accept.
+     * @description Invite a number, an address or both; nothing is granted until accepted.
      *
-     *     :param body: The number, name and role
+     *     Re-run on a deadlock or serialization failure [U2: NFR4.3]: it sends
+     *     nothing before its commit.
+     *
+     *     :param body: The number or address, name and role
      *     :param lens: The manager's lens on the centre
      *     :param session: The request-scoped session
      *     :return: The new, pending membership
@@ -3236,13 +3300,16 @@ export interface paths {
     put?: never
     /**
      * Request Contact Code
-     * @description Send a code to a phone number or an address the account lacks.
+     * @description Send a code to a phone number or an address, to add or replace one.
      *
      *     Sent whether or not another account holds it (see
      *     :mod:`app.accounts.contact`), within sign-in's per-destination and
-     *     per-network ceilings and the daily send budgets.
+     *     per-network ceilings and the daily send budgets. A kind the account
+     *     already holds is a replacement: the password is checked and the code
+     *     is bound to this account [BR5.2, BR5.3]. Not retried on a deadlock:
+     *     it hands a code to a channel before its commit [NFR4.3].
      *
-     *     :param body: The number or address
+     *     :param body: The number or address, and the password for a replacement
      *     :param request: The incoming request
      *     :param background: Runs the send after the response is written
      *     :param account_id: The authenticated account
@@ -3250,10 +3317,49 @@ export interface paths {
      *     :param gateway: The configured SMS gateway
      *     :param email_gateway: The configured email gateway
      *     :return: The contentless acknowledgement
-     *     :raises ConflictError: The account already has one of this kind
+     *     :raises ValidationError: A replacement without the right password
+     *     :raises ConflictError: The same value, an allowlisted value, or the
+     *         daily change limit
      *     :raises CeilingBreach: A ceiling refused the send
      */
     post: operations['request_contact_code_v1_me_contact_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/contact/remove': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Remove Contact
+     * @description Remove the account's phone number or email address [U2: FR8.4].
+     *
+     *     Needs the password; the last contact cannot go; nothing it linked is
+     *     unlinked; the removed value is told after the commit [BR5.2, BR5.5,
+     *     BR5.7, BR5.9]. Removing a kind the account does not hold changes
+     *     nothing [BR5.12].
+     *
+     *     :param body: Which kind, and the password
+     *     :param request: The incoming request
+     *     :param background: Sends the notice after the response is written
+     *     :param account_id: The authenticated account
+     *     :param session: The request-scoped session
+     *     :param gateway: The configured SMS gateway
+     *     :param email_gateway: The configured email gateway
+     *     :return: The account, as ``GET /v1/me`` describes it
+     *     :raises ValidationError: The password is missing or wrong
+     *     :raises ConflictError: The last contact, an allowlisted value, or the
+     *         daily change limit
+     */
+    post: operations['remove_contact_v1_me_contact_remove_post']
     delete?: never
     options?: never
     head?: never
@@ -3271,18 +3377,24 @@ export interface paths {
     put?: never
     /**
      * Verify Contact
-     * @description Add the phone number or address the code proves.
+     * @description Add, or replace with, the phone number or address the code proves.
      *
-     *     Adding a phone number links the seats and centre invitations recorded
-     *     against it, so the response's lenses may have changed.
+     *     The verified contact links the seats and centre invitations recorded
+     *     against it, phone or email [BR3.1], so the response's lenses may have
+     *     changed. A replacement removes the old value in the same transaction
+     *     and tells it after the commit [BR5.4, BR5.9].
      *
      *     :param body: The number or address, and the code
      *     :param request: The incoming request
+     *     :param background: Sends the notice after the response is written
      *     :param account_id: The authenticated account
      *     :param session: The request-scoped session
+     *     :param gateway: The configured SMS gateway
+     *     :param email_gateway: The configured email gateway
      *     :return: The account, as ``GET /v1/me`` describes it
      *     :raises CodeRefused: The code was refused
-     *     :raises ConflictError: Already set, or held by another account
+     *     :raises ConflictError: Already set, held by another account,
+     *         allowlisted, or over the daily change limit
      */
     post: operations['verify_contact_v1_me_contact_verify_post']
     delete?: never
@@ -4136,6 +4248,87 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/me/username': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Change My Username
+     * @description Choose the first username, rename, reclaim, or change only its case.
+     *
+     *     **Lens-exempt on ``GET /v1/me``'s reasoning** [BR3.5]: it writes the
+     *     authenticated account's own username and nothing else.
+     *
+     *     In this order [NFR1.6, NFR4.3]: the format (400, nothing counted);
+     *     the claim ceilings, committed, before the password, any lock or any
+     *     read of another account or hold; then, for an account that already
+     *     has a username, the password, whose failures commit their own count;
+     *     then the change itself as one re-runnable unit of work, under the
+     *     bounded retry because it sends nothing before its commit. A first
+     *     choice needs no password and the one sent is ignored [BR5.3].
+     *
+     *     Nobody is signed out [BR6.8]: other devices read the new name from
+     *     ``GET /v1/me``.
+     *
+     *     :param body: The candidate, and the password for a rename
+     *     :param request: The incoming request
+     *     :param account_id: The authenticated account
+     *     :param session: The request-scoped session
+     *     :return: The stored username and when it may next change
+     *     :raises UsernameRefused: It breaks a username rule
+     *     :raises CeilingBreach: The claim ceilings, or the password's
+     *     :raises UsernamePasswordRequired: A rename without a password, or by
+     *         an account that has none
+     *     :raises ValidationError: ``auth.password.current_wrong``
+     *     :raises UsernameUnavailable: The name is taken or held
+     *     :raises UsernameChangeTooSoon: An ordinary rename inside the window
+     */
+    put: operations['change_my_username_v1_me_username_put']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/username-availability': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Check My Username Availability
+     * @description Say whether this account could take a name, as Settings asks [BR3.2].
+     *
+     *     **Lens-exempt on ``GET /v1/me``'s reasoning** [BR3.5]: it acts on the
+     *     authenticated account alone and reads nothing another account owns
+     *     beyond a yes or no. It differs from the public lookup only for names
+     *     this account itself holds -- its current key, or a live hold it
+     *     released -- which answer ``available``, since a rename would take them
+     *     back [NFR1.5]. Counted on the public lookup's ceilings, by network.
+     *
+     *     :param body: The candidate
+     *     :param request: The incoming request
+     *     :param account_id: The authenticated account
+     *     :param session: The request-scoped session
+     *     :return: The status, and for ``invalid`` the rule it broke
+     *     :raises CeilingBreach: A lookup ceiling refused this request
+     */
+    post: operations['check_my_username_availability_v1_me_username_availability_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/memberships': {
     parameters: {
       query?: never
@@ -4713,7 +4906,11 @@ export interface paths {
      * Create Student
      * @description Record a student, optionally seating them in batches [D3].
      *
+     *     Re-run once or twice on a deadlock or serialization failure [U2:
+     *     NFR4.3]; it sends nothing before its commit.
+     *
      *     :param body: The student and their batches
+     *     :param request: The incoming request
      *     :param lens: The teacher lens carrying the owner id
      *     :param session: The request-scoped session
      *     :return: The new student
@@ -4758,10 +4955,11 @@ export interface paths {
     head?: never
     /**
      * Update Student
-     * @description Edit a student's name or numbers, on every seat at once.
+     * @description Edit a student's name or contacts, on every seat at once.
      *
      *     :param student_id: The student
      *     :param body: What to change; omitted fields are unchanged
+     *     :param request: The incoming request
      *     :param lens: The teacher lens carrying the owner id
      *     :param session: The request-scoped session
      *     :return: The student, as edited
@@ -6378,15 +6576,38 @@ export interface components {
       consent: boolean
     }
     /**
+     * ContactRemoveRequest
+     * @description Remove the account's phone number or email address [U2: FR8.4].
+     *
+     *     :ivar kind: Which contact to remove
+     *     :ivar password: The account's password
+     */
+    ContactRemoveRequest: {
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'email' | 'phone'
+      /** Password */
+      password: string
+    }
+    /**
      * ContactRequest
-     * @description Ask for a code to add a phone number or an email address.
+     * @description Ask for a code to add, or to replace, a phone number or an address.
      *
      *     :ivar phone: The number to add, or None
      *     :ivar email: Or the address to add
+     *     :ivar password: Required when the account already holds a contact of
+     *         this kind: the request is then a replacement [BR5.2]
      */
     ContactRequest: {
       /** Email */
       email?: string | null
+      /**
+       * Password
+       * @description Required when the account already holds a contact of this kind: the request is then a replacement.
+       */
+      password?: string | null
       /** Phone */
       phone?: string | null
     }
@@ -8144,6 +8365,13 @@ export interface components {
      *         first [0022]. A client sends the chosen one's ``owner_id`` as
      *         ``X-Workspace-Id``; with one entry, or none, there is nothing to
      *         choose
+     *     :ivar username: The account's username as stored, or None [U1: FR5.1].
+     *         Owner-only: an ``OWN_ACCOUNT_FIELDS`` pair, served on these
+     *         lens-exempt routes and nowhere else [BR8.1]
+     *     :ivar username_required: True exactly while the account has no
+     *         username [BR5.1]. Computed here on every response, never stored;
+     *         the clients show the choose-username screen on it, and the server
+     *         refuses nothing else for it [BR5.2]
      */
     MeResponse: {
       /** Address */
@@ -8169,14 +8397,25 @@ export interface components {
       phone?: string | null
       /** Self Name */
       self_name?: string | null
+      /** Username */
+      username?: string | null
+      /**
+       * Username Required
+       * @default true
+       */
+      username_required: boolean
       /** Workspaces */
       workspaces?: components['schemas']['WorkspaceResponse'][]
     }
     /**
      * MemberInviteRequest
-     * @description Invite a number to the centre.
+     * @description Invite a number, an address, or both, to the centre [U2: FR6.4].
      *
-     *     :ivar phone: The number, typed by the manager
+     *     At least one of the two; a request naming neither is refused at the
+     *     schema [BR1.8].
+     *
+     *     :ivar phone: The number, typed by the manager, or null
+     *     :ivar email: The address, typed by the manager, or null
      *     :ivar display_name: The name the centre knows them by
      *     :ivar role: ``manager`` or ``teacher``
      */
@@ -8184,10 +8423,12 @@ export interface components {
       /** Display Name */
       display_name: string
       /**
-       * Phone
-       * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
+       * Email
+       * @description An email address, at most 254 characters, stored and returned trimmed and lowercased. Empty is the same as null.
        */
-      phone: string
+      email?: string | null
+      /** Phone */
+      phone?: string | null
       /**
        * Role
        * @enum {string}
@@ -8200,7 +8441,10 @@ export interface components {
      *
      *     :ivar member_id: The membership
      *     :ivar display_name: The name the centre typed
-     *     :ivar phone: The number invited
+     *     :ivar phone: The number invited, or null for an invitation by email
+     *         alone [U2: BR1.9]
+     *     :ivar invited_email: The address invited, or null. Centre-written,
+     *         never the member's own account address [BR1.4]
      *     :ivar role: ``manager`` or ``teacher``
      *     :ivar decision: Where the offer stands
      *     :ivar invited_at: When they were invited
@@ -8220,6 +8464,8 @@ export interface components {
        * Format: date-time
        */
       invited_at: string
+      /** Invited Email */
+      invited_email: string | null
       /** Is You */
       is_you: boolean
       /**
@@ -8228,7 +8474,7 @@ export interface components {
        */
       member_id: string
       /** Phone */
-      phone: string
+      phone: string | null
       /** Revoked */
       revoked: boolean
       /**
@@ -9059,8 +9305,17 @@ export interface components {
     }
     /**
      * PasswordSignInRequest
-     * @description Sign in with a phone number or an email address, and a password.
+     * @description Sign in with a username, a phone number or an email, and a password.
      *
+     *     **Exactly one of ``login``, ``phone`` and ``email``** [U1: BR4.1,
+     *     NFR6.1]. ``login`` is what the person typed into the one field and is
+     *     classified on the server (ADR-003); ``phone`` and ``email`` keep their
+     *     meaning, so a client that sends them is unchanged. The inherited
+     *     exactly-one-of-two validator is overridden BY NAME, so a login-only
+     *     body is accepted here while :class:`IdentifierFields` itself, which
+     *     every other request uses, still refuses a body with neither.
+     *
+     *     :ivar login: A username, number or address, as typed, or None
      *     :ivar phone: The account's number, or None
      *     :ivar email: Or its address
      *     :ivar password: The password
@@ -9068,6 +9323,11 @@ export interface components {
     PasswordSignInRequest: {
       /** Email */
       email?: string | null
+      /**
+       * Login
+       * @description What the person typed: a username, a phone number or an email address, classified on the server. Exactly one of login, phone and email.
+       */
+      login?: string | null
       /** Password */
       password: string
       /** Phone */
@@ -10010,6 +10270,9 @@ export interface components {
      *         teacher's own record and never an account id [0018]
      *     :ivar display_name: The teacher-typed name
      *     :ivar guardian_phone: The teacher-typed guardian contact
+     *     :ivar student_email: The teacher-typed student address, or null
+     *         [U2: BR1.11]. Teacher-written, like the numbers [BR1.4]
+     *     :ivar guardian_email: The teacher-typed guardian address, or null
      *     :ivar fee_amount: This seat's fee, or null when it inherits
      *     :ivar status: ``dormant``, ``active`` or ``inactive``.
      *
@@ -10044,6 +10307,8 @@ export interface components {
        */
       enrollment_id: string
       fee_amount: components['schemas']['Money'] | null
+      /** Guardian Email */
+      guardian_email: string | null
       /** Guardian Phone */
       guardian_phone: string | null
       /** Guardian State */
@@ -10054,6 +10319,8 @@ export interface components {
       is_removable: boolean
       /** Status */
       status: string
+      /** Student Email */
+      student_email: string | null
       /** Student Id */
       student_id: string | null
       /** Student State */
@@ -10496,6 +10763,9 @@ export interface components {
      *     :ivar address_postcode: Four digits, required
      *     :ivar centre_name: The centre's name. Required for ``coaching`` and
      *         refused for every other role
+     *     :ivar username: The username, as typed [U1: BR2.1]. Required; judged
+     *         by FR1 on the server, not here, so a refusal carries its own
+     *         ``account.username.*`` key rather than a generic 422 (ADR-003)
      */
     SignupRequest: {
       /**
@@ -10531,6 +10801,11 @@ export interface components {
       role: 'coaching' | 'guardian' | 'student' | 'teacher'
       /** Self Name */
       self_name: string
+      /**
+       * Username
+       * @description Required. What the person typed; judged on the server by the username rules, which refuse with an account.username.* key.
+       */
+      username: string
     }
     /**
      * SignupResponse
@@ -10802,6 +11077,8 @@ export interface components {
      *     :ivar display_name: The teacher-typed name
      *     :ivar student_phone: The student's number; unique per teacher [D2]
      *     :ivar guardian_phone: The guardian's number, if one is recorded
+     *     :ivar student_email: The student's address; unique per teacher [U2]
+     *     :ivar guardian_email: The guardian's address, if one is recorded
      *     :ivar enrollments: The batches to put them in, possibly none
      *     :ivar client_mutation_id: The retry key; a resend under it returns the
      *         student the first request created
@@ -10813,8 +11090,18 @@ export interface components {
       display_name: string
       /** Enrollments */
       enrollments?: components['schemas']['StudentSeatRequest'][]
+      /**
+       * Guardian Email
+       * @description An email address, at most 254 characters, stored and returned trimmed and lowercased. Empty is the same as null.
+       */
+      guardian_email?: string | null
       /** Guardian Phone */
       guardian_phone?: string | null
+      /**
+       * Student Email
+       * @description An email address, at most 254 characters, stored and returned trimmed and lowercased. Empty is the same as null.
+       */
+      student_email?: string | null
       /** Student Phone */
       student_phone?: string | null
     }
@@ -10841,6 +11128,9 @@ export interface components {
      *     :ivar display_name: The teacher-typed name
      *     :ivar student_phone: The student's number as the teacher typed it
      *     :ivar guardian_phone: The guardian's number as the teacher typed it
+     *     :ivar student_email: The student's address as the teacher typed it,
+     *         lowercased. Teacher-written, never an account's own [U2: BR1.4]
+     *     :ivar guardian_email: The guardian's address, likewise
      *     :ivar student_state: ``pending``, ``accepted`` or ``declined``
      *     :ivar guardian_state: The same, or ``absent`` with no guardian
      *     :ivar enrollments: The seats, by batch name; possibly none
@@ -10852,12 +11142,16 @@ export interface components {
       display_name: string
       /** Enrollments */
       enrollments: components['schemas']['StudentSeatResponse'][]
+      /** Guardian Email */
+      guardian_email: string | null
       /** Guardian Phone */
       guardian_phone: string | null
       /** Guardian State */
       guardian_state: string
       /** Is Removable */
       is_removable: boolean
+      /** Student Email */
+      student_email: string | null
       /**
        * Student Id
        * Format: uuid
@@ -10923,20 +11217,33 @@ export interface components {
     }
     /**
      * StudentUpdateRequest
-     * @description Edit a student's name or numbers. Omitted fields are unchanged.
+     * @description Edit a student's name or contacts. Omitted fields are unchanged.
      *
-     *     A number can be changed only while nobody holding it has accepted
-     *     and it was never erased; the name can always change.
+     *     A number or an address can be changed only while nobody holding that
+     *     link has accepted it and it was never erased; the name can always
+     *     change.
      *
      *     :ivar display_name: The new name
      *     :ivar student_phone: The new student number, or null to clear it
      *     :ivar guardian_phone: The new guardian number, or null to clear it
+     *     :ivar student_email: The new student address, or null to clear it
+     *     :ivar guardian_email: The new guardian address, or null to clear it
      */
     StudentUpdateRequest: {
       /** Display Name */
       display_name?: string | null
+      /**
+       * Guardian Email
+       * @description An email address, at most 254 characters, stored and returned trimmed and lowercased. Empty is the same as null.
+       */
+      guardian_email?: string | null
       /** Guardian Phone */
       guardian_phone?: string | null
+      /**
+       * Student Email
+       * @description An email address, at most 254 characters, stored and returned trimmed and lowercased. Empty is the same as null.
+       */
+      student_email?: string | null
       /** Student Phone */
       student_phone?: string | null
     }
@@ -11313,6 +11620,78 @@ export interface components {
       /** Subject Name */
       subject_name?: string | null
     }
+    /**
+     * UsernameAvailabilityRequest
+     * @description Ask whether a name could be taken, in a body [NFR3.5].
+     *
+     *     :ivar username: The candidate, as typed
+     */
+    UsernameAvailabilityRequest: {
+      /**
+       * Username
+       * @description What the person typed.
+       */
+      username: string
+    }
+    /**
+     * UsernameAvailabilityResponse
+     * @description What a lookup may say about a name [BR3.1].
+     *
+     *     :ivar status: ``available``, ``unavailable`` (taken and held alike),
+     *         ``invalid`` or ``reserved``
+     *     :ivar message_key: For ``invalid``, which FR1 rule failed; else null
+     */
+    UsernameAvailabilityResponse: {
+      /**
+       * Message Key
+       * @description For invalid: which username rule failed (account.username.*).
+       */
+      message_key?: string | null
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'available' | 'invalid' | 'reserved' | 'unavailable'
+    }
+    /**
+     * UsernameChangeRequest
+     * @description Choose the first username, rename, or take a released one back.
+     *
+     *     :ivar username: The candidate, as typed
+     *     :ivar password: The account's password: required when it already
+     *         has a username (a rename, a reclaim or a case-only change),
+     *         ignored for the first choice [BR5.3, BR6.1]
+     */
+    UsernameChangeRequest: {
+      /**
+       * Password
+       * @description Required when the account already has a username; ignored for the first choice.
+       */
+      password?: string | null
+      /**
+       * Username
+       * @description What the person typed.
+       */
+      username: string
+    }
+    /**
+     * UsernameChangeResponse
+     * @description The username as stored, and when it may next change.
+     *
+     *     :ivar username: The display form, as stored. Owner-only: an
+     *         ``OWN_ACCOUNT_FIELDS`` pair (ADR-010)
+     *     :ivar next_change_at: When an ordinary rename is next allowed, or
+     *         null when no limit applies now [BR6.2]
+     */
+    UsernameChangeResponse: {
+      /**
+       * Next Change At
+       * @description When an ordinary rename is next allowed, as an ISO 8601 UTC instant; null when no limit applies.
+       */
+      next_change_at: string | null
+      /** Username */
+      username: string
+    }
     /** ValidationError */
     ValidationError: {
       /** Context */
@@ -11357,6 +11736,9 @@ export interface components {
      *     :ivar phone: The number the code was issued for, or None
      *     :ivar email: Or the address it was emailed to
      *     :ivar code: The six-digit code
+     *     :ivar username: A replacement username, sent only after the draft's
+     *         own was answered ``account.username.unavailable`` [U1: BR2.5].
+     *         Ignored when the destination already has an account
      */
     VerifyRequest: {
       /** Code */
@@ -11365,6 +11747,11 @@ export interface components {
       email?: string | null
       /** Phone */
       phone?: string | null
+      /**
+       * Username
+       * @description Optional replacement username, used only after account.username.unavailable.
+       */
+      username?: string | null
     }
     /**
      * VerifyResponse
@@ -11650,6 +12037,24 @@ export interface operations {
           'application/json': components['schemas']['SignupResponse']
         }
       }
+      /** @description A username rule refused it (account.username.*) */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description account.username.unavailable: the name is taken or held; identical whether or not the contact has an account */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
       /** @description The request could not be parsed */
       422: {
         headers: {
@@ -11681,9 +12086,10 @@ export interface operations {
   }
   lookup_already_added_v1_accounts_already_added_get: {
     parameters: {
-      query: {
-        /** @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX. */
-        phone: string
+      query?: {
+        phone?: string | null
+        /** @description Exactly one of phone or email [U2: FR6.7]. */
+        email?: string | null
       }
       header?: never
       path?: never
@@ -11702,6 +12108,66 @@ export interface operations {
       }
       /** @description The request could not be parsed */
       422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  check_username_availability_v1_accounts_username_availability_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UsernameAvailabilityRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['UsernameAvailabilityResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description auth.lookup.too_many: the availability ceilings; the form can still be submitted */
+      429: {
         headers: {
           [name: string]: unknown
         }
@@ -12962,8 +13428,26 @@ export interface operations {
           'application/json': components['schemas']['VerifyResponse']
         }
       }
+      /** @description account.username.unavailable: the draft's username was taken since; nothing was consumed, so retry with the same code and a replacement username */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
       /** @description The request could not be parsed */
       422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description auth.lookup.too_many: too many replacement usernames; the code was not read and still works */
+      429: {
         headers: {
           [name: string]: unknown
         }
@@ -20227,6 +20711,57 @@ export interface operations {
       }
     }
   }
+  remove_contact_v1_me_contact_remove_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ContactRemoveRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MeResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
   verify_contact_v1_me_contact_verify_post: {
     parameters: {
       query?: never
@@ -22097,6 +22632,144 @@ export interface operations {
       }
       /** @description This account holds no teacher lens. */
       403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  change_my_username_v1_me_username_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UsernameChangeRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['UsernameChangeResponse']
+        }
+      }
+      /** @description A username rule refused it (account.username.*); account.username.password_required; auth.password.current_wrong */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description account.username.unavailable; account.username.change_too_soon with details.next_change_at; auth.password.too_many_attempts */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description auth.lookup.too_many: too many claims this hour */
+      429: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  check_my_username_availability_v1_me_username_availability_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UsernameAvailabilityRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['UsernameAvailabilityResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description auth.lookup.too_many: the availability ceilings */
+      429: {
         headers: {
           [name: string]: unknown
         }

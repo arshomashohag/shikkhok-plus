@@ -495,4 +495,6 @@ def test_every_new_scope_kind_is_distinct_and_alerting_is_deliberate() -> None:
         ScopeKind.EMAIL_GLOBAL_DAILY,
         ScopeKind.PASSWORD_FAIL_GLOBAL_HOURLY,
         ScopeKind.LOOKUP_GLOBAL_HOURLY,
+        # U1 [NFR2.1]: every username-existence answer, alert-only.
+        ScopeKind.USERNAME_LOOKUP_GLOBAL_HOURLY,
     }

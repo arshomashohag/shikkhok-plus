@@ -165,7 +165,7 @@ class HttpRepositoryTest {
         val tokens = TokenStore.InMemory()
         val repository = HttpAuthRepository(client(engine, tokens), tokens)
 
-        repository.signIn(Identifier.phone("+8801711111111"), "correct horse")
+        repository.signIn("+8801711111111", "correct horse")
 
         assertEquals("at", tokens.accessToken())
         assertEquals("rt", tokens.refreshToken())
@@ -181,7 +181,7 @@ class HttpRepositoryTest {
         val tokens = TokenStore.InMemory()
         val repository = HttpAuthRepository(client(engine, tokens), tokens)
 
-        repository.signIn(Identifier.email("rafi@example.com"), "correct horse")
+        repository.signIn("rafi@example.com", "correct horse")
 
         assertNull(tokens.accessToken(), "a half-finished sign-in must not look signed in")
     }
@@ -196,7 +196,7 @@ class HttpRepositoryTest {
         val tokens = TokenStore.InMemory()
         val repository = HttpAuthRepository(client(engine, tokens), tokens)
 
-        val refused = assertIs<AuthResult.Refused>(repository.signIn(Identifier.phone("01711111111"), "nope nope"))
+        val refused = assertIs<AuthResult.Refused>(repository.signIn("01711111111", "nope nope"))
 
         assertEquals("auth.password.wrong", refused.envelope.error.messageKey)
         assertNull(tokens.accessToken())

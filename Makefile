@@ -246,6 +246,27 @@ test:
 	$(PY) -m coverage report --include='app/money/*' \
 		--fail-under=100 --show-missing --rcfile=pyproject.toml
 	@echo ""
+	@echo "==> contact matcher coverage (100% branch)"
+	@# The matcher decides who is offered a child's seat [U2: NFR5.2], so
+	@# its branches carry the same floor the money module's do, from the
+	@# same data file. Branch data is collected: `.coveragerc-backend` has
+	@# `branch = true`. The advisory-key helper is included because the
+	@# matcher's lock ordering lives there: it is a leaf module so the
+	@# roster and the matcher can both use it without importing each other.
+	$(PY) -m coverage report \
+		--include='app/accounts/matching.py,app/db/advisory.py' \
+		--fail-under=100 --show-missing --rcfile=.coveragerc-backend
+	@echo ""
+	@echo "==> usernames coverage (100% branch)"
+	@# The Usernames module decides who may take a name, what a hold is,
+	@# and every rename and reclaim [U1: NFR5.2], so its defects live in
+	@# branches and it carries the matcher's floor, from the same data
+	@# file. Its username namespace in app/db/advisory.py is already under
+	@# the pass above.
+	$(PY) -m coverage report \
+		--include='app/accounts/usernames.py' \
+		--fail-under=100 --show-missing --rcfile=.coveragerc-backend
+	@echo ""
 	@echo "==> backend coverage floor (80% line) for the rest of app/"
 	@# **`--omit`, not a shorter `--include` list.** Scoping this report
 	@# by omission means a package added to the run above is measured

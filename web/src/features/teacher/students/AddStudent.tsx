@@ -21,7 +21,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { listBatches, readRoster } from '../../../api/endpoints'
 import { ApiError } from '../../../api/errors'
 import { normalisePhone } from '../../../core/format'
@@ -306,6 +306,13 @@ function StudentForm({
           {error}
         </div>
       ) : null}
+
+      {/* The quick-add request has no email field [C2]: the full form does. */}
+      <p className="meta" style={{ marginTop: 16 }}>
+        <Link to={paths.studentNew(batchId)} data-testid="add-by-email">
+          {t('web_students_add_by_email')}
+        </Link>
+      </p>
 
       <div className="form-actions">
         <button type="submit" className="btn btn-outline" disabled={!ready}>

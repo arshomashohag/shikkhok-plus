@@ -164,6 +164,23 @@ class DestinationTest {
     }
 
     @Test
+    fun `the U3 account screens have their routes, and replace names its kind`() {
+        // [W5, W6] Username and Contacts take no argument; nothing typed
+        // or owner-private travels in a route [NFR3.1].
+        assertEquals("me/username", Destination.Username.route)
+        assertEquals("me/contacts", Destination.Contacts.route)
+        assertEquals(
+            "me/contacts/replace?kind=phone",
+            Destination.ReplaceContact.of(com.shikkhokplus.app.core.model.IdentifierKind.PHONE),
+        )
+        assertEquals(
+            "me/contacts/replace?kind=email",
+            Destination.ReplaceContact.of(com.shikkhokplus.app.core.model.IdentifierKind.EMAIL),
+        )
+        assertTrue(Destination.ReplaceContact.route.contains("{${Destination.ReplaceContact.ARG_KIND}}"))
+    }
+
+    @Test
     fun `the four tab destinations have plain routes with no arguments`() {
         // A tab is switched to, never pushed with a payload. A route
         // carrying `{arg}` could not be reached from the bar at all,

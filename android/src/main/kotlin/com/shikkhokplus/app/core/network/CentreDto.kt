@@ -32,36 +32,61 @@ data class CentreDto(
  *
  * @property memberId The membership
  * @property displayName The name the manager typed
- * @property phone The number they were invited on
+ * **[phone] is nullable, and was not** (functional-spec § 1 defect 1,
+ * NFR6.2). `MemberResponse.phone` is `string | null` since a member can
+ * be invited by email alone (C2); declared non-null, one such invitation
+ * failed the decode of the whole list and took the members screen away
+ * from every manager of the centre.
+ *
+ * @property memberId The membership
+ * @property displayName The name the manager typed
+ * @property phone The number they were invited on, or null for an
+ *   invitation by email alone
  * @property role `manager` or `teacher`
  * @property decision `pending`, `accepted` or `declined`
  * @property revoked Whether a manager removed them
  * @property isYou Whether this is the signed-in account's own membership
+ * @property invitedEmail The address they were invited on, or null.
+ *   Centre-written, never the member's own account address [FR6.4]
  */
 @Serializable
 data class MemberDto(
     @SerialName("member_id") val memberId: String,
     @SerialName("display_name") val displayName: String,
-    @SerialName("phone") val phone: String,
+    @SerialName("phone") val phone: String? = null,
     @SerialName("role") val role: String,
     @SerialName("decision") val decision: String,
     @SerialName("revoked") val revoked: Boolean = false,
     @SerialName("is_you") val isYou: Boolean = false,
-)
+    @SerialName("invited_email") val invitedEmail: String? = null,
+) {
+    // The contacts are someone else's, typed by a manager [NFR3.2].
+    override fun toString(): String =
+        "MemberDto(memberId=$memberId, role=$role, decision=$decision, revoked=$revoked, isYou=$isYou, " +
+            "phone=***, invitedEmail=***)"
+}
 
 /**
- * The body of `POST /v1/centre/members`.
+ * The body of `POST /v1/centre/members`: a phone, an email, or both.
+ *
+ * **At least one of the two** [FR6.4]; the server refuses neither with
+ * a 422. A blank one is left out of the body by the client's JSON
+ * settings, which omit nulls.
  *
  * @property displayName Their name
- * @property phone Their number, in any common spelling
+ * @property phone Their number, in any common spelling, or null
  * @property role `manager` or `teacher`
+ * @property email Their address, or null
  */
 @Serializable
 data class MemberInviteDto(
     @SerialName("display_name") val displayName: String,
-    @SerialName("phone") val phone: String,
+    @SerialName("phone") val phone: String? = null,
     @SerialName("role") val role: String,
-)
+    @SerialName("email") val email: String? = null,
+) {
+    override fun toString(): String = "MemberInviteDto(role=$role, phone=***, email=***)"
+}
 
 /**
  * A centre's offer to the signed-in account.

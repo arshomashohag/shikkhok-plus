@@ -6,8 +6,11 @@ import com.shikkhokplus.app.core.model.Identifier
 import com.shikkhokplus.app.core.model.IdentifierKind
 import com.shikkhokplus.app.core.model.PostalAddress
 import com.shikkhokplus.app.core.model.SignupRole
+import com.shikkhokplus.app.core.model.emailIsWellFormed
+import com.shikkhokplus.app.core.ui.UsernameAvailabilityChecker
 import com.shikkhokplus.app.core.network.AlreadyAddedDto
 import com.shikkhokplus.app.core.network.SignupResponseDto
+import com.shikkhokplus.app.core.network.UsernameAvailabilityDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,12 +33,29 @@ interface SignupRepository {
     suspend fun lookup(phone: String): AuthResult<AlreadyAddedDto>
 
     /**
+     * Ask whether a teacher already recorded this email [W9, Q4].
+     *
+     * @param email The address the person typed
+     * @return The lookup's answer, a refusal, or a transport failure
+     */
+    suspend fun lookupEmail(email: String): AuthResult<AlreadyAddedDto>
+
+    /**
+     * Ask the public lookup whether a username could be taken [FR3.1].
+     *
+     * @param username The candidate, trimmed
+     * @return The server's answer, a refusal, or a transport failure
+     */
+    suspend fun checkUsername(username: String): AuthResult<UsernameAvailabilityDto>
+
+    /**
      * Create an account for a phone or an email nobody has registered.
      *
      * @param identifier The phone or email this identity is keyed on
      * @param role The claimed role; nothing verifies it
      * @param selfName The name the person chose for themselves
      * @param address Owner-private, in its four parts; required
+     * @param username The username, as typed; judged by the server [FR2.1]
      * @param centreName The coaching centre to open, with `coaching` only
      * @return The new account, a refusal, or a transport failure
      */
@@ -44,6 +64,7 @@ interface SignupRepository {
         role: String,
         selfName: String,
         address: PostalAddress,
+        username: String,
         centreName: String? = null,
     ): AuthResult<SignupResponseDto>
 }
@@ -82,6 +103,24 @@ class SignupViewModel(
      */
     var lastPhone: String = ""
         private set
+
+    /**
+     * The username the last submitted form carried, trimmed.
+     *
+     * Handed to the code step with the identifier and the password, so a
+     * replacement after `account.username.unavailable` can name what the
+     * person typed [FR2.2, NFR1.4]. Not a secret, but owner-private: it
+     * is kept in memory only.
+     */
+    var lastUsername: String = ""
+        private set
+
+    /**
+     * The live availability check behind the Username field, on the
+     * public lookup [FR3.1]. Never disables Create account [FR3.2].
+     */
+    val availability: UsernameAvailabilityChecker =
+        UsernameAvailabilityChecker(viewModelScope, repository::checkUsername)
 
     private var lastAction: (() -> Unit)? = null
 
@@ -144,6 +183,44 @@ class SignupViewModel(
     }
 
     /**
+     * Look up an email the person left the field holding [W9, Q4].
+     *
+     * **Exactly as the phone lookup**: once per complete value, mapped by
+     * the same [SignupStateMapper.afterLookup], so a seat a teacher
+     * recorded for this address locks the role. A malformed value asks
+     * nothing; a refusal or a lost connection leaves the form usable, and
+     * submission never waits on this.
+     *
+     * @param email The address in the field
+     */
+    fun emailLeft(email: String) {
+        val typed = email.trim()
+        if (!emailIsWellFormed(typed) || typed == lookedUp) return
+        lookedUp = typed
+        lastAction = { emailLeft(typed) }
+        _state.value = SignupUiState.CheckingNumber
+        viewModelScope.launch {
+            _state.value =
+                when (val result = repository.lookupEmail(typed)) {
+                    is AuthResult.Ok -> SignupStateMapper.afterLookup(result.value)
+                    is AuthResult.Refused -> SignupStateMapper.afterError(result.envelope)
+                    AuthResult.TransportFailure -> SignupStateMapper.afterTransportFailure()
+                }
+        }
+    }
+
+    /**
+     * The Username field changed: schedule an availability check, and
+     * drop a username refusal that was about the old text.
+     *
+     * @param text What the field holds now
+     */
+    fun usernameEdited(text: String) {
+        availability.edited(text)
+        if (SignupStateMapper.usernameKeyOf(_state.value) != null) _state.value = SignupUiState.Empty
+    }
+
+    /**
      * Forget what was said about the number, because it is being changed.
      *
      * **Not a check.** Nothing about the new number is judged here; that
@@ -179,6 +256,7 @@ class SignupViewModel(
      */
     fun submit(form: SignupForm) {
         lastPhone = form.identifier.phone.orEmpty()
+        lastUsername = form.username.trim()
         lastAction = { submit(form) }
         pendingPassword = null
 
@@ -197,6 +275,7 @@ class SignupViewModel(
                     role = role.wire,
                     selfName = form.selfName,
                     address = form.address,
+                    username = form.username.trim(),
                     centreName = form.centreName?.trim()?.takeIf { role == SignupRole.COACHING && it.isNotEmpty() },
                 )
             if (result is AuthResult.Ok) {

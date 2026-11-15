@@ -8,6 +8,7 @@ import com.shikkhokplus.app.core.network.AlreadyAddedDto
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.SignupResponseDto
+import com.shikkhokplus.app.core.network.UsernameAvailabilityDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -71,16 +72,32 @@ class SignupViewModelTest {
         }
 
         val sentIdentifiers = mutableListOf<Identifier>()
+        val sentUsernames = mutableListOf<String>()
+        val emailLookups = mutableListOf<String>()
+        val usernameLookups = mutableListOf<String>()
+        var usernameResult: AuthResult<UsernameAvailabilityDto> = AuthResult.Ok(UsernameAvailabilityDto("available"))
+
+        override suspend fun lookupEmail(email: String): AuthResult<AlreadyAddedDto> {
+            emailLookups += email
+            return lookupResult
+        }
+
+        override suspend fun checkUsername(username: String): AuthResult<UsernameAvailabilityDto> {
+            usernameLookups += username
+            return usernameResult
+        }
 
         override suspend fun signup(
             identifier: Identifier,
             role: String,
             selfName: String,
             address: PostalAddress,
+            username: String,
             centreName: String?,
         ): AuthResult<SignupResponseDto> {
             signupCalls++
             sentIdentifiers += identifier
+            sentUsernames += username
             sentRoles += role to centreName
             return signupResult
         }
@@ -101,7 +118,8 @@ class SignupViewModelTest {
         identifier: Identifier = Identifier.phone(phone),
         password: String = "correct horse",
         confirm: String = password,
-    ) = SignupForm(identifier, selfName, address, role, password, confirm, centreName)
+        username: String = "rahim_math",
+    ) = SignupForm(identifier, selfName, address, role, password, confirm, centreName, username)
 
     @Test
     fun `editing the number drops what was said about the old one`() = runTest(dispatcher) {
@@ -437,6 +455,167 @@ class SignupViewModelTest {
         val printed = form("+8801700000000", password = "correct horse").toString()
 
         assertTrue("correct horse" !in printed)
+    }
+
+    // --- U3: the username and the email lookup [FR2.1, FR3.1, W1, W9] -------
+
+    @Test
+    fun `a blank username is refused on the form and nothing is sent`() = runTest(dispatcher) {
+        val repo = FakeRepository()
+        val model = SignupViewModel(repo)
+
+        model.submit(form("+8801700000000", username = "   "))
+        advanceUntilIdle()
+
+        assertEquals(SignupUiState.Invalid(listOf(SignupStateMapper.USERNAME_REQUIRED_KEY)), model.state.value)
+        assertEquals(0, repo.signupCalls)
+    }
+
+    @Test
+    fun `the username is sent trimmed with the account and handed on`() = runTest(dispatcher) {
+        val repo = FakeRepository()
+        val model = SignupViewModel(repo)
+
+        model.submit(form("+8801700000000", username = "  Rahim.Uddin "))
+        advanceUntilIdle()
+
+        assertEquals(listOf("Rahim.Uddin"), repo.sentUsernames)
+        assertIs<SignupUiState.CodeSent>(model.state.value)
+        // Handed to the code step with the identifier and the password.
+        assertEquals("Rahim.Uddin", model.lastUsername)
+        assertEquals("correct horse", model.takePassword())
+    }
+
+    @Test
+    fun `each username refusal is kept for the field and the form is kept`() = runTest(dispatcher) {
+        listOf(
+            "account.username.too_short",
+            "account.username.too_long",
+            "account.username.invalid_character",
+            "account.username.must_start_with_letter",
+            "account.username.bad_dot",
+            "account.username.reserved",
+            "account.username.unavailable",
+        ).forEach { key ->
+            val model = SignupViewModel(FakeRepository(signupResult = AuthResult.Refused(refused(key, false))))
+
+            model.submit(form("+8801700000000"))
+            advanceUntilIdle()
+
+            assertEquals(SignupUiState.Failed(key, retryable = false), model.state.value)
+            assertEquals(key, SignupStateMapper.usernameKeyOf(model.state.value))
+        }
+    }
+
+    @Test
+    fun `a lost connection retries the same form, username included`() = runTest(dispatcher) {
+        val repo = FakeRepository(signupResult = AuthResult.TransportFailure)
+        val model = SignupViewModel(repo)
+        model.submit(form("+8801700000000", username = "nadia_k"))
+        advanceUntilIdle()
+        assertEquals(SignupUiState.Failed(SignupStateMapper.OFFLINE_KEY, retryable = true), model.state.value)
+
+        repo.signupResult = AuthResult.Ok(SignupResponseDto("acc-1", "+8801700000000"))
+        model.retry()
+        advanceUntilIdle()
+
+        assertEquals(listOf("nadia_k", "nadia_k"), repo.sentUsernames)
+        assertIs<SignupUiState.CodeSent>(model.state.value)
+    }
+
+    @Test
+    fun `editing the username drops a refusal that was about the old text`() = runTest(dispatcher) {
+        val model =
+            SignupViewModel(
+                FakeRepository(signupResult = AuthResult.Refused(refused("account.username.unavailable", false))),
+            )
+        model.submit(form("+8801700000000"))
+        advanceUntilIdle()
+
+        model.usernameEdited("nadia_k2")
+
+        assertEquals(SignupUiState.Empty, model.state.value)
+    }
+
+    @Test
+    fun `the username is checked on the public lookup after the pause`() = runTest(dispatcher) {
+        val repo = FakeRepository()
+        val model = SignupViewModel(repo)
+
+        model.usernameEdited("nadia_k")
+        advanceUntilIdle()
+
+        assertEquals(listOf("nadia_k"), repo.usernameLookups)
+        assertEquals(com.shikkhokplus.app.core.ui.AvailabilityState.Available, model.availability.state.value)
+    }
+
+    @Test
+    fun `an unavailable hint does not stop the form being sent`() = runTest(dispatcher) {
+        // FR3.2, FR11.3: the hint can be stale; the server's answer stands.
+        val repo = FakeRepository()
+        repo.usernameResult = AuthResult.Ok(UsernameAvailabilityDto("unavailable"))
+        val model = SignupViewModel(repo)
+        model.usernameEdited("nadia_k")
+        advanceUntilIdle()
+
+        model.submit(form("+8801700000000", username = "nadia_k"))
+        advanceUntilIdle()
+
+        assertEquals(1, repo.signupCalls)
+    }
+
+    @Test
+    fun `leaving an email asks once per value and a seat locks the role`() = runTest(dispatcher) {
+        val repo = FakeRepository(lookupResult = AuthResult.Ok(AlreadyAddedDto(alreadyAdded = true, role = "student")))
+        val model = SignupViewModel(repo)
+
+        model.emailLeft(" rina@example.com ")
+        advanceUntilIdle()
+        model.emailLeft("rina@example.com")
+        advanceUntilIdle()
+
+        assertEquals(listOf("rina@example.com"), repo.emailLookups)
+        assertEquals(SignupUiState.AlreadyAdded(SignupRole.STUDENT), model.state.value)
+    }
+
+    @Test
+    fun `a malformed email asks nothing`() = runTest(dispatcher) {
+        val repo = FakeRepository()
+        val model = SignupViewModel(repo)
+
+        model.emailLeft("rina@example")
+        advanceUntilIdle()
+
+        assertEquals(emptyList(), repo.emailLookups)
+        assertEquals(SignupUiState.Empty, model.state.value)
+    }
+
+    @Test
+    fun `an email lookup ceiling leaves the form usable`() = runTest(dispatcher) {
+        val repo = FakeRepository(lookupResult = AuthResult.Refused(refused("auth.lookup.too_many", false)))
+        val model = SignupViewModel(repo)
+
+        model.emailLeft("rina@example.com")
+        advanceUntilIdle()
+        model.submit(form("x", identifier = Identifier.email("rina@example.com")))
+        advanceUntilIdle()
+
+        assertEquals(1, repo.signupCalls)
+    }
+
+    @Test
+    fun `the form never prints the username, the identifier or the passwords`() {
+        val printed =
+            form(
+                "+8801999999999",
+                identifier = Identifier.email("sentinel@example.invalid"),
+                password = "sentinel-pass",
+                username = "sentinel_user_7",
+            ).toString()
+
+        listOf("sentinel_user_7", "sentinel@example.invalid", "sentinel-pass").forEach {
+            assertTrue(it !in printed, printed)
+        }
     }
 
     @Test

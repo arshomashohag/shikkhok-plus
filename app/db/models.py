@@ -437,6 +437,7 @@ __all__ = [
     "Staff",
     "StagingSmsOutbox",
     "Student",
+    "UsernameHold",
     "VerifyAttempt",
 ]
 
@@ -452,9 +453,10 @@ def _uuid_column() -> Mapped[uuid.UUID]:
 class Account(Base):
     """An identity keyed on a phone number, an email address, or both.
 
-    Created dormant when a teacher records a number, activated on first
-    successful sign-in -- which is what lets a student or guardian claim a
-    record without being invited [AC1.2.1].
+    Created by verify-first sign-up, once the code sent to its number or
+    address is verified [C-07]: no account exists before that. A number
+    or address a teacher records is a contact on a seat, which links to
+    an account once one holds that contact [U2: BR3.1].
 
     **There is deliberately no role column.** No ``role``, no
     ``is_teacher``, no ``kind``. The lens is computed per request from
@@ -472,8 +474,20 @@ class Account(Base):
         the person sets one through a verified code
     :ivar password_changed_at: When it was last set; spends any password
         setup token issued before it
-    :ivar created_at: When the record was created, dormant or otherwise
-    :ivar activated_at: Set on first successful verify; null while dormant
+    :ivar username: The display form of the account's username, as the
+        person typed it after trimming [FR1.3]; null until one is chosen,
+        which is what ``username_required`` reports [FR5.1].
+        Owner-private: served only to the account itself [BR8.1]
+    :ivar username_key: The username's lowercase form, unique, and what
+        uniqueness, sign-in and holds compare [BR1.7]. Never served
+    :ivar username_changed_at: When the last ORDINARY rename happened,
+        which opens the next 30-day window [BR6.2]; null until one has
+    :ivar username_reclaimed_at: When the account last used its one
+        exempt reclaim [BR6.4]; unused in the current window while null
+        or earlier than ``username_changed_at``
+    :ivar created_at: When the account was created, by the verify that
+        completed its sign-up
+    :ivar activated_at: Stamped by the first successful verify
     :ivar deleted_at: Unused. D6 hard-deletes the row [BR1.1], so
         nothing ever writes this column; it is kept rather than
         dropped because dropping it is irreversible and an unused
@@ -498,12 +512,38 @@ class Account(Base):
     deleted_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # [0038] The username and its key [BR1.7, BR1.9].
+    username: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    username_key: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, unique=True
+    )
+    username_changed_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    username_reclaimed_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     __table_args__ = (
         # [0032] An account is reachable by at least one identifier.
         CheckConstraint(
             "phone IS NOT NULL OR email IS NOT NULL",
             name="ck_account_has_identifier",
+        ),
+        # [0038] Both set or both null: an equality alone passes when
+        # either side is null [BR1.9].
+        CheckConstraint(
+            "(username IS NULL) = (username_key IS NULL)",
+            name="ck_account_username_both_or_neither",
+        ),
+        CheckConstraint(
+            "username_key = lower(username)",
+            name="ck_account_username_key_lower",
+        ),
+        CheckConstraint(
+            "username_key ~ '^[a-z][a-z0-9_.]{1,18}[a-z0-9_]$' "
+            "AND position('..' in username_key) = 0",
+            name="ck_account_username_key_shape",
         ),
     )
 
@@ -568,6 +608,8 @@ class OtpRequest(Base):
         the five-minute window advisory [AC1.1.3]
     :ivar consumed_at: Set in the same transaction as the check that read
         it, so a concurrent second verify cannot slip between them
+    :ivar requested_by_account_id: For a ``contact_replace`` code, the
+        account that requested it; None for every other purpose [0037]
     """
 
     __tablename__ = "otp_request"
@@ -586,10 +628,26 @@ class OtpRequest(Base):
     consumed_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # [0037] The account that confirmed its password for a contact
+    # replacement; only that account can spend the code [BR5.3].
+    requested_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_otp_request_requested_by_account_id_account"),
+        ),
+        nullable=True,
+    )
 
     __table_args__ = (
         Index("ix_otp_request_phone_issued_at", "phone", "issued_at"),
         Index("ix_otp_request_email_issued_at", "email", "issued_at"),
+        Index(
+            "ix_otp_request_requested_by_account_id",
+            "requested_by_account_id",
+            postgresql_where=text("requested_by_account_id IS NOT NULL"),
+        ),
         # [0032] A code goes to a number or to an address, never both.
         CheckConstraint(
             "(phone IS NULL) <> (email IS NULL)",
@@ -799,6 +857,9 @@ class PendingSignup(Base):
     :ivar address_city: City or district
     :ivar address_postcode: The four-digit postcode
     :ivar centre_name: A coaching centre's name, for that role only
+    :ivar username: The username the draft asked for, as typed after
+        trimming [0038]. Reserves nothing [BR2.3]; null only for a draft
+        saved before ``0038``, which creates an account with none [BR2.7]
     :ivar otp_request_id: The one code whose verification completes this
         draft; SET NULL so the code purge never blocks on a draft
     :ivar created_at: When the draft was saved
@@ -828,6 +889,7 @@ class PendingSignup(Base):
     expires_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
+    username: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     __table_args__ = (
         CheckConstraint(
@@ -841,6 +903,56 @@ class PendingSignup(Base):
         Index("ix_pending_signup_otp_request_id", "otp_request_id"),
         # The retention purge deletes by age.
         Index("ix_pending_signup_created_at", "created_at"),
+    )
+
+
+class UsernameHold(Base):
+    """A released username nobody else may take until ``held_until`` [0038].
+
+    **Stores no username, ever** [BR7.1]: the identifier is a keyed digest
+    of the lowercase name (:func:`app.accounts.usernames.hold_digest`), so
+    a dump of this table yields nothing without the separately-held key.
+
+    One row per digest; a later release of the same name replaces the
+    expiry and the releasing account, and ``created_at`` keeps the first
+    [BR7.3]. A rename or reclaim names the account that gave the name up,
+    which alone may take it back while the hold is live; a deletion names
+    nobody; erasing the releasing account clears it, by ``SET NULL``, so
+    the hold goes on blocking everyone until it expires [BR7.4].
+
+    :ivar key_digest: The keyed digest of the name's key, never the text
+    :ivar held_until: The release plus exactly 30 days; live while now is
+        strictly earlier [BR7.2], and the purge's age column [BR7.6]
+    :ivar releasing_account_id: The account that may take it back, or None
+    :ivar created_at: When this digest's row was first written
+    """
+
+    __tablename__ = "username_hold"
+
+    key_digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+    held_until: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    releasing_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_username_hold_releasing_account_id_account"),
+        ),
+        nullable=True,
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_username_hold_held_until", "held_until"),
+        Index(
+            "ix_username_hold_releasing_account_id",
+            "releasing_account_id",
+            postgresql_where=text("releasing_account_id IS NOT NULL"),
+        ),
     )
 
 
@@ -953,7 +1065,10 @@ class OwnerMember(Base):
     :ivar id: Surrogate key
     :ivar owner_id: The centre
     :ivar account_id: The person, once an account holds the number
-    :ivar invited_phone: The number invited, canonical
+    :ivar invited_phone: The number invited, canonical, or None for an
+        invitation by email alone [0037]. Legacy manager rows may hold
+        ``""``, which every reader treats as absent
+    :ivar invited_email: The address invited, lowercased, or None
     :ivar display_name: The name the inviting manager typed
     :ivar role: ``manager`` or ``teacher``
     :ivar decision: ``pending``, ``accepted`` or ``declined``
@@ -976,7 +1091,8 @@ class OwnerMember(Base):
         ForeignKey("account.id", ondelete="SET NULL"),
         nullable=True,
     )
-    invited_phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    invited_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    invited_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     display_name: Mapped[str] = mapped_column(String(120), nullable=False)
     role: Mapped[str] = mapped_column(_MEMBER_ROLE, nullable=False)
     decision: Mapped[str] = mapped_column(_DECISION, nullable=False)
@@ -1013,6 +1129,31 @@ class OwnerMember(Base):
             unique=True,
             postgresql_where=text("revoked_at IS NULL"),
         ),
+        # [0037] Invited by phone, by email, or both [BR1.8].
+        CheckConstraint(
+            "invited_phone IS NOT NULL OR invited_email IS NOT NULL",
+            name="ck_owner_member_has_contact",
+        ),
+        CheckConstraint(
+            "invited_email = lower(invited_email)",
+            name="ck_owner_member_invited_email_lower",
+        ),
+        Index(
+            "uq_owner_member_live_email",
+            "owner_id",
+            "invited_email",
+            unique=True,
+            postgresql_where=text("revoked_at IS NULL AND invited_email IS NOT NULL"),
+        ),
+        # The matcher's invitation statement, across centres [NFR8.8].
+        Index(
+            "ix_owner_member_unlinked_email",
+            "invited_email",
+            postgresql_where=text(
+                "revoked_at IS NULL AND account_id IS NULL "
+                "AND invited_email IS NOT NULL"
+            ),
+        ),
     )
 
 
@@ -1034,6 +1175,9 @@ class Student(Base):
     :ivar display_name: The teacher-typed name
     :ivar student_phone: The student's number, canonical; unique per owner
     :ivar guardian_phone: The guardian's number, canonical
+    :ivar student_email: The student's address, lowercased; unique per
+        owner [0037]
+    :ivar guardian_email: The guardian's address, lowercased; not unique
     :ivar archived_at: Set when the teacher removed a student whose seats
         must outlive them as history; an archived student is hidden
     :ivar created_at: When the student was recorded
@@ -1050,6 +1194,8 @@ class Student(Base):
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
     student_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     guardian_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    student_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    guardian_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     archived_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -1077,6 +1223,22 @@ class Student(Base):
             "student_phone",
             unique=True,
             postgresql_where=text("student_phone IS NOT NULL"),
+        ),
+        # [0037] A student email is unique per teacher, as the number is.
+        Index(
+            "uq_student_owner_email",
+            "owner_id",
+            "student_email",
+            unique=True,
+            postgresql_where=text("student_email IS NOT NULL"),
+        ),
+        CheckConstraint(
+            "student_email = lower(student_email)",
+            name="ck_student_student_email_lower",
+        ),
+        CheckConstraint(
+            "guardian_email = lower(guardian_email)",
+            name="ck_student_guardian_email_lower",
         ),
     )
 
@@ -1110,6 +1272,9 @@ class Enrollment(Base):
     :ivar student_phone: The teacher-typed STUDENT number, canonical. What
         links the seat to the student's account, at creation when that
         account exists and at sign-up when it does not [0008]
+    :ivar student_email: The teacher-typed student address, lowercased; a
+        copy of the student's, as ``student_phone`` is [0037]
+    :ivar guardian_email: The teacher-typed guardian address, likewise
     :ivar fee_amount: This seat's fee, or NULL to inherit the batch
         default. Zero is a real fee of zero, which is a waiver
     :ivar joined_on: When the student joined
@@ -1171,6 +1336,8 @@ class Enrollment(Base):
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
     guardian_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     student_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    student_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    guardian_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     fee_amount: Mapped[Money | None] = mapped_column(MoneyColumn, nullable=True)
     joined_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     inactive_from: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
@@ -1221,6 +1388,25 @@ class Enrollment(Base):
         CheckConstraint(
             "fee_amount IS NULL OR fee_amount >= 0",
             name=conv("ck_enrollment_fee_amount_non_negative"),
+        ),
+        # [0037] The matcher and the email lookup find seats by address.
+        Index(
+            "ix_enrollment_student_email",
+            "student_email",
+            postgresql_where=text("student_email IS NOT NULL"),
+        ),
+        Index(
+            "ix_enrollment_guardian_email",
+            "guardian_email",
+            postgresql_where=text("guardian_email IS NOT NULL"),
+        ),
+        CheckConstraint(
+            "student_email = lower(student_email)",
+            name="ck_enrollment_student_email_lower",
+        ),
+        CheckConstraint(
+            "guardian_email = lower(guardian_email)",
+            name="ck_enrollment_guardian_email_lower",
         ),
     )
 

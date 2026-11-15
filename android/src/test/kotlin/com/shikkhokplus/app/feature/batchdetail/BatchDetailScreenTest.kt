@@ -58,6 +58,8 @@ class BatchDetailScreenTest {
             displayLabel = null,
             isDeclined = false,
             isRemovable = true,
+            // As the mapper builds it [U3: W7.7].
+            guardianContactLine = phone?.let(com.shikkhokplus.app.core.format.Numerals::phone),
         )
 
     @Test

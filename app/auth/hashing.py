@@ -52,6 +52,7 @@ __all__ = [
     "generate_refresh_token",
     "hash_otp",
     "hash_refresh_token",
+    "keyed_digest",
     "legacy_refresh_token_digest",
     "verify_otp",
 ]
@@ -138,6 +139,33 @@ def hash_refresh_token(token: str) -> str:
     :return: The hex digest to store
     """
     return sha256(token.encode()).hexdigest()
+
+
+def keyed_digest(message: str) -> str:
+    """Return the keyed digest of a message, under this module's key.
+
+    The username hold ledger and the username failure counters store a
+    digest of a low-entropy name rather than the name [U1: BR7.1, NFR3.3],
+    and an unkeyed hash of one is reversible by dictionary. Keyed here,
+    by the same separately-held secret as the codes, so a database dump
+    alone reverses none of them. Callers prefix a purpose
+    (``username-hold:v1:``, ``username-counter:v1:``), which keeps their
+    digests unequal to each other and to an OTP digest, computed over
+    ``phone:code``.
+
+    Rotating the key therefore also releases every live username hold
+    early and resets the username failure counters (``deploy/README.md``).
+
+    ``surrogatepass`` so that ANY string digests: a lone surrogate typed
+    into the sign-in field must be counted like any unknown name, not
+    raise [review-01].
+
+    :param message: The purpose-prefixed message
+    :return: Lowercase hex HMAC-SHA256
+    """
+    return hmac.new(
+        _key(), message.encode("utf-8", "surrogatepass"), sha256
+    ).hexdigest()
 
 
 def legacy_refresh_token_digest(token: str) -> str:

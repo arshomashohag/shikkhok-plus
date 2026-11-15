@@ -9,9 +9,20 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { translate, translateMessage } from '../../../i18n/i18n'
 import { json, renderScreen } from '../../../test/render'
 import { studentsQuery } from './api'
-import { mapStudent, otherBatches } from './mappers'
+import {
+  editProblems,
+  guardianCellLine,
+  guardianContactLine,
+  mapStudent,
+  otherBatches,
+  studentContactLine,
+  studentEdit,
+  type Student,
+  type StudentFields,
+} from './mappers'
 import { NewStudent } from './NewStudent'
 import { PickStudents } from './PickStudents'
 import { StudentDetail } from './StudentDetail'
@@ -78,6 +89,8 @@ const student = (
   display_name: name,
   student_phone: '+8801812345678',
   guardian_phone: null,
+  student_email: null as string | null,
+  guardian_email: null as string | null,
   student_state: 'pending',
   guardian_state: 'absent',
   enrollments: seats,
@@ -356,5 +369,298 @@ describe('Roster picker', () => {
     expect(
       fetchMock.mock.calls.filter(([u]) => (u as string).endsWith('/v1/batches')),
     ).toHaveLength(1)
+  })
+})
+
+// ------------------------------------------- emails [FR6.1–6.3] W7, Q4
+
+const en = (key: string, ...args: string[]) => translate('en', key, ...args)
+
+describe('studentEdit — the Edit sheet’s patch [review R-04]', () => {
+  const original: StudentFields = {
+    name: 'Rafiq',
+    studentPhone: '01812-345678',
+    guardianPhone: '',
+    studentEmail: 'rafiq@example.com',
+    guardianEmail: 'mother@example.com',
+  }
+
+  it('an unchanged form gives null: nothing is sent', () => {
+    expect(studentEdit(original, { ...original })).toBeNull()
+    // Re-typed the same, in another shape, is still unchanged.
+    expect(
+      studentEdit(original, {
+        ...original,
+        studentPhone: '+880 1812 345678',
+        studentEmail: ' Rafiq@Example.com ',
+      }),
+    ).toBeNull()
+  })
+
+  it('an emptied email is null in the body, which clears it', () => {
+    expect(studentEdit(original, { ...original, guardianEmail: '  ' })).toEqual({
+      guardian_email: null,
+    })
+  })
+
+  it('an emptied phone is null in the body too', () => {
+    expect(studentEdit(original, { ...original, studentPhone: '' })).toEqual({
+      student_phone: null,
+    })
+  })
+
+  it('a changed value is sent, and only it', () => {
+    expect(
+      studentEdit(original, {
+        ...original,
+        name: ' Rafiq Hasan ',
+        guardianPhone: '01911-000003',
+        studentEmail: 'New@Example.com',
+      }),
+    ).toEqual({
+      display_name: 'Rafiq Hasan',
+      guardian_phone: '01911000003',
+      student_email: 'new@example.com',
+    })
+  })
+
+  it('editProblems names malformed contacts only; blank is never malformed', () => {
+    expect(editProblems({ ...original, guardianPhone: '', guardianEmail: '' })).toEqual({})
+    expect(editProblems({ ...original, studentPhone: '123', guardianEmail: 'nope' })).toEqual({
+      studentPhone: true,
+      guardianEmail: true,
+    })
+  })
+})
+
+describe('contact lines — phone, then email [W7 step 7]', () => {
+  const s = (patch: Partial<Student>) => ({
+    studentPhone: null,
+    studentEmail: null,
+    guardianPhone: null,
+    guardianEmail: null,
+    ...patch,
+  })
+
+  it('the student line prefers the phone, then the email, else null', () => {
+    expect(studentContactLine(s({ studentPhone: '+8801812345678', studentEmail: 'a@b.cd' }))).toBe(
+      '01812-345678',
+    )
+    expect(studentContactLine(s({ studentEmail: 'a@b.cd' }))).toBe('a@b.cd')
+    expect(studentContactLine(s({}))).toBeNull()
+  })
+
+  it('the guardian line shows both when both are recorded, phone first', () => {
+    expect(
+      guardianContactLine(s({ guardianPhone: '+8801911000003', guardianEmail: 'm@example.com' })),
+    ).toBe('01911-000003 · m@example.com')
+    expect(guardianContactLine(s({ guardianEmail: 'm@example.com' }))).toBe('m@example.com')
+    expect(guardianCellLine(s({ guardianPhone: '+8801911000003', guardianEmail: 'm@x.cd' }))).toBe(
+      '01911-000003',
+    )
+  })
+
+  it('a response carrying a field this client does not know still decodes [NFR6.1]', () => {
+    const mapped = mapStudent({
+      ...student('s1', 'Rafiq', [], { student_email: 'rafiq@example.com' }),
+      nickname: 'R',
+    } as never)
+    expect(mapped.studentEmail).toBe('rafiq@example.com')
+  })
+})
+
+describe('New student — emails', () => {
+  function renderNew() {
+    renderScreen(
+      <Routes>
+        <Route path="/students/new" element={<NewStudent />} />
+      </Routes>,
+      '/students/new',
+    )
+  }
+
+  function serveNew(post: () => Response) {
+    api((m, u) => {
+      if (u.endsWith('/v1/batches')) return json(200, batches)
+      if (u.endsWith('/v1/students') && m === 'GET') return json(200, [])
+      if (u.endsWith('/v1/students') && m === 'POST') return post()
+    })
+  }
+
+  it('sends both emails trimmed, and omits a blank one', async () => {
+    serveNew(() => json(201, student('s9', 'Mehedi', [])))
+    renderNew()
+    await userEvent.type(await screen.findByLabelText('Student name'), 'Mehedi')
+    await userEvent.type(
+      screen.getByLabelText(en('student_add_student_email')),
+      ' mehedi@example.com ',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Add student' }))
+    await waitFor(() => expect(calls('POST', '/v1/students')).toHaveLength(1))
+    const body = bodyOf(calls('POST', '/v1/students')[0]!) as Record<string, unknown>
+    expect(body.student_email).toBe('mehedi@example.com')
+    expect(body).not.toHaveProperty('guardian_email')
+  })
+
+  it('a malformed email is named under its field and Save is disabled', async () => {
+    serveNew(() => json(201, student('s9', 'Mehedi', [])))
+    renderNew()
+    await userEvent.type(await screen.findByLabelText('Student name'), 'Mehedi')
+    await userEvent.type(screen.getByLabelText(en('student_add_guardian_email')), 'mother@example')
+    expect(screen.getByText(en('web_auth_email_invalid'))).toHaveAttribute('role', 'alert')
+    expect(screen.getByRole('button', { name: 'Add student' })).toBeDisabled()
+  })
+
+  it('student.email.taken lands under the student email', async () => {
+    serveNew(() =>
+      json(409, {
+        error: { code: 'CONFLICT', message_key: 'student.email.taken', retryable: false },
+      }),
+    )
+    renderNew()
+    await userEvent.type(await screen.findByLabelText('Student name'), 'Mehedi')
+    const email = screen.getByLabelText(en('student_add_student_email'))
+    await userEvent.type(email, 'mehedi@example.com')
+    await userEvent.click(screen.getByRole('button', { name: 'Add student' }))
+    const error = await screen.findByText(translateMessage('en', 'student.email.taken'))
+    expect(email).toHaveAttribute('aria-describedby', error.id)
+    expect(document.querySelector('.banner.error')).toBeNull()
+  })
+
+  it('both email fields refuse autofill: someone else’s address [NFR3.8]', async () => {
+    serveNew(() => json(201, student('s9', 'Mehedi', [])))
+    renderNew()
+    for (const key of ['student_add_student_email', 'student_add_guardian_email']) {
+      const field = await screen.findByLabelText(en(key))
+      expect(field).toHaveAttribute('autocomplete', 'off')
+      expect(field).toHaveAttribute('type', 'email')
+    }
+  })
+})
+
+describe('Student detail — contacts and the Edit sheet', () => {
+  let current: ReturnType<typeof student>
+  let patch: (body: unknown) => Response
+
+  function renderDetail(body: ReturnType<typeof student>) {
+    current = body
+    api((m, u, b) => {
+      if (u.endsWith('/v1/batches')) return json(200, batches)
+      if (u.endsWith('/v1/students/s1') && m === 'GET') return json(200, current)
+      if (u.endsWith('/v1/students/s1') && m === 'PATCH') return patch(b)
+    })
+    renderScreen(
+      <Routes>
+        <Route path="/students/:studentId" element={<StudentDetail />} />
+      </Routes>,
+      '/students/s1',
+    )
+  }
+
+  const recorded = () =>
+    student('s1', 'Rafiq', [], {
+      student_phone: null,
+      student_email: 'rafiq@example.com',
+      guardian_phone: '+8801911000003',
+      guardian_email: 'mother@example.com',
+    })
+
+  async function openEdit() {
+    await userEvent.click(await screen.findByRole('button', { name: en('web_student_edit_title') }))
+    return screen.findByTestId('edit-student-sheet')
+  }
+
+  beforeEach(() => {
+    patch = () => json(200, current)
+  })
+
+  it('shows the student email in place of a missing phone, and both guardian contacts', async () => {
+    renderDetail(recorded())
+    expect(await screen.findByText('rafiq@example.com')).toBeInTheDocument()
+    expect(
+      screen.getByText(`${en('student_detail_guardian_link')} · 01911-000003 · mother@example.com`),
+    ).toBeInTheDocument()
+  })
+
+  it('opens pre-filled, with focus on the first field and autofill off on both emails', async () => {
+    renderDetail(recorded())
+    const sheet = await openEdit()
+    const name = within(sheet).getByLabelText('Student name')
+    expect(document.activeElement).toBe(name)
+    expect(name).toHaveValue('Rafiq')
+    expect(within(sheet).getByLabelText(en('student_add_student_email'))).toHaveValue(
+      'rafiq@example.com',
+    )
+    for (const key of ['student_add_student_email', 'student_add_guardian_email'])
+      expect(within(sheet).getByLabelText(en(key))).toHaveAttribute('autocomplete', 'off')
+  })
+
+  it('saving with nothing changed sends nothing and closes', async () => {
+    renderDetail(recorded())
+    const sheet = await openEdit()
+    await userEvent.click(within(sheet).getByRole('button', { name: en('web_student_edit_save') }))
+    await waitFor(() => expect(screen.queryByTestId('edit-student-sheet')).toBeNull())
+    expect(calls('PATCH', '/v1/students/s1')).toHaveLength(0)
+  })
+
+  it('an emptied email is sent as null, and the detail re-reads', async () => {
+    renderDetail(recorded())
+    const sheet = await openEdit()
+    await userEvent.clear(within(sheet).getByLabelText(en('student_add_guardian_email')))
+    const reads = calls('GET', '/v1/students/s1').length
+    await userEvent.click(within(sheet).getByRole('button', { name: en('web_student_edit_save') }))
+    await waitFor(() => expect(calls('PATCH', '/v1/students/s1')).toHaveLength(1))
+    expect(bodyOf(calls('PATCH', '/v1/students/s1')[0]!)).toEqual({ guardian_email: null })
+    await waitFor(() => expect(calls('GET', '/v1/students/s1').length).toBeGreaterThan(reads))
+    expect(await screen.findByText(en('web_student_edit_saved'))).toBeInTheDocument()
+  })
+
+  it('a 409 student.number_accepted on clearing a phone shows in the sheet banner', async () => {
+    patch = () =>
+      json(409, {
+        error: { code: 'CONFLICT', message_key: 'student.number_accepted', retryable: false },
+      })
+    renderDetail(recorded())
+    const sheet = await openEdit()
+    await userEvent.clear(within(sheet).getByLabelText(en('student_add_guardian')))
+    await userEvent.click(within(sheet).getByRole('button', { name: en('web_student_edit_save') }))
+    const banner = await within(sheet).findByRole('alert')
+    expect(banner).toHaveTextContent(translateMessage('en', 'student.number_accepted'))
+    expect(bodyOf(calls('PATCH', '/v1/students/s1')[0]!)).toEqual({ guardian_phone: null })
+  })
+
+  it('student.email.taken lands under the student email', async () => {
+    patch = () =>
+      json(409, {
+        error: { code: 'CONFLICT', message_key: 'student.email.taken', retryable: false },
+      })
+    renderDetail(recorded())
+    const sheet = await openEdit()
+    const email = within(sheet).getByLabelText(en('student_add_student_email'))
+    await userEvent.clear(email)
+    await userEvent.type(email, 'other@example.com')
+    await userEvent.click(within(sheet).getByRole('button', { name: en('web_student_edit_save') }))
+    const error = await within(sheet).findByText(translateMessage('en', 'student.email.taken'))
+    expect(email).toHaveAttribute('aria-describedby', error.id)
+  })
+
+  it('no connection offers Retry, which resends the same patch', async () => {
+    let first = true
+    patch = () => {
+      if (first) {
+        first = false
+        throw new TypeError('Failed to fetch')
+      }
+      return json(200, current)
+    }
+    renderDetail(recorded())
+    const sheet = await openEdit()
+    await userEvent.clear(within(sheet).getByLabelText(en('student_add_guardian_email')))
+    await userEvent.click(within(sheet).getByRole('button', { name: en('web_student_edit_save') }))
+    await userEvent.click(await within(sheet).findByRole('button', { name: en('auth_retry') }))
+    await waitFor(() => expect(calls('PATCH', '/v1/students/s1')).toHaveLength(2))
+    expect(bodyOf(calls('PATCH', '/v1/students/s1')[1]!)).toEqual(
+      bodyOf(calls('PATCH', '/v1/students/s1')[0]!),
+    )
   })
 })

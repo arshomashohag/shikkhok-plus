@@ -1,9 +1,19 @@
-import { screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { clearTokens, readTokens } from '../../api/tokens'
+import { I18nProvider, translate, translateMessage } from '../../i18n/i18n'
+import { SessionProvider } from '../../session/session'
 import { json, renderScreen } from '../../test/render'
 import { SignIn } from './SignIn'
+
+const en = (key: string) => translate('en', key)
+
+/** What the code flow would receive as route state. */
+function StateProbe() {
+  return <p data-testid="route-state">{JSON.stringify(useLocation().state)}</p>
+}
 
 const fetchMock = vi.fn()
 beforeEach(() => {
@@ -34,64 +44,119 @@ function servePassword(answer: (body: Record<string, unknown>) => Response) {
   })
 }
 
-async function typeAndSubmit(identifier: string, password: string) {
-  await userEvent.type(screen.getByLabelText('Mobile number'), identifier)
+const loginField = () => screen.getByLabelText(en('auth_login_label'))
+
+async function typeAndSubmit(login: string, password: string) {
+  await userEvent.type(loginField(), login)
   await userEvent.type(screen.getByLabelText('Password'), password)
   await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 }
 
 it('marks the fields up for a password manager', () => {
   renderScreen(<SignIn />)
-  expect(screen.getByLabelText('Mobile number')).toHaveAttribute('autocomplete', 'username')
-  expect(screen.getByLabelText('Mobile number')).toHaveAttribute('inputmode', 'tel')
+  const login = loginField()
+  expect(login).toHaveAttribute('type', 'text')
+  expect(login).toHaveAttribute('autocomplete', 'username')
+  expect(login).toHaveAttribute('autocapitalize', 'none')
+  expect(login).toHaveAttribute('spellcheck', 'false')
   const password = screen.getByLabelText('Password')
   expect(password).toHaveAttribute('type', 'password')
   expect(password).toHaveAttribute('autocomplete', 'current-password')
 })
 
-it('refuses a malformed number without calling the server', async () => {
+it('has one login field and no Phone | Email toggle [FR4.1]', () => {
   renderScreen(<SignIn />)
-  await typeAndSubmit('12345', 'a long password')
-  expect(screen.getByRole('alert')).toHaveTextContent('11 digits')
-  expect(fetchMock).not.toHaveBeenCalled()
+  expect(screen.queryByRole('group', { name: en('web_auth_kind_label') })).toBeNull()
+  expect(screen.queryByLabelText('Mobile number')).toBeNull()
+  expect(screen.queryByLabelText('Email address')).toBeNull()
 })
 
-it('signs in with a number and a password', async () => {
+// Rewritten from W3 steps 2–3 (was "refuses a malformed number without
+// calling the server"): the client no longer judges the shape; the server does.
+it('sends a login of any shape, as typed and trimmed: no client shape check', async () => {
+  servePassword(() => refusal(400, 'auth.password.wrong', 'PASSWORD_NOT_VALID'))
+  renderScreen(<SignIn />)
+  await typeAndSubmit('12345', 'a long password')
+  await waitFor(() => expect(called('/v1/auth/password')).toHaveLength(1))
+  expect(bodyOf('/v1/auth/password')).toEqual({ login: '12345', password: 'a long password' })
+})
+
+// Rewritten from W3 step 3 (was "signs in with a number and a password",
+// which asserted client normalisation to `phone`).
+it.each([
+  ['a username', 'Rahim.Uddin', 'Rahim.Uddin'],
+  ['a phone, Bangla digits and all', '  ০১৭১১-২৩৪৫৬৭ ', '০১৭১১-২৩৪৫৬৭'],
+  ['an email, casing kept', '  Rina@Example.com ', 'Rina@Example.com'],
+])('signs in with %s sent as login, trimmed and otherwise as typed', async (_kind, typed, sent) => {
   servePassword(() => json(200, TOKENS))
   renderScreen(<SignIn />)
-  await typeAndSubmit('০১৭১১-২৩৪৫৬৭', 'correct horse')
+  await typeAndSubmit(typed, 'correct horse')
   await waitFor(() => expect(readTokens()?.access).toBe('A'))
-  expect(bodyOf('/v1/auth/password')).toEqual({ phone: '01711234567', password: 'correct horse' })
+  const body = bodyOf('/v1/auth/password')
+  expect(body).toEqual({ login: sent, password: 'correct horse' })
+  expect(body).not.toHaveProperty('phone')
+  expect(body).not.toHaveProperty('email')
   // No code is sent on the way in any more.
   expect(called('/v1/auth/otp')).toHaveLength(0)
   expect(called('/v1/auth/mfa')).toHaveLength(0)
 })
 
-it('signs in with an email address, trimmed and lowercased', async () => {
-  servePassword(() => json(200, TOKENS))
+it('a blank login sends nothing: Sign in stays disabled', async () => {
   renderScreen(<SignIn />)
-  await userEvent.click(screen.getByRole('button', { name: 'Email' }))
-  const email = screen.getByLabelText('Email address')
-  expect(email).toHaveAttribute('type', 'email')
-  expect(email).toHaveAttribute('autocomplete', 'username')
-  await userEvent.type(email, '  Rina@Example.com ')
+  const submit = screen.getByRole('button', { name: 'Sign in' })
+  expect(submit).toBeDisabled()
+  await userEvent.type(loginField(), '   ')
   await userEvent.type(screen.getByLabelText('Password'), 'correct horse')
-  await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
-  await waitFor(() => expect(readTokens()?.access).toBe('A'))
-  expect(bodyOf('/v1/auth/password')).toEqual({
-    email: 'rina@example.com',
-    password: 'correct horse',
-  })
+  expect(submit).toBeDisabled()
+  expect(fetchMock).not.toHaveBeenCalled()
 })
 
-it('refuses a malformed email address without calling the server', async () => {
+// Rewritten from W3 step 5 (was "refuses a malformed email address
+// without calling the server"): the server's `email.invalid` is shown
+// under the field.
+it('the server’s email.invalid shows under the login field, not in the banner', async () => {
+  servePassword(() => refusal(400, 'email.invalid', 'VALIDATION'))
   renderScreen(<SignIn />)
-  await userEvent.click(screen.getByRole('button', { name: 'Email' }))
-  await userEvent.type(screen.getByLabelText('Email address'), 'rina-at-example')
-  await userEvent.type(screen.getByLabelText('Password'), 'correct horse')
-  await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
-  expect(screen.getByRole('alert')).toHaveTextContent('name@example.com')
-  expect(fetchMock).not.toHaveBeenCalled()
+  await typeAndSubmit('rina@example', 'correct horse')
+  const error = await screen.findByText(translateMessage('en', 'email.invalid'))
+  expect(error).toHaveAttribute('id', 'login-error')
+  expect(loginField()).toHaveAttribute('aria-invalid', 'true')
+  expect(document.querySelector('.banner.error')).toBeNull()
+  expect(loginField()).toHaveValue('rina@example')
+})
+
+it.each(['Rahim.Uddin', '01711234567', 'rina@example.com'])(
+  'a wrong password reads the same for the login %s [NFR1.1]',
+  async (login) => {
+    servePassword(() => refusal(400, 'auth.password.wrong', 'PASSWORD_NOT_VALID'))
+    renderScreen(<SignIn />)
+    await typeAndSubmit(login, 'wrong one')
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(translateMessage('en', 'auth.password.wrong'))
+    expect(alert).toHaveTextContent(en('web_auth_password_wrong_hint'))
+  },
+)
+
+it('passes nothing typed to the code flow: its links carry no route state', async () => {
+  servePassword(() => refusal(400, 'auth.password.wrong', 'PASSWORD_NOT_VALID'))
+  render(
+    <I18nProvider lang="en">
+      <SessionProvider>
+        <MemoryRouter initialEntries={['/signin']}>
+          <Routes>
+            <Route path="/signin" element={<SignIn />} />
+            <Route path="/signin/code" element={<StateProbe />} />
+          </Routes>
+        </MemoryRouter>
+      </SessionProvider>
+    </I18nProvider>,
+  )
+  await typeAndSubmit('Rahim.Uddin', 'wrong one')
+  await screen.findByRole('alert')
+  const links = screen.getAllByRole('link', { name: /Get a code|Forgot password/ })
+  expect(links).toHaveLength(3)
+  await userEvent.click(links[0]!)
+  expect(screen.getByTestId('route-state')).toHaveTextContent('null')
 })
 
 it('a wrong password shows the server’s words and a way to the code flow', async () => {

@@ -36,6 +36,7 @@ from app.centres.memberships import (
     decide_membership,
     read_membership,
 )
+from app.db.retry import run_with_retry
 from app.schemas.centres import (
     CentreCreateRequest,
     CentreResponse,
@@ -82,6 +83,7 @@ def _member(row: service.MemberRow) -> MemberResponse:
             "member_id": row.member_id,
             "display_name": row.display_name,
             "phone": row.phone,
+            "invited_email": row.invited_email,
             "role": row.role,
             "decision": row.decision,
             "invited_at": row.invited_at,
@@ -170,19 +172,27 @@ def invite_centre_member(
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
     session: Annotated[Session, Depends(get_session)],
 ) -> MemberResponse:
-    """Invite a number to the centre; nothing is granted until they accept.
+    """Invite a number, an address or both; nothing is granted until accepted.
 
-    :param body: The number, name and role
+    Re-run on a deadlock or serialization failure [U2: NFR4.3]: it sends
+    nothing before its commit.
+
+    :param body: The number or address, name and role
     :param lens: The manager's lens on the centre
     :param session: The request-scoped session
     :return: The new, pending membership
     """
-    member_id = service.invite_member(
+    member_id = run_with_retry(
         session,
-        lens=lens,
-        phone=body.phone,
-        display_name=body.display_name,
-        role=body.role,
+        lambda: service.invite_member(
+            session,
+            lens=lens,
+            phone=body.phone,
+            email=body.email,
+            display_name=body.display_name,
+            role=body.role,
+        ),
+        correlation_id=None,
     )
     for row in service.list_members(session, lens=lens):
         if row.member_id == member_id:

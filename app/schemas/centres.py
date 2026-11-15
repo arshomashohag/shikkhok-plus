@@ -11,8 +11,9 @@ import datetime as dt
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.schemas.identifier import RecordedEmailField
 from app.schemas.phone import PhoneField
 
 __all__ = [
@@ -72,18 +73,34 @@ class WorkspaceResponse(BaseModel):
 
 
 class MemberInviteRequest(BaseModel):
-    """Invite a number to the centre.
+    """Invite a number, an address, or both, to the centre [U2: FR6.4].
 
-    :ivar phone: The number, typed by the manager
+    At least one of the two; a request naming neither is refused at the
+    schema [BR1.8].
+
+    :ivar phone: The number, typed by the manager, or null
+    :ivar email: The address, typed by the manager, or null
     :ivar display_name: The name the centre knows them by
     :ivar role: ``manager`` or ``teacher``
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    phone: PhoneField
+    phone: PhoneField | None = None
+    email: RecordedEmailField = None
     display_name: str = Field(min_length=1, max_length=120)
     role: MemberRole
+
+    @model_validator(mode="after")
+    def _at_least_one(self) -> MemberInviteRequest:
+        """Refuse an invitation that names nobody.
+
+        :return: The request
+        :raises ValueError: Neither a phone nor an email was given
+        """
+        if self.phone is None and self.email is None:
+            raise ValueError("give a phone number, an email address, or both")
+        return self
 
 
 class MemberResponse(BaseModel):
@@ -91,7 +108,10 @@ class MemberResponse(BaseModel):
 
     :ivar member_id: The membership
     :ivar display_name: The name the centre typed
-    :ivar phone: The number invited
+    :ivar phone: The number invited, or null for an invitation by email
+        alone [U2: BR1.9]
+    :ivar invited_email: The address invited, or null. Centre-written,
+        never the member's own account address [BR1.4]
     :ivar role: ``manager`` or ``teacher``
     :ivar decision: Where the offer stands
     :ivar invited_at: When they were invited
@@ -101,7 +121,8 @@ class MemberResponse(BaseModel):
 
     member_id: uuid.UUID
     display_name: str
-    phone: str
+    phone: str | None
+    invited_email: str | None
     role: MemberRole
     decision: MemberDecision
     invited_at: dt.datetime

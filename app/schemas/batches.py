@@ -242,6 +242,9 @@ class RosterRowResponse(BaseModel):
         teacher's own record and never an account id [0018]
     :ivar display_name: The teacher-typed name
     :ivar guardian_phone: The teacher-typed guardian contact
+    :ivar student_email: The teacher-typed student address, or null
+        [U2: BR1.11]. Teacher-written, like the numbers [BR1.4]
+    :ivar guardian_email: The teacher-typed guardian address, or null
     :ivar fee_amount: This seat's fee, or null when it inherits
     :ivar status: ``dormant``, ``active`` or ``inactive``.
 
@@ -272,6 +275,8 @@ class RosterRowResponse(BaseModel):
     student_id: uuid.UUID | None
     display_name: str
     guardian_phone: str | None
+    student_email: str | None
+    guardian_email: str | None
     fee_amount: MoneyField | None
     status: str
     student_state: str

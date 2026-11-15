@@ -78,6 +78,7 @@ internal fun NavGraphBuilder.centresRoutes(
                 MembersActions(
                     onInviteName = model::inviteName,
                     onInvitePhone = model::invitePhone,
+                    onInviteEmail = model::inviteEmail,
                     onInviteRole = model::inviteRole,
                     onInvite = model::invite,
                     onRemove = model::revoke,

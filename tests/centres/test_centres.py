@@ -571,7 +571,14 @@ def test_deleting_an_account_ends_its_memberships(
 
     signed = api_client.post(
         "/v1/accounts",
-        json={"phone": phone, "role": "teacher", "self_name": "Back", **ADDRESS},
+        json={
+            "phone": phone,
+            "role": "teacher",
+            "self_name": "Back",
+            # Required since U1 [BR2.1]; nothing here is about it.
+            "username": "back_" + phone[-8:],
+            **ADDRESS,
+        },
     )
     assert signed.status_code == 201, signed.text
     owner_session.refresh(member)
@@ -614,3 +621,242 @@ def test_two_invitations_of_one_number_at_once_get_one_member(
         (201, None),
         (409, "MEMBER_ALREADY_INVITED"),
     ]
+
+
+# --------------------------------------------------------------------------
+# Inviting by email [U2: BR1.8, BR1.9, BR2.1], written from the rules.
+# --------------------------------------------------------------------------
+
+
+def _manager(session: Session) -> tuple[uuid.UUID, dict[str, str]]:
+    """Arrange a centre and an accepted manager acting on it.
+
+    :param session: An arranging session
+    :return: The centre id and the manager's headers
+    """
+    centre = _centre(session)
+    manager = _account(session)
+    _member(session, centre=centre, account_id=manager)
+    return centre, _headers(session, manager, centre)
+
+
+def _invite(client: TestClient, headers: dict[str, str], **body: object) -> object:
+    """Invite a teacher to the centre.
+
+    :param client: The test client
+    :param headers: The manager's headers
+    :param body: The contact fields
+    :return: The response
+    """
+    return client.post(
+        "/v1/centre/members",
+        json={"display_name": "Nadia", "role": "teacher", **body},
+        headers=headers,
+    )
+
+
+def test_a_centre_invites_by_email_alone(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """No phone in the response, the address lowercased, linked at once.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address
+
+    _, headers = _manager(owner_session)
+    email = address()
+    holder = account(owner_session, email=email)
+
+    invited = _invite(api_client, headers, email=f"  {email.upper()} ")
+
+    assert invited.status_code == 201, invited.text  # type: ignore[attr-defined]
+    body = invited.json()  # type: ignore[attr-defined]
+    assert body["phone"] is None
+    assert body["invited_email"] == email
+    assert body["decision"] == "pending"
+    owner_session.expire_all()
+    linked = owner_session.execute(
+        sa.select(OwnerMember.account_id).where(OwnerMember.id == body["member_id"])
+    ).scalar_one()
+    assert linked == holder
+
+
+def test_a_live_email_is_invited_once_per_centre(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """The same address again, alone or beside a phone, is refused [BR1.8].
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :return: None
+    """
+    from tests.accounts.contact_support import address
+
+    _, headers = _manager(owner_session)
+    email = address()
+
+    first = _invite(api_client, headers, email=email)
+    again = _invite(api_client, headers, email=email)
+    beside = _invite(api_client, headers, email=email, phone=_phone())
+
+    assert first.status_code == 201  # type: ignore[attr-defined]
+    for refused in (again, beside):
+        assert refused.status_code == 409  # type: ignore[attr-defined]
+        assert refused.json()["error"]["code"] == "MEMBER_ALREADY_INVITED"  # type: ignore[attr-defined]
+
+
+def test_an_invitation_must_name_a_phone_or_an_email(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """Naming nobody is a request validation error [BR1.8].
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :return: None
+    """
+    _, headers = _manager(owner_session)
+
+    assert _invite(api_client, headers).status_code == 422  # type: ignore[attr-defined]
+
+
+def test_a_phone_beside_an_email_decides_the_link(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """The address's account is not linked when a phone is recorded [BR2.1].
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address
+
+    _, headers = _manager(owner_session)
+    email = address()
+    account(owner_session, email=email)
+
+    invited = _invite(api_client, headers, email=email, phone=_phone())
+
+    assert invited.status_code == 201, invited.text  # type: ignore[attr-defined]
+    owner_session.expire_all()
+    linked = owner_session.execute(
+        sa.select(OwnerMember.account_id).where(
+            OwnerMember.id == invited.json()["member_id"]  # type: ignore[attr-defined]
+        )
+    ).scalar_one()
+    assert linked is None
+
+
+def test_a_legacy_empty_phone_is_listed_as_none(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """A manager row written before U2 with ``""`` reads as no phone [BR1.9].
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :return: None
+    """
+    centre, headers = _manager(owner_session)
+    owner_session.add(
+        OwnerMember(
+            owner_id=centre,
+            account_id=None,
+            invited_phone="",
+            display_name="Legacy manager",
+            role="manager",
+            decision="pending",
+            created_at=dt.datetime.now(tz=dt.UTC),
+        )
+    )
+    owner_session.commit()
+
+    listed = api_client.get("/v1/centre/members", headers=headers)
+
+    assert listed.status_code == 200, listed.text
+    phones = [row["phone"] for row in listed.json()]
+    assert None in phones
+    assert "" not in phones
+
+
+# --------------------------------------------------------------------------
+# One account, one live membership per centre [review R-02]. Written BEFORE
+# the fix: two linked rows in one centre let the class and examiner lens
+# joins pick the wrong member, an authorization error.
+# --------------------------------------------------------------------------
+
+
+def _live_memberships(session: Session, centre: uuid.UUID, holder: uuid.UUID) -> int:
+    """Count the account's live memberships in one centre.
+
+    :param session: An arranging session
+    :param centre: The centre
+    :param holder: The account
+    :return: The count
+    """
+    session.expire_all()
+    count = session.execute(
+        sa.select(sa.func.count())
+        .select_from(OwnerMember)
+        .where(
+            OwnerMember.owner_id == centre,
+            OwnerMember.account_id == holder,
+            OwnerMember.revoked_at.is_(None),
+        )
+    ).scalar_one()
+    session.commit()
+    return int(count)
+
+
+def test_matching_never_gives_an_account_a_second_live_membership_in_a_centre(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """The email invitation is skipped when the phone one already links them.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application's role
+    :return: None
+    """
+    from app.accounts.identifier import Identifier
+    from app.accounts.matching import match_contact
+    from tests.accounts.contact_support import account, address, invitation
+
+    phone, email = _phone(), address()
+    holder = account(owner_session, phone=phone, email=email)
+    centre = _centre(owner_session)
+    invitation(owner_session, centre, phone=phone, account_id=holder)
+    by_email = invitation(owner_session, centre, email=email)
+
+    match_contact(
+        restricted_session, account_id=holder, contact=Identifier.email(email)
+    )
+    restricted_session.commit()
+
+    assert _live_memberships(owner_session, centre, holder) == 1
+    owner_session.expire_all()
+    assert owner_session.get(OwnerMember, by_email).account_id is None  # type: ignore[union-attr]
+
+
+def test_inviting_an_account_already_live_in_the_centre_is_refused(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """Invited by phone, then by its email: the second is already invited.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :return: None
+    """
+    from tests.accounts.contact_support import account, address
+
+    centre, headers = _manager(owner_session)
+    phone, email = _phone(), address()
+    holder = account(owner_session, phone=phone, email=email)
+
+    first = _invite(api_client, headers, phone=phone)
+    second = _invite(api_client, headers, email=email)
+
+    assert first.status_code == 201, first.text  # type: ignore[attr-defined]
+    assert second.status_code == 409, second.text  # type: ignore[attr-defined]
+    assert second.json()["error"]["message_key"] == "centre.member.already_invited"  # type: ignore[attr-defined]
+    assert _live_memberships(owner_session, centre, holder) == 1

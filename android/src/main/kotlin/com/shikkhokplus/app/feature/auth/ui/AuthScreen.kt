@@ -46,7 +46,9 @@ import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.model.Identifier
 import com.shikkhokplus.app.core.model.IdentifierKind
 import com.shikkhokplus.app.core.ui.IdentifierField
+import com.shikkhokplus.app.core.ui.AvailabilityState
 import com.shikkhokplus.app.core.ui.IdentifierKindToggle
+import com.shikkhokplus.app.core.ui.LoginField
 import com.shikkhokplus.app.core.ui.PasswordField
 import com.shikkhokplus.app.core.ui.ResendCountdown
 import com.shikkhokplus.app.core.ui.identifierIsWellFormed
@@ -89,9 +91,13 @@ fun AuthScreen(
     actions: AuthActions,
     modifier: Modifier = Modifier,
     codeDestination: IdentifierKind = IdentifierKind.PHONE,
+    replacementAvailability: AvailabilityState = AvailabilityState.Idle,
 ) {
     var kind by rememberSaveable { mutableStateOf(IdentifierKind.PHONE) }
     var identifier by rememberSaveable { mutableStateOf("") }
+    // The sign-in's one field [W3]. Its own value, not the code flow's:
+    // a username copied into the code flow would be refused there.
+    var login by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
 
@@ -167,6 +173,20 @@ fun AuthScreen(
                     },
                 )
 
+            // The code was right but the sign-up's name was taken
+            // meanwhile [FR2.2]; the code is held in the ViewModel.
+            state is AuthUiState.ReplaceUsername ->
+                ReplaceUsernameStep(
+                    state = state,
+                    availability = replacementAvailability,
+                    onEdited = actions.onReplacementEdited,
+                    onSubmit = actions.onSubmitReplacement,
+                    onBack = {
+                        code = ""
+                        actions.onChangeNumber()
+                    },
+                )
+
             onCodeStep ->
                 CodeStep(
                     code = code,
@@ -203,19 +223,16 @@ fun AuthScreen(
                     onBack = actions.onBackToSignIn,
                 )
 
+            // Nothing about the login is judged before sending [FR4.1,
+            // FR11.3]: the button is enabled once both fields hold text.
             else ->
                 SignInStep(
-                    form = identifierForm,
+                    login = login,
+                    onLoginChange = { login = it },
                     password = password,
                     onPasswordChange = { password = it },
                     state = state,
-                    onSubmit = {
-                        if (identifierIsWellFormed(typed())) {
-                            actions.onSignIn(typed(), password)
-                        } else {
-                            identifierRejected = true
-                        }
-                    },
+                    onSubmit = { actions.onSignIn(login, password) },
                     actions = actions,
                 )
         }
@@ -333,15 +350,20 @@ private fun IdentifierInput(
 }
 
 /**
- * The password sign-in: the brand band, Phone | Email, the identifier,
- * the password, and a bar pinned to the foot.
+ * The password sign-in: the brand band, "Username, phone or email", the
+ * password, and a bar pinned to the foot.
+ *
+ * **One field, no toggle** [FR4.1, W3]. The only refusal shown under it
+ * is a server's `email.invalid` (a value holding `@` that is no address);
+ * every other refusal is the banner, as before.
  *
  * **One scrolling column at least the window's height.** The bar sits
  * at the foot of a tall phone, as the board draws it, and on a short
  * one the whole step scrolls rather than squeezing the fields out of
  * sight -- the regression this screen already caught once, at 320x414.
  *
- * @param form The identifier half of the form
+ * @param login What is typed in the login field
+ * @param onLoginChange Called on each edit of it
  * @param password The password typed so far
  * @param onPasswordChange Called on each edit of it
  * @param state What to render
@@ -350,7 +372,8 @@ private fun IdentifierInput(
  */
 @Composable
 private fun SignInStep(
-    form: IdentifierForm,
+    login: String,
+    onLoginChange: (String) -> Unit,
     password: String,
     onPasswordChange: (String) -> Unit,
     state: AuthUiState,
@@ -371,7 +394,7 @@ private fun SignInStep(
                     // Tall on the empty first screen; compact once anything
                     // is typed, so the fields clear the keyboard.
                     BrandHero(
-                        compact = form.value.isNotEmpty() || state !is AuthUiState.Idle || !roomForTallHero,
+                        compact = login.isNotEmpty() || state !is AuthUiState.Idle || !roomForTallHero,
                         tagline = stringResource(R.string.auth_tagline),
                     )
                     Column(
@@ -383,7 +406,17 @@ private fun SignInStep(
                             text = stringResource(R.string.auth_signin_headline),
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         )
-                        IdentifierInput(form = form, state = state, help = null, enabled = !busy)
+                        LoginField(
+                            value = login,
+                            onValueChange = onLoginChange,
+                            error =
+                                (state as? AuthUiState.Failed)
+                                    ?.messageKey
+                                    ?.takeIf { it in IDENTIFIER_MESSAGE_KEYS }
+                                    ?.let { stringResource(MessageKeys.resolve(it)) },
+                            enabled = !busy,
+                            fieldModifier = Modifier.testTag(TAG_IDENTIFIER_FIELD),
+                        )
                         PasswordField(
                             value = password,
                             onValueChange = onPasswordChange,
@@ -402,7 +435,7 @@ private fun SignInStep(
                     }
                 }
                 SignInBar(
-                    enabled = form.value.isNotBlank() && password.isNotEmpty() && !busy,
+                    enabled = login.isNotBlank() && password.isNotEmpty() && !busy,
                     onSubmit = onSubmit,
                     actions = actions,
                 )

@@ -160,6 +160,66 @@ describe('Add student (T8)', () => {
   })
 })
 
+describe('emails on the roster and the quick-add [W7 steps 7–8]', () => {
+  const props = { batchId: 'b1', batch: mapBatch(batch), reloadBatch: () => undefined }
+
+  it('a declined seat with no phone is named by the guardian email', async () => {
+    api((_m, u) => {
+      if (u.endsWith('/roster'))
+        return json(200, [
+          seat('e1', 'Tasnim', {
+            guardian_phone: null,
+            guardian_email: 'mother@example.com',
+            guardian_state: 'declined',
+            student_email: null,
+            unknown_new_field: 'tolerated',
+          }),
+        ])
+      if (u.endsWith('/fees')) return json(200, noFees)
+    })
+    renderScreen(<StudentsTab {...props} />)
+    expect(
+      await screen.findByRole('button', { name: 'Actions for mother@example.com' }),
+    ).toBeInTheDocument()
+  })
+
+  it('a declined seat with neither phone nor email keeps the plain words', async () => {
+    api((_m, u) => {
+      if (u.endsWith('/roster'))
+        return json(200, [
+          seat('e1', 'Tasnim', {
+            guardian_phone: null,
+            guardian_email: null,
+            guardian_state: 'declined',
+          }),
+        ])
+      if (u.endsWith('/fees')) return json(200, noFees)
+    })
+    renderScreen(<StudentsTab {...props} />)
+    expect(
+      await screen.findByRole('button', {
+        name: 'Actions for Declined seat (no number recorded)',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('the quick-add links to the full form, this batch chosen, to record by email', async () => {
+    api((m, u) => {
+      if (u.endsWith('/v1/batches') && m === 'GET') return json(200, [batch])
+      if (u.endsWith('/roster')) return json(200, [])
+    })
+    renderScreen(
+      <Routes>
+        <Route path="/batches/:batchId/students/new" element={<AddStudent />} />
+      </Routes>,
+      '/batches/b1/students/new',
+    )
+    const link = await screen.findByTestId('add-by-email')
+    expect(link).toHaveTextContent('Record by email instead')
+    expect(link).toHaveAttribute('href', '/students/new?batch=b1')
+  })
+})
+
 describe('Students tab', () => {
   const props = { batchId: 'b1', batch: mapBatch(batch), reloadBatch: () => undefined }
 

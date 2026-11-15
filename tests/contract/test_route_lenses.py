@@ -61,21 +61,22 @@ def _dual_lens() -> TeacherLens | GuardianLens:
     raise NotImplementedError
 
 
-def test_public_routes_has_exactly_fourteen_entries() -> None:
-    """``PUBLIC_ROUTES`` is a fixed set of exactly fourteen.
+def test_public_routes_has_exactly_fifteen_entries() -> None:
+    """``PUBLIC_ROUTES`` is a fixed set of exactly fifteen.
 
-    The length assertion is the control: a FIFTEENTH entry is a diff
+    The length assertion is the control: a SIXTEENTH entry is a diff
     against a stated number rather than a line appended to a growing
-    list. It has already done that job twice -- the staging outbox
-    route broke this test on the commit that added it, and D1's two
-    signup routes broke it again, and the three admin sign-in routes a
-    third time, and the app sign-in's second step a fourth [0028], and
-    password sign-in and setup a fifth [0032], which is exactly what an
-    unauthenticated route deserves.
+    list. It has already done that job several times -- the staging
+    outbox route broke this test on the commit that added it, and D1's
+    two signup routes broke it again, and the three admin sign-in routes
+    a third time, and the app sign-in's second step a fourth [0028],
+    password sign-in and setup a fifth [0032], and the public username
+    lookup a sixth [U1: BR3.5], which is exactly what an unauthenticated
+    route deserves.
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 14
+    assert len(PUBLIC_ROUTES) == 15
 
 
 def test_public_routes_contains_the_contracted_entries() -> None:
@@ -101,6 +102,10 @@ def test_public_routes_contains_the_contracted_entries() -> None:
     # The app sign-in's second step [0028]: no token yet, bounded by its
     # challenge and the factor's lock.
     assert ("POST", "/v1/auth/mfa") in PUBLIC_ROUTES
+    # The username availability lookup [U1: BR3.5]: a POST with a body,
+    # so no username reaches a URL [NFR3.5].
+    assert ("POST", "/v1/accounts/username-availability") in PUBLIC_ROUTES
+    assert ("GET", "/v1/accounts/username-availability") not in PUBLIC_ROUTES
 
     # **The count, asserted.** The docstring on PUBLIC_ROUTES claimed
     # "exactly five, and the count is asserted" while holding six entries
@@ -111,8 +116,8 @@ def test_public_routes_contains_the_contracted_entries() -> None:
     # present, and only the count catches a SEVENTH being appended. Adding a
     # public route should mean editing this number, which is a reviewable,
     # deliberate act rather than one more line in a growing list.
-    assert len(PUBLIC_ROUTES) == 14, (
-        f"PUBLIC_ROUTES holds {len(PUBLIC_ROUTES)} entries, not 12: "
+    assert len(PUBLIC_ROUTES) == 15, (
+        f"PUBLIC_ROUTES holds {len(PUBLIC_ROUTES)} entries, not 15: "
         f"{sorted(PUBLIC_ROUTES)}. A public route is reachable with no "
         f"authentication at all. If the addition is intended, change the "
         f"number here and in the docstring in the same commit."
@@ -215,6 +220,14 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             ("POST", "/v1/me/password"),
             ("POST", "/v1/me/contact"),
             ("POST", "/v1/me/contact/verify"),
+            # Removing one of the caller's own contacts [U2: FR8.4]; it asks
+            # for the account's password.
+            ("POST", "/v1/me/contact/remove"),
+            # The caller's own username [U1: BR3.5]: its lookup differs from
+            # the public one only for names the caller holds, and the change
+            # writes only the caller's own name.
+            ("POST", "/v1/me/username-availability"),
+            ("PUT", "/v1/me/username"),
         }
     )
 

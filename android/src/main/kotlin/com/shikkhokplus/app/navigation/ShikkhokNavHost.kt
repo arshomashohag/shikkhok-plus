@@ -208,9 +208,11 @@ private fun ShikkhokGraph(
             }
 
             val codeDestination by authModel.codeDestination.collectAsState()
+            val replacementAvailability by authModel.replacementAvailability.state.collectAsState()
             AuthScreen(
                 state = state,
                 codeDestination = codeDestination,
+                replacementAvailability = replacementAvailability,
                 actions =
                     AuthActions(
                         onSignIn = authModel::signIn,
@@ -226,6 +228,8 @@ private fun ShikkhokGraph(
                         onToggleRecoveryCode = authModel::toggleRecoveryCode,
                         onRetry = authModel::retry,
                         onGoToSignup = { navController.navigate(Destination.Signup.route) },
+                        onReplacementEdited = authModel::replacementEdited,
+                        onSubmitReplacement = authModel::submitReplacement,
                     ),
             )
         }
@@ -259,13 +263,23 @@ private fun ShikkhokGraph(
                     // The password chosen on the form goes with it, handed
                     // over once: the code step sends it as soon as the
                     // code is verified, and neither ViewModel keeps it.
-                    authModel.adoptPendingCode(Identifier(sent.kind, sent.codeSentTo), model.takePassword())
+                    // The username goes too, so a replacement after the
+                    // name was taken meanwhile can say which [FR2.2].
+                    authModel.adoptPendingCode(
+                        Identifier(sent.kind, sent.codeSentTo),
+                        model.takePassword(),
+                        model.lastUsername,
+                    )
                     navController.popBackStack()
                 }
             }
 
+            val availability by model.availability.state.collectAsState()
             SignupScreen(
                 state = state,
+                availability = availability,
+                onUsernameEdited = model::usernameEdited,
+                onEmailLeft = model::emailLeft,
                 onSubmit = model::submit,
                 // **Back to sign-in, not forward to it.** Signup issues
                 // an OTP and does not authenticate, so the person

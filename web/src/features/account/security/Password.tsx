@@ -90,7 +90,8 @@ export function Password() {
         <p className="meta" style={{ marginTop: 0 }}>
           {t(first ? 'web_password_set_body' : 'web_password_change_body')}
         </p>
-        <HiddenUsername value={session.me.phone ?? session.me.email ?? ''} />
+        {/* Filed under the name the person now signs in with [W9, § 7]. */}
+        <HiddenUsername value={session.me.username ?? session.me.phone ?? session.me.email ?? ''} />
         {first ? null : (
           <Field id="current-password" label={t('web_password_current')} error={currentError}>
             <PasswordInput

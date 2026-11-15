@@ -166,4 +166,53 @@ class SignupStateMapperTest {
         assertEquals(SignupStateMapper.OFFLINE_KEY, failed.messageKey)
         assertEquals(true, failed.retryable)
     }
+
+    // --- U3: the username [FR2.1, FR11.3, NFR3.9] ---------------------------
+
+    private fun form(username: String) =
+        SignupForm(
+            identifier = com.shikkhokplus.app.core.model.Identifier.phone("+8801700000000"),
+            selfName = "Rahim",
+            address = HOME,
+            role = SignupRole.STUDENT,
+            password = "correct horse",
+            confirm = "correct horse",
+            username = username,
+        )
+
+    @Test
+    fun `a blank username is the only username rule on the form`() {
+        assertEquals(
+            SignupUiState.Invalid(listOf(SignupStateMapper.USERNAME_REQUIRED_KEY)),
+            SignupStateMapper.validate(form("  ")),
+        )
+        // FR1's rules are the server's: none of these is refused here.
+        listOf("ab", "a".repeat(21), "9lives", "bad..dot", "bad.", "admin", "নাম").forEach {
+            assertNull(SignupStateMapper.validate(form(it)), it)
+        }
+    }
+
+    @Test
+    fun `username refusals route to the field and nothing else does`() {
+        assertEquals(
+            "account.username.unavailable",
+            SignupStateMapper.usernameKeyOf(SignupUiState.Failed("account.username.unavailable", false)),
+        )
+        assertEquals(
+            SignupStateMapper.USERNAME_REQUIRED_KEY,
+            SignupStateMapper.usernameKeyOf(
+                SignupUiState.Invalid(listOf(SignupStateMapper.NAME_KEY, SignupStateMapper.USERNAME_REQUIRED_KEY)),
+            ),
+        )
+        assertNull(SignupStateMapper.usernameKeyOf(SignupUiState.Failed("signup.number.already_registered", false)))
+        assertNull(SignupStateMapper.usernameKeyOf(SignupUiState.Invalid(listOf(SignupStateMapper.NAME_KEY))))
+        assertNull(SignupStateMapper.usernameKeyOf(SignupUiState.Empty))
+    }
+
+    @Test
+    fun `every username key the field shows has a string`() {
+        SignupStateMapper.USERNAME_MESSAGE_KEYS.forEach {
+            kotlin.test.assertTrue(MessageKeys.isKnown(it), it)
+        }
+    }
 }

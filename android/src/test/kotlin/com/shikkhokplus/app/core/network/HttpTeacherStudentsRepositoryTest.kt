@@ -127,4 +127,61 @@ class HttpTeacherStudentsRepositoryTest {
 
         assertEquals(AuthResult.TransportFailure, repository(engine).removeStudent("s-1"))
     }
+
+    // --- U3: emails [FR6.1, W7.3, W7.5] ---------------------------------------
+
+    private fun recording(bodies: MutableList<String?>, status: HttpStatusCode = HttpStatusCode.OK) =
+        MockEngine { request ->
+            bodies += (request.body as? TextContent)?.text
+            respond(student, status, headersOf("Content-Type", listOf(ContentType.Application.Json.toString())))
+        }
+
+    @Test
+    fun `a new student is sent with both emails, trimmed, and a blank one omitted`() = runTest {
+        val bodies = mutableListOf<String?>()
+
+        repository(recording(bodies)).create("Rafiq", null, null, emptyList(), null, " rafiq@example.com ", " ")
+
+        assertEquals("""{"display_name":"Rafiq","student_email":"rafiq@example.com"}""", bodies.single())
+    }
+
+    @Test
+    fun `an edit sends a changed email, null for a cleared one, and nothing for one left alone`() = runTest {
+        val bodies = mutableListOf<String?>()
+        val repository = repository(recording(bodies))
+
+        repository.rename(
+            "s-1",
+            null,
+            null,
+            null,
+            com.shikkhokplus.app.core.model.EmailEdit.Set("rafiq@example.com"),
+            com.shikkhokplus.app.core.model.EmailEdit.Clear,
+        )
+        repository.rename("s-1", "Rafiqul", null, null)
+
+        assertEquals(
+            listOf<String?>(
+                """{"student_email":"rafiq@example.com","guardian_email":null}""",
+                """{"display_name":"Rafiqul"}""",
+            ),
+            bodies,
+        )
+    }
+
+    @Test
+    fun `a taken student email comes back with its key`() = runTest {
+        val engine =
+            engine(
+                HttpStatusCode.Conflict,
+                """{"error":{"code":"X","retryable":false,"message_key":"student.email.taken"}}""",
+            )
+
+        val refused =
+            assertIs<AuthResult.Refused>(
+                repository(engine).create("Rafiq", null, null, emptyList(), null, "taken@example.com", null),
+            )
+
+        assertEquals("student.email.taken", refused.envelope.error.messageKey)
+    }
 }

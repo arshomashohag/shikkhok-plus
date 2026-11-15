@@ -1,0 +1,27 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "contacts-and-invites-backend",
+  "upstream_ids": ["NFR1", "NFR2", "NFR3", "NFR4", "NFR5", "NFR6", "NFR7", "NFR8", "NFR9"],
+  "coverage": [
+    { "id": "NFR1", "status": "OK", "target": "NFR1.1, NFR1.2, NFR1.3, NFR1.4" },
+    { "id": "NFR2", "status": "OK", "target": "NFR2.1, NFR2.2, NFR2.3, NFR2.4, NFR2.5, NFR2.6" },
+    { "id": "NFR3", "status": "OK", "target": "NFR3.1, NFR3.2, NFR3.3, NFR3.4, NFR3.5, NFR3.6, NFR3.7, NFR3.8, NFR3.9" },
+    { "id": "NFR4", "status": "OK", "target": "NFR4.1, NFR4.2, NFR4.3, NFR4.4, NFR4.5, NFR4.6, NFR4.7, NFR4.8, NFR4.9, NFR4.10" },
+    { "id": "NFR5", "status": "OK", "target": "NFR5.1, NFR5.2, NFR5.3" },
+    { "id": "NFR6", "status": "OK", "target": "NFR6.1, NFR6.2" },
+    { "id": "NFR7", "status": "OK", "target": "NFR7.1, NFR7.2, NFR7.3" },
+    { "id": "NFR8", "status": "OK", "target": "NFR8.1, NFR8.2, NFR8.3, NFR8.4, NFR8.5, NFR8.6, NFR8.7, NFR8.8, NFR8.9, NFR8.10, NFR8.11" },
+    { "id": "NFR9", "status": "OK", "target": "NFR9.1, NFR9.2" }
+  ],
+  "reverse": [
+    { "id": "NFR1/username-sign-in-refusal", "status": "N/A", "target": "Owned by U1: one refusal for unknown, password-less and wrong username sign-in; U2 covers only its own lookup and contact surfaces" },
+    { "id": "NFR2/username-sign-in-failures", "status": "N/A", "target": "Owned by U1: 10 failures per username per hour; U2 adds no sign-in path" },
+    { "id": "NFR2/availability-lookup-ceilings", "status": "N/A", "target": "Owned by U1: the username availability lookup's ceilings; U2's lookup reuses the existing already-added cascade" },
+    { "id": "NFR2/rename-limit", "status": "N/A", "target": "Owned by U1: FR7.2 rename limit" },
+    { "id": "NFR3/username-privacy-gate", "status": "N/A", "target": "Owned by U1: adding username to the owner-private set and the admin forbidden list (FR9.2); U2's recorded-email allowlist is NFR3.3" },
+    { "id": "NFR4/username-test-first-cases", "status": "N/A", "target": "Owned by U1: uniform refusal, per-network ceiling, reclaim and privacy-gate tests" },
+    { "id": "NFR5/android-coverage-ratchet", "status": "N/A", "target": "Owned by the clients (U3, U4): Kotlin coverage must not decrease; U2 ships no client code" },
+    { "id": "NFR7/username-column", "status": "N/A", "target": "Owned by U1: the nullable username column; U2's own migration is NFR7.1" },
+    { "id": "NFR8/availability-lookup-latency", "status": "N/A", "target": "Owned by U1: the username availability lookup's 300 ms p95; U2 applies the same figure to its own lookup in NFR8.1" }
+  ]
+}

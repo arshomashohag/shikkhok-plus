@@ -3,7 +3,9 @@
  * actions on them [0018]. As `StudentDetailScreen.kt`.
  *
  * Fees, attendance and marks stay per batch [D5]; a batch opens that
- * seat's fee history. Which seat may be deleted, and whether the student
+ * seat's fee history. Edit opens the name, phones and emails in a sheet
+ * [FR6.2]; the header and guardian line show what the mappers chose,
+ * the phone first, else the email [W7 step 7]. Which seat may be deleted, and whether the student
  * may be removed, are the server's answers; a refusal is shown in the
  * server's own words [D4].
  */
@@ -11,7 +13,6 @@ import { useCallback, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { listBatches } from '../../../api/endpoints'
 import { ApiError } from '../../../api/errors'
-import { formatPhone } from '../../../core/format'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import { ConfirmSheet, ErrorCard, Loading, Sheet, Snackbar, TopBar } from '../../../ui/components'
@@ -21,13 +22,22 @@ import { removeEnrollment, setInactiveFrom } from '../students/api'
 import { RecordPaymentSheet } from '../money/RecordPaymentSheet'
 import { bangladeshToday } from '../students/mappers'
 import { enrollStudent, readStudent, removeStudent } from './api'
-import { linkKey, mapStudent, otherBatches, type SeatLine } from './mappers'
+import { EditStudentSheet } from './EditStudentSheet'
+import {
+  guardianContactLine,
+  linkKey,
+  mapStudent,
+  otherBatches,
+  studentContactLine,
+  type SeatLine,
+} from './mappers'
 
 type Dialog =
   | { kind: 'leave'; seat: SeatLine }
   | { kind: 'remove' }
   | { kind: 'remove-seat'; seat: SeatLine }
   | { kind: 'record'; seat: SeatLine }
+  | { kind: 'edit' }
   | null
 
 export function StudentDetail() {
@@ -85,16 +95,27 @@ export function StudentDetail() {
 
   const { student, batches } = resource.data
   const others = otherBatches(student, batches)
-  const guardianLabel = student.guardianPhone
-    ? `${t('student_detail_guardian_link')} · ${formatPhone(student.guardianPhone)}`
+  const guardianContact = guardianContactLine(student)
+  const guardianLabel = guardianContact
+    ? `${t('student_detail_guardian_link')} · ${guardianContact}`
     : t('student_detail_guardian_link')
 
   return (
     <>
       <TopBar
         title={student.name}
-        subtitle={student.studentPhone ? formatPhone(student.studentPhone) : undefined}
+        subtitle={studentContactLine(student) ?? undefined}
         back={paths.students()}
+        actions={
+          <button
+            type="button"
+            className="btn btn-outline btn-small"
+            disabled={busy}
+            onClick={() => setDialog({ kind: 'edit' })}
+          >
+            {t('web_student_edit_title')}
+          </button>
+        }
       />
       <div className="student-detail">
         <section className="card" style={{ marginTop: 8 }}>
@@ -268,6 +289,17 @@ export function StudentDetail() {
           busy={busy}
           onConfirm={() => void act(() => removeEnrollment(dialog.seat.enrollmentId))}
           onCancel={close}
+        />
+      ) : null}
+      {dialog?.kind === 'edit' ? (
+        <EditStudentSheet
+          student={student}
+          onClose={close}
+          onSaved={() => {
+            setDialog(null)
+            setSnack(t('web_student_edit_saved'))
+            reload()
+          }}
         />
       ) : null}
       {dialog?.kind === 'record' ? (

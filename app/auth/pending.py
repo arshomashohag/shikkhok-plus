@@ -29,6 +29,13 @@ Owner-private like ``profile`` -- it carries an address -- and read by
 no route: the only reader is the verify path that turns it into rows.
 It lives for :data:`DRAFT_LIFETIME` and is purged under its retention
 class like every other short-lived auth table.
+
+**A draft carries the username it asked for and reserves nothing** [U1:
+BR2.3]. The name was found available when the draft was saved; whichever
+draft's verify creates its account first takes it. A verify may replace
+the draft's name inside its own transaction (:func:`set_username`), and
+that replacement rolls back with everything else if the verify does
+[BR2.5].
 """
 
 from __future__ import annotations
@@ -49,6 +56,7 @@ __all__ = [
     "bind_code",
     "discard",
     "save_draft",
+    "set_username",
     "take_bound_draft",
 ]
 
@@ -72,6 +80,8 @@ class SignupDraft:
     :ivar address_city: City or district
     :ivar address_postcode: Four digits
     :ivar centre_name: The centre's name, for ``coaching`` only
+    :ivar username: The username asked for, or None for a draft saved
+        before usernames existed [U1: BR2.7]
     """
 
     id: uuid.UUID
@@ -84,6 +94,7 @@ class SignupDraft:
     address_city: str
     address_postcode: str
     centre_name: str | None
+    username: str | None = None
 
 
 #: One draft per number, replaced whole by a later signup. The id is
@@ -92,11 +103,11 @@ class SignupDraft:
 _UPSERT_SQL = """
     INSERT INTO pending_signup
         (id, phone, email, role, self_name, address_house, address_road,
-         address_city, address_postcode, centre_name, otp_request_id,
+         address_city, address_postcode, centre_name, username, otp_request_id,
          created_at, expires_at)
     VALUES
         (:id, :phone, :email, :role, :self_name, :address_house, :address_road,
-         :address_city, :address_postcode, :centre_name, NULL,
+         :address_city, :address_postcode, :centre_name, :username, NULL,
          :created_at, :expires_at)
     ON CONFLICT ({column}) DO UPDATE SET
         id = EXCLUDED.id,
@@ -107,6 +118,7 @@ _UPSERT_SQL = """
         address_city = EXCLUDED.address_city,
         address_postcode = EXCLUDED.address_postcode,
         centre_name = EXCLUDED.centre_name,
+        username = EXCLUDED.username,
         otp_request_id = NULL,
         created_at = EXCLUDED.created_at,
         expires_at = EXCLUDED.expires_at
@@ -131,6 +143,7 @@ def save_draft(
     address_postcode: str,
     centre_name: str | None,
     now: dt.datetime,
+    username: str | None = None,
 ) -> uuid.UUID:
     """Hold a signup form until its number is proved. Does not commit.
 
@@ -144,6 +157,8 @@ def save_draft(
     :param address_postcode: Four digits
     :param centre_name: The centre's name, or None
     :param now: The moment of the request
+    :param username: The judged, available username's display form
+        [U1: BR2.1]; reserves nothing [BR2.3]
     :return: The draft's id, which the account takes if it is completed
     """
     draft_id = uuid.uuid4()
@@ -159,11 +174,31 @@ def save_draft(
             "address_city": address_city,
             "address_postcode": address_postcode,
             "centre_name": centre_name,
+            "username": username,
             "created_at": now,
             "expires_at": now + DRAFT_LIFETIME,
         },
     )
     return draft_id
+
+
+def set_username(session: Session, *, draft_id: uuid.UUID, username: str) -> None:
+    """Replace a bound draft's username, inside the verify. Does not commit.
+
+    [U1: BR2.5] Holding the draft's live, correct code is the
+    authorization: this runs only after the verify spent it, so the
+    replacement rolls back with the code's consumption if the account
+    cannot be created.
+
+    :param session: The verify's session
+    :param draft_id: The draft just taken, locked
+    :param username: The judged replacement's display form
+    :return: None
+    """
+    session.execute(
+        sa.text("UPDATE pending_signup SET username = :username WHERE id = :id"),
+        {"username": username, "id": draft_id},
+    )
 
 
 def bind_code(
@@ -210,7 +245,7 @@ def take_bound_draft(
     row = session.execute(
         sa.text(
             "SELECT id, phone, email, role, self_name, address_house, address_road, "
-            "address_city, address_postcode, centre_name FROM pending_signup "
+            "address_city, address_postcode, centre_name, username FROM pending_signup "
             "WHERE otp_request_id = :otp_request_id AND expires_at > :now "
             "FOR UPDATE"
         ),
@@ -229,6 +264,7 @@ def take_bound_draft(
         address_city=row.address_city,
         address_postcode=row.address_postcode,
         centre_name=row.centre_name,
+        username=row.username,
     )
 
 

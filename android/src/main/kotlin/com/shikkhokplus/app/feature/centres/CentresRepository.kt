@@ -25,14 +25,16 @@ interface CentresRepository {
     suspend fun members(): AuthResult<List<MemberDto>>
 
     /**
-     * Invite someone to the chosen centre by phone.
+     * Invite someone to the chosen centre by phone, by email, or both
+     * [FR6.4]. A null or blank contact is left out of the body.
      *
      * @param displayName Their name
-     * @param phone Their number
+     * @param phone Their number, or null
+     * @param email Their address, or null
      * @param role `manager` or `teacher`
      * @return The pending member, a refusal, or a transport failure
      */
-    suspend fun invite(displayName: String, phone: String, role: String): AuthResult<MemberDto>
+    suspend fun invite(displayName: String, phone: String?, email: String?, role: String): AuthResult<MemberDto>
 
     /**
      * Remove a member; the last manager cannot be removed.

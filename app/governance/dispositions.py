@@ -76,6 +76,9 @@ class RetentionClass(enum.Enum):
     HOURS_48 = "48_hours"
     MONTHS_12 = "12_months"
     UNTIL_EXPIRY_PLUS_30_DAYS = "until_expiry_plus_30_days"
+    #: Kept until the row's own expiry and no longer [U1: BR7.6]: the
+    #: purge's window is zero, measured from the expiry column.
+    UNTIL_EXPIRY = "until_expiry"
     LIFE_OF_ACCOUNT = "life_of_account"
 
 
@@ -129,7 +132,10 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "with their account links cleared by the database "
             "constraint rather than by the deletion code, so a new "
             "account registering the same number or address later "
-            "inherits nothing from the deleted one."
+            "inherits nothing from the deleted one. The username is "
+            "removed with the account; for 30 days afterwards nobody may "
+            "take it, which is recorded only as a keyed digest of the "
+            "name."
         ),
     ),
     "profile": TableGovernance(
@@ -146,7 +152,8 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         basis=(
             "High volume, carries a phone number or an email address, and "
             "has an obviously short lifetime. A code is useless after five "
-            "minutes."
+            "minutes. A code to replace a contact also names the account "
+            "that asked for it, and is deleted with that account."
         ),
     ),
     "verify_attempt": TableGovernance(
@@ -193,14 +200,32 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         basis=(
             "A deletion request does nothing to these rows, and that is "
             "deliberate rather than an omission. The counters are keyed "
-            "on a scope VALUE -- for two of the seven scopes a phone "
-            "number -- and they are the abuse control itself, so "
-            "clearing a number's counters on request would make the "
-            "public deletion route the way to reset the ceilings "
-            "protecting it. They are not a record about a person; they "
-            "are a count of recent attempts, and they expire on their "
-            "own 48-hour window, which is longer than the longest "
-            "counting window with room to spare."
+            "on a scope VALUE -- for some scopes a phone number, or a "
+            "keyed or one-way digest of an email address or a username "
+            "-- and they are the abuse control itself, so clearing a "
+            "number's counters on request would make the public deletion "
+            "route the way to reset the ceilings protecting it. They are "
+            "not a record about a person; they are a count of recent "
+            "attempts, and they expire on their own 48-hour window, which "
+            "is longer than the longest counting window with room to "
+            "spare."
+        ),
+    ),
+    # [U1: BR7.7] Retained with its basis, until its own expiry: it is a
+    # record about a released name, kept so the name cannot be taken
+    # over, and it holds no name to remove.
+    "username_hold": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.UNTIL_EXPIRY,
+        basis=(
+            "When a username is changed or its account is deleted, the old "
+            "name is held for 30 days so nobody else can take it and pass "
+            "themselves off as its owner. The hold stores a keyed digest "
+            "of the lowercase name, never the name itself, and its expiry; "
+            "while the account that changed it still exists, the hold "
+            "also names that account, so it alone can take the name back, "
+            "and that link is cleared when the account is deleted. A hold "
+            "is removed when it expires."
         ),
     ),
     "auth_audit_log": TableGovernance(
@@ -232,7 +257,11 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "display_name is TEACHER-authored and part of the teacher's "
             "own record. This is the direct tension between a guardian's "
             "erasure right and a teacher's business record, and U11 "
-            "resolves it against the full schema."
+            "resolves it against the full schema. When the person a seat "
+            "links to deletes their account, the link is cleared and the "
+            "time of the erasure is kept on the seat, naming nobody, so "
+            "the seat is never linked to whoever holds that number or "
+            "address next."
         ),
     ),
     "student": TableGovernance(
@@ -240,7 +269,8 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         retention=RetentionClass.LIFE_OF_ACCOUNT,
         basis=(
             "The teacher's own record of a student: the name and the "
-            "numbers the TEACHER typed, the same fields every one of "
+            "numbers and email addresses the TEACHER typed, the same "
+            "fields every one of "
             "that student's enrollments carries. It holds nothing the "
             "student or guardian wrote and links to no account, so it "
             "is retained on the same basis as the enrollments it groups."
@@ -358,7 +388,8 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         retention=RetentionClass.LIFE_OF_ACCOUNT,
         basis=(
             "A coaching centre's own record of who works there: the name "
-            "and phone number its manager typed, the role, and when the "
+            "and the phone number or email address its manager typed, the "
+            "role, and when the "
             "person was invited, answered and left. When a member deletes "
             "their account the membership is ended and its link to the "
             "account cleared; the centre keeps the record, which names "

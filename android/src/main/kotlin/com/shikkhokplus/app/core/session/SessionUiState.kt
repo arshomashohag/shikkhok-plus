@@ -65,4 +65,11 @@ sealed interface SessionUiState {
         val messageKey: String,
         val retryable: Boolean,
     ) : SessionUiState
+
+    /**
+     * The account must choose a username before anything else [FR5.2].
+     *
+     * @property then The state the app routes to once one is chosen
+     */
+    data class UsernameRequired(val then: SessionUiState) : SessionUiState
 }

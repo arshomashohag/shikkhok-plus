@@ -8,6 +8,11 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
+    // A directive that suppresses nothing is itself an error, so an
+    // exemption cannot outlive the line it was written for [NFR3.5].
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
+  },
+  {
     ignores: [
       'dist',
       'dist-admin',
@@ -42,6 +47,16 @@ export default tseslint.config(
         { object: 'localStorage', property: 'clear', message: 'Clear only the keys you own.' },
       ],
     },
+  },
+  {
+    // [NFR3.5] Shipped code prints nothing: the console is visible to
+    // anyone at the machine and copied into support screenshots, so a
+    // username, phone, email, password or code must never reach it. No
+    // method is allowed; the two existing calls carry an annotated
+    // exemption, pinned by src/test/lintConfig.test.ts. Tests are exempt.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}', 'src/test/**'],
+    rules: { 'no-console': 'error' },
   },
   {
     // Tests own the whole of jsdom's storage and assert on fixtures they

@@ -1,8 +1,21 @@
 /**
- * Create an account, with a mobile number or an email address, and a
- * password. The server sends a code to the number or address; the code
- * buys a setup token, and the password chosen on the form is set with it
- * (`/v1/auth/password/setup`), which signs the person in.
+ * Create an account, with a username, a mobile number or an email
+ * address, and a password. The server sends a code to the number or
+ * address; the code buys a setup token, and the password chosen on the
+ * form is set with it (`/v1/auth/password/setup`), which signs the
+ * person in.
+ *
+ * **The username** [FR2.1] [functional-spec W1] is sent trimmed; blank is
+ * the only rule the client holds. Its hint asks the server, after a
+ * pause, whether the name could be had; it is guidance only and never
+ * stands between the person and Send code [FR3.2].
+ *
+ * **Replace** [FR2.2] [W2]. If the name is taken while the code is being
+ * confirmed, verify answers `409 account.username.unavailable`. This
+ * screen keeps the code in a ref (memory only), swaps the code step for
+ * the Replace step, and retries the verify with the same code and the
+ * new name. A spent or expired code brings the code step back with its
+ * message and the original send's Resend pacing.
  *
  * **The password is held in memory only**, in a ref, between the form and
  * the setup call: never in storage, never in the URL or route state, and
@@ -15,14 +28,14 @@
  * two copies match. Whether the account may sign up is the server's
  * decision, shown through its `message_key`.
  *
- * **Already added** [BR2.3, BR4.5, AC1.12.2]. When the number field is
- * left holding a well-formed mobile number, the form asks the server
- * once whether a teacher already recorded it — the same moment Android
- * asks (`SignupScreen` `onPhoneLeft`). A yes shows the notice and locks
- * the role to the seat's. The notice names neither the teacher nor the
- * batch, nor the person [C-06]: the response carries none of them, so
- * there is nothing here that could show one. An email address is never
- * looked up; the route answers for numbers only.
+ * **Already added** [BR2.3, BR4.5, AC1.12.2] [FR6.7]. When the phone or
+ * email field is left holding a well-formed number or address, the form
+ * asks the server once whether a teacher already recorded it — the same
+ * moment Android asks (`SignupScreen` `onPhoneLeft`). A yes shows the
+ * notice and locks the role to the seat's. The notice names neither the
+ * teacher nor the batch, nor the person [C-06]: the response carries
+ * none of them, so there is nothing here that could show one. An email
+ * address is looked up too, since teachers record students by email.
  *
  * The lookup is advisory. Its failure, or a yes without a role to lock,
  * shows nothing and never stands between the person and Send code.
@@ -37,6 +50,7 @@ import {
 } from 'react'
 import { Link } from 'react-router'
 import {
+  checkUsername,
   issueCode,
   lookupAlreadyAdded,
   setUpPassword,
@@ -44,7 +58,9 @@ import {
   verifyCode,
   type Identifier,
   type Schemas,
+  type VerifyResponse,
 } from '../../api/endpoints'
+import { ApiError } from '../../api/errors'
 import { toLatinDigits } from '../../core/money'
 import { useSession } from '../../session/session'
 import { AuthFrame } from './AuthFrame'
@@ -63,13 +79,26 @@ import {
   identifierInputProps,
   KindToggle,
   PasswordInput,
+  RESEND_AFTER_S,
   useFailureText,
 } from './parts'
+import { isCodeSpent, isNameTakenMeanwhile, ReplaceUsernameStep } from './ReplaceUsernameStep'
 import { GraduationIcon, LayersIcon, TeacherIcon, UsersIcon } from '../../ui/icons'
+import { UsernameField } from './username/UsernameField'
+import { useUsernameAvailability } from './username/useUsernameAvailability'
 import { useT } from '../../i18n/i18n'
 
 type Role = 'teacher' | 'coaching' | 'student' | 'guardian'
-type FieldName = 'centre' | 'name' | 'identifier' | 'house' | 'road' | 'city' | 'postcode'
+type FieldName =
+  'centre' | 'name' | 'identifier' | 'username' | 'house' | 'road' | 'city' | 'postcode'
+
+/**
+ * Whether a server refusal of the account belongs under Username: every
+ * `account.username.*` key, the 409 `unavailable` included [FR2.1].
+ */
+export function isUsernameKey(messageKey: string): boolean {
+  return messageKey.startsWith('account.username.')
+}
 
 type Step =
   | { step: 'form' }
@@ -80,6 +109,18 @@ type Step =
       notice: string | null
       /** Bumped each time the step is shown again, so its field starts fresh. */
       round: number
+      /** When the current code was sent (epoch ms), for Resend's pacing. */
+      sentAt: number
+      /** Why the step is showing again, after a Replace retry spent the code. */
+      error: string | null
+    }
+  | {
+      step: 'replace'
+      identifier: Identifier
+      sentTo: string
+      sentAt: number
+      /** The username typed in the form, which the body names. */
+      name: string
     }
   | {
       step: 'choose'
@@ -104,6 +145,12 @@ export function alreadyAddedFrom(dto: Schemas['AlreadyAddedResponse']): AddedRol
   return dto.already_added && dto.role ? dto.role : null
 }
 
+/** One key per number or address, so a phone and an email never share an answer. */
+function lookupKey(identifier: Identifier | null): string | null {
+  if (!identifier) return null
+  return 'phone' in identifier ? `phone:${identifier.phone}` : `email:${identifier.email}`
+}
+
 const ROLE_ICONS = {
   teacher: TeacherIcon,
   coaching: LayersIcon,
@@ -123,6 +170,7 @@ export function SignUp() {
     centre: '',
     name: '',
     identifier: '',
+    username: '',
     house: '',
     road: '',
     city: '',
@@ -136,6 +184,13 @@ export function SignUp() {
   const [busy, setBusy] = useState(false)
   /** The chosen password, from submitting the form until it is sent. Memory only. */
   const held = useRef<string | null>(null)
+  /**
+   * The code verify accepted before saying the name was taken, held for
+   * the Replace retry. Memory only: never state, route state or storage.
+   */
+  const heldCode = useRef<string | null>(null)
+  /** The username the account is being created with, for the password manager. */
+  const chosenName = useRef<string>('')
   /** The role a teacher's seat fixed for the number typed, while it applies. */
   const [added, setAdded] = useState<AddedRole | null>(null)
   // Each complete number is asked about once; the answer (or `null` for
@@ -147,6 +202,7 @@ export function SignUp() {
   // The seat's role while the notice applies, else the person's own pick
   // (as Android's `prefilled?.lockedRole ?: chosenRole`).
   const role: Role = added ?? chosenRole
+  const availability = useUsernameAvailability(checkUsername)
 
   useEffect(() => {
     document.title = `${t('signup_title')} · ShikkhokPlus`
@@ -156,6 +212,7 @@ export function SignUp() {
   useEffect(
     () => () => {
       held.current = null
+      heldCode.current = null
     },
     [],
   )
@@ -163,39 +220,44 @@ export function SignUp() {
   const set = (name: FieldName) => (e: { target: { value: string } }) =>
     setValues((v) => ({ ...v, [name]: e.target.value }))
 
-  /** A new number: an answer about the previous one stops applying. */
+  /** A username edit: the old refusal stops applying, and the hint re-checks. */
+  function onUsernameChange(value: string) {
+    setValues((v) => ({ ...v, username: value }))
+    setErrors((e) => ({ ...e, username: undefined }))
+    availability.edited(value)
+  }
+
+  /** A new number or address: an answer about the previous one stops applying. */
   function onIdentifierChange(e: { target: { value: string } }) {
     set('identifier')(e)
-    const identifier = kind === 'phone' ? readIdentifier('phone', e.target.value) : null
-    current.current = identifier && 'phone' in identifier ? identifier.phone : null
+    current.current = lookupKey(readIdentifier(kind, e.target.value))
     setAdded(null)
   }
 
-  /** Leaving the number field: ask about a complete mobile number, once. */
+  /** Leaving the field: ask about a well-formed number or address, once. */
   async function onIdentifierLeft() {
-    if (kind !== 'phone') return
-    const identifier = readIdentifier('phone', values.identifier)
-    const phone = identifier && 'phone' in identifier ? identifier.phone : null
-    current.current = phone
-    if (!phone) return
-    if (answers.current.has(phone)) {
-      setAdded(answers.current.get(phone) ?? null)
+    const identifier = readIdentifier(kind, values.identifier)
+    const key = lookupKey(identifier)
+    current.current = key
+    if (!identifier || !key) return
+    if (answers.current.has(key)) {
+      setAdded(answers.current.get(key) ?? null)
       return
     }
     // Reserved before the request, so a second blur while it is in
     // flight does not ask again.
-    answers.current.set(phone, null)
+    answers.current.set(key, null)
     let answer: AddedRole | null = null
     try {
-      answer = alreadyAddedFrom(await lookupAlreadyAdded(phone))
+      answer = alreadyAddedFrom(await lookupAlreadyAdded(identifier))
     } catch {
       // Advisory only: a refused or unreachable lookup shows no notice
       // and leaves the form as it was. Sign-up itself reports its own
       // failures when the person submits.
       answer = null
     }
-    answers.current.set(phone, answer)
-    if (current.current === phone) setAdded(answer)
+    answers.current.set(key, answer)
+    if (current.current === key) setAdded(answer)
   }
 
   function validate(): { identifier: Identifier; postcode: string } | null {
@@ -204,6 +266,8 @@ export function SignUp() {
     if (!values.name.trim()) next.name = t('signup_name_required')
     const identifier = readIdentifier(kind, values.identifier)
     if (!identifier) next.identifier = t(invalidKey(kind))
+    // Non-blank is the only username rule the client holds [FR11.3].
+    if (!values.username.trim()) next.username = t('signup_username_required')
     for (const f of ['house', 'road', 'city'] as const) {
       if (!values[f].trim()) next[f] = t('address_required')
     }
@@ -227,6 +291,7 @@ export function SignUp() {
       const created = await signUp({
         role,
         self_name: values.name.trim(),
+        username: values.username.trim(),
         ...ok.identifier,
         address_house: values.house.trim(),
         address_road: values.road.trim(),
@@ -236,6 +301,7 @@ export function SignUp() {
       })
       // From here the password lives only in the ref, until it is sent.
       held.current = password
+      chosenName.current = values.username.trim()
       setPassword('')
       setConfirm('')
       setStep({
@@ -244,17 +310,75 @@ export function SignUp() {
         sentTo: created.code_sent_to || shownIdentifier(ok.identifier),
         notice: null,
         round: 0,
+        sentAt: Date.now(),
+        error: null,
       })
     } catch (err) {
-      setFormError(failure(err))
+      // A username refusal lands under the field; everything typed stays.
+      if (err instanceof ApiError && isUsernameKey(err.messageKey))
+        setErrors((e) => ({ ...e, username: failure(err) }))
+      else setFormError(failure(err))
     } finally {
       setBusy(false)
     }
   }
 
-  /** Spend the code, then set the held password with the token it bought. */
-  async function verify(identifier: Identifier, sentTo: string, code: string) {
-    const setup = setupFrom(await verifyCode(identifier, code), identifier)
+  /**
+   * Spend the code from the code step. A name taken meanwhile is not a
+   * failure of the code: the code is held, Replace opens, and this
+   * resolves, so the code step never shows the 409 [W2 step 4].
+   */
+  async function verify(identifier: Identifier, sentTo: string, sentAt: number, code: string) {
+    let answer: VerifyResponse
+    try {
+      answer = await verifyCode(identifier, code)
+    } catch (err) {
+      if (!isNameTakenMeanwhile(err)) throw err
+      heldCode.current = code
+      setStep({ step: 'replace', identifier, sentTo, sentAt, name: values.username.trim() })
+      return
+    }
+    await finish(identifier, sentTo, answer)
+  }
+
+  /**
+   * Retry the verify with the held code and the replacement name. A spent
+   * or expired code forgets the held one and shows the code step again,
+   * with why and the original Resend pacing; every other refusal is the
+   * Replace step's to show [W2 step 6].
+   */
+  async function verifyWithReplacement(
+    identifier: Identifier,
+    sentTo: string,
+    sentAt: number,
+    username: string,
+  ) {
+    const code = heldCode.current ?? ''
+    let answer: VerifyResponse
+    try {
+      answer = await verifyCode(identifier, code, username)
+    } catch (err) {
+      if (!isCodeSpent(err)) throw err
+      heldCode.current = null
+      setStep({
+        step: 'code',
+        identifier,
+        sentTo,
+        notice: null,
+        round: Date.now(),
+        sentAt,
+        error: failure(err),
+      })
+      return
+    }
+    heldCode.current = null
+    chosenName.current = username
+    await finish(identifier, sentTo, answer)
+  }
+
+  /** Set the held password with the token the code bought. */
+  async function finish(identifier: Identifier, sentTo: string, answer: VerifyResponse) {
+    const setup = setupFrom(answer, identifier, chosenName.current || undefined)
     const chosen = held.current
     if (setup.mfaRequired || chosen === null) {
       held.current = null
@@ -274,6 +398,9 @@ export function SignUp() {
           sentTo,
           notice: t('web_auth_setup_expired_resend'),
           round: Date.now(),
+          // As before this unit: the step shown again paces a fresh minute.
+          sentAt: Date.now(),
+          error: null,
         })
         return
       }
@@ -282,8 +409,10 @@ export function SignUp() {
     }
   }
 
+  // Back forgets the held password and the held code [W2 step 7].
   const backToForm = useCallback(() => {
     held.current = null
+    heldCode.current = null
     setStep({ step: 'form' })
     setFormError(null)
   }, [])
@@ -299,6 +428,9 @@ export function SignUp() {
               sentTo: current.sentTo,
               notice: expired ? t('web_auth_setup_expired_resend') : null,
               round: Date.now(),
+              // As before this unit: the step shown again paces a fresh minute.
+              sentAt: Date.now(),
+              error: null,
             }
           : current,
       ),
@@ -318,8 +450,21 @@ export function SignUp() {
       </AuthFrame>
     )
 
+  if (step.step === 'replace') {
+    const { identifier, sentTo, sentAt, name } = step
+    return (
+      <AuthFrame>
+        <ReplaceUsernameStep
+          name={name}
+          submit={(username) => verifyWithReplacement(identifier, sentTo, sentAt, username)}
+          onBack={backToForm}
+        />
+      </AuthFrame>
+    )
+  }
+
   if (step.step === 'code') {
-    const { identifier, sentTo, notice, round } = step
+    const { identifier, sentTo, notice, round, sentAt, error } = step
     return (
       <AuthFrame>
         <div>
@@ -335,9 +480,13 @@ export function SignUp() {
           ) : null}
           <CodeEntry
             key={round}
-            verify={(code) => verify(identifier, sentTo, code)}
+            initialError={error}
+            resendAvailableAt={sentAt + RESEND_AFTER_S * 1000}
+            verify={(code) => verify(identifier, sentTo, sentAt, code)}
             resend={async () => {
               await issueCode(identifier)
+              // A new code: Replace, if it comes, paces from this one.
+              setStep((s) => (s.step === 'code' ? { ...s, sentAt: Date.now() } : s))
             }}
           >
             <button type="button" className="btn btn-text" onClick={backToForm}>
@@ -406,7 +555,7 @@ export function SignUp() {
         {role === 'coaching' ? field('centre', t('signup_centre_name_label')) : null}
 
         {/* Always in the page, so the notice is announced when it fills. */}
-        <div role="status">
+        <div role="status" data-testid="signup-already-added">
           {added ? (
             <div className="banner" style={{ marginTop: 16 }}>
               <div>
@@ -437,8 +586,9 @@ export function SignUp() {
               'identifier',
               t(kind === 'phone' ? 'signup_phone_label' : 'web_auth_email_label'),
               {
-                name: 'username',
-                ...identifierInputProps(kind, 'username'),
+                // The username field below is what a password manager files
+                // the account under; this is a contact being confirmed.
+                ...identifierInputProps(kind, 'contact'),
                 ...(kind === 'phone' ? { placeholder: t('auth_phone_hint') } : {}),
               },
             )}
@@ -455,6 +605,17 @@ export function SignUp() {
             maxLength: 4,
           })}
         </div>
+
+        {/* The hint is guidance; Send code is never gated on it [FR3.2]. */}
+        <UsernameField
+          id="su-username"
+          label={t('signup_username_label')}
+          help={t('signup_username_help')}
+          value={values.username}
+          onChange={onUsernameChange}
+          availability={availability.state}
+          error={errors.username}
+        />
 
         <div className="form-2">
           <Field

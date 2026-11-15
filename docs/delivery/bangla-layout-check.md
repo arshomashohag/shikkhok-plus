@@ -127,6 +127,98 @@ rather than editing the old one.
 | Two-step verification | Recovery codes shown once (ten codes, "won't be shown again", Copy all, "I've saved them"; new-codes variant with the old-codes notice) | — | *not yet checked* | `two_step_codes_body` (125) / `two_step_codes_old_stopped` (36) | |
 | Two-step verification | Turn off (app code or recovery code) and New recovery codes | — | *not yet checked* | `two_step_renew_body` (87) / `two_step_off_body` (84) | |
 | Two-step verification | The one-time offer sheet after sign-in (teachers and centre members only) | — | *not yet checked* | `two_step_offer_body` (107) / `two_step_offer_title` (52) | |
+| U3 | Auth: sign-in with one login field (phone, email or username) and the email-shape message under it | `O2` | *not yet checked* | `auth_login_label` (22) | |
+| U3 | Auth: OTP entry, replacement-username state (title, body, field with hint, Continue) | `O3` | *not yet checked* | `auth_replace_username_body` (107) / `account_username_invalid_character` (58) | |
+| U3 | Signup: username field, helper and availability hint in every state (checking, available, taken, could not check) | `O1` | *not yet checked* | `account_username_invalid_character` (58) / `signup_username_help` (50) / `username_could_not_check` (50) | |
+| U3 | Choose username (the gate: title, body, field with hint, Continue, Sign out) | — | *not yet checked* | `choose_username_body` (94) | |
+| U3 | More: Username and Phone and email rows | `T9`, `S4`, `G4` | *not yet checked* | `more_contacts_sub_none` (27) / `more_username_choose` (22) | |
+| U3 | Username (view, change, changed with its date, change-too-soon banner) | — | *not yet checked* | `username_rule_note` (97) / `account_username_change_too_soon` (55) / `username_changed_on` (51) | |
+| U3 | Phone and email (both cards present; one absent; the password note) | — | *not yet checked* | `contacts_password_note` (52) | |
+| U3 | Replace contact (entry step and code step) | — | *not yet checked* | `contacts_replaced_email` (65) / `account_contact_change_limit` (64) | |
+| U3 | Remove contact sheet, including the last-one refusal | — | *not yet checked* | `contacts_remove_body` (110) / `account_contact_last_one` (90) | |
+| U3 | Add student: student email and guardian email fields | `T8` | *not yet checked* | `student_email_taken` (38) / `student_add_student_email` (26) | |
+| U3 | Edit student dialog: student email and guardian email fields | — | *not yet checked* | `student_email_taken` (38) / `student_add_student_email` (26) | |
+| U3 | Student detail and student list: email shown in place of a missing phone | — | *not yet checked* | `student_number_erased` (81) / `student_number_accepted` (72), with a 40-character email as the contact line | |
+| U3 | Roster row: guardian email in place of a missing phone | `T7` | *not yet checked* | no new string; a 40-character guardian email as the contact line beside a full Bangla name | |
+| U3 | Centre members: invite by phone or email, and a member with an email only | — | *not yet checked* | `centre_member_already_invited` (43) / `centre_invite_by_help` (39) | |
+| U4 (web) | Sign-in: one login field, its `email.invalid` message and the wrong-password banner | `web` | *not yet checked* | `web_auth_signin_body` (66) / `web_auth_password_wrong_hint` (66) / `auth_login_label` (22) | |
+| U4 (web) | Sign-up: username field and every hint state (checking, available, unavailable, invalid, could not check) | `web` | *not yet checked* | `web_auth_signup_email_help` (101) / `account_username_invalid_character` (58) / `username_could_not_check` (50) | |
+| U4 (web) | Code step: Replace username state, sign-up and code flow | `web` | *not yet checked* | `web_auth_replace_username_body_plain` (118) / `auth_replace_username_body` (106) | |
+| U4 (web) | Choose username (the gate: title, body, field with hint, Continue, Sign out) | `web` | *not yet checked* | `choose_username_body` (94) | |
+| U4 (web) | Settings → Account: Username and Phone and email rows | `web` | *not yet checked* | `more_contacts_sub_none` (27) / `more_username_choose` (22) | |
+| U4 (web) | Username: view, change, changed with its date, change too soon | `web` | *not yet checked* | `username_rule_note` (97) / `account_username_change_too_soon` (55) / `username_changed_on` (50) | |
+| U4 (web) | Contacts: both present; one absent; the password note | `web` | *not yet checked* | `contacts_password_note` (52) | |
+| U4 (web) | Replace contact: entry and code steps | `web` | *not yet checked* | `contacts_replaced_email` (65) / `account_contact_change_limit` (64) / `account_contact_password_required` (64) | |
+| U4 (web) | Remove contact sheet, including the last-one refusal | `web` | *not yet checked* | `contacts_remove_body` (109) / `account_contact_last_one` (90) | |
+| U4 (web) | New student: two email fields | `web` | *not yet checked* | `web_auth_email_invalid` (48) / `student_email_taken` (38) / `student_add_student_email` (26) | |
+| U4 (web) | Student Edit sheet | `web` | *not yet checked* | `student_number_erased` (81) / `student_number_accepted` (72) / `web_student_edit_saved` (23) | |
+| U4 (web) | Student detail and list: email in place of a phone | `web` | *not yet checked* | `web_students_col_phone` (19), with a 40-character email as the contact line | |
+| U4 (web) | Batch roster: guardian email; contact column header; quick-add link | `web` | *not yet checked* | `roster_declined_no_number` (40) / `web_students_add_by_email` (28) / `web_roster_col_contact` (18) | |
+| U4 (web) | Auth side panel (`AuthFrame`): reworded `web_auth_point_login` | `web` | *not yet checked* | `web_auth_point_login` (70) | |
+| U4 (web) | Password (set and change): reworded `web_password_set_body` | `web` | *not yet checked* | `web_password_set_body` (83) | |
+| U4 (web) | Add phone or email: reworded `web_contact_add_*_why` | `web` | *not yet checked* | `web_contact_add_phone_why` (143) / `web_contact_add_email_why` (100) | |
+| U4 (web) | Edit profile: reworded `web_contact_add_phone_why` | `web` | *not yet checked* | `web_contact_add_phone_why` (143) | |
+| U4 (web) | Failed start card with Sign out | `web` | *not yet checked* | `error_unexpected` (54) / `more_log_out` (6) | |
+| U4 (web) | Root error card (a page that failed to render) | `web` | *not yet checked* | `error_unexpected` (54) / `auth_retry` (16) | |
+| U4 (web) | Centre members: invite by phone or email; a member with an email only | `web` | *not yet checked* | `centre_member_already_invited` (43) / `centre_invite_by_help` (39) | |
+
+**U4's twenty web rows (2026-11-15) are open, and nothing automated
+discharges them.** No screenshot test or browser layout harness exists in
+`web/`, and none was added; the Vitest tests U4 added are correctness tests
+that assert what each state renders and measure no layout. The lengths are
+code points, computed from the regenerated `web/src/i18n/generated/strings.bn.json`
+and the `web/src/i18n/web/*.bn.json` bundles with placeholders unfilled, not
+estimated. Check each row in a browser with the app's language set to
+বাংলা, at a 360 CSS px viewport and again at the wide layout (`useWide`),
+at the default text size, and record the string used and a `PASS`,
+`FAIL (…)` or `FIXED (…)` status. The rows to check first: Add phone or
+email, whose reworded `web_contact_add_phone_why` (143) is the longest
+string any U4 screen shows and sits in a Settings row's subtitle as well as
+under the field; and the Replace step from the code flow, whose plain body
+(118) sits above a field whose hint grows when a name is refused.
+
+**U3's fourteen rows (2026-11-15) are open, and nothing automated discharges
+them.** The Robolectric tests added by U3 assert what each state renders and
+which screen the root routes to; they are correctness tests and measure no
+layout. Lengths above were computed from `values-bn/strings.xml` with the
+snippet under "Longest-string reference", not estimated. The row to check
+first is the remove-contact sheet: `contacts_remove_body` (110) is the
+longest U3 string and sits in a dialog beside a password field and two
+buttons. The verify replacement is second: `auth_replace_username_body`
+(107) sits above a field whose hint grows to two lines when a name is
+refused. Two rows show contact values the
+person typed rather than strings from the bundle; check them with a long
+email, because an email has no break opportunity before its `@` and is the
+likeliest thing in U3 to overflow a row. Usernames and emails are Latin text
+inside a Bangla layout by nature, which is the intended result.
+
+**U3's timed hint check (performance NFR8.4) is also manual, and nothing
+automated discharges it.** No Macrobenchmark harness exists, and the unit
+tests on the availability checker test the client's debounce, timeout and
+cache logic, not the device's latency. On the pilot's low-end device, on a
+mobile network, time from the pause that ends the debounce to the hint
+showing an answer or "could not check"; the target is within 1 second.
+
+| Screen | Device | Network | Observed times (five pauses) | Status |
+|---|---|---|---|---|
+| Signup: username field | *not yet checked* | | | |
+| Choose username (gate) | *not yet checked* | | | |
+| Username: change | *not yet checked* | | | |
+| Auth: OTP entry, replacement username | *not yet checked* | | | |
+
+**U4's timed hint check on the web (performance NFR8.4) is manual too, and
+nothing automated discharges it.** No browser performance harness exists in
+`web/`, and the Vitest tests on the availability checker run under fake
+timers: they test the client's debounce, 3 s bound and cache logic, not
+real latency. In a browser on the pilot's low-end Android phone, on a
+mobile network, time from the pause that ends the debounce to the hint
+showing an answer or "could not check"; the target is within 1 second.
+
+| Screen | Browser | Device | Network | Observed times (five pauses) | Status |
+|---|---|---|---|---|---|
+| U4 (web) Sign-up: username field | *not yet checked* | | | | |
+| U4 (web) Choose username (gate) | *not yet checked* | | | | |
+| U4 (web) Username: change | *not yet checked* | | | | |
 
 **The three help-centre rows (2026-11-07) are open on the same terms**:
 nothing automated discharges them; the Robolectric screen tests assert

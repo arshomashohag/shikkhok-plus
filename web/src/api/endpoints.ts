@@ -14,7 +14,9 @@ export type Schemas = components['schemas']
 
 // ----------------------------------------------------------------- auth
 //
-// Sign-up and sign-in by phone OR email, and passwords [0032].
+// Sign-up with a username and a phone OR email; sign-in by any of the
+// three; passwords [0032]. Usernames and passwords go in JSON bodies,
+// never in a URL.
 
 /** Exactly one of a phone number or an email address. */
 export type Identifier = { phone: string } | { email: string }
@@ -38,10 +40,13 @@ export const issueCode = (identifier: Identifier) =>
  * Spend the one-time code. **Never yields tokens**: the answer carries a
  * `password_setup_token` for {@link setUpPassword}, and says whether the
  * account will also need its authenticator code there.
+ *
+ * `username` is sent only on the Replace retry, after a 409
+ * `account.username.unavailable`, with the same code [FR2.2].
  */
-export const verifyCode = (identifier: Identifier, code: string) =>
+export const verifyCode = (identifier: Identifier, code: string, username?: string) =>
   request<VerifyResponse>('POST', '/v1/auth/verify', {
-    body: { ...identifier, code },
+    body: username === undefined ? { ...identifier, code } : { ...identifier, code, username },
     anonymous: true,
   })
 
@@ -64,11 +69,36 @@ export const setUpPassword = (body: {
 /**
  * Sign in with a password. The answer is the token pair, or an MFA
  * challenge for {@link finishSignIn}.
+ *
+ * `login` is a username, a phone or an email, exactly as typed and
+ * trimmed: the client never classifies it, so the request has no
+ * `phone` or `email` key that would say which [FR4.1] [NFR1.2].
  */
-export const signInWithPassword = (identifier: Identifier, password: string) =>
+export const signInWithPassword = (login: string, password: string) =>
   request<VerifyResponse>('POST', '/v1/auth/password', {
-    body: { ...identifier, password },
+    body: { login, password },
     anonymous: true,
+  })
+
+/**
+ * Whether a username could be had, for the sign-up and Replace hints
+ * [FR3.1]. Anonymous; the name goes in the body, never the URL [NFR3.1].
+ */
+export const checkUsername = (username: string, signal?: AbortSignal) =>
+  request<Schemas['UsernameAvailabilityResponse']>('POST', '/v1/accounts/username-availability', {
+    body: { username },
+    anonymous: true,
+    signal,
+  })
+
+/**
+ * The same question asked as the signed-in account, so a name it released
+ * reads as available to it (the gate and rename) [FR3.1].
+ */
+export const checkMyUsername = (username: string, signal?: AbortSignal) =>
+  request<Schemas['UsernameAvailabilityResponse']>('POST', '/v1/me/username-availability', {
+    body: { username },
+    signal,
   })
 
 /**
@@ -89,19 +119,33 @@ export const signUp = (body: SignupRequest) =>
   request<Schemas['SignupResponse']>('POST', '/v1/accounts', { body, anonymous: true })
 
 /**
- * Whether a teacher already recorded this number [BR2.3, BR4.5]. Public
- * and counted against sign-up's own ceilings, so the form asks once per
- * complete number and never while it is still being typed.
+ * Whether a teacher already recorded this number or address [BR2.3,
+ * BR4.5] [FR6.7]. Public and counted against sign-up's own ceilings, so
+ * the form asks once per complete value and never while it is still
+ * being typed.
+ *
+ * The one route here that carries a typed contact in its URL: C2 defines
+ * it with a query parameter, and the route is U2's [NFR3.1 exception].
  */
-export const lookupAlreadyAdded = (phone: string) =>
+export const lookupAlreadyAdded = (identifier: Identifier) =>
   request<Schemas['AlreadyAddedResponse']>('GET', '/v1/accounts/already-added', {
-    query: { phone },
+    query: 'phone' in identifier ? { phone: identifier.phone } : { email: identifier.email },
     anonymous: true,
   })
 
 // ------------------------------------------------------------------- me
 
 export const readMe = (signal?: AbortSignal) => request<Me>('GET', '/v1/me', { signal })
+
+/**
+ * Choose (`password` null) or change the signed-in account's username
+ * [FR5.4] [FR7.1]. The name goes in the body, never the URL [NFR3.1];
+ * the first choice sends no password key at all.
+ */
+export const setMyUsername = (username: string, password: string | null) =>
+  request<Schemas['UsernameChangeResponse']>('PUT', '/v1/me/username', {
+    body: password === null ? { username } : { username, password },
+  })
 
 /**
  * Set a first password (`current` null) or change it. Every session,
@@ -113,9 +157,23 @@ export const setMyPassword = (current: string | null, next: string) =>
       current === null ? { new_password: next } : { current_password: current, new_password: next },
   })
 
-/** Send a code to a phone or email the account does not have yet. */
-export const requestContactCode = (identifier: Identifier) =>
-  request<Schemas['IssueResponse']>('POST', '/v1/me/contact', { body: identifier })
+/**
+ * Send a code to a phone or email the account does not have yet, or —
+ * with the current `password` — to the one replacing the account's
+ * current phone or email [FR8.2] [C2]. Values in the body only [NFR3.1].
+ */
+export const requestContactCode = (identifier: Identifier, password?: string) =>
+  request<Schemas['IssueResponse']>('POST', '/v1/me/contact', {
+    body: password === undefined ? identifier : { ...identifier, password },
+  })
+
+/**
+ * Remove the account's phone or email [FR8.3]. The server keeps at least
+ * one (`account.contact.last_one`); the answer is the account as it now
+ * stands.
+ */
+export const removeContact = (kind: 'phone' | 'email', password: string) =>
+  request<Me>('POST', '/v1/me/contact/remove', { body: { kind, password } })
 
 /** Spend that code; the answer is the account as it now stands. */
 export const verifyContact = (identifier: Identifier, code: string) =>

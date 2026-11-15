@@ -202,6 +202,8 @@ def test_signups_sms_spends_the_signup_budget_and_not_sign_ins(
             "address_road": "Road 5",
             "address_city": "Dhaka",
             "address_postcode": "1205",
+            # Required since U1 [BR2.1]; nothing here is about it.
+            "username": "budget_" + phone[-6:],
         },
     )
 

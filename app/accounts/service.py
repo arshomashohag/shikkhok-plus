@@ -32,12 +32,14 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from app.accounts import usernames
 from app.accounts.identifier import Channel, Identifier
+from app.accounts.matching import contact_key, match_contact
 from app.audit.log import AuthEvent, write_audit
-from app.auth.pending import discard, take_bound_draft
+from app.auth.pending import discard, set_username, take_bound_draft
 from app.authz.rls import set_account_context
-from app.centres.memberships import link_memberships
 from app.centres.service import create_centre
+from app.db.advisory import lock_keys, username_key
 from app.db.models import Account, Owner, Profile
 from app.errors import ConflictError
 
@@ -51,7 +53,6 @@ __all__ = [
     "complete_signup",
     "create_account",
     "create_account_rows",
-    "link_phone_seats",
 ]
 
 
@@ -175,50 +176,56 @@ _LOOKUP_QUERY = sa.text(
     """
 )
 
-#: The seats a number has when its account did not exist until now.
-#:
-#: A teacher records a number BEFORE anyone signs up on it, so at that
-#: moment no account exists to link and the enrollment carries the
-#: typed number on ``guardian_phone`` alone -- or, for a student seat,
-#: nothing linkable at all. This statement finds the guardian case.
-#:
-#: **It sets the link and NOT the decision** [BR5.1]. That is the
-#: absence this whole Unit turns on: linking is not agreeing.
-_LINK_GUARDIAN_SEATS = sa.text(
+#: The email form [U2: BR4.3]. **Only what a teacher typed, and only where
+#: that email could ever link**: a link recording this address AND no
+#: phone, unblocked, linked or not. There is deliberately no account half,
+#: unlike the phone form: a true answer must mean "a teacher recorded this
+#: address", never "an account holds this address", or the public route
+#: becomes an account-existence oracle on a guessable identifier. A link
+#: that records a phone beside the email is not reported either, because
+#: the email will never link it [BR3.3]. Centre invitations are not
+#: consulted, as for the phone form: the role the answer locks has no
+#: centre value.
+_EMAIL_LOOKUP_QUERY = sa.text(
     """
-    UPDATE enrollment
-    SET guardian_account_id = :account_id
-    WHERE guardian_phone = :phone
-      AND guardian_account_id IS NULL
-      AND guardian_relink_blocked_at IS NULL
+    SELECT is_student
+    FROM (
+        SELECT TRUE AS is_student, e.created_at, e.id
+        FROM enrollment e
+        WHERE e.student_email = :email
+          AND e.student_phone IS NULL
+          AND e.student_relink_blocked_at IS NULL
+        UNION ALL
+        SELECT FALSE AS is_student, e.created_at, e.id
+        FROM enrollment e
+        WHERE e.guardian_email = :email
+          AND e.guardian_phone IS NULL
+          AND e.guardian_relink_blocked_at IS NULL
+    ) seat
+    ORDER BY is_student DESC, created_at, id
+    LIMIT 1
     """
 )
 
 
-#: The student half of :data:`_LINK_GUARDIAN_SEATS`, under the same rules:
-#: the link and NOT the decision [BR5.1], and never a blocked seat [BR6.2].
-_LINK_STUDENT_SEATS = sa.text(
-    """
-    UPDATE enrollment
-    SET student_account_id = :account_id
-    WHERE student_phone = :phone
-      AND student_account_id IS NULL
-      AND student_relink_blocked_at IS NULL
-    """
-)
-
-
-def already_added(session: Session, phone: str) -> AlreadyAdded:
-    """Report whether a teacher recorded this number, and nothing more.
+def already_added(session: Session, contact: str | Identifier) -> AlreadyAdded:
+    """Report whether a teacher recorded this contact, and nothing more.
 
     Called before the signup form renders, so the form can lock the
     role [BR4.5]. It no longer pre-fills a name [C-06].
 
     :param session: The session to query through
-    :param phone: The number typed into the form
+    :param contact: The number or address typed into the form; a bare
+        string is a canonical phone number
     :return: Existence and the role to lock
     """
-    row = session.execute(_LOOKUP_QUERY, {"phone": phone}).one_or_none()
+    if isinstance(contact, Identifier) and not contact.is_phone:
+        row = session.execute(
+            _EMAIL_LOOKUP_QUERY, {"email": contact.value}
+        ).one_or_none()
+    else:
+        phone = contact.value if isinstance(contact, Identifier) else contact
+        row = session.execute(_LOOKUP_QUERY, {"phone": phone}).one_or_none()
 
     if row is None:
         return AlreadyAdded(exists=False, role=None)
@@ -255,6 +262,7 @@ def create_account(
     address: PostalAddress | None = None,
     centre_name: str | None = None,
     now: dt.datetime | None = None,
+    username: str | None = None,
 ) -> AccountCreated:
     """Create an account's rows and commit them, as one transaction.
 
@@ -271,8 +279,10 @@ def create_account(
     :param address: The address, in its four parts, or None
     :param centre_name: The centre's name, for ``COACHING`` only
     :param now: The moment of creation, or None for the clock
+    :param username: The account's username, or None [U1: C3]
     :return: The new account and whether it owns batches
     :raises DuplicateNumber: The number or address already has an account
+    :raises UsernameUnavailable: The username cannot be claimed
     """
     created = create_account_rows(
         session,
@@ -283,6 +293,7 @@ def create_account(
         address=address,
         centre_name=centre_name,
         now=now,
+        username=username,
     )
     session.commit()
     return created
@@ -294,6 +305,7 @@ def complete_signup(
     otp_request_id: uuid.UUID,
     correlation_id: str,
     now: dt.datetime,
+    replacement: usernames.Candidate | None = None,
 ) -> uuid.UUID | None:
     """Create the account a just-verified code's signup draft describes.
 
@@ -302,18 +314,31 @@ def complete_signup(
     together, or none of them happen. The account takes the draft's id,
     which is the ``account_id`` the signup response reported.
 
+    **A replacement username replaces the draft's** before the account is
+    created, inside this same transaction [U1: BR2.5], so if the name
+    still cannot be claimed the whole verify rolls back -- the code
+    unspent, the draft as it was [BR2.4]. A draft saved before usernames
+    existed, with no replacement, creates an account with none [BR2.7].
+
     :param session: The session the verify is running in
     :param otp_request_id: The code just verified
     :param correlation_id: Ties the audit row to this request
     :param now: The moment of verification
+    :param replacement: A judged replacement username, or None
     :return: The new account's id, or None when no live draft is bound
         to the code
     :raises DuplicateNumber: An account appeared for the number since
         the verify read found none
+    :raises UsernameUnavailable: The draft's username, or the
+        replacement, can no longer be claimed
     """
     draft = take_bound_draft(session, otp_request_id=otp_request_id, now=now)
     if draft is None:
         return None
+    username = draft.username
+    if replacement is not None:
+        set_username(session, draft_id=draft.id, username=replacement.text)
+        username = replacement.text
     created = create_account_rows(
         session,
         phone=draft.phone,
@@ -329,6 +354,7 @@ def complete_signup(
         centre_name=draft.centre_name,
         now=now,
         account_id=draft.id,
+        username=username,
     )
     discard(
         session,
@@ -345,6 +371,15 @@ def complete_signup(
         correlation_id,
         occurred_at=now,
     )
+    if username is not None:
+        # By account id only [U1: BR2.8, BR8.4].
+        write_audit(
+            session,
+            created.account_id,
+            AuthEvent.USERNAME_SET,
+            correlation_id,
+            occurred_at=now,
+        )
     return created.account_id
 
 
@@ -359,6 +394,7 @@ def create_account_rows(
     centre_name: str | None = None,
     now: dt.datetime | None = None,
     account_id: uuid.UUID | None = None,
+    username: str | None = None,
 ) -> AccountCreated:
     """Create an account, its profile, and an ``Owner`` only for Teacher.
 
@@ -400,13 +436,33 @@ def create_account_rows(
     :param now: The moment of creation, or None for the clock
     :param account_id: The id to create the account with, or None for a
         fresh one
+    :param username: The username's display form, or None for an account
+        created with none [U1: C3, BR2.7]
     :return: The new account and whether it owns batches
     :raises DuplicateNumber: The number or address already has an account
+    :raises UsernameUnavailable: The username cannot be claimed [BR2.4]
     :raises ValueError: Neither a number nor an address was given
     """
     moment = now or dt.datetime.now(tz=dt.UTC)
     if phone is None and email is None:
         raise ValueError("an account needs a phone number or an email address")
+    contacts = [
+        *([Identifier(Channel.PHONE, phone)] if phone is not None else []),
+        *([Identifier(Channel.EMAIL, email)] if email is not None else []),
+    ]
+    # A username no longer of FR1 shape, or reserved since the draft was
+    # saved, is one more reason the name cannot be claimed: one answer,
+    # one remedy -- ask for another [U1: BR2.4].
+    claimed = _claimable(username)
+    # Each contact's key BEFORE the account row exists [NFR4.2 LO-5], so a
+    # concurrent contact add of the same value waits here rather than on
+    # the unique index while holding the key this insert would need. The
+    # username key joins the SAME call, last in the order [U1: BR10.1].
+    lock_keys(
+        session,
+        [contact_key(contact) for contact in contacts]
+        + ([username_key(claimed.key)] if claimed is not None else []),
+    )
 
     # Asked before inserting, so the refusal is a clean ConflictError
     # rather than a driver IntegrityError the caller has to classify.
@@ -424,11 +480,34 @@ def create_account_rows(
     if existing is not None:
         raise DuplicateNumber()
 
+    # The one claim rule, under the username key [U1: BR6.9]. The account
+    # being created cannot be a hold's releasing account, so any live
+    # hold refuses it, as any account with the key does.
+    if claimed is not None and not usernames.claim_allowed(
+        session, claimed.key, None, moment
+    ):
+        raise usernames.UsernameUnavailable()
+
     account = Account(
-        id=account_id or uuid.uuid4(), phone=phone, email=email, created_at=moment
+        id=account_id or uuid.uuid4(),
+        phone=phone,
+        email=email,
+        created_at=moment,
+        username=claimed.text if claimed is not None else None,
+        username_key=claimed.key if claimed is not None else None,
     )
     session.add(account)
-    session.flush()
+    try:
+        session.flush()
+    except sa.exc.IntegrityError as error:
+        # A writer that skipped the key meets the backstop [BR10.2].
+        if usernames.is_username_clash(error):
+            raise usernames.UsernameUnavailable() from error
+        raise
+    if claimed is not None:
+        # Only an expired row can be left on the digest: a live one
+        # refused above [BR6.9].
+        usernames.clear_hold(session, claimed.key)
 
     # THE ROW-LEVEL-SECURITY CONTEXT, SET HERE AND NOWHERE ELSE IN THIS
     # UNIT, and it is the one piece of this function that is not
@@ -481,56 +560,24 @@ def create_account_rows(
         )
         is_teacher = True
 
-    if phone is not None:
-        link_phone_seats(session, account_id=account.id, phone=phone)
+    # Everything teachers and centres recorded against the contact the
+    # account was created with: linked, never accepted [BR3.1, BR3.4].
+    # The phone-only `link_phone_seats` this replaced is gone [BR3.9].
+    for contact in contacts:
+        match_contact(session, account_id=account.id, contact=contact)
 
     return AccountCreated(account_id=account.id, is_teacher=is_teacher)
 
 
-def link_phone_seats(session: Session, *, account_id: uuid.UUID, phone: str) -> None:
-    """Attach everything teachers and centres recorded against a number.
+def _claimable(username: str | None) -> usernames.Candidate | None:
+    """Judge the username an account is to be created with.
 
-    Run when an account is created on a number, and when an email-only
-    account adds and verifies one [0032] -- the only two moments a
-    number becomes an account's. Teachers find students, guardians and
-    staff by number, so this is what makes their records reach the
-    person. Adds to the caller's transaction and does not commit.
-
-    :param session: The session to write through
-    :param account_id: The account that now holds the number
-    :param phone: The number, verified
-    :return: None
+    :param username: The display form, or None
+    :return: The candidate, or None when there is no username
+    :raises UsernameUnavailable: It no longer passes FR1 [BR2.4]
     """
-    _link_existing_seats(session, account_id=account_id, phone=phone)
-    # A centre may have invited this number before it had an account.
-    # Linked, never accepted: the person still answers the invitation.
-    link_memberships(session, account_id=account_id, phone=phone)
-
-
-def _link_existing_seats(
-    session: Session, *, account_id: uuid.UUID, phone: str
-) -> None:
-    """Attach the new account to seats a teacher already created.
-
-    **Sets the links and never a decision** [BR5.1]. A seat that was
-    ``pending`` is still ``pending`` after this runs, and that is the
-    point: signing up is not accepting, so the person is offered an
-    invitation rather than a lens.
-
-    **Both links, by the number the teacher typed.** This used to attach
-    only the guardian: a seat had no column for its student's number, so
-    the student link was left to "D2's screen", which was never built --
-    and no student a teacher added could reach their own seat. ``0008``
-    added ``Enrollment.student_phone``, and the student link now attaches
-    here exactly as the guardian's does.
-
-    Both statements skip a seat whose relink is blocked: a number whose
-    account was erased must not reattach to the records it left [BR6.2].
-
-    :param session: The session to write through
-    :param account_id: The account just created
-    :param phone: The number it is keyed on
-    :return: None
-    """
-    session.execute(_LINK_GUARDIAN_SEATS, {"account_id": account_id, "phone": phone})
-    session.execute(_LINK_STUDENT_SEATS, {"account_id": account_id, "phone": phone})
+    if username is None:
+        return None
+    if usernames.refusal_of(username) is not None:
+        raise usernames.UsernameUnavailable()
+    return usernames.judge(username)

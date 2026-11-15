@@ -1,6 +1,8 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.EmailEdit
 import com.shikkhokplus.app.core.model.Identifier
+import com.shikkhokplus.app.core.model.IdentifierKind
 import com.shikkhokplus.app.feature.expenses.ExpenseCategory
 import com.shikkhokplus.app.feature.expenses.ExpenseDraft
 import com.shikkhokplus.app.core.model.PostalAddress
@@ -86,13 +88,15 @@ class WriteContractTest {
             Write("post", "/v1/auth/verify") {
                 HttpAuthRepository(it, TokenStore.InMemory()).verify(Identifier.email("rafi@example.com"), "123456")
             },
-            // Signing in with a password, by phone and by email.
+            // Signing in with a password: one `login`, whatever was typed [U3: FR4.1].
             Write("post", "/v1/auth/password") {
-                HttpAuthRepository(it, TokenStore.InMemory()).signIn(Identifier.phone("01711234567"), "correct horse")
+                HttpAuthRepository(it, TokenStore.InMemory()).signIn("01711234567", "correct horse")
             },
             Write("post", "/v1/auth/password") {
-                HttpAuthRepository(it, TokenStore.InMemory())
-                    .signIn(Identifier.email("rafi@example.com"), "correct horse")
+                HttpAuthRepository(it, TokenStore.InMemory()).signIn("rafi@example.com", "correct horse")
+            },
+            Write("post", "/v1/auth/password") {
+                HttpAuthRepository(it, TokenStore.InMemory()).signIn("Rahim.Uddin", "correct horse")
             },
             // Finishing the code flow, with and without the authenticator code.
             Write("post", "/v1/auth/password/setup") {
@@ -142,12 +146,14 @@ class WriteContractTest {
             Write("post", "/v1/auth/logout") {
                 HttpAuthRepository(it, TokenStore.InMemory()).logout("refresh")
             },
+            // Every sign-up carries the username `SignupRequest` requires [U3: FR2.1].
             Write("post", "/v1/accounts") {
-                HttpSignupRepository(it).signup(Identifier.phone("01711234567"), "student", "Rafi", ADDRESS)
+                HttpSignupRepository(it).signup(Identifier.phone("01711234567"), "student", "Rafi", ADDRESS, "rafi_k")
             },
             // Signing up by email instead of by phone.
             Write("post", "/v1/accounts") {
-                HttpSignupRepository(it).signup(Identifier.email("rafi@example.com"), "student", "Rafi", ADDRESS)
+                HttpSignupRepository(it)
+                    .signup(Identifier.email("rafi@example.com"), "student", "Rafi", ADDRESS, "rafi_k")
             },
             // Signing up as a coaching centre, with its name.
             Write("post", "/v1/accounts") {
@@ -156,8 +162,43 @@ class WriteContractTest {
                     "coaching",
                     "Rahima",
                     ADDRESS,
+                    "rahima_c",
                     "Udayan Coaching",
                 )
+            },
+            // U3: the two username lookups, in a body [NFR3.1].
+            Write("post", "/v1/accounts/username-availability") {
+                HttpSignupRepository(it).checkUsername("nadia_k")
+            },
+            Write("post", "/v1/me/username-availability") {
+                HttpAccountRepository(it, TokenStore.InMemory()).checkUsername("nadia_k")
+            },
+            // U3: the first choice (no password) and a rename (with one).
+            Write("put", "/v1/me/username") {
+                HttpAccountRepository(it, TokenStore.InMemory()).changeUsername("nadia_k", null)
+            },
+            Write("put", "/v1/me/username") {
+                HttpAccountRepository(it, TokenStore.InMemory()).changeUsername("Nadia.K", "correct horse")
+            },
+            // U3: replacing a contact (with the password) and removing one.
+            Write("post", "/v1/me/contact") {
+                HttpAccountRepository(it, TokenStore.InMemory())
+                    .replaceContact(Identifier.phone("01711234567"), "correct horse")
+            },
+            Write("post", "/v1/me/contact") {
+                HttpAccountRepository(it, TokenStore.InMemory())
+                    .replaceContact(Identifier.email("rafi@example.com"), "correct horse")
+            },
+            Write("post", "/v1/me/contact/remove") {
+                HttpAccountRepository(it, TokenStore.InMemory()).removeContact(IdentifierKind.PHONE, "correct horse")
+            },
+            Write("post", "/v1/me/contact/remove") {
+                HttpAccountRepository(it, TokenStore.InMemory()).removeContact(IdentifierKind.EMAIL, "correct horse")
+            },
+            // U3: the verify replacement, the same code with another name [FR2.2].
+            Write("post", "/v1/auth/verify") {
+                HttpAuthRepository(it, TokenStore.InMemory())
+                    .verify(Identifier.phone("01711234567"), "123456", "rafi_k2")
             },
             Write("patch", "/v1/me") { HttpProfileRepository(it).save("Rafi", ADDRESS) },
             Write("post", "/v1/exams/{exam_id}/publish") { HttpMarksRepository(it).publish(ID) },
@@ -325,7 +366,11 @@ class WriteContractTest {
             // answering a centre's offer.
             Write("post", "/v1/centres") { HttpCentresRepository(it).open("Udayan Coaching", "Rahima") },
             Write("post", "/v1/centre/members") {
-                HttpCentresRepository(it).invite("Karim", "01811223344", "teacher")
+                HttpCentresRepository(it).invite("Karim", "01811223344", null, "teacher")
+            },
+            // U3: an invitation by email alone [FR6.4].
+            Write("post", "/v1/centre/members") {
+                HttpCentresRepository(it).invite("Rina", null, "rina@example.com", "teacher")
             },
             Write("post", "/v1/centre/members/{member_id}/revoke") { HttpCentresRepository(it).revoke(ID) },
             Write("post", "/v1/memberships/{member_id}/accept") { HttpCentresRepository(it).accept(ID) },
@@ -404,6 +449,27 @@ class WriteContractTest {
             },
             Write("patch", "/v1/students/{student_id}") {
                 HttpTeacherStudentsRepository(it).rename(ID, "Rafiqul", null, null)
+            },
+            // U3: student and guardian emails, set and cleared [FR6.1, W7.5].
+            Write("post", "/v1/students") {
+                HttpTeacherStudentsRepository(it).create(
+                    "Rafiq",
+                    null,
+                    null,
+                    emptyList(),
+                    studentEmail = "rafiq@example.com",
+                    guardianEmail = "parent@example.com",
+                )
+            },
+            Write("patch", "/v1/students/{student_id}") {
+                HttpTeacherStudentsRepository(it).rename(
+                    ID,
+                    null,
+                    null,
+                    null,
+                    studentEmail = EmailEdit.Set("rafiq@example.com"),
+                    guardianEmail = EmailEdit.Clear,
+                )
             },
             Write("delete", "/v1/students/{student_id}") { HttpTeacherStudentsRepository(it).removeStudent(ID) },
             Write("post", "/v1/students/{student_id}/enrollments") {

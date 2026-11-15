@@ -121,9 +121,48 @@ object SignupStateMapper {
                 validate(VALID_SHAPED_PHONE, form.selfName, form.address)?.let { problems += it.fieldKeys }
             }
         }
+        // Non-blank is the only username rule the client holds; every
+        // other one is the server's [FR11.3, NFR3.9].
+        if (form.username.isBlank()) problems += USERNAME_REQUIRED_KEY
         PasswordRules.check(form.password, form.confirm)?.let { problems += it }
         return if (problems.isEmpty()) null else SignupUiState.Invalid(problems)
     }
+
+    /** A blank username, refused on the form. Client-side only. */
+    const val USERNAME_REQUIRED_KEY: String = "signup.username.required"
+
+    /**
+     * The refusals shown under the Username field rather than as a
+     * banner: the server's six format keys, `unavailable`, and the
+     * client's blank check (functional-spec 3.2, § 4).
+     */
+    val USERNAME_MESSAGE_KEYS: Set<String> =
+        setOf(
+            "account.username.too_short",
+            "account.username.too_long",
+            "account.username.invalid_character",
+            "account.username.must_start_with_letter",
+            "account.username.bad_dot",
+            "account.username.reserved",
+            "account.username.unavailable",
+            USERNAME_REQUIRED_KEY,
+        )
+
+    /**
+     * The username refusal to show under the field, if any.
+     *
+     * Decided here so the screen holds no rule about which key belongs
+     * where.
+     *
+     * @param state What the form shows
+     * @return A key from [USERNAME_MESSAGE_KEYS], or null
+     */
+    fun usernameKeyOf(state: SignupUiState): String? =
+        when (state) {
+            is SignupUiState.Invalid -> state.fieldKeys.firstOrNull { it in USERNAME_MESSAGE_KEYS }
+            is SignupUiState.Failed -> state.messageKey.takeIf { it in USERNAME_MESSAGE_KEYS }
+            else -> null
+        }
 
     /**
      * Map a successful signup.
@@ -180,8 +219,9 @@ object SignupStateMapper {
  * Bundled because the form has grown past a readable argument list, and
  * because the password and its confirmation travel together.
  *
- * **[toString] leaves both passwords out**, so a stray log line or a
- * test failure message can never print one.
+ * **[toString] leaves both passwords, the username and the identifier
+ * out** [NFR3.2], so a stray log line or a test failure message can
+ * never print one. The username is owner-private (FR9.3).
  *
  * @property identifier The phone or email this identity is keyed on
  * @property selfName The name the person chose for themselves
@@ -190,6 +230,7 @@ object SignupStateMapper {
  * @property password The password chosen; sent after the code is verified
  * @property confirm The password typed a second time
  * @property centreName The coaching centre to open; with Coaching only
+ * @property username The username as typed; trimmed when sent [FR2.1]
  */
 data class SignupForm(
     val identifier: Identifier,
@@ -199,7 +240,9 @@ data class SignupForm(
     val password: String,
     val confirm: String,
     val centreName: String? = null,
+    val username: String = "",
 ) {
     override fun toString(): String =
-        "SignupForm(identifier=$identifier, selfName=$selfName, role=$role, centreName=$centreName, password=***)"
+        "SignupForm(kind=${identifier.kind}, role=$role, centreName=$centreName, identifier=***, " +
+            "username=***, password=***, confirm=***)"
 }

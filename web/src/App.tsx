@@ -3,12 +3,16 @@
  * route outside the current lens's set redirects home rather than
  * rendering — the server would refuse its data anyway, and a screen that
  * loads only to show an authorization error teaches nothing.
+ *
+ * Before any lens, and before any route, an account the server says has
+ * no username sees only the choose-username gate [FR5.2].
  */
 import type { ReactNode } from 'react'
-import { Navigate, Route, Routes } from 'react-router'
+import { Navigate, Route, Routes, useLocation } from 'react-router'
 import { useT } from './i18n/i18n'
 import { useSession, type Lens } from './session/session'
 import { AppShell } from './shell/AppShell'
+import { RouteErrorBoundary } from './shell/RouteErrorBoundary'
 import { homeFor } from './shell/nav'
 import { ErrorCard, Loading } from './ui/components'
 import { SignIn } from './features/auth/SignIn'
@@ -27,6 +31,7 @@ import { MyClasses } from './features/classTeacher/MyClasses'
 import { MyExamMarks, MyExams } from './features/classTeacher/MyExams'
 import { MyPay } from './features/classTeacher/MyPay'
 import { LensPicker } from './features/account/LensPicker'
+import { ChooseUsernameGate } from './features/account/username/ChooseUsernameGate'
 import { More } from './features/account/More'
 import { Settings } from './features/account/Settings'
 import { classesRoutes } from './features/teacher/classes'
@@ -71,8 +76,22 @@ function Only({
   return lens === current ? children : <Navigate to={homeFor(current)} replace />
 }
 
+/**
+ * Everything the app renders, inside the one render-error boundary, which
+ * clears itself when the pathname changes [functional-spec § 10 item 2].
+ */
 export function App() {
-  const { session, refresh } = useSession()
+  const { pathname } = useLocation()
+  const { signOut } = useSession()
+  return (
+    <RouteErrorBoundary pathname={pathname} onSignOut={signOut}>
+      <AppRoutes />
+    </RouteErrorBoundary>
+  )
+}
+
+function AppRoutes() {
+  const { session, refresh, signOut } = useSession()
   const { t } = useT()
 
   if (session.state === 'signed-out') {
@@ -108,10 +127,20 @@ export function App() {
             error={session.error}
             onRetry={refresh}
           />
+          {/* Always a way out, even when the failure offers no Retry [NFR3.15]. */}
+          <div className="button-row">
+            <button type="button" className="btn btn-text" onClick={signOut}>
+              {t('more_log_out')}
+            </button>
+          </div>
         </div>
       </div>
     )
   }
+
+  // Not a route: a typed URL, Back and Forward all land here, and the
+  // URL is kept for when the gate lifts [FR5.2] [NFR3.14].
+  if (session.state === 'username-required') return <ChooseUsernameGate me={session.me} />
 
   if (session.choosing) return <LensPicker options={session.options} />
 

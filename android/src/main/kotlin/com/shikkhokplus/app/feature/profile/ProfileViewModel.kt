@@ -276,6 +276,7 @@ class ProfileViewModel(
                 postal = dto.postal,
                 email = dto.email,
                 hasPassword = dto.hasPassword,
+                username = dto.username,
             )
     }
 }

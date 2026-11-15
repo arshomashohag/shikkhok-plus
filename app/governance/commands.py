@@ -6,9 +6,9 @@ honoured any of them. So this is NEW behaviour rather than a scheduled
 version of something existing, and the two rules that matter are both
 about not doing too much.
 
-**BR4.2 -- ``LIFE_OF_ACCOUNT`` is never purged.** Eighteen of the
-twenty-five tables carry that class, including every attendance row,
-every mark and the whole fee ledger. The dangerous implementation is the
+**BR4.2 -- ``LIFE_OF_ACCOUNT`` is never purged.** Most tables carry that
+class, including every attendance row, every mark and the whole fee
+ledger. The dangerous implementation is the
 NATURAL one: iterate the tables, apply a default window to those without
 an explicit one. That deletes the product's entire history on its first
 run, and it is the reason :data:`WINDOWS` is built by SELECTING the
@@ -94,6 +94,9 @@ _CLASS_AGE: Final[dict[RetentionClass, dt.timedelta]] = {
     RetentionClass.HOURS_48: dt.timedelta(hours=48),
     RetentionClass.MONTHS_12: dt.timedelta(days=365),
     RetentionClass.UNTIL_EXPIRY_PLUS_30_DAYS: dt.timedelta(days=30),
+    # [U1: BR7.6] A username hold is purged at its own expiry: the age
+    # column is `held_until`, and an expired hold already blocks nobody.
+    RetentionClass.UNTIL_EXPIRY: dt.timedelta(0),
 }
 
 #: Which column carries each purgeable table's age.
@@ -116,6 +119,7 @@ _AGE_COLUMN: Final[dict[str, str]] = {
     "notification": "created_at",
     "refresh_token": "expires_at",
     "pending_signup": "created_at",
+    "username_hold": "held_until",
 }
 
 
@@ -171,8 +175,9 @@ def _build_windows() -> dict[str, TableWindow]:
     return windows
 
 
-#: The purge's complete scope. Seven tables; the other eighteen are
-#: ``LIFE_OF_ACCOUNT`` and are never touched at any age [BR4.2].
+#: The purge's complete scope: every table with a finite retention class.
+#: Every ``LIFE_OF_ACCOUNT`` table is outside it and never touched at any
+#: age [BR4.2].
 WINDOWS: Final[dict[str, TableWindow]] = _build_windows()
 
 

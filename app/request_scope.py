@@ -90,7 +90,7 @@ def correlation_id_from(sent: str | None) -> str:
     return str(uuid.uuid4())
 
 
-def sqlstate_of(error: DataError) -> str | None:
+def sqlstate_of(error: DataError | OperationalError) -> str | None:
     """Return the SQLSTATE the driver reported for a failed statement.
 
     :param error: The wrapped driver error
@@ -177,8 +177,11 @@ async def _database(request: Request, exc: Exception) -> JSONResponse:
         "database failure rendered as an envelope",
         extra={
             "error_class": type(exc).__name__,
-            # The state only, never the statement or its values.
-            "sqlstate": sqlstate_of(exc) if isinstance(exc, DataError) else None,
+            # The state only, never the statement or its values. A deadlock
+            # or a lock timeout reads as itself, 40P01 or 55P03 [U2: NFR4.8].
+            "sqlstate": sqlstate_of(exc)
+            if isinstance(exc, (DataError, OperationalError))
+            else None,
             "correlation_id": getattr(request.state, "correlation_id", None),
         },
     )

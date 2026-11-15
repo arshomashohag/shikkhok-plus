@@ -108,6 +108,17 @@ class AuthEvent(enum.Enum):
     PASSWORD_SIGN_IN_FAILED = "PASSWORD_SIGN_IN_FAILED"  # noqa: S105 -- a name, not a password
     PASSWORD_CEILING_BREACHED = "PASSWORD_CEILING_BREACHED"  # noqa: S105 -- a name, not a password
     CONTACT_ADDED = "CONTACT_ADDED"
+    # A contact replaced or removed [U2: BR5.11]. The row carries the
+    # account and the correlation id only: never the contact, its kind, a
+    # code or a username.
+    CONTACT_REPLACED = "CONTACT_REPLACED"
+    CONTACT_REMOVED = "CONTACT_REMOVED"
+    # Usernames [U1: BR2.8, BR8.4]. The first one set -- at sign-up or by
+    # the first choice -- and every later change: a rename, a reclaim or a
+    # case-only change. By account id and correlation id only, never the
+    # name, its key, a contact or a code.
+    USERNAME_SET = "USERNAME_SET"
+    USERNAME_CHANGED = "USERNAME_CHANGED"
 
 
 def write_audit(

@@ -10,8 +10,11 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -119,6 +122,36 @@ class SessionRenewalTest {
         assertEquals(HttpStatusCode.Unauthorized, response.status)
         assertEquals(0, ended)
         assertEquals("r1", tokens.refreshToken())
+    }
+
+    @Test
+    fun `a caller cancelled mid-renewal still keeps the rotated pair`() = runTest {
+        // The server rotates the refresh token the moment it answers.
+        // A caller cancelled while that answer is in flight -- a username
+        // lookup superseded by the next keystroke, or cut off by its 3 s
+        // bound -- must not drop the new pair: the next renewal would
+        // present the rotated-out token, which the server reads as theft
+        // and answers by ending the session.
+        val tokens = TokenStore.InMemory().apply { save("stale", "r1") }
+        val reached = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val engine =
+            MockEngine { request ->
+                if (request.url.encodedPath == "/v1/auth/refresh") {
+                    reached.complete(Unit)
+                    release.await()
+                }
+                answer(request, HttpStatusCode.OK)
+            }
+        val client = ApiClient.build("https://staging.example", engine, tokens)
+
+        val caller = launch { client.get("/v1/me") }
+        reached.await()
+        release.complete(Unit)
+        caller.cancelAndJoin()
+
+        assertEquals("fresh", tokens.accessToken())
+        assertEquals("r2", tokens.refreshToken())
     }
 
     @Test

@@ -102,3 +102,32 @@ def test_no_message_body_is_printed_even_if_attached() -> None:
     assert "123456" not in line
     assert "SECRET" not in line
     assert "outcome='sent'" in line
+
+
+def test_a_ceiling_alert_names_its_scope() -> None:
+    """``scope`` is printed, so an alert says which ceiling [U2: NFR2.6].
+
+    :return: None
+    """
+    line = StructuredFormatter("%(message)s").format(_record(scope="lk_global_hour"))
+
+    assert "scope='lk_global_hour'" in line
+
+
+def test_a_database_failure_names_its_class_and_state() -> None:
+    """A deadlock reads as itself in the log [U2: NFR4.8, NFR4.10].
+
+    :return: None
+    """
+    line = StructuredFormatter("%(message)s").format(
+        _record(
+            error_class="OperationalError",
+            sqlstate="40P01",
+            event="db_retry",
+            correlation_id="c-1",
+        )
+    )
+
+    assert "error_class='OperationalError'" in line
+    assert "sqlstate='40P01'" in line
+    assert "event='db_retry'" in line

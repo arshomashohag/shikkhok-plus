@@ -6,6 +6,17 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { request, revokeSession } from './client'
+import {
+  checkMyUsername,
+  checkUsername,
+  inviteMember,
+  lookupAlreadyAdded,
+  removeContact,
+  requestContactCode,
+  setMyUsername,
+  signInWithPassword,
+  verifyCode,
+} from './endpoints'
 import { ApiError } from './errors'
 import { clearTokens, readTokens, saveTokens } from './tokens'
 import { clientVersion } from './platform'
@@ -155,6 +166,237 @@ describe('request', () => {
       messageKey: 'error.unexpected',
       retryable: true,
     })
+  })
+})
+
+// Pinned before `send()` changed [NFR8.7, functional-spec § 1 defect 5].
+// A lookup aborted while it waits for renewal must not cost the rotated
+// pair: the server rotated it, and the next renewal would otherwise
+// present a rotated-out token and revoke the whole family.
+describe('renewal survives an aborted caller [NFR8.7]', () => {
+  it('stores the rotated pair, uses it next, and spends the refresh token once', async () => {
+    saveTokens({ access_token: 'A1', refresh_token: 'R1', expires_in: 10 })
+    let release: () => void = () => undefined
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    mockFetch(async (url, init) => {
+      if (url.endsWith('/v1/auth/refresh')) {
+        await held
+        return json(200, { access_token: 'A2', refresh_token: 'R2', expires_in: 900 })
+      }
+      // As a browser does: an aborted signal rejects with its reason.
+      if (init.signal?.aborted) throw init.signal.reason
+      return json(200, { status: 'available' })
+    })
+
+    const controller = new AbortController()
+    const lookup = request('POST', '/v1/me/username-availability', {
+      body: { username: 'nadia_k' },
+      signal: controller.signal,
+    })
+    // Let `request()` reach the renewal and wait on it.
+    await vi.waitFor(() => expect(calls.map((c) => c.url)).toEqual(['/v1/auth/refresh']))
+    controller.abort('superseded')
+    release()
+    await expect(lookup).rejects.toBeDefined()
+
+    expect(readTokens()).toMatchObject({ access: 'A2', refresh: 'R2' })
+    await request('GET', '/v1/me')
+    const last = calls[calls.length - 1]!
+    expect(last.url).toBe('/v1/me')
+    expect(auth(last.init)).toBe('Bearer A2')
+    expect(calls.filter((c) => c.url.endsWith('/v1/auth/refresh'))).toHaveLength(1)
+  })
+})
+
+// A superseded or timed-out lookup is cancelled, never "offline": the
+// checker decides from its own flags, and the hint must not read as a
+// lost connection [NFR8.8, functional-spec § 9 item 6].
+describe('send() and an aborted signal [NFR8.8]', () => {
+  /** As a browser does: an aborted signal rejects fetch with its reason. */
+  const honourSignal = () =>
+    mockFetch((_url, init) => {
+      if (init.signal?.aborted) throw init.signal.reason
+      return json(200, {})
+    })
+
+  it('a signal aborted with a string reason rejects with that reason', async () => {
+    honourSignal()
+    const controller = new AbortController()
+    controller.abort('superseded')
+    await expect(
+      request('POST', '/v1/accounts/username-availability', {
+        anonymous: true,
+        body: { username: 'nadia_k' },
+        signal: controller.signal,
+      }),
+    ).rejects.toBe('superseded')
+  })
+
+  it('a TimeoutError abort rejects with the reason, not error.network.unreachable', async () => {
+    honourSignal()
+    const reason = new DOMException('', 'TimeoutError')
+    const error = await request('GET', '/x', {
+      anonymous: true,
+      signal: AbortSignal.abort(reason),
+    }).catch((e: unknown) => e)
+    expect(error).toBe(reason)
+    expect(error).not.toBeInstanceOf(ApiError)
+  })
+
+  it('a reason-less abort still rejects as an AbortError', async () => {
+    honourSignal()
+    const controller = new AbortController()
+    controller.abort()
+    const error = await request('GET', '/x', { anonymous: true, signal: controller.signal }).catch(
+      (e: unknown) => e,
+    )
+    // jsdom's DOMException is another realm's, so the name is what is checked.
+    expect(error).not.toBeInstanceOf(ApiError)
+    expect((error as { name?: string }).name).toBe('AbortError')
+  })
+
+  it('a plain fetch rejection with no abort still maps to error.network.unreachable', async () => {
+    mockFetch(() => {
+      throw new TypeError('Failed to fetch')
+    })
+    const controller = new AbortController()
+    const error = await request('GET', '/x', { anonymous: true, signal: controller.signal }).catch(
+      (e: unknown) => e,
+    )
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).messageKey).toBe('error.network.unreachable')
+  })
+})
+
+// Each new call's method, path and body, and no query string where a
+// username, login, contact, password or code travels [NFR3.1] [NFR1.2].
+describe('the identity API functions [frontend-components § 4]', () => {
+  const sent = (i = 0) => {
+    const call = calls[i]!
+    const url = new URL(call.url, 'http://x')
+    return {
+      method: call.init.method,
+      path: url.pathname,
+      search: url.search,
+      body: call.init.body ? (JSON.parse(call.init.body as string) as unknown) : undefined,
+      auth: auth(call.init),
+    }
+  }
+
+  beforeEach(() => {
+    saveTokens({ access_token: 'A1', refresh_token: 'R1', expires_in: 900 })
+    mockFetch(() => json(200, { status: 'available' }))
+  })
+
+  it('signInWithPassword sends one login and no phone or email key, anonymously', async () => {
+    for (const login of ['Rahim.Uddin', '01711234567', 'rina@example.com']) {
+      await signInWithPassword(login, 'correct horse')
+    }
+    for (const [i, login] of ['Rahim.Uddin', '01711234567', 'rina@example.com'].entries()) {
+      const s = sent(i)
+      expect(s).toMatchObject({ method: 'POST', path: '/v1/auth/password', search: '' })
+      expect(s.body).toEqual({ login, password: 'correct horse' })
+      expect(s.body).not.toHaveProperty('phone')
+      expect(s.body).not.toHaveProperty('email')
+      expect(s.auth).toBeUndefined()
+    }
+  })
+
+  it('verifyCode carries a username only when one is passed', async () => {
+    await verifyCode({ phone: '01711234567' }, '123456')
+    await verifyCode({ email: 'rina@example.com' }, '123456', 'rahim_math')
+    expect(sent(0).body).toEqual({ phone: '01711234567', code: '123456' })
+    expect(sent(0).body).not.toHaveProperty('username')
+    expect(sent(1)).toMatchObject({ method: 'POST', path: '/v1/auth/verify', search: '' })
+    expect(sent(1).body).toEqual({
+      email: 'rina@example.com',
+      code: '123456',
+      username: 'rahim_math',
+    })
+  })
+
+  it('checkUsername posts the name anonymously, with no query string', async () => {
+    const controller = new AbortController()
+    await checkUsername('nadia_k', controller.signal)
+    expect(sent()).toMatchObject({
+      method: 'POST',
+      path: '/v1/accounts/username-availability',
+      search: '',
+      body: { username: 'nadia_k' },
+    })
+    expect(sent().auth).toBeUndefined()
+    expect(calls[0]!.init.signal).toBe(controller.signal)
+  })
+
+  it('checkMyUsername posts the name as the signed-in account, with no query string', async () => {
+    await checkMyUsername('nadia_k')
+    expect(sent()).toMatchObject({
+      method: 'POST',
+      path: '/v1/me/username-availability',
+      search: '',
+      body: { username: 'nadia_k' },
+      auth: 'Bearer A1',
+    })
+  })
+
+  it('setMyUsername omits the password for a first choice and sends it for a change', async () => {
+    await setMyUsername('nadia_k', null)
+    await setMyUsername('nadia_k2', 'correct horse')
+    expect(sent(0)).toMatchObject({ method: 'PUT', path: '/v1/me/username', search: '' })
+    expect(sent(0).body).toEqual({ username: 'nadia_k' })
+    expect(sent(1).body).toEqual({ username: 'nadia_k2', password: 'correct horse' })
+  })
+
+  it('requestContactCode sends a password only for a replacement', async () => {
+    await requestContactCode({ phone: '01711234567' })
+    await requestContactCode({ email: 'new@example.com' }, 'correct horse')
+    expect(sent(0)).toMatchObject({ method: 'POST', path: '/v1/me/contact', search: '' })
+    expect(sent(0).body).toEqual({ phone: '01711234567' })
+    expect(sent(1).body).toEqual({ email: 'new@example.com', password: 'correct horse' })
+  })
+
+  it('removeContact posts the kind and the password, with no query string', async () => {
+    await removeContact('email', 'correct horse')
+    expect(sent()).toMatchObject({
+      method: 'POST',
+      path: '/v1/me/contact/remove',
+      search: '',
+      body: { kind: 'email', password: 'correct horse' },
+    })
+  })
+
+  it('lookupAlreadyAdded keeps U2’s query shape, for a phone and now an email', async () => {
+    await lookupAlreadyAdded({ phone: '01711234567' })
+    await lookupAlreadyAdded({ email: 'rina@example.com' })
+    expect(sent(0)).toMatchObject({ method: 'GET', path: '/v1/accounts/already-added' })
+    expect(new URLSearchParams(sent(0).search).get('phone')).toBe('01711234567')
+    expect(new URLSearchParams(sent(1).search).get('email')).toBe('rina@example.com')
+    expect(new URLSearchParams(sent(1).search).has('phone')).toBe(false)
+  })
+
+  it('inviteMember sends email and/or phone in the body', async () => {
+    await inviteMember({ display_name: 'Rina', role: 'teacher', email: 'rina@example.com' })
+    expect(sent()).toMatchObject({ method: 'POST', path: '/v1/centre/members', search: '' })
+    expect(sent().body).toEqual({
+      display_name: 'Rina',
+      role: 'teacher',
+      email: 'rina@example.com',
+    })
+  })
+
+  it('a refusal comes back as an ApiError carrying its key', async () => {
+    mockFetch(() =>
+      json(409, {
+        error: { code: 'CONFLICT', message_key: 'account.username.unavailable', retryable: false },
+      }),
+    )
+    await expect(setMyUsername('nadia_k', null)).rejects.toMatchObject({
+      status: 409,
+      messageKey: 'account.username.unavailable',
+    })
+    await expect(removeContact('phone', 'x')).rejects.toBeInstanceOf(ApiError)
   })
 })
 

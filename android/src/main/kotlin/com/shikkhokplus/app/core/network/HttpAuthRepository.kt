@@ -10,6 +10,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 
@@ -49,15 +50,28 @@ class HttpAuthRepository(
     override suspend fun verify(
         identifier: Identifier,
         code: String,
+        username: String?,
     ): AuthResult<VerifyResponse> =
         call {
             client.post("/v1/auth/verify") {
-                setBody(VerifyRequest(phone = identifier.phone, email = identifier.email, code = code))
+                setBody(
+                    VerifyRequest(
+                        phone = identifier.phone,
+                        email = identifier.email,
+                        code = code,
+                        username = username?.trim(),
+                    ),
+                )
             }
         }
 
     /**
-     * Sign in with an identifier and a password.
+     * Sign in with one typed value and a password [FR4.1].
+     *
+     * **One `login` field, sent as typed (trimmed)** [NFR1.2]: the server
+     * classifies it as a username, a phone or an email. No `phone` or
+     * `email` key is sent, so the request shape says nothing about what
+     * the person meant.
      *
      * **A pair is saved only when the server sent one.** An account with
      * two-step verification gets a challenge instead, and there is no
@@ -65,13 +79,13 @@ class HttpAuthRepository(
      * what keeps a half-finished sign-in from looking signed in.
      */
     override suspend fun signIn(
-        identifier: Identifier,
+        login: String,
         password: String,
     ): AuthResult<VerifyResponse> {
         val result: AuthResult<VerifyResponse> =
             call {
                 client.post("/v1/auth/password") {
-                    setBody(PasswordSignInRequest(identifier.phone, identifier.email, password))
+                    setBody(PasswordSignInRequest(login = login.trim(), password = password))
                 }
             }
         val pair = (result as? AuthResult.Ok)?.value?.takeUnless { it.mfaRequired }
@@ -195,6 +209,9 @@ class HttpAuthRepository(
         try {
             val response = client.post("/v1/auth/logout") { setBody(RefreshBody(refreshToken)) }
             if (response.status.isSuccess()) AuthResult.Ok(Unit) else AuthResult.TransportFailure
+        } catch (cancelled: CancellationException) {
+            // A cancelled caller is not a lost connection [NFR8.3].
+            throw cancelled
         } catch (_: Exception) {
             AuthResult.TransportFailure
         }
@@ -246,6 +263,12 @@ internal suspend inline fun <reified T> call(
         } else {
             AuthResult.Refused(decodeEnvelope(response))
         }
+    } catch (cancelled: CancellationException) {
+        // **Cancellation is not a transport failure** [NFR8.3, TSD-5].
+        // A caller cancelled mid-request -- a superseded lookup, a timed
+        // out one, a screen that left -- must not receive a value to
+        // publish; structured concurrency propagates it instead.
+        throw cancelled
     } catch (_: Exception) {
         // Every exception reaching here is a TRANSPORT failure: no
         // response arrived. A non-2xx is a response and is handled
@@ -300,6 +323,9 @@ internal suspend inline fun callDiscardingBody(
         } else {
             AuthResult.Refused(decodeEnvelope(response))
         }
+    } catch (cancelled: CancellationException) {
+        // Cancellation is not a transport failure, as in [call].
+        throw cancelled
     } catch (_: Exception) {
         // Every exception reaching here is a TRANSPORT failure: no
         // response arrived. A non-2xx is a response and is handled

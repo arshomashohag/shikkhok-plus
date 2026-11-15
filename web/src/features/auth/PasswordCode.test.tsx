@@ -4,8 +4,9 @@
  */
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearTokens, readTokens } from '../../api/tokens'
+import { translate, translateMessage } from '../../i18n/i18n'
 import { json, renderScreen } from '../../test/render'
 import { PasswordCode } from './PasswordCode'
 
@@ -67,6 +68,17 @@ async function choose(password: string, confirm = password) {
   await userEvent.type(screen.getByLabelText('Type the password again'), confirm)
   await userEvent.click(screen.getByRole('button', { name: 'Save password and log in' }))
 }
+
+it('starts empty with its Phone | Email toggle, whatever route state arrives [FR10.1]', () => {
+  // A stale entry the old sign-in screen used to hand over is now ignored.
+  renderScreen(<PasswordCode />, {
+    pathname: '/signin/code',
+    state: { kind: 'email', typed: 'rina@example.com' },
+  })
+  expect(screen.getByRole('group', { name: 'Log in with' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Phone' })).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByLabelText('Mobile number')).toHaveValue('')
+})
 
 it('sends a code, spends it, sets the password and signs in', async () => {
   serve(() => json(200, TOKENS))
@@ -179,6 +191,79 @@ it('takes a recovery code instead of the authenticator code', async () => {
     token: 'SETUP-1',
     password: 'a new long password',
     recovery_code: 'ABCDE-FGHJK',
+  })
+})
+
+// A code sent here can complete a pending sign-up, so the name can be
+// taken meanwhile here too [FR2.2] [functional-spec W2 step 1].
+describe('the Replace step from the code flow', () => {
+  const taken = () =>
+    json(409, {
+      error: {
+        code: 'CONFLICT',
+        message_key: 'account.username.unavailable',
+        retryable: false,
+        details: { holder: 'someone_else_entirely' },
+      },
+    })
+
+  function serveVerify(...answers: (() => Response)[]) {
+    fetchMock.mockImplementation(async (url: string, init: RequestInit = {}) => {
+      if (url.endsWith('/v1/auth/otp')) return json(200, { status: 'requested' })
+      if (url.endsWith('/v1/auth/verify'))
+        return (answers.length > 1 ? answers.shift()! : answers[0]!)()
+      if (url.endsWith('/v1/auth/password/setup')) return json(200, TOKENS)
+      return json(200, init.method === 'POST' ? { status: 'available' } : { lenses: [] })
+    })
+  }
+
+  async function toReplace() {
+    renderScreen(<PasswordCode />)
+    await userEvent.type(screen.getByLabelText('Mobile number'), '01711234567')
+    await userEvent.click(screen.getByRole('button', { name: 'Send code' }))
+    await userEvent.type(await screen.findByLabelText('Enter the code'), '123456')
+    return screen.findByTestId('replace-username')
+  }
+
+  const verifyBodies = () => called('/v1/auth/verify').map((c) => JSON.parse(c[1].body as string))
+
+  it('opens with the plain body, naming no one, and focus on the field', async () => {
+    serveVerify(taken, () => json(200, SETUP))
+    await toReplace()
+    expect(screen.getByTestId('replace-username-body')).toHaveTextContent(
+      translate('en', 'web_auth_replace_username_body_plain'),
+    )
+    expect(document.body.textContent).not.toContain('someone_else_entirely')
+    expect(document.activeElement).toBe(screen.getByLabelText('Username'))
+    expect(screen.queryByLabelText('Enter the code')).toBeNull()
+  })
+
+  it('retries with the same code and the replacement, then chooses a password', async () => {
+    serveVerify(taken, () => json(200, SETUP))
+    await toReplace()
+    await userEvent.type(screen.getByLabelText('Username'), 'rahim_math')
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    await screen.findByLabelText('New password')
+    expect(verifyBodies()).toEqual([
+      { phone: '01711234567', code: '123456' },
+      { phone: '01711234567', code: '123456', username: 'rahim_math' },
+    ])
+    // The password manager files it under the name chosen here.
+    expect(document.querySelector<HTMLInputElement>('input[name="username"][hidden]')?.value).toBe(
+      'rahim_math',
+    )
+  })
+
+  it('a spent code on the retry brings the code step back with why, and the field empty', async () => {
+    serveVerify(taken, () => refusal(400, 'auth.otp.no_tries_left', 'OTP_NOT_VALID'))
+    await toReplace()
+    await userEvent.type(screen.getByLabelText('Username'), 'rahim_math')
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    const code = await screen.findByLabelText('Enter the code')
+    expect(code).toHaveValue('')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      translateMessage('en', 'auth.otp.no_tries_left'),
+    )
   })
 })
 

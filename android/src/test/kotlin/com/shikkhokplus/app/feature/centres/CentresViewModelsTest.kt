@@ -43,7 +43,8 @@ class CentresViewModelsTest {
         var offersResult: AuthResult<List<MembershipDto>> = AuthResult.Ok(emptyList())
         var decisionResult: AuthResult<MembershipDecisionDto> = AuthResult.Ok(MembershipDecisionDto("o-1", "accepted"))
         val opened = mutableListOf<Pair<String, String>>()
-        val invited = mutableListOf<Triple<String, String, String>>()
+        /** Each invitation: name, phone, email, role. */
+        val invited = mutableListOf<List<String?>>()
         val revoked = mutableListOf<String>()
         val decided = mutableListOf<Pair<String, Boolean>>()
         var memberReads = 0
@@ -58,8 +59,13 @@ class CentresViewModelsTest {
             return membersResult
         }
 
-        override suspend fun invite(displayName: String, phone: String, role: String): AuthResult<MemberDto> {
-            invited += Triple(displayName, phone, role)
+        override suspend fun invite(
+            displayName: String,
+            phone: String?,
+            email: String?,
+            role: String,
+        ): AuthResult<MemberDto> {
+            invited += listOf(displayName, phone, email, role)
             return inviteResult
         }
 
@@ -145,7 +151,7 @@ class CentresViewModelsTest {
         model.invite()
         advanceUntilIdle()
 
-        assertEquals(listOf(Triple("Karim", "01811 223344", "manager")), fake.invited)
+        assertEquals(listOf(listOf("Karim", "01811 223344", null, "manager")), fake.invited)
         assertEquals(2, fake.memberReads)
         val state = model.state.value
         assertEquals("Karim", state.invited)
@@ -175,6 +181,99 @@ class CentresViewModelsTest {
         assertFalse(model.state.value.canInvite)
         model.invitePhone("018")
         assertTrue(model.state.value.canInvite, "the server checks the number, not the form")
+    }
+
+    // --- U3: invite by phone or email, members without a phone [FR6.4, W8] --
+
+    @Test
+    fun `an invitation needs a name and a phone or an email, never neither`() {
+        val model = MembersViewModel(Fake())
+        model.inviteName("Rina")
+        assertFalse(model.state.value.canInvite, "neither contact")
+        model.inviteEmail("rina@example.com")
+        assertTrue(model.state.value.canInvite, "email only")
+        model.inviteEmail("")
+        model.invitePhone("01811223344")
+        assertTrue(model.state.value.canInvite, "phone only")
+    }
+
+    @Test
+    fun `an email-only invitation sends the email and leaves the phone out`() = runTest(dispatcher) {
+        val fake = Fake()
+        val model = MembersViewModel(fake)
+        model.inviteName("Rina")
+        model.inviteEmail(" rina@example.com ")
+        model.invite()
+        advanceUntilIdle()
+
+        assertEquals(listOf(listOf("Rina", null, "rina@example.com", "teacher")), fake.invited)
+    }
+
+    @Test
+    fun `a malformed email is named on the form and nothing is sent`() = runTest(dispatcher) {
+        val fake = Fake()
+        val model = MembersViewModel(fake)
+        model.inviteName("Rina")
+        model.inviteEmail("rina@example")
+        model.invite()
+        advanceUntilIdle()
+
+        assertTrue(model.state.value.inviteEmailRejected)
+        assertEquals(emptyList(), fake.invited)
+
+        model.inviteEmail("rina@example.com")
+        assertFalse(model.state.value.inviteEmailRejected, "an edit clears the refusal")
+    }
+
+    @Test
+    fun `an already-invited contact is said as a banner and the form is kept`() = runTest(dispatcher) {
+        val fake = Fake()
+        fake.inviteResult = refusal("centre.member.already_invited")
+        val model = MembersViewModel(fake)
+        model.inviteName("Rina")
+        model.inviteEmail("rina@example.com")
+        model.invite()
+        advanceUntilIdle()
+
+        assertEquals("centre.member.already_invited", model.state.value.failureKey)
+        assertEquals("rina@example.com", model.state.value.inviteEmail)
+    }
+
+    @Test
+    fun `a member's contact line is the phone, else the invited email`() {
+        val byPhone = MemberDto("m1", "Karim", "+8801712345678", "teacher", "accepted")
+        val byEmail = MemberDto("m2", "Rina", null, "teacher", "pending", invitedEmail = "rina@example.com")
+        val both = byPhone.copy(invitedEmail = "karim@example.com")
+
+        assertEquals("01712-345678", MemberLine.of(byPhone).contactLine)
+        assertEquals("rina@example.com", MemberLine.of(byEmail).contactLine)
+        assertEquals("01712-345678", MemberLine.of(both).contactLine)
+        assertEquals(null, MemberLine.of(byEmail.copy(invitedEmail = null)).contactLine)
+    }
+
+    @Test
+    fun `the list maps to lines and an email-only member loads`() = runTest(dispatcher) {
+        val fake = Fake()
+        fake.membersResult =
+            AuthResult.Ok(
+                listOf(MemberDto("m2", "Rina", null, "teacher", "pending", invitedEmail = "rina@example.com")),
+            )
+        val model = MembersViewModel(fake)
+        model.load()
+        advanceUntilIdle()
+
+        val loaded = assertIs<MembersBody.Loaded>(model.state.value.body)
+        assertEquals("rina@example.com", loaded.members.single().contactLine)
+    }
+
+    @Test
+    fun `the members state and lines never print a contact`() {
+        val state = MembersUiState(invitePhone = "+8801999999999", inviteEmail = "sentinel@example.invalid")
+        val line = MemberLine("m", "Rina", "sentinel@example.invalid", "teacher", "pending", false, false)
+
+        listOf(state.toString(), line.toString()).forEach { printed ->
+            assertFalse("+8801999999999" in printed || "sentinel@example.invalid" in printed, printed)
+        }
     }
 
     @Test

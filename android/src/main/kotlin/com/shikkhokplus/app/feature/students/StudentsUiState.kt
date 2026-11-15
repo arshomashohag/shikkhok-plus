@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.students
 
+import com.shikkhokplus.app.core.model.EmailEdit
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.BatchDto
 import com.shikkhokplus.app.core.network.StudentSeatBody
@@ -41,6 +42,8 @@ interface StudentsRepository {
      * @param seats The batches to put them in, possibly none
      * @param clientMutationId The retry key; a resend under it returns the
      *   student the first one created
+     * @param studentEmail The typed student address, or null [FR6.1]
+     * @param guardianEmail The typed guardian address, or null
      * @return The new student, a refusal, or a transport failure
      */
     suspend fun create(
@@ -49,15 +52,20 @@ interface StudentsRepository {
         guardianPhone: String?,
         seats: List<StudentSeatBody>,
         clientMutationId: String? = null,
+        studentEmail: String? = null,
+        guardianEmail: String? = null,
     ): AuthResult<TeacherStudentDto>
 
     /**
-     * Edit a student. A null value is left as it is.
+     * Edit a student. A null name or number is left as it is; an email
+     * can also be cleared [W7.5].
      *
      * @param studentId The student
      * @param displayName The new name, or null
      * @param studentPhone The new student number, or null
      * @param guardianPhone The new guardian number, or null
+     * @param studentEmail Left, changed, or cleared
+     * @param guardianEmail Left, changed, or cleared
      * @return The edited student, a refusal, or a transport failure
      */
     suspend fun rename(
@@ -65,6 +73,8 @@ interface StudentsRepository {
         displayName: String?,
         studentPhone: String?,
         guardianPhone: String?,
+        studentEmail: EmailEdit = EmailEdit.Unchanged,
+        guardianEmail: EmailEdit = EmailEdit.Unchanged,
     ): AuthResult<TeacherStudentDto>
 
     /**
@@ -152,15 +162,20 @@ data class BatchOption(
  *
  * @property id The student
  * @property name The teacher-typed name
- * @property phone The student's number, or null
+ * @property studentContactLine The student's phone, else email, both when
+ *   both, as the mapper chose it [W7.7]; null when neither is recorded
  * @property batchNames The batches they sit in, by name; empty for none
  */
 data class StudentListRow(
     val id: String,
     val name: String,
-    val phone: String?,
+    val studentContactLine: String?,
     val batchNames: List<String>,
-)
+) {
+    // Someone else's contacts, typed by a teacher [NFR3.2].
+    override fun toString(): String =
+        "StudentListRow(id=$id, batches=${batchNames.size}, studentContactLine=***)"
+}
 
 /**
  * Everything the Students tab renders. The four states every list
@@ -226,6 +241,11 @@ data class SeatLine(
  * @property totalOutstanding What they owe across every seat
  * @property removable Whether removing the student would succeed
  * @property otherBatches Batches they are not in yet, to add them to
+ * @property studentEmail The student's address, or null [FR6.1]
+ * @property guardianEmail The guardian's address, or null
+ * @property studentContactLine The header's line: the phone, else the
+ *   email, both when both [W7.7]
+ * @property guardianContactLine The guardian line's contact, likewise
  */
 data class StudentDetail(
     val id: String,
@@ -238,7 +258,17 @@ data class StudentDetail(
     val totalOutstanding: Money,
     val removable: Boolean,
     val otherBatches: List<BatchOption>,
-)
+    val studentEmail: String? = null,
+    val guardianEmail: String? = null,
+    val studentContactLine: String? = null,
+    val guardianContactLine: String? = null,
+) {
+    // Someone else's contacts, typed by a teacher [NFR3.2].
+    override fun toString(): String =
+        "StudentDetail(id=$id, studentState=$studentState, guardianState=$guardianState, seats=${seats.size}, " +
+            "studentPhone=***, guardianPhone=***, studentEmail=***, guardianEmail=***, " +
+            "studentContactLine=***, guardianContactLine=***)"
+}
 
 /** Everything the student detail screen renders. */
 sealed interface StudentDetailUiState {

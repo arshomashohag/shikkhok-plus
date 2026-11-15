@@ -95,3 +95,50 @@ describe('server messages with placeholders', () => {
     }
   })
 })
+
+// The web-only strings the username and contacts change made false
+// (functional-spec § 5, the swept list). Each English text is pinned to
+// the design's wording, so a reword that drifts back fails here.
+describe('web-only strings swept for usernames and contacts [FR11.2]', () => {
+  it('drops the old sign-in refusal string from both languages', () => {
+    expect(WEB_EN).not.toHaveProperty('web_auth_password_wrong')
+    expect(WEB_BN).not.toHaveProperty('web_auth_password_wrong')
+  })
+
+  const REWORDED: Record<string, string> = {
+    web_auth_signin_body: 'With your username, mobile number or email address, and your password.',
+    web_auth_point_login:
+      'Log in with your username, mobile number or email address and a password.',
+    web_password_set_body:
+      "From now on you'll log in with your username, mobile number or email address and this password.",
+    web_auth_signup_phone_help:
+      "We'll send a code to this number. Teachers find students and guardians by phone number or email.",
+    web_auth_signup_email_help:
+      "We'll send a code to this address. Teachers find students and guardians by phone number or email.",
+    web_contact_add_phone_why:
+      'Teachers find students and guardians by phone number or email. Add your number to see the batches they added you to by it.',
+    web_contact_add_email_why:
+      'Log in with it too, get codes by email, and see the batches teachers added you to by this address.',
+    web_students_col_phone: "Student's contact",
+    web_students_no_phone: 'No contact',
+    web_roster_col_contact: 'Contact and invitation',
+  }
+
+  it.each(Object.entries(REWORDED))('%s reads as the design words it', (key, text) => {
+    expect(WEB_EN[key]).toBe(text)
+    expect(WEB_BN[key]).toBeDefined()
+    expect(WEB_BN[key]).not.toBe(text)
+  })
+
+  it.each([
+    'web_auth_replace_username_body_plain',
+    'web_students_add_by_email',
+    'web_student_edit_title',
+    'web_student_edit_save',
+    'web_student_edit_saved',
+  ])('%s is new and present in both languages', (key) => {
+    expect(WEB_EN[key]).toBeTruthy()
+    expect(WEB_BN[key]).toBeTruthy()
+    expect(WEB_BN[key]).not.toBe(WEB_EN[key])
+  })
+})

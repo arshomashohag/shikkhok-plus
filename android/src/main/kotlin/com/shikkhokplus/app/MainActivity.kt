@@ -56,12 +56,12 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import com.shikkhokplus.app.core.session.Lens
-import com.shikkhokplus.app.core.session.SessionUiState
 import com.shikkhokplus.app.core.session.SessionViewModel
 import com.shikkhokplus.app.core.session.ui.LensPickerScreen
 import com.shikkhokplus.app.core.network.HttpProfileRepository
 import com.shikkhokplus.app.core.network.EncryptedTokenStore
 import com.shikkhokplus.app.core.network.HttpAuthRepository
+import com.shikkhokplus.app.core.network.HttpSignupRepository
 import com.shikkhokplus.app.core.network.TokenStore
 import com.shikkhokplus.app.feature.mfa.MfaStatusHolder
 import com.shikkhokplus.app.feature.mfa.PreferencesMfaPromptStore
@@ -77,6 +77,12 @@ import com.shikkhokplus.app.core.notify.UnreadSchedule
 import com.shikkhokplus.app.navigation.SessionBinding
 import android.content.Intent
 import com.shikkhokplus.app.navigation.ShikkhokNavHost
+import com.shikkhokplus.app.navigation.FailedRecheckEffect
+import com.shikkhokplus.app.navigation.RootRoute
+import com.shikkhokplus.app.navigation.rootRouteFor
+import com.shikkhokplus.app.feature.account.ui.ChooseUsernameGate
+import com.shikkhokplus.app.feature.account.ChooseUsernameViewModel
+import com.shikkhokplus.app.core.network.HttpAccountRepository
 
 /**
  * The single Activity, hosting the navigation graph.
@@ -281,7 +287,10 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
             PreferencesMfaPromptStore(context.getSharedPreferences(MFA_OFFER_FILE, Context.MODE_PRIVATE))
         }
 
-    val authModel: AuthViewModel = viewModel { AuthViewModel(repository) }
+    // The replacement step checks names on the PUBLIC lookup: nobody is
+    // signed in while a sign-up's code is being verified [W2 step 3].
+    val authModel: AuthViewModel =
+        viewModel { AuthViewModel(repository, HttpSignupRepository(client)::checkUsername) }
     val authState by authModel.state.collectAsState()
 
     // Try the stored token BEFORE anyone is asked for anything. Keyed
@@ -333,52 +342,51 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
     // live rather than remembered.
     LaunchedEffect(signedIn) { if (signedIn) sessionModel.resolve() }
 
-    val lens: Lens?
-    // Whether there is anything to switch TO. Resolved alongside the
-    // lens because only the picker's own list knows: a person with
-    // one lens is offered nothing, and offering it anyway would send
-    // them to a picker that immediately picks for them.
-    var multiLens = false
-    if (signedIn) {
-        when (val resolved = sessionState) {
-            SessionUiState.Resolving -> {
-                FullScreenLoader(label = stringResource(R.string.auth_restoring))
-                return
-            }
+    // **A failed account read is re-read quietly while the app is in
+    // front** [NFR3.13]: the username flag is unknown until it succeeds,
+    // and a read saying `true` replaces the lens-free graph with the gate.
+    if (signedIn) FailedRecheckEffect(sessionState, sessionModel::recheck)
 
-            is SessionUiState.Choosing -> {
-                // **The person chooses, because the server sends no
-                // default** [TC-11, D-2]. Returning here rather than
-                // routing means the picker is not a back-stack entry:
-                // Back from the home screen leaves the app rather than
-                // returning to a choice already made.
-                LensPickerScreen(
-                    options = resolved.options,
-                    onChoose = sessionModel::choose,
-                )
-                return
-            }
-
-            is SessionUiState.Ready -> {
-                lens = resolved.lens
-                multiLens = resolved.fromPicker
-            }
-
-            // **No lens is not a failure.** A fresh signup holds no
-            // seat until a teacher adds them, and the graph sends a
-            // null lens to invitations -- which is lens-exempt on the
-            // server for exactly this case [BR1.3].
-            SessionUiState.NoLens -> lens = null
-
-            // A failure also routes to the lens-free home rather than
-            // stranding the person on an error page: invitations and
-            // the profile both work without a lens, so they can at
-            // least see their own row and try again.
-            is SessionUiState.Failed -> lens = null
-        }
-    } else {
-        lens = null
+    // **One way to end a session by choice, used by sign-out, deletion
+    // and the choose-username gate.** It discards this account's unsent
+    // writes -- which the sign-out dialog has already counted out loud --
+    // wipes the stored tokens and returns to sign-in. Declared before the
+    // routing below because the gate, which returns early, needs it.
+    //
+    // **The queue is cleared FIRST, and the order is load-bearing.**
+    // `clear` discards the signed-in account's items, and the store
+    // learns who that is from the tokens; cleared second, it would find
+    // nobody signed in and discard nothing.
+    val endSession = {
+        // Read before clearing, then revoked on the server without waiting:
+        // sign-out never depends on the network [audit C-21].
+        revokeOnServer(signOutScope, repository, tokens)
+        UnreadSchedule.stop(context)
+        copies.clear()
+        queue.clear()
+        workspaces.clear()
+        tokens.clear()
+        authModel.signOut()
     }
+
+    // **One value routes, so one frame cannot disagree with itself**
+    // [FR5.2, NFR3.12]: the gate, the picker and the graph are all chosen
+    // from the session state by `rootRouteFor`. Signed out is the
+    // lens-free graph, which starts at sign-in.
+    val route = if (signedIn) rootRouteFor(sessionState) else RootRoute.Graph(lens = null, multiLens = false)
+    if (route !is RootRoute.Graph) {
+        OutsideGraphRoot(route, client, tokens, sessionModel, endSession)
+        return
+    }
+    // **No lens is not a failure.** A fresh signup holds no seat until a
+    // teacher adds them, and the graph sends a null lens to invitations --
+    // which is lens-exempt on the server for exactly this case [BR1.3]. A
+    // failure also routes to the lens-free home rather than stranding the
+    // person on an error page.
+    val lens: Lens? = route.lens
+    // Whether there is anything to switch TO: only the picker's own list
+    // knew, so a person with one lens is offered nothing.
+    val multiLens = route.multiLens
 
     // **The queue drains while the app is open and someone is signed
     // in.** It was built and never started, so attendance saved offline
@@ -402,27 +410,6 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
     // Off in Settings, the tray stays quiet; the inbox still fills.
     val notificationsOn = settings.state.collectAsState().value.notifications
     UnreadCheckEffects(signedIn, notificationsOn)
-
-    // **One way to end a session by choice, used by sign-out and
-    // deletion.** It discards this account's unsent writes -- which the
-    // sign-out dialog has already counted out loud -- wipes the stored
-    // tokens and returns to sign-in.
-    //
-    // **The queue is cleared FIRST, and the order is load-bearing.**
-    // `clear` discards the signed-in account's items, and the store
-    // learns who that is from the tokens; cleared second, it would find
-    // nobody signed in and discard nothing.
-    val endSession = {
-        // Read before clearing, then revoked on the server without waiting:
-        // sign-out never depends on the network [audit C-21].
-        revokeOnServer(signOutScope, repository, tokens)
-        UnreadSchedule.stop(context)
-        copies.clear()
-        queue.clear()
-        workspaces.clear()
-        tokens.clear()
-        authModel.signOut()
-    }
 
     // **A session the server ended keeps its unsent writes.** Nobody
     // chose this and nothing told them, so discarding their attendance
@@ -493,6 +480,84 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
             MfaOffer(signedIn, client, navController, mfaStatus, mfaOffers, tokens::accountId)
         }
     }
+}
+
+/**
+ * What the root composes for a signed-in session outside the graph
+ * [FR5.2]: the loader, the gate or the picker.
+ *
+ * @param route Where `rootRouteFor` sent the session; a graph route
+ *   composes nothing here, because the caller builds the graph itself
+ * @param client The authenticated HTTP client
+ * @param tokens The token store
+ * @param sessionModel The session, for the picker's choice and the gate
+ * @param endSession The app's one way to end a session by choice
+ */
+@Composable
+private fun OutsideGraphRoot(
+    route: RootRoute,
+    client: io.ktor.client.HttpClient,
+    tokens: TokenStore,
+    sessionModel: SessionViewModel,
+    endSession: () -> Unit,
+) {
+    when (route) {
+        RootRoute.Loader -> FullScreenLoader(label = stringResource(R.string.auth_restoring))
+
+        // **Before the picker and before everything else** [FR5.2].
+        // Nothing of the graph is composed: no home, no More, no
+        // prompts. Like the picker it is not a back-stack entry, so
+        // Back leaves the app and reopening it resolves the account
+        // and shows the gate again.
+        RootRoute.Gate -> UsernameGateRoot(client, tokens, sessionModel, endSession)
+
+        // **The person chooses, because the server sends no default**
+        // [TC-11, D-2]. Not a back-stack entry: Back from the home
+        // screen leaves the app rather than returning to a choice
+        // already made.
+        is RootRoute.Picker -> LensPickerScreen(options = route.options, onChoose = sessionModel::choose)
+
+        is RootRoute.Graph -> Unit
+    }
+}
+
+/**
+ * The choose-username gate as the root composes it [FR5.2, W4].
+ *
+ * Its ViewModel is keyed on the account, so a later account's gate never
+ * inherits this one's finished state; a 200 lifts the gate through the
+ * session, and so does a re-read after another device chose first.
+ *
+ * @param client The authenticated HTTP client
+ * @param tokens The token store, for the account calls and the key
+ * @param sessionModel The session the gate is lifted through
+ * @param endSession The app's one way to end a session by choice
+ */
+@Composable
+private fun UsernameGateRoot(
+    client: io.ktor.client.HttpClient,
+    tokens: TokenStore,
+    sessionModel: SessionViewModel,
+    endSession: () -> Unit,
+) {
+    val gate: ChooseUsernameViewModel =
+        viewModel(key = "choose-username-${tokens.accountId()}") {
+            ChooseUsernameViewModel(
+                repository = HttpAccountRepository(client, tokens),
+                onChosen = sessionModel::usernameChosen,
+                reread = sessionModel::recheckNow,
+            )
+        }
+    val gateState by gate.state.collectAsState()
+    val gateHint by gate.availability.state.collectAsState()
+    ChooseUsernameGate(
+        state = gateState,
+        availability = gateHint,
+        onEdited = gate::edited,
+        onSubmit = gate::submit,
+        onRetry = gate::retry,
+        onSignOut = endSession,
+    )
 }
 
 /**

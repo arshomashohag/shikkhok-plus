@@ -14,39 +14,64 @@ import kotlin.test.assertTrue
 
 /**
  * Which sign-in rows More offers, decided from what the server said the
- * account holds, and the account's new fields as they arrive.
+ * account holds, and the account's fields as they arrive.
+ *
+ * **Rewritten for U3 from the new acceptance criterion** [W5, W6, Q3]:
+ * the two "Add phone" / "Add email" rows became one "Phone and email" row
+ * (adding, replacing and removing live on its screen), and a Username row
+ * was added. The cases below are the new design's, not the old rows'.
  */
 class AccountRowsTest {
 
-    private fun summary(phone: String?, email: String?, hasPassword: Boolean = true) =
-        ProfileSummary(selfName = "Rafi", address = null, phone = phone, email = email, hasPassword = hasPassword)
+    private fun summary(
+        phone: String?,
+        email: String?,
+        hasPassword: Boolean = true,
+        username: String? = null,
+    ) = ProfileSummary(
+        selfName = "Rafi",
+        address = null,
+        phone = phone,
+        email = email,
+        hasPassword = hasPassword,
+        username = username,
+    )
 
     @Test
-    fun `an email-only account is offered add phone, and not add email`() {
+    fun `the username row shows the stored name and opens the Username screen`() {
         val routes = mutableListOf<String>()
-        val rows = accountRowsFor(summary(phone = null, email = "rafi@example.com")) { routes += it }
+        val rows = accountRowsFor(summary("+8801711111111", null, username = "Nadia_K")) { routes += it }
 
-        assertNotNull(rows.onAddPhone).invoke()
-        assertNull(rows.onAddEmail)
-        assertEquals(listOf("me/contact/phone"), routes)
+        rows.onUsername()
+
+        assertEquals("Nadia_K", rows.username)
+        assertEquals(listOf(Destination.Username.route), routes)
     }
 
     @Test
-    fun `a phone-only account is offered add email, and not add phone`() {
-        val routes = mutableListOf<String>()
-        val rows = accountRowsFor(summary(phone = "+8801711111111", email = null)) { routes += it }
-
-        assertNull(rows.onAddPhone)
-        assertNotNull(rows.onAddEmail).invoke()
-        assertEquals(listOf("me/contact/email"), routes)
+    fun `no username yet leaves the subtitle to the screen's own words`() {
+        assertNull(accountRowsFor(summary("+8801711111111", null)) {}.username)
     }
 
     @Test
-    fun `nothing read yet offers no add row, because unknown is not absent`() {
+    fun `one contacts row, its line the present contacts, phone first`() {
+        val routes = mutableListOf<String>()
+        val both = accountRowsFor(summary("+8801711111111", "rafi@example.com")) { routes += it }
+
+        both.onContacts()
+
+        assertEquals("+8801711111111 · rafi@example.com", both.contactsLine)
+        assertEquals("rafi@example.com", accountRowsFor(summary(null, "rafi@example.com")) {}.contactsLine)
+        assertEquals("+8801711111111", accountRowsFor(summary("+8801711111111", null)) {}.contactsLine)
+        assertEquals(listOf(Destination.Contacts.route), routes)
+    }
+
+    @Test
+    fun `nothing read yet says nothing about the contacts, because unknown is not absent`() {
         val rows = accountRowsFor(null) {}
 
-        assertNull(rows.onAddPhone)
-        assertNull(rows.onAddEmail)
+        assertNull(rows.contactsLine)
+        assertNull(rows.username)
         assertTrue(rows.hasPassword, "an unknown never nags")
     }
 
@@ -61,15 +86,30 @@ class AccountRowsTest {
 
     @Test
     fun `the rows reach More's actions, and a missing token store adds none`() {
-        val rows = accountRowsFor(summary(phone = null, email = "rafi@example.com", hasPassword = false)) {}
+        val rows = accountRowsFor(summary(null, "rafi@example.com", hasPassword = false, username = "nadia_k")) {}
 
         val withRows = MoreActions().withAccountRows(rows)
         assertNotNull(withRows.onPassword)
         assertFalse(withRows.hasPassword)
-        assertNotNull(withRows.onAddPhone)
+        assertNotNull(withRows.onUsername)
+        assertNotNull(withRows.onContacts)
+        assertEquals("nadia_k", withRows.username)
+        assertEquals("rafi@example.com", withRows.contactsLine)
 
         val base = MoreActions()
         assertSame(base, base.withAccountRows(null))
+    }
+
+    @Test
+    fun `the rows never print the name or the contacts`() {
+        val sentinels = summary("+8801999999999", "sentinel@example.invalid", username = "sentinel_user_7")
+        val rows = accountRowsFor(sentinels) {}
+
+        listOf(rows.toString(), MoreActions().withAccountRows(rows).toString()).forEach { text ->
+            listOf("+8801999999999", "sentinel@example.invalid", "sentinel_user_7").forEach {
+                assertFalse(it in text, text)
+            }
+        }
     }
 
     @Test

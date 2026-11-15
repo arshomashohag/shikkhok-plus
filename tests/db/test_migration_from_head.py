@@ -139,7 +139,67 @@ def test_the_head_revision_advanced(staged: Engine) -> None:
             sa.text("SELECT version_num FROM alembic_version")
         ).scalar_one()
 
-    assert revision == "0036"
+    assert revision == "0038"
+
+
+def test_0038_leaves_existing_accounts_and_drafts_unchanged(postgres_url: str) -> None:
+    """The username revision rewrites no row [NFR7.1].
+
+    Staged at ``0037`` with an account and a draft, so the CHECKs this
+    revision adds meet real rows: they validate because every existing
+    row is null on both username columns, and nothing is backfilled.
+
+    :param postgres_url: The owner connection URL
+    :return: None
+    """
+    from tests.db.migration_support import stage_at
+
+    with stage_at(postgres_url, "0037") as engine:
+        account_id = uuid.uuid4()
+        with engine.begin() as connection:
+            connection.execute(
+                sa.text(
+                    "INSERT INTO account (id, phone, email, created_at) "
+                    "VALUES (:id, '+8801711110035', 'kept@example.com', now())"
+                ),
+                {"id": account_id},
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO pending_signup (id, phone, role, self_name, "
+                    "address_house, address_road, address_city, address_postcode, "
+                    "created_at, expires_at) VALUES (gen_random_uuid(), "
+                    "'+8801711110036', 'student', 'Draft', 'H', 'R', 'C', '1205', "
+                    "now(), now() + interval '1 day')"
+                )
+            )
+            before = connection.execute(
+                sa.text("SELECT phone, email, created_at FROM account WHERE id = :id"),
+                {"id": account_id},
+            ).one()
+
+        upgrade_to_head(engine)
+
+        with engine.begin() as connection:
+            after = connection.execute(
+                sa.text(
+                    "SELECT phone, email, created_at, username, username_key, "
+                    "username_changed_at, username_reclaimed_at "
+                    "FROM account WHERE id = :id"
+                ),
+                {"id": account_id},
+            ).one()
+            draft = connection.execute(
+                sa.text("SELECT username FROM pending_signup")
+            ).scalar_one()
+            holds = connection.execute(
+                sa.text("SELECT count(*) FROM username_hold")
+            ).scalar_one()
+
+    assert tuple(after[:3]) == tuple(before)
+    assert tuple(after[3:]) == (None, None, None, None)
+    assert draft is None
+    assert holds == 0
 
 
 def test_the_role_column_is_gone(staged: Engine) -> None:

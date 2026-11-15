@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.students
 
+import com.shikkhokplus.app.core.model.EmailEdit
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.BatchDto
 import com.shikkhokplus.app.core.network.ErrorBody
@@ -101,17 +102,25 @@ class StudentsViewModelTest {
             guardianPhone: String?,
             seats: List<StudentSeatBody>,
             clientMutationId: String?,
+            studentEmail: String?,
+            guardianEmail: String?,
         ): AuthResult<TeacherStudentDto> {
             createdSeats = seats
             createKeys += clientMutationId
+            createdEmails += studentEmail to guardianEmail
             return created ?: AuthResult.TransportFailure
         }
+
+        /** Each create's two emails, as the repository received them. */
+        val createdEmails = mutableListOf<Pair<String?, String?>>()
 
         override suspend fun rename(
             studentId: String,
             displayName: String?,
             studentPhone: String?,
             guardianPhone: String?,
+            studentEmail: EmailEdit,
+            guardianEmail: EmailEdit,
         ): AuthResult<TeacherStudentDto> = AuthResult.TransportFailure
 
         override suspend fun enroll(studentId: String, batchId: String): AuthResult<TeacherStudentDto> =
@@ -307,6 +316,61 @@ class StudentsViewModelTest {
 
         assertEquals("b-Physics" to listOf("s-2"), repository.addedToBatch)
         assertTrue(model.picked.value.isEmpty())
+    }
+
+    // --- U3: student and guardian emails [FR6.1, W7] -------------------------
+
+    @Test
+    fun `a student is created with both emails, trimmed, and blanks left out`() = runTest(dispatcher) {
+        val repository = Fake(created = AuthResult.Ok(dto("Rafiq")))
+        val model = StudentsViewModel(repository)
+
+        model.create("Rafiq", null, null, emptyList(), " rafiq@example.com ", "  ")
+        advanceUntilIdle()
+
+        assertEquals(listOf<Pair<String?, String?>>("rafiq@example.com" to null), repository.createdEmails)
+        assertEquals(WriteState.Saved, model.writeState.value)
+    }
+
+    @Test
+    fun `a taken student email reaches the form, for its own field`() = runTest(dispatcher) {
+        val model =
+            StudentsViewModel(
+                Fake(created = AuthResult.Refused(ErrorEnvelope(ErrorBody("X", false, "student.email.taken")))),
+            )
+
+        model.create("Rafiq", null, null, emptyList(), "rafiq@example.com", null)
+        advanceUntilIdle()
+
+        assertEquals(WriteState.Failed("student.email.taken", retryable = false), model.writeState.value)
+        assertTrue(StudentsStateMapper.isStudentEmailRefusal(model.writeState.value))
+        assertEquals(false, StudentsStateMapper.isStudentEmailRefusal(WriteState.Failed("student.phone_taken", false)))
+    }
+
+    @Test
+    fun `a lost connection on create offers a retry that resends the emails`() = runTest(dispatcher) {
+        val repository = Fake(created = AuthResult.TransportFailure)
+        val model = StudentsViewModel(repository)
+        model.create("Rafiq", null, null, emptyList(), "rafiq@example.com", "parent@example.com")
+        advanceUntilIdle()
+        assertEquals(WriteState.Failed(StudentsStateMapper.OFFLINE_KEY, retryable = true), model.writeState.value)
+
+        repository.created = AuthResult.Ok(dto("Rafiq"))
+        model.create("Rafiq", null, null, emptyList(), "rafiq@example.com", "parent@example.com")
+        advanceUntilIdle()
+
+        assertEquals(2, repository.createdEmails.size)
+        assertEquals(repository.createdEmails[0], repository.createdEmails[1])
+    }
+
+    @Test
+    fun `the list row's contact is the phone, else the email`() {
+        val byEmail = dto("Rafiq").copy(studentPhone = null, studentEmail = "rafiq@example.com")
+        val byPhone = dto("Mehedi").copy(studentPhone = "+8801812345678")
+
+        val rows = assertIs<StudentsUiState.Loaded>(StudentsStateMapper.afterLoad(listOf(byEmail, byPhone), false)).rows
+
+        assertEquals(listOf("rafiq@example.com", "+8801812345678"), rows.map { it.studentContactLine })
     }
 
     @Test

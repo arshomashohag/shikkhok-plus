@@ -110,6 +110,28 @@ class StringPlaceholderTest {
     }
 
     @Test
+    fun `the username and contact strings that name a value take exactly one, in both bundles`() {
+        // U3 [FR11.2]: the date of the next rename, the name someone
+        // took, and the contact a sheet is about to remove. Each is
+        // fetched with one argument; a bundle that lost the placeholder
+        // would print the sentence without the value it is about.
+        val withOne =
+            listOf(
+                "account_username_change_too_soon_on",
+                "username_changed_on",
+                "auth_replace_username_body",
+                "contacts_remove_body",
+            )
+        val en = placeholderCounts("android/src/main/res/values/strings.xml")
+        val bn = placeholderCounts("android/src/main/res/values-bn/strings.xml")
+
+        withOne.forEach { name ->
+            assertEquals(1, en[name], "en $name")
+            assertEquals(1, bn[name], "bn $name")
+        }
+    }
+
+    @Test
     fun `the scan actually found strings to check`() {
         // The guard this project applies to every other scanner: a
         // check that read nothing reports success. If the resource

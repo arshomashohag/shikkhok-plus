@@ -18,20 +18,20 @@ second commit point, on the branch where no account exists):
 2. **Delete the rows this account owns** that the manifest marks
    ``HARD_DELETE``.
 3. **Delete the account row.** Everything else follows from the database
-   constraints: ``SET NULL`` on the three references ``0007`` fixed, so
-   the enrollments, payment claims and queued submissions survive with
-   their links cleared; ``CASCADE`` on the five whose tables are
-   ``HARD_DELETE``.
+   constraints: ``SET NULL`` on the references ``0007`` fixed, so the
+   enrollments, payment claims and queued submissions survive with their
+   links cleared; ``CASCADE`` on those whose tables are ``HARD_DELETE``.
 
-**Step 3 is what makes step 2 look redundant, and it is not.** Five of
-the six account-scoped hard-delete tables would cascade anyway. They are
+**Step 3 is what makes step 2 look redundant, and it is not.** Most of
+the account-scoped hard-delete tables would cascade anyway. They are
 deleted explicitly because the explicit statement is what the absence
 test observes, and because a constraint is one migration away from
 changing while this module would go on reading as though it had not.
-The two phone-scoped tables -- ``otp_request`` and the staging outbox --
-cascade from nothing at all, because they are keyed on the number rather
-than on the account, and they are exactly the rows a deletion must
-remove: a code and a phone number sitting together.
+The destination-scoped tables -- ``otp_request``, the staging outbox
+and ``pending_signup`` -- cascade from nothing at all, because they are
+keyed on the number or the address rather than on the account, and they
+are exactly the rows a deletion must remove: a code and a contact
+sitting together.
 
 **The scoping map is the part that has to be exhaustive.** A disposition
 says WHAT happens to a table's rows; it cannot say WHICH rows belong to
@@ -53,6 +53,7 @@ ceilings protecting that number.
 
 from __future__ import annotations
 
+import datetime as dt
 import enum
 import uuid
 from dataclasses import dataclass
@@ -62,7 +63,10 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.accounts.identifier import Channel, Identifier
+from app.accounts.usernames import place_hold
+from app.db.advisory import account_key, contact_key, lock_keys, username_key
 from app.governance.dispositions import DISPOSITIONS, Disposition
+from app.students.service import block_relinking
 from app.teaching.unassign import unassign_member
 
 __all__ = [
@@ -246,12 +250,12 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
         scope=Scope.NOT_PERSONAL,
         column=None,
         note=(
-            "Keyed on a scope VALUE, which for two of the seven scopes "
-            "is a phone number -- and it is still not deleted. These "
-            "counters are the abuse control: clearing a number's "
-            "counters on request would make the deletion route the way "
-            "to reset the ceilings protecting it. They expire on their "
-            "own 48-hour window instead [DESIGN-7]."
+            "Keyed on a scope VALUE, which for some scopes is a phone "
+            "number -- and it is still not deleted. These counters are "
+            "the abuse control: clearing a number's counters on request "
+            "would make the deletion route the way to reset the ceilings "
+            "protecting it. They expire on their own 48-hour window "
+            "instead [DESIGN-7]."
         ),
     ),
     "owner_listing": _Target(
@@ -348,6 +352,25 @@ _LIVE_MEMBERSHIPS: Final = sa.text(
     "SELECT id FROM owner_member WHERE account_id = :account_id AND revoked_at IS NULL"
 )
 
+#: The account's contacts and username key, read again under its advisory
+#: key [U2: NFR3.1; U1: BR7.5]. Without the key here a deletion would leave
+#: no hold, and the name would be free the moment the row went.
+_HELD_CONTACTS: Final = sa.text(
+    "SELECT id, phone, email, username_key FROM account WHERE id = :account_id"
+)
+
+#: The replacement codes the account asked for [U2: NFR3.2].
+_REPLACEMENT_CODES: Final = sa.text(
+    "DELETE FROM otp_request WHERE requested_by_account_id = :account_id"
+)
+
+#: The account's live memberships, locked in ascending id order before
+#: any legacy statement touches them [U2: NFR4.2 LO-2].
+_LOCK_LIVE_MEMBERSHIPS: Final = sa.text(
+    "SELECT id FROM owner_member WHERE account_id = :account_id "
+    "AND revoked_at IS NULL ORDER BY id FOR UPDATE"
+)
+
 
 def delete_account(session: Session, destination: str | Identifier) -> DeletionResult:
     """Delete the account registered to a number or address, or report it absent.
@@ -407,6 +430,29 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
         {"value": identifier.value},
     ).one_or_none()
     account_id: uuid.UUID | None = row.id if row else None
+    if account_id is not None:
+        # The account's key, then a re-read under it, then every contact's
+        # key [U2: NFR3.1, NFR4.2 LO-1, LO-3]. A contact added between the
+        # read above and the key is seen here, so its codes and drafts go
+        # too; a concurrent deletion that finished first leaves nothing,
+        # and this one takes the absent branch below.
+        lock_keys(session, [account_key(account_id)])
+        row = session.execute(_HELD_CONTACTS, {"account_id": account_id}).one_or_none()
+        if row is None:
+            account_id = None
+        else:
+            # The username's key joins the contacts' in ONE call, last in
+            # the order [U1: BR10.1], so a claim of the name waits for this
+            # deletion and then meets its hold.
+            lock_keys(
+                session,
+                [
+                    contact_key(kind, value)
+                    for kind, value in (("phone", row.phone), ("email", row.email))
+                    if value is not None
+                ]
+                + ([username_key(row.username_key)] if row.username_key else []),
+            )
     phones = {identifier.value} if identifier.is_phone else set()
     emails = set() if identifier.is_phone else {identifier.value}
     if row is not None:
@@ -435,6 +481,24 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
         session.commit()
         return DeletionResult(existed=False, rows_deleted=rows_deleted)
 
+    # A replacement code this account asked for names a destination it
+    # typed; `SET NULL` on its requester would leave that destination
+    # beside a code with nobody to own it [U2: NFR3.2].
+    rows_deleted["otp_request"] += (
+        session.connection()
+        .execute(_REPLACEMENT_CODES, {"account_id": account_id})
+        .rowcount
+    )
+
+    # Every link the account held is marked, so whoever verifies its phone
+    # or its email next is never handed the seat [U2: NFR3.1]. Its seat
+    # rows are locked in ascending id order, then its live memberships,
+    # before any legacy statement [NFR4.2 LO-2, LO-3].
+    rows_deleted["enrollment_relink_blocked"] = block_relinking(
+        session, account_id=account_id
+    )
+    session.execute(_LOCK_LIVE_MEMBERSHIPS, {"account_id": account_id})
+
     # A teacher's batches stay with their students [BR1.6 amended].
     # Retired before the account row goes, in the same transaction.
     session.execute(_RETIRE_OWNED_BATCHES, {"account_id": account_id})
@@ -447,6 +511,20 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
             continue
         rows_deleted[table] = _delete_where(
             session, table, target, account_id=account_id
+        )
+
+    # The deletion hold [U1: BR7.5]: 30 days, a keyed digest only, and no
+    # releasing account, so nobody -- this person included -- can take the
+    # name and stand in for its owner before it expires. In this one
+    # transaction, before the account row goes, so it commits with the
+    # deletion or not at all; idempotent on the digest, so the bounded
+    # retry around deletion places it once [NFR4.3].
+    if row is not None and row.username_key:
+        place_hold(
+            session,
+            row.username_key,
+            releasing_account_id=None,
+            now=dt.datetime.now(tz=dt.UTC),
         )
 
     # A solo teacher's publication. `owner` stays, so nothing cascades.

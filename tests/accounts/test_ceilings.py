@@ -37,7 +37,7 @@ from app.auth.ceilings import (
 )
 from app.auth.client_address import TRUSTED_CLIENT_IP_HEADER_ENV
 from app.db.models import Account, Enrollment, RateLimitCounter
-from tests.accounts.signup_support import sign_up
+from tests.accounts.signup_support import sign_up, unique_username
 from tests.batches.conftest import make_teacher
 from tests.students_support import student_for
 
@@ -302,6 +302,8 @@ def test_signup_is_refused_through_the_endpoint(
         "address_road": "Road 5",
         "address_city": "Dhaka",
         "address_postcode": "1205",
+        # One name for every attempt: a draft reserves nothing [U1: BR2.3].
+        "username": unique_username(),
     }
 
     # Asserted on signup itself. It used to be asserted through the
@@ -345,7 +347,8 @@ def test_a_repeated_signup_is_not_refused_as_a_duplicate(
 
     sign_up(client, body)
 
-    again = client.post("/v1/accounts", json=body)
+    # Another name: the first is the account's now [U1: BR2.2].
+    again = client.post("/v1/accounts", json={**body, "username": unique_username()})
 
     assert again.status_code == 201
     assert "ACCOUNT_EXISTS" not in again.text
@@ -406,6 +409,7 @@ def test_the_draft_exists_before_the_code_is_sent_and_the_account_does_not(
                 "address_road": "Road 5",
                 "address_city": "Dhaka",
                 "address_postcode": "1205",
+                "username": unique_username(),
             },
         )
     finally:
@@ -474,6 +478,7 @@ def test_lookups_do_not_spend_the_signup_allowance(
             "address_road": "Road 5",
             "address_city": "Dhaka",
             "address_postcode": "1205",
+            "username": unique_username(),
         },
     )
 
@@ -499,10 +504,14 @@ def test_the_lookup_is_still_limited_per_number(
 
     refused = _lookup(addressed_client, phone, "83.0.0.1")
 
-    assert refused.status_code == 409
+    # 429 `auth.lookup.too_many` since U2 [BR4.4]; still not retryable and
+    # with no retry-after hint.
+    assert refused.status_code == 429
     error = refused.json()["error"]
     assert error["code"] == "TEMPORARILY_UNAVAILABLE"
-    assert error["message_key"] == "signup.temporarily_unavailable"
+    assert error["message_key"] == "auth.lookup.too_many"
+    assert error["retryable"] is False
+    assert "retry-after" not in {name.lower() for name in refused.headers}
 
 
 def test_the_lookup_is_still_limited_per_address(
@@ -519,7 +528,7 @@ def test_the_lookup_is_still_limited_per_address(
     refused = _lookup(addressed_client, _phone(), "84.1.2.4")
     elsewhere = _lookup(addressed_client, _phone(), "85.1.2.3")
 
-    assert refused.status_code == 409
+    assert refused.status_code == 429  # since U2 [BR4.4]
     assert elsewhere.status_code == 200
 
 
@@ -553,7 +562,7 @@ def test_a_lookup_refusal_is_the_same_for_a_recorded_and_a_new_number(
     for_recorded = _lookup(addressed_client, recorded, "86.1.2.3")
     for_new = _lookup(addressed_client, _phone(), "86.1.2.3")
 
-    assert for_recorded.status_code == for_new.status_code == 409
+    assert for_recorded.status_code == for_new.status_code == 429  # U2 [BR4.4]
     assert for_recorded.content == for_new.content
 
 

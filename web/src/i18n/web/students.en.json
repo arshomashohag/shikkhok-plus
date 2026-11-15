@@ -12,5 +12,9 @@
   "web_notices_edit_title": "Edit notice",
   "web_dues_remind_offline": "Reminders need a connection.",
   "web_students_remove_seat_named": "Remove from batch: {1}",
-  "web_students_remove_seat_body": "{1} will be removed from “{2}”. Nothing they have recorded is affected, because nobody has accepted this place."
+  "web_students_remove_seat_body": "{1} will be removed from “{2}”. Nothing they have recorded is affected, because nobody has accepted this place.",
+  "web_students_add_by_email": "Record by email instead",
+  "web_student_edit_title": "Edit student",
+  "web_student_edit_save": "Save changes",
+  "web_student_edit_saved": "Changes saved"
 }

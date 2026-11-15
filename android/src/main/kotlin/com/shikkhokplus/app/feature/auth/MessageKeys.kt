@@ -90,6 +90,28 @@ object MessageKeys {
         // Adding a phone or an email to an account.
         "account.contact.already_set" to R.string.account_contact_already_set,
         "account.contact.taken" to R.string.account_contact_taken,
+        // U3: replacing and removing a contact [FR8.2, FR8.4].
+        "account.contact.password_required" to R.string.account_contact_password_required,
+        "account.contact.last_one" to R.string.account_contact_last_one,
+        "account.contact.change_limit" to R.string.account_contact_change_limit,
+        "account.contact.admin_locked" to R.string.account_contact_admin_locked,
+        // U3: usernames [FR1, FR7]. The six format keys name which rule the
+        // server applied; the client applies none of them [FR11.3].
+        "account.username.too_short" to R.string.account_username_too_short,
+        "account.username.too_long" to R.string.account_username_too_long,
+        "account.username.invalid_character" to R.string.account_username_invalid_character,
+        "account.username.must_start_with_letter" to R.string.account_username_must_start_with_letter,
+        "account.username.bad_dot" to R.string.account_username_bad_dot,
+        "account.username.reserved" to R.string.account_username_reserved,
+        "account.username.unavailable" to R.string.account_username_unavailable,
+        // The plain form; the rename screen uses the dated form when the
+        // envelope carries `next_change_at`.
+        "account.username.change_too_soon" to R.string.account_username_change_too_soon,
+        "account.username.password_required" to R.string.account_username_password_required,
+        "auth.lookup.too_many" to R.string.auth_lookup_too_many,
+        "student.email.taken" to R.string.student_email_taken,
+        // Client-side only: a blank username on the sign-up form.
+        "signup.username.required" to R.string.signup_username_required,
         // U4: batches, enrollment seats and the guardian's children.
         "batch.not_found" to R.string.batch_not_found,
         "batch.subject_in_use" to R.string.batch_subject_in_use,

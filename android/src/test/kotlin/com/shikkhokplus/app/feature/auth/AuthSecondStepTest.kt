@@ -55,11 +55,13 @@ class AuthSecondStepTest {
         override suspend fun issue(identifier: Identifier): AuthResult<IssueResponse> =
             AuthResult.Ok(IssueResponse("requested"))
 
-        override suspend fun verify(identifier: Identifier, code: String): AuthResult<VerifyResponse> =
-            AuthResult.TransportFailure
+        override suspend fun verify(
+            identifier: Identifier,
+            code: String,
+            username: String?,
+        ): AuthResult<VerifyResponse> = AuthResult.TransportFailure
 
-        override suspend fun signIn(identifier: Identifier, password: String): AuthResult<VerifyResponse> =
-            signInResult
+        override suspend fun signIn(login: String, password: String): AuthResult<VerifyResponse> = signInResult
 
         override suspend fun setupPassword(
             token: String,
@@ -81,7 +83,7 @@ class AuthSecondStepTest {
     /** A ViewModel already at the second step. */
     private fun TestScope.atSecondStep(repository: FakeRepository): AuthViewModel {
         val model = AuthViewModel(repository)
-        model.signIn(Identifier.phone("+8801711111111"), "correct horse")
+        model.signIn("+8801711111111", "correct horse")
         advanceUntilIdle()
         return model
     }

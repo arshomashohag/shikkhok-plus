@@ -20,19 +20,32 @@ shape that gate exists to catch.
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Final
 
-from fastapi import APIRouter, Depends
+import sqlalchemy as sa
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
+from app.accounts import usernames
+from app.accounts.passwords import confirm_password
+from app.api.auth import coarse_prefix_of, correlation_of, ip_prefix_of
 from app.api.deps import authenticated_account, get_session
+from app.auth.ceilings import CeilingChecker
 from app.authz.rls import set_account_context
 from app.authz.summary import LensSummary, lens_summary
 from app.centres.service import workspaces_of
 from app.db.models import Account, Profile
+from app.db.retry import run_with_retry
 from app.schemas.address import CityField, HouseField, PostcodeField, RoadField
 from app.schemas.centres import WorkspaceResponse
+from app.schemas.errors import ErrorEnvelope
+from app.schemas.usernames import (
+    UsernameAvailabilityRequest,
+    UsernameAvailabilityResponse,
+    UsernameChangeRequest,
+    UsernameChangeResponse,
+)
 
 router = APIRouter(prefix="/v1", tags=["me"])
 
@@ -80,6 +93,13 @@ class MeResponse(BaseModel):
         first [0022]. A client sends the chosen one's ``owner_id`` as
         ``X-Workspace-Id``; with one entry, or none, there is nothing to
         choose
+    :ivar username: The account's username as stored, or None [U1: FR5.1].
+        Owner-only: an ``OWN_ACCOUNT_FIELDS`` pair, served on these
+        lens-exempt routes and nowhere else [BR8.1]
+    :ivar username_required: True exactly while the account has no
+        username [BR5.1]. Computed here on every response, never stored;
+        the clients show the choose-username screen on it, and the server
+        refuses nothing else for it [BR5.2]
     """
 
     lenses: list[LensEntry] = Field(default_factory=list)
@@ -93,6 +113,8 @@ class MeResponse(BaseModel):
     phone: str | None = None
     email: str | None = None
     has_password: bool = False
+    username: str | None = None
+    username_required: bool = True
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -173,6 +195,10 @@ def _me(session: Session, account_id: uuid.UUID, profile: Profile | None) -> MeR
         phone=account.phone if account else None,
         email=account.email if account else None,
         has_password=bool(account and account.password_hash),
+        # Read from the account row this request already loads, so the
+        # flag can never disagree with the name beside it [BR5.1].
+        username=account.username if account else None,
+        username_required=account is None or account.username is None,
         workspaces=[
             WorkspaceResponse.model_validate(
                 {"owner_id": row.owner_id, "kind": row.kind, "name": row.name}
@@ -263,3 +289,151 @@ def update_me(
     session.commit()
 
     return _me(session, account_id, profile)
+
+
+@router.post(
+    "/me/username-availability",
+    response_model=UsernameAvailabilityResponse,
+    responses={
+        429: {
+            "model": ErrorEnvelope,
+            "description": "auth.lookup.too_many: the availability ceilings",
+        },
+    },
+)
+def check_my_username_availability(
+    body: UsernameAvailabilityRequest,
+    request: Request,
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+    session: Annotated[Session, Depends(get_session)],
+) -> UsernameAvailabilityResponse:
+    """Say whether this account could take a name, as Settings asks [BR3.2].
+
+    **Lens-exempt on ``GET /v1/me``'s reasoning** [BR3.5]: it acts on the
+    authenticated account alone and reads nothing another account owns
+    beyond a yes or no. It differs from the public lookup only for names
+    this account itself holds -- its current key, or a live hold it
+    released -- which answer ``available``, since a rename would take them
+    back [NFR1.5]. Counted on the public lookup's ceilings, by network.
+
+    :param body: The candidate
+    :param request: The incoming request
+    :param account_id: The authenticated account
+    :param session: The request-scoped session
+    :return: The status, and for ``invalid`` the rule it broke
+    :raises CeilingBreach: A lookup ceiling refused this request
+    """
+    CeilingChecker(session).check_and_consume_username_lookup(
+        ip_prefix=ip_prefix_of(request), coarse_prefix=coarse_prefix_of(request)
+    )
+    answer = usernames.availability(
+        session, body.username, caller=account_id, now=usernames.utc_now()
+    )
+    return UsernameAvailabilityResponse(
+        status=answer.status, message_key=answer.message_key
+    )
+
+
+@router.put(
+    "/me/username",
+    response_model=UsernameChangeResponse,
+    responses={
+        400: {
+            "model": ErrorEnvelope,
+            "description": (
+                "A username rule refused it (account.username.*); "
+                "account.username.password_required; auth.password.current_wrong"
+            ),
+        },
+        409: {
+            "model": ErrorEnvelope,
+            "description": (
+                "account.username.unavailable; account.username.change_too_soon "
+                "with details.next_change_at; auth.password.too_many_attempts"
+            ),
+        },
+        429: {
+            "model": ErrorEnvelope,
+            "description": "auth.lookup.too_many: too many claims this hour",
+        },
+    },
+)
+def change_my_username(
+    body: UsernameChangeRequest,
+    request: Request,
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+    session: Annotated[Session, Depends(get_session)],
+) -> UsernameChangeResponse:
+    """Choose the first username, rename, reclaim, or change only its case.
+
+    **Lens-exempt on ``GET /v1/me``'s reasoning** [BR3.5]: it writes the
+    authenticated account's own username and nothing else.
+
+    In this order [NFR1.6, NFR4.3]: the format (400, nothing counted);
+    the claim ceilings, committed, before the password, any lock or any
+    read of another account or hold; then, for an account that already
+    has a username, the password, whose failures commit their own count;
+    then the change itself as one re-runnable unit of work, under the
+    bounded retry because it sends nothing before its commit. A first
+    choice needs no password and the one sent is ignored [BR5.3].
+
+    Nobody is signed out [BR6.8]: other devices read the new name from
+    ``GET /v1/me``.
+
+    :param body: The candidate, and the password for a rename
+    :param request: The incoming request
+    :param account_id: The authenticated account
+    :param session: The request-scoped session
+    :return: The stored username and when it may next change
+    :raises UsernameRefused: It breaks a username rule
+    :raises CeilingBreach: The claim ceilings, or the password's
+    :raises UsernamePasswordRequired: A rename without a password, or by
+        an account that has none
+    :raises ValidationError: ``auth.password.current_wrong``
+    :raises UsernameUnavailable: The name is taken or held
+    :raises UsernameChangeTooSoon: An ordinary rename inside the window
+    """
+    candidate = usernames.judge(body.username)
+    ip_prefix = ip_prefix_of(request)
+    coarse_prefix = coarse_prefix_of(request)
+    CeilingChecker(session).check_and_consume_username_claim(
+        account_id, ip_prefix, coarse_prefix
+    )
+    # Whether this is a rename is read again under the account's lock;
+    # this read only decides whether to ask for the password first. A
+    # first username chosen meanwhile on another device makes the locked
+    # re-read a rename, which then refuses for want of one [W7 step 2].
+    named: bool = (
+        session.execute(_HAS_USERNAME, {"id": account_id}).scalar_one_or_none() is True
+    )
+    if named:
+        confirm_password(
+            session,
+            account_id,
+            body.password,
+            ip_prefix=ip_prefix,
+            coarse_prefix=coarse_prefix,
+        )
+    correlation_id = correlation_of(request)
+    now = usernames.utc_now()
+    result = run_with_retry(
+        session,
+        lambda: usernames.apply_change(
+            session,
+            account_id,
+            candidate,
+            password_confirmed=named,
+            now=now,
+            correlation_id=correlation_id,
+        ),
+        correlation_id=correlation_id,
+    )
+    return UsernameChangeResponse(
+        username=result.username, next_change_at=result.next_change_at
+    )
+
+
+#: Whether the account has a username yet, read before its lock.
+_HAS_USERNAME: Final = sa.text(
+    "SELECT username_key IS NOT NULL FROM account WHERE id = :id"
+)

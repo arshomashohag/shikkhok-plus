@@ -48,10 +48,20 @@ from app.accounts.identifier import Identifier
 from app.auth.ceilings import CeilingBreach, CeilingChecker, SendBudget
 from app.gateway.email import EmailGateway, EmailMessage
 from app.gateway.outbox import record_outbox
-from app.gateway.sms import SendResult, SmsGateway
-from app.gateway.template import render_email_code, render_otp_message
+from app.gateway.sms import Outcome, SendResult, SmsGateway
+from app.gateway.template import (
+    render_contact_notice_email,
+    render_contact_notice_sms,
+    render_email_code,
+    render_otp_message,
+)
 
-__all__ = ["deliver_code", "send_email_within_budget", "send_within_budget"]
+__all__ = [
+    "deliver_code",
+    "send_contact_notice",
+    "send_email_within_budget",
+    "send_within_budget",
+]
 
 #: The SMS Retriever app hash, from configuration.
 _APP_HASH_ENV = "SHIKKHOKPLUS_SMS_APP_HASH"
@@ -191,6 +201,67 @@ def deliver_code(
         email=identifier.value,
         message=message.text,
         correlation_id=correlation_id,
+    )
+
+
+def send_contact_notice(
+    bind: Engine | Connection,
+    contact: Identifier,
+    correlation_id: str,
+    *,
+    sms_gateway: SmsGateway,
+    email_gateway: EmailGateway,
+) -> None:
+    """Tell a contact that just left an account, once, best-effort [BR5.9].
+
+    Run after the change has committed, from the response's background
+    tasks, so no transaction is open while the gateway is called and a
+    server-side retry of the change can never send it twice [NFR4.7].
+    It spends the budget its channel's codes spend (the sign-in SMS
+    budget, or the email budget), and a refused budget means it is not
+    sent.
+
+    **Never raised to anybody** -- the stated exception to "silent
+    failures are not acceptable", as an FCM push is. The outcome is
+    logged once by channel and correlation id [NFR4.9]; the contact, the
+    account and the text never are [NFR3.4].
+
+    :param bind: The engine to open the budget's own session on
+    :param contact: The contact that left the account
+    :param correlation_id: Ties the log line to the request
+    :param sms_gateway: The configured SMS gateway
+    :param email_gateway: The configured email gateway
+    :return: None
+    """
+    purpose = "contact_notice_sms" if contact.is_phone else "contact_notice_email"
+    try:
+        if contact.is_phone:
+            result = send_within_budget(
+                bind,
+                sms_gateway,
+                contact.value,
+                render_contact_notice_sms(),
+                correlation_id,
+                budget=SendBudget.SIGN_IN,
+            )
+        else:
+            result = send_email_within_budget(
+                bind,
+                email_gateway,
+                contact.value,
+                render_contact_notice_email(),
+                correlation_id,
+            )
+        outcome = Outcome.BUDGET_REFUSED if result is None else result.outcome
+    except Exception:  # noqa: BLE001  best-effort by rule [BR5.9, NFR4.7]
+        outcome = Outcome.FAILED
+    _log.info(
+        "contact notice",
+        extra={
+            "purpose": purpose,
+            "outcome": outcome.value.lower(),
+            "correlation_id": correlation_id,
+        },
     )
 
 

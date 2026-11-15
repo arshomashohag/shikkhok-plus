@@ -20,6 +20,7 @@ import com.shikkhokplus.app.feature.fees.FeeReader
 import com.shikkhokplus.app.feature.students.StudentDetailUiState
 import com.shikkhokplus.app.feature.students.StudentDetailViewModel
 import com.shikkhokplus.app.feature.students.StudentFilter
+import com.shikkhokplus.app.feature.students.StudentsStateMapper
 import com.shikkhokplus.app.feature.students.StudentsUiState
 import com.shikkhokplus.app.feature.students.StudentsViewModel
 import com.shikkhokplus.app.feature.students.ui.AddStudentForm
@@ -122,10 +123,22 @@ private fun NavGraphBuilder.newStudentRoute(client: HttpClient, navController: N
         ScreenScaffold(title = stringResource(R.string.screen_title_add_student), onBack = leave) {
             AddStudentForm(
                 batches = batches,
-                onSave = { model.create(it.name, it.studentPhone, it.guardianPhone, it.seats) },
+                onSave = {
+                    model.create(
+                        it.name,
+                        it.studentPhone,
+                        it.guardianPhone,
+                        it.seats,
+                        it.studentEmail,
+                        it.guardianEmail,
+                    )
+                },
                 onCancel = leave,
                 saving = write == WriteState.Saving,
-                error = writeError(write),
+                // A taken student email is named under its field [W7.4];
+                // every other refusal is the form's banner.
+                error = writeError(write).takeUnless { StudentsStateMapper.isStudentEmailRefusal(write) },
+                studentEmailError = writeError(write).takeIf { StudentsStateMapper.isStudentEmailRefusal(write) },
                 preselected = preselected,
                 existingNames = names,
             )

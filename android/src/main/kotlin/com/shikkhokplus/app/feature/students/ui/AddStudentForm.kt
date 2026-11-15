@@ -30,7 +30,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.Reach
+import com.shikkhokplus.app.core.designsystem.ShikkhokTextField
 import com.shikkhokplus.app.core.format.Numerals
+import com.shikkhokplus.app.core.model.EMAIL_MAX
+import com.shikkhokplus.app.core.model.emailIsWellFormed
 import com.shikkhokplus.app.core.network.StudentSeatBody
 import com.shikkhokplus.app.core.ui.PhoneNumberField
 import com.shikkhokplus.app.core.ui.TAG_FORM_CANCEL
@@ -48,6 +51,62 @@ import com.shikkhokplus.app.feature.students.BatchOption
 /** The batch multi-select. Not user-visible text. */
 const val TAG_FORM_BATCHES: String = "form_batches"
 
+/** The student's email on the add-student form [FR6.1]. */
+const val TAG_FORM_STUDENT_EMAIL: String = "form_student_email"
+
+/** The guardian's email on the add-student form. */
+const val TAG_FORM_GUARDIAN_EMAIL: String = "form_guardian_email"
+
+/**
+ * Whether an optional email field may be sent: blank, or the server's shape.
+ *
+ * @param typed What the field holds
+ * @return True when it may be sent
+ */
+internal fun optionalEmailOk(typed: String): Boolean = typed.isBlank() || emailIsWellFormed(typed)
+
+/**
+ * Whether a form's optional contacts may be sent: each phone blank or a
+ * number, each email blank or the server's shape [W7.2]. Format only.
+ *
+ * @param phones The typed numbers
+ * @param emails The typed addresses
+ * @return True when every one may be sent
+ */
+internal fun contactsSendable(phones: List<String>, emails: List<String>): Boolean =
+    phones.all { it.isBlank() || phoneIsValid(it) } && emails.all(::optionalEmailOk)
+
+/**
+ * An optional email field for someone else's address: the email keyboard,
+ * no autocorrect, and **no autofill**, so the device's own accounts are
+ * not offered [NFR3.6]. A malformed value is named under it; so is a
+ * refusal the server tied to it.
+ *
+ * @param value What is typed
+ * @param onValueChange Called on each edit
+ * @param label The field's label
+ * @param tag The field's test tag
+ * @param refusal A server refusal about this field, resolved, or null
+ */
+@Composable
+internal fun OptionalEmailField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    tag: String,
+    refusal: String? = null,
+) {
+    ShikkhokTextField(
+        value = value,
+        onValueChange = { onValueChange(it.take(EMAIL_MAX)) },
+        label = label,
+        error = refusal ?: stringResource(R.string.signup_email_invalid).takeIf { !optionalEmailOk(value) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, autoCorrectEnabled = false),
+        fieldModifier = Modifier.testTag(tag),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
 /** One choice in the batch multi-select. */
 const val TAG_FORM_BATCH_OPTION: String = "form_batch_option"
 
@@ -61,13 +120,21 @@ const val TAG_FORM_SEAT_FEE: String = "form_seat_fee"
  * @property studentPhone The typed student number, or null
  * @property guardianPhone The typed guardian number, or null
  * @property seats The chosen batches, each with its own fee or null
+ * @property studentEmail The typed student address, or null [FR6.1]
+ * @property guardianEmail The typed guardian address, or null
  */
 data class NewStudent(
     val name: String,
     val studentPhone: String?,
     val guardianPhone: String?,
     val seats: List<StudentSeatBody>,
-)
+    val studentEmail: String? = null,
+    val guardianEmail: String? = null,
+) {
+    // Someone else's contacts, typed by a teacher [NFR3.2].
+    override fun toString(): String =
+        "NewStudent(seats=${seats.size}, studentPhone=***, guardianPhone=***, studentEmail=***, guardianEmail=***)"
+}
 
 /**
  * Add a student to the teacher's list, and suggest batches [D3].
@@ -88,6 +155,8 @@ data class NewStudent(
  * @param error Why the last write failed, already resolved, or null
  * @param preselected A batch to start chosen, when opened from a roster
  * @param existingNames The teacher's students, for the same-name hint
+ * @param studentEmailError A refusal about the student's email, resolved,
+ *   shown under that field (`student.email.taken`), or null
  */
 @Composable
 fun AddStudentForm(
@@ -99,17 +168,19 @@ fun AddStudentForm(
     error: String? = null,
     preselected: String? = null,
     existingNames: List<String> = emptyList(),
+    studentEmailError: String? = null,
 ) {
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var guardian by remember { mutableStateOf("") }
+    var studentEmail by remember { mutableStateOf("") }
+    var guardianEmail by remember { mutableStateOf("") }
     // Batch id to the fee typed for it; blank inherits the batch's fee.
     val chosen = remember { mutableStateMapOf<String, String>().apply { preselected?.let { put(it, "") } } }
 
-    val phoneOk = phone.isBlank() || phoneIsValid(phone)
-    val guardianOk = guardian.isBlank() || phoneIsValid(guardian)
+    val contactsOk = contactsSendable(listOf(phone, guardian), listOf(studentEmail, guardianEmail))
     val feesOk = chosen.values.all(::feeIsValid)
-    val ready = !saving && name.isNotBlank() && phoneOk && guardianOk && feesOk
+    val ready = !saving && name.isNotBlank() && contactsOk && feesOk
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedTextField(
@@ -129,6 +200,13 @@ fun AddStudentForm(
             fieldModifier = Modifier.testTag(TAG_FORM_STUDENT_PHONE),
             modifier = Modifier.fillMaxWidth(),
         )
+        OptionalEmailField(
+            value = studentEmail,
+            onValueChange = { studentEmail = it },
+            label = stringResource(R.string.student_add_student_email),
+            refusal = studentEmailError,
+            tag = TAG_FORM_STUDENT_EMAIL,
+        )
         PhoneNumberField(
             value = guardian,
             onValueChange = { guardian = it },
@@ -136,6 +214,12 @@ fun AddStudentForm(
             error = phoneError(guardian),
             fieldModifier = Modifier.testTag(TAG_FORM_GUARDIAN),
             modifier = Modifier.fillMaxWidth(),
+        )
+        OptionalEmailField(
+            value = guardianEmail,
+            onValueChange = { guardianEmail = it },
+            label = stringResource(R.string.student_add_guardian_email),
+            tag = TAG_FORM_GUARDIAN_EMAIL,
         )
         BatchMultiSelect(
             batches = batches,
@@ -170,6 +254,8 @@ fun AddStudentForm(
                             name = name.trim(),
                             studentPhone = phone.trim().ifBlank { null },
                             guardianPhone = guardian.trim().ifBlank { null },
+                            studentEmail = studentEmail.trim().ifBlank { null },
+                            guardianEmail = guardianEmail.trim().ifBlank { null },
                             seats =
                                 batches
                                     .filter { it.id in chosen }

@@ -51,6 +51,38 @@ class HttpSignupRepository(
         }
 
     /**
+     * Ask whether a teacher already recorded this email [W9, Q4].
+     *
+     * **A query parameter, as the contract defines** (C2): the address is
+     * the person's own, typed by them, and the route is U2's. The answer
+     * is read exactly as the phone lookup's.
+     *
+     * @param email The address the person typed
+     * @return What the server will say about it
+     */
+    override suspend fun lookupEmail(email: String): AuthResult<AlreadyAddedDto> =
+        call {
+            client.get("/v1/accounts/already-added") {
+                parameter("email", email.trim())
+            }
+        }
+
+    /**
+     * Ask the public lookup whether a username could be taken [FR3.1].
+     *
+     * **In a body, never in the URL** [NFR3.1, NFR3.5].
+     *
+     * @param username The candidate, trimmed
+     * @return The server's answer
+     */
+    override suspend fun checkUsername(username: String): AuthResult<UsernameAvailabilityDto> =
+        call {
+            client.post("/v1/accounts/username-availability") {
+                setBody(UsernameAvailabilityRequest(username.trim()))
+            }
+        }
+
+    /**
      * Create an account for a phone or an email nobody has registered.
      *
      * **This does not sign the person in.** The response carries no
@@ -63,6 +95,7 @@ class HttpSignupRepository(
      * @param role The claimed role; nothing verifies it [BR4.2]
      * @param selfName The name the person chose for themselves
      * @param address Owner-private, in its four parts
+     * @param username The username, sent trimmed [FR2.1]
      * @param centreName The coaching centre to open, or null
      * @return The new account and where the code went
      */
@@ -71,6 +104,7 @@ class HttpSignupRepository(
         role: String,
         selfName: String,
         address: PostalAddress,
+        username: String,
         centreName: String?,
     ): AuthResult<SignupResponseDto> =
         call {
@@ -86,6 +120,7 @@ class HttpSignupRepository(
                         addressCity = address.city.trim(),
                         addressPostcode = address.latinPostcode,
                         centreName = centreName,
+                        username = username.trim(),
                     ),
                 )
             }

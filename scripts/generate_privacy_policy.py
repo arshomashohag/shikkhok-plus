@@ -119,6 +119,7 @@ _RETENTION_TEXT: Final[dict[RetentionClass, str]] = {
     RetentionClass.HOURS_48: "48 hours",
     RetentionClass.MONTHS_12: "12 months",
     RetentionClass.UNTIL_EXPIRY_PLUS_30_DAYS: "30 days after it expires",
+    RetentionClass.UNTIL_EXPIRY: "30 days, when the hold expires",
     RetentionClass.LIFE_OF_ACCOUNT: "no time limit",
 }
 
@@ -127,7 +128,7 @@ _RETENTION_TEXT: Final[dict[RetentionClass, str]] = {
 #: name**: ``queued_submission`` or ``batch_subject`` on a page a
 #: regulator reads is a schema dump pretending to be a disclosure.
 _TABLE_DESCRIPTION: Final[dict[str, str]] = {
-    "account": "Your phone number and account record",
+    "account": "Your phone number, username and account record",
     "profile": "Your own name, photo and address",
     "otp_request": "One-time sign-in codes, stored only as hashes",
     "verify_attempt": "Failed and successful sign-in attempts",
@@ -136,6 +137,10 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
     ),
     "refresh_token": "Session tokens, stored only as hashes",
     "rate_limit_counter": "Counters that limit sign-in attempts",
+    "username_hold": (
+        "A changed or deleted username, held for 30 days so nobody else "
+        "can take it, stored only as a keyed digest"
+    ),
     "auth_audit_log": "A sign-in audit record carrying no name or code",
     "bd_area": "The fixed list of Bangladesh divisions, districts and upazilas",
     "owner_listing": (

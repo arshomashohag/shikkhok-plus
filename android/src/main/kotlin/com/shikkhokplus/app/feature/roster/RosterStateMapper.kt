@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.roster
 
+import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.model.LinkState
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.RosterRowDto
@@ -112,6 +113,9 @@ object RosterStateMapper {
             statusLabel = label,
             fee = dto.feeAmount,
             guardianPhone = dto.guardianPhone,
+            // The guardian's email stands where the phone would, when no
+            // phone is recorded [W7.7].
+            guardianContactLine = dto.guardianPhone?.let(Numerals::phone) ?: dto.guardianEmail,
             studentState = student,
             guardianState = guardian,
             // **The number for a declined seat, the name otherwise**

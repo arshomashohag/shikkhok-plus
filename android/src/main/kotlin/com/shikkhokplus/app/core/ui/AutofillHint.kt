@@ -25,7 +25,34 @@ enum class AutofillHint {
 
     /** A password being chosen, to generate and save. */
     NEW_PASSWORD,
+
+    /**
+     * An existing username, to fill: the sign-in field and the
+     * choose-username gate [TSD-4]. Nothing is read from the SIM.
+     */
+    USERNAME,
+
+    /** A username being created, to save: sign-up, the replacement and rename [TSD-4]. */
+    NEW_USERNAME,
 }
+
+/**
+ * The platform's autofill type for a hint.
+ *
+ * Pure, and outside the composable, so the mapping is unit-tested.
+ *
+ * @param hint What the field holds
+ * @return The type the autofill service is told
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+internal fun autofillTypeOf(hint: AutofillHint): AutofillType =
+    when (hint) {
+        AutofillHint.EMAIL -> AutofillType.EmailAddress
+        AutofillHint.PASSWORD -> AutofillType.Password
+        AutofillHint.NEW_PASSWORD -> AutofillType.NewPassword
+        AutofillHint.USERNAME -> AutofillType.Username
+        AutofillHint.NEW_USERNAME -> AutofillType.NewUsername
+    }
 
 /**
  * Let the platform's autofill service (a password manager) fill, or
@@ -56,13 +83,7 @@ fun Modifier.autofill(
         val fill by rememberUpdatedState(onFill)
         val node =
             remember(hint) {
-                val type =
-                    when (hint) {
-                        AutofillHint.EMAIL -> AutofillType.EmailAddress
-                        AutofillHint.PASSWORD -> AutofillType.Password
-                        AutofillHint.NEW_PASSWORD -> AutofillType.NewPassword
-                    }
-                AutofillNode(autofillTypes = listOf(type), onFill = { fill(it) })
+                AutofillNode(autofillTypes = listOf(autofillTypeOf(hint)), onFill = { fill(it) })
             }
         DisposableEffect(node) {
             tree += node

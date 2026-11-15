@@ -25,10 +25,29 @@ object SessionStateMapper {
      * none means their teacher has not added them yet — which is an
      * ordinary state for a fresh signup, not a failure.
      *
+     * When the server says the account has no username yet, the state
+     * is wrapped in [SessionUiState.UsernameRequired] so the
+     * choose-username gate comes first [FR5.2].
+     *
+     * @param dto What the server returned
+     * @return Ready, Choosing, or NoLens, wrapped when a username is required
+     */
+    fun afterLoad(dto: MeDto): SessionUiState {
+        val lenses = lensStateOf(dto)
+        // **The flag travels inside the state, not beside it** [FR5.2,
+        // NFR3.12]. One write carries both facts, so no frame can show
+        // the picker or a home before the gate; the state it would have
+        // been is kept for the moment a username is chosen.
+        return if (dto.usernameRequired) SessionUiState.UsernameRequired(then = lenses) else lenses
+    }
+
+    /**
+     * The lens state alone, whatever the username flag says.
+     *
      * @param dto What the server returned
      * @return Ready, Choosing, or NoLens
      */
-    fun afterLoad(dto: MeDto): SessionUiState {
+    private fun lensStateOf(dto: MeDto): SessionUiState {
         val options = readLenses(dto.lenses)
         return when {
             options.isEmpty() -> SessionUiState.NoLens

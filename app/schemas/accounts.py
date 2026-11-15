@@ -80,10 +80,21 @@ class SignupRequest(IdentifierFields):
     :ivar address_postcode: Four digits, required
     :ivar centre_name: The centre's name. Required for ``coaching`` and
         refused for every other role
+    :ivar username: The username, as typed [U1: BR2.1]. Required; judged
+        by FR1 on the server, not here, so a refusal carries its own
+        ``account.username.*`` key rather than a generic 422 (ADR-003)
     """
 
     model_config = ConfigDict(extra="forbid")
 
+    username: str = Field(
+        min_length=1,
+        max_length=64,
+        description=(
+            "Required. What the person typed; judged on the server by the "
+            "username rules, which refuse with an account.username.* key."
+        ),
+    )
     role: SignupRoleName
     self_name: str = Field(min_length=1, max_length=120)
     address_house: HouseField
