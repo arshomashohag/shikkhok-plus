@@ -415,8 +415,8 @@ def authenticated_cacheable_routes(
 ) -> list[tuple[str, str]]:
     """List every cacheable route that depends on authentication.
 
-    A node is authenticating when its callable is ``authenticated_account``
-    or ``token_subject``, or its return annotation resolves to a lens.
+    A node is authenticating when its callable is ``authenticated_account``,
+    ``token_subject`` or ``admin_gate``, or its return annotation resolves to a lens.
     The two callables are resolved lazily, because ``app.api.deps`` sits
     above this module in the import graph.
 
@@ -424,9 +424,9 @@ def authenticated_cacheable_routes(
     :param cacheable: The ``(method, path)`` pairs treated as cacheable
     :return: Each offending ``(method, path)``, empty when clean
     """
-    from app.api.deps import authenticated_account, token_subject
+    from app.api.deps import admin_gate, authenticated_account, token_subject
 
-    authenticating = (authenticated_account, token_subject)
+    authenticating = (admin_gate, authenticated_account, token_subject)
 
     def authenticates(dependant: Dependant) -> bool:
         """Report whether this dependency tree requires authentication.

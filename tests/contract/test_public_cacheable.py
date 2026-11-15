@@ -12,7 +12,7 @@ from collections.abc import Callable
 
 from fastapi import Depends, FastAPI
 
-from app.api.deps import authenticated_account, token_subject
+from app.api.deps import admin_gate, authenticated_account, token_subject
 from app.contract.routes import (
     PUBLIC_CACHEABLE_ROUTES,
     PUBLIC_ROUTES,
@@ -85,3 +85,13 @@ def test_fixture_token_subject_is_caught_and_uncacheable_is_ignored() -> None:
         fixture, cacheable=frozenset({("GET", "/health")})
     ) == [("GET", "/health")]
     assert authenticated_cacheable_routes(fixture, cacheable=frozenset()) == []
+
+
+def test_fixture_admin_gate_is_caught() -> None:
+    """A cacheable route behind ``admin_gate`` is flagged.
+
+    :return: None
+    """
+    assert authenticated_cacheable_routes(
+        _fixture_app(admin_gate), cacheable=frozenset({("GET", "/health")})
+    ) == [("GET", "/health")]
