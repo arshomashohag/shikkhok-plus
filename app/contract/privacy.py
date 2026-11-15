@@ -401,6 +401,35 @@ def _public_field(field: str) -> str | None:
     return field if field in PUBLIC_FORBIDDEN_FIELDS else None
 
 
+def _response_schema(
+    document: dict[str, object], path: str, method: str
+) -> dict[str, object]:
+    """Resolve a route's 2xx JSON response schema from the OpenAPI document.
+
+    Read from the operation itself rather than from the response model's
+    class name, which is absent for ``list[X]`` and may differ from the
+    component name. Fails closed: a declared response model whose schema
+    cannot be found is an error, never a pass.
+
+    :param document: The generated OpenAPI document
+    :param path: The route path
+    :param method: The HTTP method
+    :return: The response schema node
+    :raises LookupError: When no 2xx JSON schema can be resolved
+    """
+    paths = document.get("paths", {})
+    operation = paths.get(path, {}).get(method.lower(), {})  # type: ignore[attr-defined]
+    for status, response in (operation.get("responses", {}) or {}).items():
+        if not str(status).startswith("2") or not isinstance(response, dict):
+            continue
+        content = (response.get("content", {}) or {}).get("application/json", {})
+        schema = content.get("schema")
+        if isinstance(schema, dict) and schema:
+            return schema
+    msg = f"public route {method} {path} has no resolvable response schema"
+    raise LookupError(msg)
+
+
 def public_field_leaks(
     app: FastAPI, view_models: Iterable[type[BaseModel]]
 ) -> list[tuple[str, str, str]]:
@@ -424,14 +453,16 @@ def public_field_leaks(
             continue
         if not any((m, route.path) in PUBLIC_ROUTES for m in route.methods or ()):
             continue
-        name = getattr(route.response_model, "__name__", "?")
-        component = definitions.get(name)
-        if component is None:
-            continue
-        for schema_name, field in _walk(component, definitions, {name}, _public_field):
-            if (route.path, str(schema_name), field) in PUBLIC_API_EXEMPTIONS:
-                continue
-            leaks.append((f"route:{route.path}", str(schema_name), field))
+        for method in sorted(
+            m for m in route.methods or () if (m, route.path) in PUBLIC_ROUTES
+        ):
+            resolved = _response_schema(document, route.path, method)
+            for schema_name, field in _walk(
+                resolved, definitions, set(), _public_field
+            ):
+                if (route.path, str(schema_name), field) in PUBLIC_API_EXEMPTIONS:
+                    continue
+                leaks.append((f"route:{route.path}", str(schema_name), field))
     for model in view_models:
         schema = model.model_json_schema(ref_template="#/$defs/{model}")
         view_defs: dict[str, dict[str, object]] = schema.get("$defs", {}) or {}
