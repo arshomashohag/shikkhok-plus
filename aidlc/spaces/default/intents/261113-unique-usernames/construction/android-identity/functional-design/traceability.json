@@ -1,12 +1,12 @@
 {
   "stage": "functional-design",
   "unit": "android-identity",
-  "upstream_ids": ["FR5.2", "FR11", "FR11.1", "FR11.2"],
+  "upstream_ids": ["FR5.2", "FR11", "FR11.1", "FR11.2", "FR11.3"],
   "coverage": [
     {
       "id": "FR5.2",
       "status": "OK",
-      "target": "functional-spec.md W4 and § 3.4 Choose-username gate; frontend-components.md § 2.4, § 5 AppRoot gate, § 8 AppRoot routing and ChooseUsernameViewModel"
+      "target": "functional-spec.md W4 (incl. step 8 bounding the unknown flag) and § 3.4 Choose-username gate; frontend-components.md § 2.4, § 2.8 SessionUiState.UsernameRequired and recheck, § 5 AppRoot branch, § 8 SessionStateMapper, SessionViewModel flag transitions, AppRoot routing and ChooseUsernameViewModel"
     },
     {
       "id": "FR11",
@@ -22,6 +22,11 @@
       "id": "FR11.2",
       "status": "OK",
       "target": "functional-spec.md § 5 Strings and § 8 Bangla layout obligations (manual table is the verifier; nothing automated discharges it); frontend-components.md § 7 String resources"
+    },
+    {
+      "id": "FR11.3",
+      "status": "OK",
+      "target": "functional-spec.md § 4 Error handling per message key (server keys decide), § 6 states, W1 steps 1 and 6 (hint never gates submit; 64-char cap on trimmed text, not FR1's 20), W3 (no client classification), W6 step 2 (Remove always offered); frontend-components.md § 6 form validation rules; Q5 email check aligned to the server"
     }
   ]
 }

@@ -48,10 +48,21 @@ MainActivity.AppRoot
 
 Shared new pieces in `core/ui`:
 
-- `UsernameField(value, onValueChange, label, help, error, enabled, fieldModifier)`
-  — single-line text field, text keyboard, no autocorrect or capitalisation,
-  autofill hint `Username` on sign-up only (`NewUsername` is not a Compose
-  autofill type; `Username` is what a password manager saves against).
+- `UsernameField(value, onValueChange, label, help, error, enabled, autofill: AutofillHint, fieldModifier)`
+  — single-line text field, text keyboard, no autocorrect or capitalisation.
+  It accepts an edit only while the edit's trimmed length is at most
+  `USERNAME_MAX_INPUT = 64`, the schema's `maxLength` (functional-spec W1
+  step 1). Autofill (review R-4; the first draft wrongly said
+  `AutofillType.NewUsername` does not exist):
+  - `core/ui/AutofillHint.kt` gains `USERNAME` → `AutofillType.Username` and
+    `NEW_USERNAME` → `AutofillType.NewUsername` beside the existing three.
+    The `when` that maps a hint to its type, which today sits inside the
+    composable `remember` block, moves into an `internal` pure function
+    `autofillTypeOf(hint)` so the mapping can be unit-tested (§ 8);
+  - sign-up and the replacement step pass `NEW_USERNAME`, because a username
+    is being created;
+  - the choose-username gate passes `USERNAME`;
+  - the rename form passes `NEW_USERNAME`.
 - `AvailabilityHint(state: AvailabilityState)` — renders one line per state of
   functional-spec 3.1 with a text label (never colour alone), as a polite
   live region for TalkBack.
@@ -88,8 +99,10 @@ sealed interface AvailabilityState {
 
 ### 2.3 Sign-up (changed)
 
-- `SignupForm` gains `username: String` (trimmed at submit; included in
-  `toString`, since it is not a secret; the passwords stay masked).
+- `SignupForm` gains `username: String` (trimmed at submit). Its `toString`
+  masks the username as `username=***`, exactly as it masks both passwords
+  (review R-6). The username is owner-private (FR9.3: never in a log line),
+  and a stray log or test-failure message must not print it.
 - `SignupStateMapper.USERNAME_REQUIRED_KEY = "signup.username.required"`
   (client: blank only) added to `validate(form)`.
 - `USERNAME_MESSAGE_KEYS: Set<String>` = the six format keys +
@@ -177,11 +190,41 @@ is set by the mapper for `account.contact.last_one` only.
 
 ### 2.8 Session (changed)
 
-`SessionViewModel` gains `usernameRequired: StateFlow<Boolean>` (false until
-a read says otherwise, reset on `resolve`, set on every successful read in
-`resolve` and `refreshLenses`) and `usernameChosen()` (sets it false, like
-`passwordSet`). The profile summary (`ProfileSummary`) gains
-`username: String?` for More's row.
+The flag is carried **inside** the session state (review R-3), not as a
+second `StateFlow`:
+
+```kotlin
+sealed interface SessionUiState {
+    // existing: Resolving, Choosing, Ready, NoLens, Failed
+    data class UsernameRequired(val then: SessionUiState) : SessionUiState  // then is Ready, Choosing or NoLens
+}
+```
+
+- `SessionStateMapper.afterLoad(dto)` computes the lens state as today and
+  wraps it in `UsernameRequired(then = …)` when `dto.usernameRequired`.
+- `resolve()` is unchanged in shape: `Resolving` first, then one write of the
+  mapped state, so no frame shows the picker or the home ahead of the gate.
+- `usernameChosen()`: when the state is `UsernameRequired`, publishes its
+  `then`, otherwise does nothing.
+- `refreshLenses()` (quiet), extended:
+  - a read saying `true` while the state is not `UsernameRequired` publishes
+    `UsernameRequired(then = <the state it would otherwise keep or upgrade
+    to>)`;
+  - a read saying `false` while it is `UsernameRequired` publishes the
+    unwrapped state;
+  - otherwise its existing rules apply.
+- `recheck()` (new, quiet, review R-1): reads `GET /v1/me` without publishing
+  `Resolving`.
+  - On a successful read it publishes `afterLoad(dto)`. It does this from
+    `Failed`, and from `UsernameRequired` when the gate's `password_required`
+    path calls it.
+  - On a failed read it changes nothing.
+  - `AppRoot` drives it while the state is `Failed`: on each `ON_START`, and
+    every 30 s inside `repeatOnLifecycle(STARTED)`. The loop ends when the
+    state leaves `Failed`.
+
+The profile summary (`ProfileSummary`) gains `username: String?` for More's
+row.
 
 ## 3. ViewModel events
 
@@ -190,7 +233,7 @@ a read says otherwise, reset on `resolve`, set on every successful read in
 | `UsernameAvailabilityChecker` (NEW, plain class owned by a ViewModel, `core/ui` or `feature/account`) | `edited(text)`, `state: StateFlow<AvailabilityState>` | Takes the lookup function and the ViewModel's scope. Debounce 500 ms with a cancellable job, one in flight, latest-wins by comparing the answered text with the current one, an in-memory `Map<String, AvailabilityState>` cache. Mapping of the answer is `AvailabilityMapper.afterLookup(result)` — pure, tested. |
 | `SignupViewModel` | existing + `usernameEdited(text)`, `emailLeft(email)` | Owns a checker on the public lookup; `submit(form)` now carries `form.username`; `emailLeft` mirrors `lookup(phone)` (once per value, Q4). |
 | `AuthViewModel` | existing + `adoptPendingCode(identifier, password, username)`, `replacementEdited(text)`, `submitReplacement(username)` | Holds the verified code in memory between `CheckingCode` and the replacement retry; `submitCode` maps a 409 `account.username.unavailable` through `AuthStateMapper.afterVerifyRefused` to `ReplaceUsername`; `changeNumber`/`backToSignIn`/`onCleared` forget the held code with the other secrets. `signIn(login: String, password)` replaces `signIn(Identifier, password)`. |
-| `ChooseUsernameViewModel` (NEW) | `edited(text)`, `submit(username)`, `retry()` | Authenticated checker; `submit` ignored while saving; on `password_required` calls the injected `reread` (the session's `refreshLenses`-style read that updates `usernameRequired`); on 200 calls `onChosen` (`SessionViewModel.usernameChosen`). |
+| `ChooseUsernameViewModel` (NEW) | `edited(text)`, `submit(username)`, `retry()` | Authenticated checker; `submit` ignored while saving; on `password_required` calls the injected `recheck` (`SessionViewModel.recheck`), which unwraps the gate when the server says the flag is false; on 200 calls `onChosen` (`SessionViewModel.usernameChosen`). |
 | `UsernameViewModel` (NEW) | `startChange()`, `cancel()`, `edited(text)`, `save(username, password)` | Authenticated checker; password passes through, never stored; on 200 calls `onChanged` to re-read the profile. |
 | `ContactsViewModel` (NEW) | `load()`, `retry()` | Reads `GET /v1/me` through the existing `ProfileRepository.profile()`; maps with `ContactsStateMapper.afterLoad`. |
 | `ReplaceContactViewModel` (NEW) | `requestCode(value, password)`, `resendCode()`, `submitCode(code)`, `changeValue()` | Holds the pending identifier, drops the password after a 200 request; resend sends the same request again, which needs the password, so the password is held only until the first successful request and **Resend** after that re-asks for it via `changeValue()` (no password kept for a resend). |
@@ -211,13 +254,13 @@ because it differs from Add.
 
 | DTO | Change |
 |---|---|
-| `PasswordSignInRequest` | add `@SerialName("login") val login: String? = null`; `toString` masks the password as today and prints no login either (it may be a phone or email) |
-| `VerifyRequest` | add `@SerialName("username") val username: String? = null` (sent only on a replacement; omitted when null by the client's JSON settings) |
-| `SignupRequestDto` | add `val username: String` (required by `SignupRequest`) |
+| `PasswordSignInRequest` | add `@SerialName("login") val login: String? = null`; `toString` masks the password as today and masks `login` too (it may be a username, phone or email) |
+| `VerifyRequest` | add `@SerialName("username") val username: String? = null` (sent only on a replacement; omitted when null by the client's JSON settings); add a `toString` masking `username` |
+| `SignupRequestDto` | add `val username: String` (required by `SignupRequest`); add a `toString` masking `username` |
 | `MeDto` | add `val username: String? = null`, `@SerialName("username_required") val usernameRequired: Boolean = false` (absent reads as not required) |
-| NEW `UsernameAvailabilityRequest(username: String)` | body of both lookups |
+| NEW `UsernameAvailabilityRequest(username: String)` | body of both lookups; `toString` masks `username` |
 | NEW `UsernameAvailabilityDto(status: String, @SerialName("message_key") messageKey: String? = null)` | `status` kept a string; an unknown status maps to `CouldNotCheck` |
-| NEW `UsernameChangeRequest(username: String, password: String? = null)` | `toString` masks the password |
+| NEW `UsernameChangeRequest(username: String, password: String? = null)` | `toString` masks the username and the password |
 | NEW `UsernameChangeDto(username: String, @SerialName("next_change_at") nextChangeAt: String? = null)` | |
 | `IssueRequest` | unchanged for Add; NEW `ContactChangeRequest(phone: String? = null, email: String? = null, password: String? = null)` for Replace, masked `toString` |
 | NEW `ContactRemoveRequest(kind: String, password: String)` | `kind` is `phone` or `email`; masked `toString` |
@@ -265,10 +308,19 @@ because it differs from Add.
 
 ## 5. Navigation changes
 
-- `MainActivity.AppRoot`: after the `Resolving` branch and before the
-  `Choosing` branch, `if (signedIn && usernameRequired) { ChooseUsernameGate(…); return }`.
-  The gate's ViewModel is created with the authenticated client and the
-  session callbacks; "Sign out" calls the same `endSession` lambda More uses.
+- `MainActivity.AppRoot`: the existing single `when (val resolved = sessionState)`
+  gains `is SessionUiState.UsernameRequired -> { ChooseUsernameGate(…); return }`.
+  It sits directly after the `Resolving` branch and before the `Choosing`
+  branch. There is no separate `if` and no second flag: the branch is chosen
+  from the same value the picker and home are chosen from.
+  - The gate's ViewModel is created with the authenticated client and the
+    session callbacks (`usernameChosen`, `recheck`).
+  - "Sign out" calls the same `endSession` lambda More uses.
+  - `endSession` is declared below the `when` today, so code generation
+    moves its declaration above the `when`. Moving it changes no behaviour.
+- `MainActivity.AppRoot` also gains the `Failed` re-check effect from § 2.8,
+  keyed on `signedIn` and on the state being `Failed`. It is placed beside
+  the queue's `repeatOnLifecycle(STARTED)` effect.
 - `Destination`: NEW `Username` (`me/username`), `Contacts` (`me/contacts`),
   `ReplaceContact` (`me/contacts/replace?kind={phone|email}`). The existing
   `AddContact` stays and is navigated to from Contacts.
@@ -289,7 +341,7 @@ because it differs from Add.
 
 | Field | Client check | Never checked on the client |
 |---|---|---|
-| Sign-up username, replacement, gate, rename | non-blank | length, characters, first letter, dots, reserved, availability (server, FR1, FR11.3) |
+| Sign-up username, replacement, gate, rename | non-blank; input capped so the trimmed value is at most 64 (the schema's `maxLength`, never FR1's 20) | length rules, characters, first letter, dots, reserved, availability (server, FR1, FR11.3) |
 | Sign-in login | non-blank | which kind it is; any shape (server classifies, FR4.1) |
 | Email (sign-up, add, replace, student, guardian, invite) | `emailIsWellFormed`, aligned to the server's `[^@\s]+@[^@\s]+\.[^@\s]+` (Q5) | whether it is taken or recorded |
 | Phone (add, replace, invite, student) | existing `identifierIsWellFormed` / `PhoneNumberField` behaviour | unchanged |
@@ -366,7 +418,9 @@ error and the explicit retry path of a failed write (TC-8, D-9).
 | `SignupStateMapper` / `SignupViewModel` | blank username → `signup.username.required`; each `account.username.*` refusal and the 409 route under the Username field and keep the form; success hands over identifier, password and username; transport → retry resends the same form including the username; `emailLeft` once per value; email lookup locks the role |
 | `AuthStateMapper` / `AuthViewModel` | sign-in sends `login` only (repository fake asserts the call); `email.invalid` routes under the field; 409 `account.username.unavailable` at verify → `ReplaceUsername` and the code is retained; replacement 200 → same continuation as a first-time verify (password sent from memory); replacement refusal and 429 stay on `ReplaceUsername`; `auth.otp.expired` from a replacement → `CodeRejected`; transport → Retry resends code + username; `changeNumber` forgets the held code (a later `submitReplacement` sends nothing) |
 | `ChooseUsernameViewModel` | 200 → `Done` and `onChosen` called; format and unavailable refusals → `Editing` with the key; `password_required` → `Rereading` then `Done` when the read says false; failed re-read → `Editing` retryable; 503 and transport → retry resends the same username; double submit ignored |
-| `AppRoot` routing (Robolectric, the existing `navigation` test style) | signed in + `usernameRequired` → gate shown, home/More/lens picker not composed; gate has no back arrow; after `usernameChosen` → lens picker or home; Sign out → sign-in |
+| `SessionStateMapper` (review R-2, R-3) | `afterLoad` with `username_required: true` and one lens → `UsernameRequired(then = Ready)`; with several → `UsernameRequired(then = Choosing)`; with none → `UsernameRequired(then = NoLens)`; with `false` → the unwrapped state exactly as today |
+| `SessionViewModel` flag transitions (review R-2), fake `ProfileRepository` | `resolve publishes Resolving then UsernameRequired in one write when the read says true`; `resolve resets a previous UsernameRequired to Resolving`; `failed read leaves the flag unknown as Failed, never UsernameRequired and never Ready`; `usernameChosen publishes the held then state`; `usernameChosen outside UsernameRequired changes nothing`; `refreshLenses wraps the current state when a read newly says true`; `refreshLenses unwraps when a read says false`; `recheck from Failed publishes UsernameRequired when the read says true`; `recheck from Failed publishes the lens state when the read says false`; `recheck that fails again leaves Failed`; `recheck never publishes Resolving` (Turbine asserts the emitted sequence) |
+| `AppRoot` routing (Robolectric, the existing `navigation` test style, `MockEngine` for `/v1/me`) | `first composed frame after Resolving is the gate when the read says true` (asserts the lens picker and home tags are never present in any frame, review R-3); gate has no back arrow; after `usernameChosen` → lens picker or home; Sign out → sign-in; `failed read then foreground re-check showing true replaces the lens-free graph with the gate` (virtual clock over the 30 s re-check, review R-1) |
 | `UsernameStateMapper` / `UsernameViewModel` | 200 with and without `next_change_at`; `change_too_soon` with date → banner with the date, without → plain; `password_required` → `offerSetPassword`; `current_wrong` → password field; `unavailable` → username field; 503/transport → retry resends; the password is not retained after success (repository fake receives it once) |
 | `ContactsStateMapper` / `ContactsViewModel` | both present; phone only; email only; `has_password` false → note; load failure → retry re-reads |
 | `ReplaceContactViewModel` | request with password; each request refusal routed (`password_required`, `current_wrong`, `already_set`, `admin_locked`, `change_limit`); 200 → code step and password dropped; verify `taken`/`change_limit` stay on the code step; wrong code shows tries left; 200 → `Replaced`; Resend returns to entry with the value kept and password empty; transport retry |
@@ -376,7 +430,11 @@ error and the explicit retry path of a failed write (TC-8, D-9).
 | Centres | `MemberDto` decodes `"phone": null` with an `invited_email` (the regression for § 1 defect 1, a decode test on a JSON string); `contactLine` phone vs email; `canInvite` with phone only, email only, neither; invite body omits blanks |
 | `emailIsWellFormed` | `a@b.c.` and `a@.b.c` accepted (server pattern), `a@b` and `@b.c` refused, whitespace refused — the two corners from Q5 pinned |
 | `MessageKeyCoverageTest` | unchanged; passes once the 15 keys map |
-| DTO serialization | `PasswordSignInRequest`, `ContactRemoveRequest`, `UsernameChangeRequest`, `ContactChangeRequest` `toString` print no password; `VerifyRequest` omits `username` when null; `MeDto` without `username_required` reads `false` |
+| DTO serialization and `toString` (review R-2, R-6) | `toString` of `SignupForm`, `SignupRequestDto`, `VerifyRequest`, `UsernameAvailabilityRequest`, `UsernameChangeRequest`, `PasswordSignInRequest` contains neither the username/login text nor any password; `ContactRemoveRequest`, `ContactChangeRequest` print no password; `VerifyRequest` omits `username` when null; `MeDto` without `username_required` reads `false` and with `"username": "Nadia_K"` keeps the casing |
+| JSON-string decode tests (review R-2) | `UsernameAvailabilityDto` from each of `available`, `unavailable`, `reserved`, `invalid` with `message_key`, and an **unknown status** string (decodes, then maps to `CouldNotCheck`); `UsernameChangeDto` with `"next_change_at": null` and with an ISO string; `TeacherStudentDto` with `student_email`/`guardian_email` present, null and absent; `RosterRowDto` likewise; `MemberDto` with `"phone": null` and `invited_email` |
+| `HttpSignupRepository` / `HttpAccountRepository` / `HttpAuthRepository` / `HttpCentresRepository` with ktor `MockEngine` (review R-2) | each new call asserts method, path and JSON body: public lookup `POST /v1/accounts/username-availability` `{"username"}`; authenticated lookup `POST /v1/me/username-availability`; `PUT /v1/me/username` `{username, password}` (password omitted on a first choice); `POST /v1/me/contact` with `password` for a replace; `POST /v1/me/contact/remove` `{"kind":"phone"|"email","password"}`; `POST /v1/auth/password` body has `login` and no `phone`/`email` keys; `POST /v1/auth/verify` carries `username` only on a replacement; `POST /v1/accounts` carries `username`; `GET /v1/accounts/already-added?email=`; `POST /v1/centre/members` omits blank `phone`/`email`. **Both username lookups, the username change and the sign-in assert the request URL has no query string at all** (no username, login or email in a URL, NFR3.5); the 409/400/429 envelopes come back as `Refused` with the key |
+| `UsernameField` input cap (review R-5) | an edit making the trimmed value 65 characters is rejected and the field keeps 64; a 64-character value is accepted; a 64-character name with surrounding spaces is accepted (cap is on the trimmed text); a 21-character name is accepted (FR1's 20 is the server's) |
+| `AutofillHint` mapping (review R-4) | `USERNAME` → `AutofillType.Username`, `NEW_USERNAME` → `AutofillType.NewUsername`; existing three unchanged |
 
 Compose UI tests are added only for the gate (it is a new root screen) and
 follow the existing Robolectric screen tests; the Bangla layout obligation is

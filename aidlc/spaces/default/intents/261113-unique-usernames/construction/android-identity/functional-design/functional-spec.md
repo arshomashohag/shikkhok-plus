@@ -22,7 +22,7 @@ U2 built). Paths are under `android/src/main/kotlin/com/shikkhokplus/app/`.
 | Code flow (`CodeRequestStep`, `CodeStep`) | Phone/Email toggle, unchanged by FR10.1 | Unchanged, except the code step gains the replacement-username state after a sign-up verify (W2) |
 | Sign-up (`feature/auth/ui/SignupScreen.kt`, `SignupViewModel`, `SignupStateMapper`) | Role, name, phone or email, address, password; `SignupRequestDto` has no username; already-added lookup by phone only | Username field with live availability (W1); `username` sent; email lookup (W9, Q4) |
 | Verify (`AuthViewModel.submitCode`) | `verify(identifier, code)`; any refusal becomes `CodeRejected` | `account.username.unavailable` becomes the replacement step; the retry sends `username` with the same code (W2) |
-| Account read (`core/session/SessionViewModel.resolve`, `MainActivity.AppRoot`) | `GET /v1/me` behind the loader; lens picker returned before the graph; `MeDto` has no username fields | `MeDto.username`, `usernameRequired`; the choose-username gate returned before the lens picker (W4, Q2) |
+| Account read (`core/session/SessionViewModel.resolve`, `MainActivity.AppRoot`) | `GET /v1/me` behind the loader; lens picker returned before the graph; `MeDto` has no username fields | `MeDto.username`, `usernameRequired`; a `SessionUiState.UsernameRequired` state; the choose-username gate as a branch of `AppRoot`'s `when`, before the lens picker; a quiet re-check while the read is `Failed` (W4, Q2) |
 | More (`feature/profile/ui/ProfileScreen.kt` `SignInRows`, `navigation/AccountRoutes.kt` `accountRowsFor`) | Password row; "Add phone number" / "Add email" only when missing | Username row and one "Phone and email" row (W5, W6, Q3) |
 | Account screens (`feature/account/*`) | Set/change password; add a phone or email (`AddContactViewModel`) | Username screen; Contacts screen; replace and remove flows (W5, W6) |
 | Student form (`feature/students/ui/AddStudentForm.kt`, `StudentDetailScreen.kt` `EditStudentDialog`, `core/network/TeacherStudentDto.kt`) | Name, student phone, guardian phone | Student email and guardian email on create and edit, shown on the detail screen and the list (W7) |
@@ -67,7 +67,14 @@ nothing is queued or retried by itself (TC-8, D-9).
 1. The sign-up form gains one field, **Username**, placed directly above the
    two password fields (the sign-in credentials together), with the help line
    "You will sign in with this. Letters, numbers, _ and ." while empty. The
-   help line is guidance, not a check (FR11.3).
+   help line is guidance, not a check (FR11.3). The field accepts an edit only
+   while its **trimmed** value is at most 64 characters, the schema's
+   `maxLength` on every request that carries a username (`SignupRequest`,
+   `VerifyRequest`, `UsernameAvailabilityRequest`, `UsernameChangeRequest`;
+   422 above it). The cap applies to the trimmed text because the trimmed
+   text is what is sent, so no value the server accepts is refused. FR1's 20
+   is not applied on the client. The same cap applies on the replacement
+   step, the gate and the rename form (review R-5).
 2. On each edit the field's availability hint is reset to "not checked" and a
    check is scheduled (Q1): 500 ms after the last keystroke, if the trimmed
    text is non-empty, `POST /v1/accounts/username-availability` with body
@@ -109,7 +116,10 @@ nothing is queued or retried by itself (TC-8, D-9).
 ### W2. Verify a sign-up code, including the replacement username
 
 1. The code step behaves as today: six digits, auto-submit on the sixth,
-   `POST /v1/auth/verify` with `{phone|email, code}`.
+   `POST /v1/auth/verify` with `{phone|email, code}`. Every outcome below is
+   recognised by its `message_key`, never by the HTTP status. The committed
+   `openapi.json` declares no 400 for this route, although the replacement
+   path answers `account.username.*` format refusals with 400 (§ 9 item 4).
 2. A 200 continues as today (password sent from memory, or the choose-password
    step).
 3. A **409 `account.username.unavailable`** means another account took or a
@@ -176,12 +186,22 @@ nothing is queued or retried by itself (TC-8, D-9).
 ### W4. Choose a username before anything else (FR5.2)
 
 1. After sign-in (and at every cold start that resumes a session),
-   `SessionViewModel.resolve` reads `GET /v1/me` as today and now also
-   publishes `usernameRequired` from `MeDto.usernameRequired`.
-2. `AppRoot`, after the Resolving loader and **before** the lens picker and
-   the graph, returns the choose-username gate when `signedIn` and
-   `usernameRequired` are both true (Q2). Nothing else is composed: no home,
-   no More, no set-password prompt, no two-step offer, no queue UI.
+   `SessionViewModel.resolve` reads `GET /v1/me` as today. **The flag travels
+   inside the session state, not beside it** (review R-3): when the read says
+   `username_required: true`, `SessionStateMapper.afterLoad` returns
+   `SessionUiState.UsernameRequired(then = <the state it would otherwise have
+   returned>)` instead of `Ready`, `Choosing` or `NoLens`. One `StateFlow`
+   write carries both facts, so no frame can show the lens picker or the home
+   before the gate. (A separate `StateFlow<Boolean>` published beside
+   `SessionUiState` was the first draft; two `collectAsState` collectors are
+   resumed by separate dispatches, so their order across a frame is not
+   guaranteed.)
+2. `AppRoot`'s single `when (sessionState)` gains one branch, placed directly
+   after `Resolving` and before `Choosing`:
+   `is SessionUiState.UsernameRequired -> { ChooseUsernameGate(…); return }`
+   (Q2). Nothing else is composed: no home, no More, no set-password prompt,
+   no two-step offer, no queue UI (the queue's drain effect still runs, as it
+   does under the lens picker).
 3. The gate shows: title "Choose your username"; body "From now on you can
    sign in with a username as well as your phone or email. Choose one to
    continue."; the Username field with the availability hint using the
@@ -190,14 +210,16 @@ nothing is queued or retried by itself (TC-8, D-9).
 4. Continue sends `PUT /v1/me/username` with `{"username": …}` and no
    password (the first choice needs none, FR5.4).
 5. Outcomes:
-   - 200 → `SessionViewModel` publishes `usernameRequired = false` at once
-     (the server's 200 is the confirmation, as `passwordSet` does for the
-     password prompt); the gate is replaced by the lens picker or the home.
+   - 200 → `SessionViewModel.usernameChosen()` publishes the held `then`
+     state at once (the server's 200 is the confirmation, as `passwordSet`
+     does for the password prompt); the gate is replaced by the lens picker
+     or the home in the same write.
    - 400 format key, or 409 `account.username.unavailable` → under the field.
    - 400 `account.username.password_required` on a first choice means another
-     device chose a name first (U1 W7 step 3). The gate re-reads
-     `GET /v1/me`; the server now says `username_required: false` and the gate
-     goes away. No password is asked for here.
+     device chose a name first (U1 W7 step 3). The gate calls
+     `SessionViewModel.recheck()`; the server now says
+     `username_required: false`, the mapper returns the plain resolved state
+     and the gate goes away. No password is asked for here.
    - 429 `auth.lookup.too_many` → message on the gate; Continue stays
      available.
    - 503 `error.temporarily_unavailable` (retryable) and transport failure →
@@ -207,11 +229,40 @@ nothing is queued or retried by itself (TC-8, D-9).
 7. System Back on the gate behaves as on any root screen (the activity
    finishes); the gate is not dismissed, because reopening the app resolves
    the account again and shows it again while the server says `true`.
-8. If the account read fails (offline at cold start), `usernameRequired` is
-   not known and is left `false`; the app proceeds as today (FR5.3: the server
-   refuses nothing for a missing username). The next successful read — the
-   next cold start, or a quiet re-read after accepting a seat or adding a
-   contact — shows the gate. An unknown is not a "yes".
+8. **The unknown case, and how it is bounded** (review R-1). If the account
+   read fails (offline, a 503), the state is `SessionUiState.Failed` and the
+   flag is unknown. As built, `AppRoot` routes `Failed` into the lens-free
+   graph (MainActivity.kt:373-377, deliberately, so invitations and the
+   profile stay reachable), and nothing re-reads the account until the next
+   cold start or a quiet re-read triggered by accepting a seat or adding a
+   contact. Left like that, a username-less account could use the app for a
+   whole session after a single transient failure. That fails FR5.2 open.
+
+   **Decision: re-check, not a blocking retry screen.**
+   - While signed in and the state is `Failed`, `AppRoot` runs
+     `SessionViewModel.recheck()` each time the app comes to the foreground
+     and every 30 seconds while it stays in the foreground
+     (`repeatOnLifecycle(STARTED)`, the mechanism the queue drain already
+     uses).
+   - `recheck()` is quiet: it reads `GET /v1/me` without publishing
+     `Resolving`, so the graph is not torn down on each attempt.
+     - On a successful read it publishes what `resolve` would have
+       published, so a `true` flag replaces the graph with the gate at once.
+     - On another failure it changes nothing.
+   - The re-checking stops as soon as the state is anything but `Failed`.
+   - The window in which an account needing a username can use the
+     lens-free graph is therefore bounded by how long the server stays
+     unreachable plus at most 30 seconds.
+
+   **Why a blocking retry screen was rejected.** It would replace, for every
+   account on every offline or failed start, the routing the built code chose
+   on purpose. The offline case gains nothing from it, because the lens-free
+   graph's screens need the server too. The exposure it closes is ordering
+   only: FR5.3 has the server refuse nothing for a missing username, so the
+   window grants no access the account would not have anyway. FR5.2's
+   "before anything else" holds exactly whenever the account read succeeds,
+   and within the bounded window above when it does not. That is the honest
+   statement of what this design meets.
 
 ### W5. View and change the username in Settings
 
@@ -692,6 +743,10 @@ children's data; no offline writes. Settled per condition:
   client never lowercases what it displays.
 - **Sensitive data** — no username, password, email or phone is logged; the
   username is never put in a URL, a notification or analytics (none exists).
+  Every request and form class that holds a username masks it in `toString`,
+  as the passwords already are. That covers `SignupForm`, `VerifyRequest`,
+  `UsernameAvailabilityRequest`, `UsernameChangeRequest`, `SignupRequestDto`
+  and `PasswordSignInRequest`'s `login` (review R-6).
 
 ## 8. Bangla layout obligations (FR11.2)
 
@@ -730,13 +785,19 @@ screen, with its status. The longest string per screen is re-derived from
 3. **Client email check stricter than the server** (Q5): `a@b.c.` and
    `a@.b.c` match the server pattern and fail `emailIsWellFormed`. Aligned in
    this unit; a test pins both.
-4. **The committed `openapi.json` under-describes two C2 operations.**
-   `POST /v1/me/contact` and `POST /v1/me/contact/remove` list only
-   `200, 422, 500, 503`, while the built behaviour (U2 functional-spec § 6)
-   answers 400 and 409 with the keys in § 4. The client switches on
-   `message_key`, so nothing here depends on the status, but the contract of
-   record is incomplete. It belongs to U2 (owner of C2) to declare those
-   responses; recorded so it is not mistaken for a client assumption.
+4. **The committed `openapi.json` under-describes four operations this unit
+   calls.** The client switches on `message_key` everywhere (W2 step 1, § 4),
+   so nothing here depends on a status. The contract of record is incomplete
+   all the same. Each gap is a follow-up for the operation's owner:
+
+   | Operation | Declares | Also answers (built) | Owner |
+   |---|---|---|---|
+   | `POST /v1/me/contact` | 200, 422, 500, 503 | 400, 409 with the keys in § 4 (U2 functional-spec § 6) | U2 (C2) |
+   | `POST /v1/me/contact/remove` | 200, 422, 500, 503 | 400, 409 | U2 (C2) |
+   | `POST /v1/auth/verify` | 200, 409, 422, 429, 500, 503 | 400 `account.username.*` on a replacement (U1 W2 step 2), and the existing `auth.otp.*` refusals | U1 (C1) |
+   | `POST /v1/auth/password` | 200, 422, 500, 503 | 400 `auth.password.wrong` / `email.invalid`, 409 `auth.password.too_many_attempts` (C1 block itself lists them) | U1 (C1) |
+
+   Recorded so none of these is mistaken for a client assumption.
 5. **`MeResponse` carries no `next_change_at`**, so Settings cannot say when
    the next rename is allowed until a rename or a refusal tells it. Accepted
    (W5 step 6); a server field would be U1's to add.
@@ -754,8 +815,9 @@ screen, with its status. The longest string per screen is re-derived from
   (gate, rename) and the public one elsewhere (sign-up, replacement), so a
   person's own released name reads available only where they could reclaim
   it.
-- [assumption] An account read that fails at cold start does not show the
-  gate (W4 step 8); FR5.3 makes that safe.
+- [assumption] 30 seconds is the foreground re-check interval while the
+  account read is failing (W4 step 8). It is one `GET /v1/me` per interval
+  and the call is not under any lookup ceiling.
 - [assumption] The phone fields on the student edit dialog keep their current
   "emptied means unchanged" behaviour; only the new email fields send `null`
   to clear.
