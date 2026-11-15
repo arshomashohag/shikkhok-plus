@@ -9596,3 +9596,86 @@
 **Review Record Digest**: sha256:03c5a860b4c8b6dc9f34fd15bcb5f75c33452794651899df6e2e179b37c86271
 
 ---
+
+## Unit Started
+**Timestamp**: 2026-11-15T13:14:36Z
+**Event**: UNIT_STARTED
+**Stage**: code-generation
+**Unit**: web-identity
+**Run floor**: WORKFLOW_STARTED:2026-11-13T04:15:10Z#1
+
+---
+
+## Unit Completed
+**Timestamp**: 2026-11-15T13:14:36Z
+**Event**: UNIT_COMPLETED
+**Stage**: code-generation
+**Unit**: web-identity
+**Run floor**: WORKFLOW_STARTED:2026-11-13T04:15:10Z#1
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-11-15T13:14:47Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: code-generation
+**Unit**: android-identity
+**Checkpoint**: review-receipt
+**Changed**: (paths unavailable)
+**Recorded**: sha256:413a2e65d633c4d817454b88763be6c1bbad2b659182ca0b1b1c5c93b1ec27c4
+**Current**: sha256:977e929ea1e9887ffb51cf149794d052f057a839a0863aa15a503d14daa427b9
+**Details**: The android identity Unit's Code Generation documents changed after they were reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-11-15T13:14:47Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: functional-design
+**Unit**: web-identity
+**Checkpoint**: review-receipt
+**Changed**: (paths unavailable)
+**Recorded**: sha256:50192bdf53c5b623af1559a3b8b0ac961a046e4ecab25e3c18b45110afb962b4
+**Current**: sha256:d682f71024b64e09b71d31ec064284c2bd861583f870c4e1f5b898dd9ef4a56e
+**Details**: The web identity Unit's Functional Design documents changed after they were reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-11-15T13:14:47Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: nfr-requirements
+**Unit**: web-identity
+**Checkpoint**: review-receipt
+**Changed**: (paths unavailable)
+**Recorded**: sha256:61ee5c539154aad69b983ae8670de7aacf2aee3b6ac404864db10b4cfb202a1b
+**Current**: sha256:c7517e4cca6b62acd00498ccd3af96ffb91953477c74dc7f8d1105f6f8003468
+**Details**: The web identity Unit's NFR Requirements documents changed after they were reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-11-15T13:14:47Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: code-generation
+**Unit**: web-identity
+**Checkpoint**: review-receipt
+**Changed**: (paths unavailable)
+**Recorded**: sha256:035c28c3c94c276256c861a8fc0cafc5e1d9eee810faf01f7109e38c76b7f77c
+**Current**: sha256:e81357cad2ff2942dda2b50bae23afe6af07833e95e7aef8ed5433ebbb8a94aa
+**Details**: The web identity Unit's Code Generation documents changed after they were reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-11-15T13:14:47Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: code-generation
+**Unit**: web-identity
+**Checkpoint**: review-receipt
+**Changed**: web/src/App.tsx, web/src/core/useResource.ts, web/src/features/family/pay/PayScreen.tsx, web/src/shell/RouteErrorBoundary.test.tsx, web/src/shell/RouteErrorBoundary.tsx, web/src/test/lintConfig.test.ts, web/src/test/noIdentifierLeaks.test.tsx
+**Recorded**: sha256:bf19b4a5a92ad05a89f140a2bb0fca4eb1c212c5ab56f89c2972a17023a1e90d
+**Current**: sha256:601816c1529ff70db5f592f7f66eff130935282e8f10dce023130fb3869bf2c4
+**Details**: web/src/App.tsx, web/src/core/useResource.ts, web/src/features/family/pay/PayScreen.tsx, web/src/shell/RouteErrorBoundary.test.tsx, web/src/shell/RouteErrorBoundary.tsx, web/src/test/lintConfig.test.ts, web/src/test/noIdentifierLeaks.test.tsx changed after the web identity Unit was reviewed; carrying on.
+
+---
