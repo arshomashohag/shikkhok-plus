@@ -27,12 +27,19 @@ __all__ = [
     "CLASS_TEACHER_ROUTES",
     "LENS_EXEMPT_AUTHENTICATED",
     "PLATFORM_ADMIN_ROUTES",
+    "PUBLIC_CACHEABLE_ROUTES",
     "PUBLIC_ROUTES",
     "RouteViolation",
+    "authenticated_cacheable_routes",
     "class_teacher_routes",
     "platform_admin_routes",
     "unlensed_routes",
 ]
+
+#: Public routes whose responses a shared cache may serve to anyone. A
+#: subset of :data:`PUBLIC_ROUTES`, GET only, and none may depend on an
+#: authenticated account: :func:`authenticated_cacheable_routes` enforces it.
+PUBLIC_CACHEABLE_ROUTES: frozenset[tuple[str, str]] = frozenset()
 
 #: Routes reachable with no authentication at all. **Exactly fifteen**,
 #: and the count IS asserted: a sixteenth entry is a diff against a
@@ -221,6 +228,10 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # exist, and the two per-offer routes beneath it each resolve a
         # MembershipLens.
         ("GET", "/v1/memberships"),
+        # The caller's own accepted memberships and name consent [0036]:
+        # scoped by account id in SQL, taking no id from the request, and
+        # a centre teacher holds no teacher lens to resolve it through.
+        ("GET", "/v1/me/centre-memberships"),
         # A centre teacher's own classes [C4], exempt on GET
         # /v1/invitations's reasoning: it REPORTS which classes the
         # account's memberships are assigned, derived in the query from
@@ -281,6 +292,15 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # able to choose the username every client asks it for first.
         ("POST", "/v1/me/username-availability"),
         ("PUT", "/v1/me/username"),
+        # Reporting a public hub listing [0036], exempt on DELETE /v1/me's
+        # reasoning: it acts as the authenticated account alone, takes no
+        # owner from the request, and any signed-in reader -- student,
+        # guardian or someone holding no lens at all -- may report what
+        # they see. A lens would scope nothing here. What bounds it is that
+        # only a PUBLISHED listing is reportable, every other target
+        # answers one identical refusal, a report changes no listing, and
+        # an account may file ten a day.
+        ("POST", "/v1/hub/reports"),
     }
 )
 
@@ -300,6 +320,11 @@ PLATFORM_ADMIN_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/v1/admin/help/tickets/{ticket_id}"),
         ("POST", "/v1/admin/help/tickets/{ticket_id}/messages"),
         ("PUT", "/v1/admin/help/tickets/{ticket_id}/status"),
+        # The public hub's moderation [0036]: the queue, a decision on a
+        # report, and suspending or restoring an owner's listing.
+        ("GET", "/v1/admin/hub/queue"),
+        ("POST", "/v1/admin/hub/reports/{report_id}/decision"),
+        ("PUT", "/v1/admin/hub/owners/{owner_id}/suspension"),
     }
 )
 
@@ -422,6 +447,46 @@ def unlensed_routes(app: FastAPI) -> list[RouteViolation]:
                 violations.append(RouteViolation(method=method, path=route.path))
 
     return violations
+
+
+def authenticated_cacheable_routes(
+    app: FastAPI,
+    cacheable: frozenset[tuple[str, str]] = PUBLIC_CACHEABLE_ROUTES,
+) -> list[tuple[str, str]]:
+    """List every cacheable route that depends on authentication.
+
+    A node is authenticating when its callable is ``authenticated_account``,
+    ``token_subject`` or ``admin_gate``, or its return annotation resolves to a lens.
+    The two callables are resolved lazily, because ``app.api.deps`` sits
+    above this module in the import graph.
+
+    :param app: The application to enumerate
+    :param cacheable: The ``(method, path)`` pairs treated as cacheable
+    :return: Each offending ``(method, path)``, empty when clean
+    """
+    from app.api.deps import admin_gate, authenticated_account, token_subject
+
+    authenticating = (admin_gate, authenticated_account, token_subject)
+
+    def authenticates(dependant: Dependant) -> bool:
+        """Report whether this dependency tree requires authentication.
+
+        :param dependant: The dependency node
+        :return: True if any node authenticates or yields a lens
+        """
+        call = dependant.call
+        if call is not None and (
+            call in authenticating or resolve_lens_type(call) is not None
+        ):
+            return True
+        return any(authenticates(sub) for sub in dependant.dependencies)
+
+    found: list[tuple[str, str]] = []
+    for route in _api_routes(app):
+        for method in sorted(route.methods or set()):
+            if (method, route.path) in cacheable and authenticates(route.dependant):
+                found.append((method, route.path))
+    return found
 
 
 def class_teacher_routes(app: FastAPI) -> set[tuple[str, str]]:

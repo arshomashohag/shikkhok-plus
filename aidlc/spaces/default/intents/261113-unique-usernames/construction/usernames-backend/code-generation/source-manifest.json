@@ -29,7 +29,7 @@
     { "path": "deploy/README.md" },
     { "path": "docs/legal/PRIVACY.md" },
     { "path": "message-keys.json" },
-    { "path": "migrations/versions/0035_usernames.py" },
+    { "path": "migrations/versions/0038_usernames.py" },
     { "path": "openapi.json" },
     { "path": "scripts/generate_privacy_policy.py" },
     { "path": "tests/accounts/signup_support.py" },

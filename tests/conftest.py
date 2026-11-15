@@ -222,13 +222,17 @@ def _clean_tables(request: pytest.FixtureRequest) -> Iterator[None]:
         #
         # Deriving it is also strictly more correct: every table the
         # schema has is one a test can write.
+        #
+        # ``bd_area`` is the exception: a fixed vocabulary seeded by its
+        # migration that no test writes, so truncating it would leave
+        # every later test an empty list.
         tables = [
             row[0]
             for row in connection.execute(
                 sa.text(
                     "SELECT tablename FROM pg_tables "
                     "WHERE schemaname = 'public' "
-                    "AND tablename <> 'alembic_version'"
+                    "AND tablename NOT IN ('alembic_version', 'bd_area')"
                 )
             )
         ]
@@ -264,7 +268,7 @@ def api_client(
 def outbound(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[tuple[str, str]]]:
     """Capture every text and email the null gateways are asked to send.
 
-    Used by the contact suites [0034] to read a code back and to assert
+    Used by the contact suites [0037] to read a code back and to assert
     what a removed-contact notice said and when it was sent.
 
     :param monkeypatch: The patcher

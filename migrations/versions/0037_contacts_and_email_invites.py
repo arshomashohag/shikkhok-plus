@@ -1,7 +1,7 @@
 """Teachers and centres record people by email as well as by phone.
 
-Revision ID: 0034
-Revises: 0033
+Revision ID: 0037
+Revises: 0036
 Create Date: 2026-11-14
 
 A teacher may now record a student's and a guardian's email address, and
@@ -45,8 +45,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import UUID
 
-revision: str = "0034"
-down_revision: str | None = "0033"
+revision: str = "0037"
+down_revision: str | None = "0036"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

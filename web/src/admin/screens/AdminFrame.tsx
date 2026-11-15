@@ -1,5 +1,5 @@
 /**
- * The frame every admin screen sits in: a title, the three sections as
+ * The frame every admin screen sits in: a title, the sections as
  * tabs, and the screen, inside the admin app's header (`../AdminChrome`).
  *
  * Access is the server's to decide. A 403 means this number is not, or
@@ -21,11 +21,12 @@ import { isNotAdmin, isUnavailable } from './mappers'
 import { adminPaths } from './paths'
 import './admin.css'
 
-export type AdminTab = 'overview' | 'teachers' | 'help'
+export type AdminTab = 'overview' | 'teachers' | 'hub' | 'help'
 
 const TABS: { tab: AdminTab; to: string; label: string }[] = [
   { tab: 'overview', to: adminPaths.overview(), label: 'web_admin_tab_overview' },
   { tab: 'teachers', to: adminPaths.teachers(), label: 'web_admin_tab_teachers' },
+  { tab: 'hub', to: adminPaths.hub(), label: 'web_admin_tab_hub' },
   { tab: 'help', to: adminPaths.people(), label: 'web_admin_tab_help' },
 ]
 

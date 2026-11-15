@@ -538,7 +538,7 @@ designed to survive. The purge commits per chunk and resumes on re-run.
 
 ## 8. Schema change (described; the migration is Code Generation's)
 
-One forward-only migration after `0034_contacts_and_email_invites`, run as its
+One forward-only migration after `0037_contacts_and_email_invites`, run as its
 own logged step (NFR7):
 
 1. `account`: add `username`, `username_key`, `username_changed_at`,

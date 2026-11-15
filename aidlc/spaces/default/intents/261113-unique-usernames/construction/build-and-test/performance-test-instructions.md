@@ -20,7 +20,7 @@ as discharging a performance figure (project Forbidden):
 
 | Target | What it proves | Check | Command |
 |---|---|---|---|
-| U1 NFR8.2 | the case-insensitive username lookup is a unique-index read | migration 0035 and `tests/db/test_schema_parity.py` | B1 |
+| U1 NFR8.2 | the case-insensitive username lookup is a unique-index read | migration 0038 and `tests/db/test_schema_parity.py` | B1 |
 | U1 NFR8.3, NFR8.5, NFR8.8 | availability and claim do a bounded number of statements; no I/O under lock | `tests/accounts/test_usernames.py`, `test_username_claims.py` | B1 |
 | U1 NFR8.4 | sign-in by username runs one statement and one (dummy when unknown) scrypt | `tests/auth/test_username_sign_in.py` | B1 |
 | U1 NFR8.6 | the hold purge is set-based | `tests/governance/test_purge.py` | B1 |

@@ -672,6 +672,54 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "only as salted hashes. Credentials, removed with the account."
         ),
     ),
+    "bd_area": TableGovernance(
+        disposition=Disposition.NOT_PERSONAL,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A fixed list of Bangladesh's divisions, districts and "
+            "upazilas; about no person."
+        ),
+    ),
+    "owner_listing": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "What a solo teacher chose to publish about themselves on the "
+            "public hub. It goes when that teacher deletes their account. A "
+            "coaching centre's listing belongs to the centre, so it stays "
+            "when a manager's account is deleted."
+        ),
+    ),
+    "batch_listing": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "What a solo teacher chose to publish about one of their "
+            "classes on the public hub. It goes with the teacher's account, "
+            "while the class itself stays as its students' history. A "
+            "coaching centre's class listings belong to the centre, so "
+            "they stay when a manager's account is deleted."
+        ),
+    ),
+    "hub_report": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A complaint a reader filed about something on the public hub, "
+            "with the reason they chose and an optional short note. It "
+            "goes when that reader deletes their account."
+        ),
+    ),
+    "hub_moderation_event": TableGovernance(
+        disposition=Disposition.NOT_PERSONAL,
+        retention=RetentionClass.MONTHS_12,
+        basis=(
+            "A deletion request does nothing to these rows, because they "
+            "are not about a person: a closed-vocabulary record that "
+            "moderation acted on a listing or a report, holding no free "
+            "text, kept twelve months."
+        ),
+    ),
 }
 
 #: The retention half, derived so the two can never disagree.

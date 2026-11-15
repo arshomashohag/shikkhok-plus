@@ -144,6 +144,7 @@ actually does, and our build fails if the two stop matching.
 
 | Data | Removed anyway after |
 |---|---|
+| A complaint you filed about something on the public hub | no time limit |
 | A place a teacher accepts payment, such as a number | no time limit |
 | A record that a teacher sent a fee reminder | 12 months |
 | A sign-up form you submitted, kept until you enter the code we sent | 48 hours |
@@ -154,6 +155,8 @@ actually does, and our build fails if the two stop matching.
 | Session tokens, stored only as hashes | 30 days after it expires |
 | Test-only message records, never used in production | 7 days |
 | The messages in your Help centre questions, yours and our replies | no time limit |
+| What a solo teacher chose to publish about one of their classes on the public hub | no time limit |
+| What a solo teacher chose to publish about themselves on the public hub | no time limit |
 | Which app you use (Android or web), its version, and when you last used it | no time limit |
 | Which classes you have hidden from your own view | no time limit |
 | Your authenticator recovery codes, stored only as hashes | no time limit |
@@ -199,14 +202,18 @@ These records are about how the service itself is running, not about any person.
 | Data | Removed anyway after |
 |---|---|
 | A coaching centre's names for the places its classes meet | no time limit |
+| A record that moderation acted on a hub listing or report; it holds no free text and names nobody | 12 months |
 | Counters that limit sign-in attempts | 48 hours |
+| The fixed list of Bangladesh divisions, districts and upazilas | no time limit |
 | When our scheduled jobs last ran; it names nobody | no time limit |
 
 **The name a teacher typed for you stays in that teacher's record.** When a teacher invites someone to a class they enter a name for that place themselves. That name belongs to the teacher's own record of the class, so it remains after you delete your account -- and it remains even if you declined the invitation and never used the app. It is not shown to anyone but that teacher. If you want it removed, contact us at the address at the top of this page and we will raise it with the teacher concerned.
 
 **A teacher's classes stay with their students.** If you are a teacher and delete your account, your sign-in, your own name and address are removed, and so are your name and payment number on each of your classes. The classes themselves stay as read-only history for your students and their guardians: their record of who came to each class, their results and fee records are theirs too. No new fees fall due on those classes, and amounts already recorded as owed stay on the records, where nobody can collect them.
 
-<!-- governance manifest digest: 64c0af0ca0ffd604fc165c1442757bc3e8f2a997c707b5992a5a1d3279e60c34
+**A coaching centre's public listing stays with the centre.** If you are a manager of a coaching centre and delete your account, what the centre published on the public hub -- its own page and its class pages -- is kept, because it belongs to the centre and not to you, and the centre's other managers may still run it. Your own account is removed as described above. A solo teacher's public listing is not kept: it is deleted with their account.
+
+<!-- governance manifest digest: 94d3adf5b3f32bc5d72c68351c5ce8bafa1b857782d3d3f954805947efdabb41
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

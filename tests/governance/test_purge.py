@@ -245,10 +245,12 @@ def test_no_life_of_account_table_appears_in_the_window_map(
     # added its staff records; 28 since 0024 added its rooms; 30 since
     # 0026 added its payroll; 33 since 0027 added the help centre's two
     # tables and which app each account uses; 35 since 0028 added the
-    # authenticator factor and its recovery codes.
-    assert len(life_of_account) == 35, (
+    # authenticator factor and its recovery codes; 36 since 0035 added
+    # the fixed Bangladesh area vocabulary; 39 since 0036 added the hub's
+    # two listing tables and its reports.
+    assert len(life_of_account) == 39, (
         f"the manifest now marks {len(life_of_account)} tables "
-        "LIFE_OF_ACCOUNT, not 35. If that is deliberate, this count is "
+        "LIFE_OF_ACCOUNT, not 39. If that is deliberate, this count is "
         "the claim that needs updating with it."
     )
 
@@ -276,9 +278,10 @@ def test_every_finite_retention_class_has_a_window(
         f"window: {sorted(finite - set(WINDOWS))}"
     )
     # 9 since 0031 added `pending_signup`, a signup draft kept 48 hours;
-    # 10 since 0035 added `username_hold`, kept until its own expiry.
-    assert len(finite) == 10, (
-        f"the manifest now carries {len(finite)} finite windows, not 10."
+    # 10 since 0036 added `hub_moderation_event`, kept twelve months;
+    # 11 since 0038 added `username_hold`, kept until its own expiry.
+    assert len(finite) == 11, (
+        f"the manifest now carries {len(finite)} finite windows, not 11."
     )
 
 
@@ -424,6 +427,15 @@ def _plant(
             ),
             {"digest": _hold_digest_of(row_id), "at": at},
         )
+    elif table == "hub_moderation_event":
+        session.execute(
+            sa.text(
+                "INSERT INTO hub_moderation_event "
+                "(id, event, target_kind, target_id, correlation_id, at) "
+                "VALUES (:id, 'report_filed', 'owner_listing', :id, :cid, :at)"
+            ),
+            shared | {"cid": row_id.hex},
+        )
     else:  # pragma: no cover - guarded by the assertion below
         raise AssertionError(
             f"{table} is purgeable but this file has no way to plant a "
@@ -440,6 +452,7 @@ def _plant(
         "expires_at",
         "created_at",
         "held_until",
+        "at",
     }, f"{table} is planted at an age column this helper does not set"
     return row_id
 

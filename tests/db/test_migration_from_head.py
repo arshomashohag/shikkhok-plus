@@ -139,13 +139,13 @@ def test_the_head_revision_advanced(staged: Engine) -> None:
             sa.text("SELECT version_num FROM alembic_version")
         ).scalar_one()
 
-    assert revision == "0035"
+    assert revision == "0038"
 
 
-def test_0035_leaves_existing_accounts_and_drafts_unchanged(postgres_url: str) -> None:
+def test_0038_leaves_existing_accounts_and_drafts_unchanged(postgres_url: str) -> None:
     """The username revision rewrites no row [NFR7.1].
 
-    Staged at ``0034`` with an account and a draft, so the CHECKs this
+    Staged at ``0037`` with an account and a draft, so the CHECKs this
     revision adds meet real rows: they validate because every existing
     row is null on both username columns, and nothing is backfilled.
 
@@ -154,7 +154,7 @@ def test_0035_leaves_existing_accounts_and_drafts_unchanged(postgres_url: str) -
     """
     from tests.db.migration_support import stage_at
 
-    with stage_at(postgres_url, "0034") as engine:
+    with stage_at(postgres_url, "0037") as engine:
         account_id = uuid.uuid4()
         with engine.begin() as connection:
             connection.execute(

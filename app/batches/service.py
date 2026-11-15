@@ -43,6 +43,7 @@ from app.db.models import (
     ScheduleSlot,
 )
 from app.errors import AuthorizationError, ConflictError, ValidationError
+from app.hub.listings.hide import hide_for_inactive_batch
 from app.local_time import bangladesh_today
 from app.money import Money
 
@@ -1099,6 +1100,8 @@ def update_batch(
         value = getattr(changes, column)
         if value is not None:
             setattr(batch, column, value)
+    if changes.active is False:
+        hide_for_inactive_batch(session, batch.id)
     session.commit()
 
     return next(

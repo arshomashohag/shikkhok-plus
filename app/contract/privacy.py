@@ -32,22 +32,29 @@ Schemathesis passes it and the pass is evidence of nothing about privacy
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Final, Literal
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
+from pydantic import BaseModel
 
 from app.authz.annotations import resolve_lens_type
 from app.authz.lenses import TeacherLens
-from app.contract.routes import LENS_EXEMPT_AUTHENTICATED, _api_routes
+from app.contract.routes import (
+    LENS_EXEMPT_AUTHENTICATED,
+    PUBLIC_ROUTES,
+    _api_routes,
+)
 
 __all__ = [
     "ACCOUNT_PRIVATE_FIELDS",
     "FORBIDDEN_ACCOUNT_ID_FIELDS",
     "OWNER_PRIVATE_FIELDS",
     "OWN_ACCOUNT_FIELDS",
+    "PUBLIC_API_EXEMPTIONS",
+    "PUBLIC_FORBIDDEN_FIELDS",
     "STAFF_PRIVATE_FIELDS",
     "STAFF_ROUTE_PREFIX",
     "FieldViolation",
@@ -55,6 +62,7 @@ __all__ = [
     "forbidden_fields",
     "is_teacher_facing",
     "lens_types_of",
+    "public_field_leaks",
     "staff_field_leaks",
 ]
 
@@ -126,6 +134,28 @@ STAFF_PRIVATE_FIELDS: Final[frozenset[str]] = frozenset(
         "staff_city",
         "staff_postcode",
     }
+)
+
+#: Everything a public, anonymous page must never carry: all of the sets
+#: above plus contact numbers and per-person keys. ``self_name`` also sits
+#: in the owner-private set and is repeated so the union reads as stated.
+PUBLIC_FORBIDDEN_FIELDS: Final[frozenset[str]] = (
+    OWNER_PRIVATE_FIELDS
+    | FORBIDDEN_ACCOUNT_ID_FIELDS
+    | STAFF_PRIVATE_FIELDS
+    | frozenset(
+        {
+            "phone",
+            "student_phone",
+            "guardian_phone",
+            "invited_phone",
+            "collection_number",
+            "display_name",
+            "enrollment_id",
+            "student_id",
+            "self_name",
+        }
+    )
 )
 
 #: The manager-only staff console, the one place staff fields are served.
@@ -421,3 +451,99 @@ def is_teacher_facing(route: APIRoute) -> bool:
         isinstance(lens, type) and issubclass(lens, TeacherLens)
         for lens in lens_types_of(route)
     )
+
+
+#: Existing unauthenticated API responses whose forbidden-NAME field is
+#: not a disclosure, as ``(path, component, field)``. Named exactly, never
+#: by field name alone, so the same field on any other public route or view
+#: model still fails. ``SignupResponse.account_id`` is the id of the
+#: account the caller has just created, returned to that caller only;
+#: ``AlreadyAddedResponse.display_name`` is a deprecated field that is
+#: always empty or None and never a name (see its docstring).
+PUBLIC_API_EXEMPTIONS: Final[frozenset[tuple[str, str, str]]] = frozenset(
+    {
+        ("/v1/accounts", "SignupResponse", "account_id"),
+        ("/v1/accounts/already-added", "AlreadyAddedResponse", "display_name"),
+    }
+)
+
+
+def _public_field(field: str) -> str | None:
+    """Report whether a field name is forbidden on a public surface.
+
+    :param field: The field name
+    :return: The name when it is forbidden, else None
+    """
+    return field if field in PUBLIC_FORBIDDEN_FIELDS else None
+
+
+def _response_schema(
+    document: dict[str, object], path: str, method: str
+) -> dict[str, object]:
+    """Resolve a route's 2xx JSON response schema from the OpenAPI document.
+
+    Read from the operation itself rather than from the response model's
+    class name, which is absent for ``list[X]`` and may differ from the
+    component name. Fails closed: a declared response model whose schema
+    cannot be found is an error, never a pass.
+
+    :param document: The generated OpenAPI document
+    :param path: The route path
+    :param method: The HTTP method
+    :return: The response schema node
+    :raises LookupError: When no 2xx JSON schema can be resolved
+    """
+    paths = document.get("paths", {})
+    operation = paths.get(path, {}).get(method.lower(), {})  # type: ignore[attr-defined]
+    for status, response in (operation.get("responses", {}) or {}).items():
+        if not str(status).startswith("2") or not isinstance(response, dict):
+            continue
+        content = (response.get("content", {}) or {}).get("application/json", {})
+        schema = content.get("schema")
+        if isinstance(schema, dict) and schema:
+            return schema
+    msg = f"public route {method} {path} has no resolvable response schema"
+    raise LookupError(msg)
+
+
+def public_field_leaks(
+    app: FastAPI, view_models: Iterable[type[BaseModel]]
+) -> list[tuple[str, str, str]]:
+    """List forbidden fields reachable from anything the public can read.
+
+    Two sources: the response schema of every route in
+    :data:`app.contract.routes.PUBLIC_ROUTES`, and the schema of every
+    registered public view model.
+
+    :param app: The application whose generated schema is checked
+    :param view_models: The registered public view models
+    :return: ``(origin, component, field)`` per leak, empty when clean
+    """
+    document = app.openapi()
+    definitions: dict[str, dict[str, object]] = (
+        document.get("components", {}).get("schemas", {}) or {}
+    )
+    leaks: list[tuple[str, str, str]] = []
+    for route in _api_routes(app):
+        if route.response_model is None:
+            continue
+        if not any((m, route.path) in PUBLIC_ROUTES for m in route.methods or ()):
+            continue
+        for method in sorted(
+            m for m in route.methods or () if (m, route.path) in PUBLIC_ROUTES
+        ):
+            resolved = _response_schema(document, route.path, method)
+            for schema_name, field in _walk(
+                resolved, definitions, set(), _public_field
+            ):
+                if (route.path, str(schema_name), field) in PUBLIC_API_EXEMPTIONS:
+                    continue
+                leaks.append((f"route:{route.path}", str(schema_name), field))
+    for model in view_models:
+        schema = model.model_json_schema(ref_template="#/$defs/{model}")
+        view_defs: dict[str, dict[str, object]] = schema.get("$defs", {}) or {}
+        for schema_name, field in _walk(
+            schema, view_defs, {model.__name__}, _public_field
+        ):
+            leaks.append((f"view:{model.__name__}", str(schema_name), field))
+    return leaks

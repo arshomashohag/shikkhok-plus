@@ -62,8 +62,8 @@
 - NEVER request SMS read permission; OTP autofill uses the SMS Retriever API only. [TC-5] (affirmed 2026-10-16)
 - NEVER add an ads SDK, or an analytics or crash-reporting SDK that transmits a device or advertising identifier. [TC-6] [D-37] (affirmed 2026-10-16)
 - NEVER run the privacy-boundary test suite as a database superuser or table owner, because both bypass row-level security and the suite would then pass against a broken or entirely absent policy. [Q9] [pg-rls] [TC-13] (affirmed 2026-10-16)
-- NEVER expose anything a student or guardian writes to any teacher. [TC-13] [D-5] (affirmed 2026-10-16)
-- NEVER expose student or guardian data to a platform administrator, whose visibility is limited to subscriber information — teacher name, plan and payment status. [TC-14] [D-6] (affirmed 2026-10-16)
+- NEVER expose anything a student or guardian writes to any teacher, except a hub review its author explicitly submitted for public display. Such a review reaches anyone, the teacher included, only after moderation, only once its batch holds at least three published reviews, only through the public review view, and never with a name, phone number, seat, enrollment id, submission time finer than a month, or any other field joinable to a record the teacher keeps. Its author may delete it at any time, and deletion is total. [TC-13] [D-5] (amended 2026-11-14, public hub)
+- NEVER expose student or guardian data to a platform administrator, whose visibility is limited to subscriber information and to content a person submitted for publication on the hub (listing text, images, reviews, replies and reports), shown with an opaque author reference and role and never with a name, phone number, profile field, seat or any record a teacher keeps. [TC-14] [D-6] (amended 2026-11-14, public hub)
 - NEVER store or log an OTP in plaintext, and never return a response or timing that reveals whether a phone number exists. [D-33] [architecture §7] (affirmed 2026-10-16)
 - NEVER hardcode a credential, API key, token or secret in the repository or in a built image. [construction-phase rules] [D-33] (affirmed 2026-10-16)
 - NEVER accept a write without connectivity in V1; there is no local write queue, and a failed write surfaces an explicit retry prompt rather than queueing silently. [TC-8] [D-9] (affirmed 2026-10-16)
@@ -74,6 +74,9 @@
 - NEVER record an obligation without naming the verifier that discharges it, and never discharge a performance or layout obligation with a correctness test. [TC-15] [TC-17] [D-43] [PU-3.6] (affirmed 2026-10-22)
 
 - NEVER let a comment state a count, a version or a scope that nothing checks; where a comment states a number, the number is a claim and either a test asserts it or the number comes out. [app/contract/routes.py:33-49] (affirmed 2026-10-22)
+- NEVER put a student's name, photo, marks, attendance or enrollment date on any public surface. [hub spec §8] (affirmed 2026-11-14)
+- NEVER render a public page from anything but a registered public view model read through shikkhok_hub_reader. [hub spec §8] (affirmed 2026-11-14)
+- NEVER list an owner, batch or centre member without that person's recorded consent. [hub spec D1] (affirmed 2026-11-14)
 
 ## Mandated
 
@@ -108,6 +111,7 @@
 - ALWAYS enforce the forbidden-identifier set at commit time as well as at release time, so a forbidden framework reference cannot reach `main` and be found only on the build that was about to ship. [TC-3] [TC-4] [D-35] [D-37] (affirmed 2026-10-22)
 
 - ALWAYS assert that a test suite's precondition held before treating its pass as evidence, so a suite that silently skipped is never read as a suite that passed. [tests/conftest.py] [pg-rls] (affirmed 2026-10-22)
+- ALWAYS pre-moderate hub images and reviews before they are public. [hub spec D7] (affirmed 2026-11-14)
 
 ## Corrections
 

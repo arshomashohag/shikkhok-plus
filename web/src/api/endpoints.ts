@@ -362,6 +362,54 @@ export const listMyBatches = (signal?: AbortSignal) =>
 export const readGuardianHome = (signal?: AbortSignal) =>
   request<Schemas['GuardianHomeResponse']>('GET', '/v1/guardian/home', { signal })
 
+// ------------------------------------------------------------------ hub
+//
+// The owner's public listing and each batch's listing [0036]. The server
+// says what is missing (`checklist`) and whether publishing is possible
+// (`publishable`); the screens only show it.
+
+export const readHubListing = (signal?: AbortSignal) =>
+  request<Schemas['OwnerListingResponse']>('GET', '/v1/hub/listing', { signal })
+
+export const saveHubListing = (body: Schemas['OwnerListingUpdateRequest']) =>
+  request<Schemas['OwnerListingResponse']>('PUT', '/v1/hub/listing', { body })
+
+export const publishHubListing = (consentVersion: string) =>
+  request<Schemas['OwnerListingResponse']>('POST', '/v1/hub/listing/publish', {
+    body: { consent_version: consentVersion },
+  })
+
+export const unpublishHubListing = () =>
+  request<Schemas['OwnerListingResponse']>('POST', '/v1/hub/listing/unpublish')
+
+export const checkHubSlug = (slug: string, signal?: AbortSignal) =>
+  request<Schemas['SlugAvailability']>('GET', `/v1/hub/slugs/${enc(slug)}`, { signal })
+
+/** Divisions when `parent` is omitted, else the areas directly inside it. */
+export const listHubAreas = (parent?: string, signal?: AbortSignal) =>
+  request<Schemas['AreaOption'][]>('GET', '/v1/hub/areas', { query: { parent }, signal })
+
+export const listBatchListings = (signal?: AbortSignal) =>
+  request<Schemas['BatchListingResponse'][]>('GET', '/v1/hub/batch-listings', { signal })
+
+export const saveBatchListing = (batchId: string, body: Schemas['BatchListingUpdateRequest']) =>
+  request<Schemas['BatchListingResponse']>('PUT', `/v1/batches/${enc(batchId)}/listing`, { body })
+
+export const publishBatchListing = (batchId: string) =>
+  request<Schemas['BatchListingResponse']>('POST', `/v1/batches/${enc(batchId)}/listing/publish`)
+
+export const unpublishBatchListing = (batchId: string) =>
+  request<Schemas['BatchListingResponse']>('POST', `/v1/batches/${enc(batchId)}/listing/unpublish`)
+
+/** The caller's own accepted centre memberships, with their name consent. */
+export const listCentreMemberships = (signal?: AbortSignal) =>
+  request<Schemas['CentreMembershipResponse'][]>('GET', '/v1/me/centre-memberships', { signal })
+
+export const setPublicNameConsent = (centreId: string, consent: boolean) =>
+  request<undefined>('PUT', `/v1/centres/${enc(centreId)}/members/me/public-name-consent`, {
+    body: { consent },
+  })
+
 function enc(segment: string): string {
   return encodeURIComponent(segment)
 }

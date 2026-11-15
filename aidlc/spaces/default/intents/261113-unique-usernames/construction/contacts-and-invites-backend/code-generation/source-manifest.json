@@ -39,7 +39,7 @@
     { "path": "app/students/service.py" },
     { "path": "docs/legal/PRIVACY.md" },
     { "path": "message-keys.json" },
-    { "path": "migrations/versions/0034_contacts_and_email_invites.py" },
+    { "path": "migrations/versions/0037_contacts_and_email_invites.py" },
     { "path": "openapi.json" },
     { "path": "tests/accounts/contact_support.py" },
     { "path": "tests/accounts/test_ceilings.py" },

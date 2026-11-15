@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Public Hub Mockups</title>
+<style>
+:root{
+  color-scheme:light;
+  --primary:#1d4f91;--on-primary:#ffffff;--primary-container:#d8e3f7;--on-primary-container:#0b2447;
+  --secondary:#4a5668;--error:#a3201a;--error-container:#fce3e1;--on-error-container:#6a110c;
+  --background:#f4f6f9;--surface:#ffffff;--surface-container:#eef1f5;--surface-container-high:#e4e8ee;
+  --on-surface:#15191f;--on-surface-variant:#434a55;--outline:#6e7682;--outline-variant:#c9ced6;
+  --paid-container:#dcf1e2;--on-paid-container:#0f5427;
+  --verifying-container:#efe6fb;--on-verifying-container:#5b2e9e;--verifying-outline:#5b2e9e;
+  --scrim:rgb(21 25 31 / 45%);--page:#e9edf2;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s6:24px;--s8:32px;
+  --r-field:8px;--r-card:12px;--r-sheet:16px;--r-pill:999px;
+  --font:'Noto Sans Bengali','Noto Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --primary:#a9c7ff;--on-primary:#0b2447;--primary-container:#1e3f6e;--on-primary-container:#d8e3f7;
+    --secondary:#b9c4d6;--error:#ffb4ab;--error-container:#5c1712;--on-error-container:#ffdad6;
+    --background:#0f1215;--surface:#15191e;--surface-container:#1c2128;--surface-container-high:#252b33;
+    --on-surface:#e6e9ee;--on-surface-variant:#b5bcc7;--outline:#8a929e;--outline-variant:#343b45;
+    --paid-container:#10301c;--on-paid-container:#8fd9a6;
+    --verifying-container:#2a1b45;--on-verifying-container:#d1b8ff;--verifying-outline:#d1b8ff;
+    --scrim:rgb(0 0 0 / 60%);--page:#090b0d;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --primary:#a9c7ff;--on-primary:#0b2447;--primary-container:#1e3f6e;--on-primary-container:#d8e3f7;
+  --secondary:#b9c4d6;--error:#ffb4ab;--error-container:#5c1712;--on-error-container:#ffdad6;
+  --background:#0f1215;--surface:#15191e;--surface-container:#1c2128;--surface-container-high:#252b33;
+  --on-surface:#e6e9ee;--on-surface-variant:#b5bcc7;--outline:#8a929e;--outline-variant:#343b45;
+  --paid-container:#10301c;--on-paid-container:#8fd9a6;
+  --verifying-container:#2a1b45;--on-verifying-container:#d1b8ff;--verifying-outline:#d1b8ff;
+  --scrim:rgb(0 0 0 / 60%);--page:#090b0d;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--on-surface);font-family:var(--font);font-size:16px;line-height:1.6;overflow-wrap:anywhere}
+.intro{max-width:1180px;margin:0 auto;padding:var(--s8) var(--s4) var(--s4)}
+.intro h1{margin:0 0 var(--s2);font-size:26px;line-height:40px}
+.intro p{margin:0;color:var(--on-surface-variant);max-width:62em}
+.legend{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s4)}
+.board{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--s8) var(--s6);padding:var(--s6) var(--s4) 64px;max-width:1240px;margin:0 auto}
+figure{margin:0;width:100%;max-width:360px}
+figcaption{font-size:13px;line-height:20px;font-weight:600;color:var(--on-surface-variant);margin:0 0 var(--s2) var(--s1);letter-spacing:.02em}
+figcaption b{color:var(--on-surface)}
+.phone{position:relative;width:100%;height:740px;background:var(--background);border-radius:28px;border:8px solid #0b2447;overflow:hidden;display:flex;flex-direction:column}
+.status{height:24px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 var(--s4);font-size:12px;font-weight:600;color:var(--on-surface-variant)}
+.scroll{flex:1;overflow:hidden;padding:0 var(--s4) var(--s4)}
+.topbar{display:flex;align-items:center;gap:var(--s2);min-height:56px;padding:0 var(--s2);flex:none}
+.topbar h2{margin:0;font-size:18px;line-height:28px;font-weight:600;flex:1}
+.ib{width:48px;height:48px;display:grid;place-items:center;border-radius:50%;color:var(--on-surface);flex:none}
+svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.card{background:var(--surface);border-radius:var(--r-card);padding:var(--s4)}
+.card+.card{margin-top:var(--s3)}
+.outlined{border:1px solid var(--outline-variant)}
+.sec{margin-top:var(--s6)}
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;font-size:15px;font-weight:600;color:var(--on-surface-variant);margin:0 0 var(--s2)}
+.title{font-size:18px;line-height:28px;font-weight:600;margin:0}
+.h1{font-size:21px;line-height:34px;font-weight:700;margin:0}
+.meta{font-size:14px;line-height:22px;color:var(--on-surface-variant);margin:0}
+.cap{font-size:13px;line-height:20px;color:var(--on-surface-variant)}
+.chip{display:inline-flex;align-items:center;gap:var(--s1);padding:2px 10px;border-radius:var(--r-pill);font-size:13px;font-weight:600;line-height:1.5;white-space:nowrap;border:1px solid transparent}
+.chip svg{width:14px;height:14px}
+.c-verified{background:var(--primary-container);color:var(--on-primary-container)}
+.c-open{background:var(--paid-container);color:var(--on-paid-container)}
+.c-neutral{background:var(--surface-container-high);color:var(--on-surface-variant)}
+.c-review{background:var(--verifying-container);color:var(--on-verifying-container);border:1px dashed var(--verifying-outline)}
+.c-filter{min-height:36px;padding:4px 12px;background:var(--surface);color:var(--on-surface);border-color:var(--outline)}
+.c-filter.on{background:var(--primary-container);color:var(--on-primary-container);border-color:var(--primary)}
+.chips{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.field{display:flex;align-items:center;gap:var(--s2);min-height:48px;padding:0 var(--s3);border:1px solid var(--outline);border-radius:var(--r-field);background:var(--surface);color:var(--on-surface-variant)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);min-height:48px;padding:0 var(--s6);border-radius:var(--r-pill);font-weight:600;font-size:16px;border:1px solid transparent;text-decoration:none}
+.btn-p{background:var(--primary);color:var(--on-primary)}
+.btn-t{background:var(--primary-container);color:var(--on-primary-container)}
+.btn-o{background:transparent;color:var(--on-surface);border-color:var(--outline)}
+.btn-x{background:transparent;color:var(--primary);padding:0 var(--s3)}
+.btn-s{min-height:40px;padding:0 var(--s4);font-size:15px}
+.wide{width:100%;min-height:56px}
+.bar{flex:none;background:var(--surface);border-top:1px solid var(--outline-variant);padding:var(--s3) var(--s4);display:flex;gap:var(--s2)}
+.bar .btn{flex:1}
+.stars{display:inline-flex;gap:2px;vertical-align:-2px}
+.stars svg{width:14px;height:14px}
+.on-star{fill:var(--on-surface)} .off-star{fill:none;stroke:var(--outline);stroke-width:1.6}
+.photo{border-radius:var(--r-card);background:linear-gradient(135deg,var(--surface-container-high),var(--surface-container));display:grid;place-items:center;color:var(--on-surface-variant);position:relative;overflow:hidden}
+.photo svg{width:40%;max-width:120px;height:auto;opacity:.75}
+.photo .tag{position:absolute;left:8px;bottom:8px;font-size:12px;line-height:18px;font-weight:600;padding:1px 8px;border-radius:var(--r-pill);background:var(--surface);color:var(--on-surface-variant)}
+.res{display:flex;gap:var(--s3)}
+.thumb{width:72px;height:72px;flex:none;border-radius:var(--r-field)}
+.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.kv{display:grid;grid-template-columns:96px 1fr;gap:var(--s2) var(--s3);font-size:15px;line-height:24px;margin:0}
+.kv dt{color:var(--on-surface-variant)} .kv dd{margin:0;font-weight:500}
+.money{font-weight:700}
+.sum{display:flex;gap:var(--s4);align-items:center}
+.big{font-size:34px;line-height:52px;font-weight:700}
+.hist{flex:1;display:grid;gap:4px;margin:0}
+.hrow{display:grid;grid-template-columns:12px 1fr 22px;gap:var(--s2);align-items:center;font-size:13px;line-height:18px;color:var(--on-surface-variant)}
+.track{height:8px;border-radius:4px;background:var(--surface-container-high);overflow:hidden}
+.fill{height:100%;background:var(--on-surface-variant);border-radius:4px}
+.rv{padding:var(--s3) 0;border-top:1px solid var(--outline-variant)}
+.rv:first-child{border-top:0;padding-top:0}
+.who{display:flex;align-items:center;gap:var(--s2);font-size:13px;line-height:20px;color:var(--on-surface-variant);font-weight:600}
+.shield{width:28px;height:28px;border-radius:50%;background:var(--surface-container-high);display:grid;place-items:center;flex:none;color:var(--on-surface-variant)}
+.shield svg{width:16px;height:16px}
+.rv p{margin:var(--s1) 0 0;font-size:15px;line-height:24px}
+.reply{margin-top:var(--s2);margin-left:var(--s4);padding:var(--s2) var(--s3);background:var(--surface-container);border-radius:var(--r-field);font-size:14px;line-height:22px}
+.reply b{font-size:13px}
+.hero{background:var(--primary);color:var(--on-primary);padding:var(--s4);border-radius:0 0 var(--r-sheet) var(--r-sheet);margin:0 calc(-1 * var(--s4))}
+.hero .meta{color:inherit;opacity:.92}
+.av{width:56px;height:56px;border-radius:var(--r-card);background:var(--surface);color:var(--primary);display:grid;place-items:center;font-weight:700;font-size:20px;flex:none}
+.row{display:flex;align-items:center;gap:var(--s3);min-height:72px;padding:var(--s3) 0;border-top:1px solid var(--outline-variant)}
+.row:first-child{border-top:0}
+.grow{flex:1;min-width:0}
+.doc{display:flex;gap:var(--s3);align-items:center}
+.pdf{width:44px;height:56px;border-radius:6px;background:var(--surface-container-high);border:1px solid var(--outline-variant);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--on-surface-variant);flex:none}
+.scrim{position:absolute;inset:0;background:var(--scrim)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-radius:var(--r-sheet) var(--r-sheet) 0 0;padding:var(--s3) var(--s4) var(--s4);box-shadow:0 -4px 24px rgb(0 0 0 / 25%)}
+.handle{width:36px;height:4px;border-radius:2px;background:var(--outline-variant);margin:0 auto var(--s3)}
+.starpick{display:flex;justify-content:space-between;margin:var(--s2) 0}
+.starpick span{width:52px;height:52px;display:grid;place-items:center;border-radius:50%}
+.starpick svg{width:36px;height:36px}
+.starpick .sel{background:var(--surface-container)}
+.ta{border:1px solid var(--primary);border-width:2px;border-radius:var(--r-field);padding:var(--s3);min-height:104px;font-size:15px;line-height:24px}
+.count{text-align:right;font-size:13px;color:var(--on-surface-variant);margin-top:2px}
+.notice{display:flex;gap:var(--s3);padding:var(--s3);border-radius:var(--r-card);background:var(--surface-container);font-size:14px;line-height:22px}
+.notice svg{flex:none;margin-top:2px}
+.banner{display:flex;gap:var(--s3);align-items:flex-start;padding:var(--s3);border-radius:var(--r-card);font-size:14px;line-height:22px}
+.b-review{background:var(--verifying-container);color:var(--on-verifying-container);border:1px dashed var(--verifying-outline)}
+.meter{height:10px;border-radius:5px;background:var(--surface-container-high);overflow:hidden;margin:var(--s2) 0}
+.meter i{display:block;height:100%;width:72%;background:var(--primary);border-radius:5px}
+.check{display:flex;gap:var(--s2);align-items:center;font-size:14px;line-height:22px;min-height:36px}
+.check .dot{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex:none}
+.done{background:var(--primary);color:var(--on-primary)}
+.todo{border:2px solid var(--outline)}
+.dot svg{width:12px;height:12px;stroke-width:3}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2)}
+.grid .photo{aspect-ratio:1}
+.add{border:1.5px dashed var(--outline);background:transparent;color:var(--primary);font-size:13px;font-weight:600;display:grid;place-items:center;text-align:center;border-radius:var(--r-card);aspect-ratio:1}
+.sw{width:44px;height:26px;border-radius:13px;background:var(--surface-container-high);border:2px solid var(--outline);position:relative;flex:none}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--outline)}
+.sw.on{background:var(--primary);border-color:var(--primary)}
+.sw.on::after{left:21px;background:var(--on-primary)}
+.tabs{display:flex;border-bottom:1px solid var(--outline-variant);margin:0 calc(-1 * var(--s4)) var(--s3);padding:0 var(--s4)}
+.tab{flex:1;text-align:center;min-height:48px;display:grid;place-items:center;font-size:14px;font-weight:600;color:var(--on-surface-variant);border-bottom:3px solid transparent}
+.tab.on{color:var(--primary);border-color:var(--primary)}
+.badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--primary);color:var(--on-primary);font-size:12px;margin-left:4px}
+.reply-field{border:2px solid var(--primary);border-radius:var(--r-field);padding:var(--s2) var(--s3);font-size:15px;line-height:24px;margin-top:var(--s2)}
+.hint{font-size:13px;line-height:20px;color:var(--on-surface-variant);margin-top:var(--s1)}
+.actions{display:flex;justify-content:flex-end;gap:var(--s1);margin-top:var(--s2)}
+.bn{font-size:13px;color:var(--on-surface-variant)}
+.web{display:flex;align-items:center;gap:var(--s2);margin:0 calc(-1 * var(--s4));padding:var(--s2) var(--s4);background:var(--surface-container);font-size:12px;color:var(--on-surface-variant)}
+.web b{color:var(--on-surface);font-weight:600}
+.notes{max-width:1180px;margin:0 auto;padding:0 var(--s4) 64px;color:var(--on-surface-variant);font-size:14px}
+.notes ul{padding-left:20px;margin:var(--s2) 0}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="star" viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4L2.8 9.5l6.4-.8z"/></symbol>
+    <symbol id="tick" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M8.5 12l2.5 2.5 4.5-4.5"/></symbol>
+    <symbol id="back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+    <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+    <symbol id="pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0113 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
+    <symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+    <symbol id="flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+    <symbol id="chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+    <symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></symbol>
+    <symbol id="img" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/></symbol>
+    <symbol id="building" viewBox="0 0 24 24"><path d="M4 21V5l8-2v18M12 8h8v13M7 8h2M7 12h2M7 16h2M15 12h2M15 16h2M2 21h20"/></symbol>
+    <symbol id="board" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M7 20l3-4M17 20l-3-4M7 8h6M7 11h9"/></symbol>
+    <symbol id="filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>
+  </defs>
+</svg>
+
+<header class="intro">
+  <h1>ShikkhokPlus Public Hub — concept mockups</h1>
+  <p>Six 360dp frames drawn with the product's own tokens (web/src/styles/tokens.css). No new colours: ratings are ink, “Verified” uses primary-container, “Under review” reuses the dashed verifying treatment. Numbers the app generates are Latin; text people typed stays as typed. Photos are placeholders — the hub never shows identifiable children. Aligned to the team's final decisions: guardian-only reviews, month-level dates, no PDFs in V1, contact only when the owner publishes a number. Switch your system theme to see dark mode.</p>
+  <div class="legend">
+    <span class="chip c-verified"><svg class="i"><use href="#tick"/></svg>Verified on ShikkhokPlus</span>
+    <span class="chip c-open">Accepting students</span>
+    <span class="chip c-review"><svg class="i"><use href="#clock"/></svg>Under review</span>
+    <span class="chip c-neutral">Draft</span>
+  </div>
+</header>
+
+<main class="board">
+
+<!-- (a) SEARCH RESULTS -->
+<figure>
+  <figcaption><b>a · Hub search</b> · public web, no JS</figcaption>
+  <div class="phone">
+    <div class="status"><span>9:41</span><span>4G ▮▮▮</span></div>
+    <div class="scroll">
+      <div class="web"><svg class="i" style="width:14px;height:14px"><use href="#shield"/></svg><b>shikkhokplus.com</b>/hub · <span>English | বাংলা</span></div>
+      <div style="margin-top:var(--s3)" class="field"><svg class="i"><use href="#search"/></svg><span style="color:var(--on-surface)">HSC Physics</span></div>
+      <div class="chips" style="margin-top:var(--s3)">
+        <span class="chip c-filter on"><svg class="i"><use href="#tick"/></svg>মিরপুর</span>
+        <span class="chip c-filter on">HSC</span>
+        <span class="chip c-filter">In person</span>
+        <span class="chip c-filter"><svg class="i"><use href="#filter"/></svg>More</span>
+      </div>
+      <p class="cap" style="margin:var(--s3) 0 var(--s2)">14 batches · 6 tutors and centres</p>
+
+      <div class="card">
+        <div class="res">
+          <div class="photo thumb"><svg class="i"><use href="#building"/></svg></div>
+          <div class="grow">
+            <p class="title">জ্যোতির্ময় কোচিং সেন্টার</p>
+            <p class="meta">Mirpur 10 · Coaching centre</p>
+            <p class="cap" style="margin-top:2px"><span class="stars"><svg class="on-star"><use href="#star"/></svg></span> <b style="color:var(--on-surface)">4.6</b> · 23 reviews</p>
+          </div>
+        </div>
+        <div class="chips" style="margin-top:var(--s3)"><span class="chip c-verified"><svg class="i"><use href="#tick"/></svg>Verified</span><span class="chip c-neutral">3 HSC batches</span></div>
+        <p class="meta" style="margin-top:var(--s2)">এইচএসসি পদার্থবিজ্ঞান · Batch A · Sat, Mon, Wed 4:30 pm · <span class="money">৳1,500</span>/month</p>
+      </div>
+
+      <div class="card">
+        <div class="res">
+          <div class="photo thumb"><svg class="i"><use href="#board"/></svg></div>
+          <div class="grow">
+            <p class="title">তানভীর হাসান স্যার</p>
+            <p class="meta">Mirpur 2 · Private tutor</p>
+            <p class="cap" style="margin-top:2px">3 reviews · average after 5</p>
+          </div>
+        </div>
+        <div class="chips" style="margin-top:var(--s3)"><span class="chip c-verified"><svg class="i"><use href="#tick"/></svg>Verified</span><span class="chip c-open">2 seats left</span></div>
+        <p class="meta" style="margin-top:var(--s2)">Physics + Higher Math · HSC 2027 · Fee on request</p>
+      </div>
+
+      <div class="card">
+        <div class="res">
+          <div class="photo thumb"><svg class="i"><use href="#building"/></svg></div>
+          <div class="grow">
+            <p class="title">উদ্ভাস একাডেমিক কেয়ার, মিরপুর-১ শাখা</p>
+            <p class="meta">Mirpur 1 · Coaching centre</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</figure>
+
+<!-- (b) OWNER PROFILE -->
+<figure>
+  <figcaption><b>b · Owner profile</b> · coaching centre</figcaption>
+  <div class="phone">
+    <div class="status"><span>9:41</span><span>4G ▮▮▮</span></div>
+    <div class="scroll">
+      <div class="hero">
+        <div style="display:flex;gap:var(--s3);align-items:center">
+          <div class="av">জ্যো</div>
+          <div class="grow">
+            <p class="title" style="color:inherit">জ্যোতির্ময় কোচিং সেন্টার</p>
+            <p class="meta">Jyotirmoy Coaching Centre · since 2019</p>
+          </div>
+        </div>
+        <p class="meta" style="margin-top:var(--s3);display:flex;gap:var(--s1);align-items:center"><svg class="i" style="width:16px;height:16px"><use href="#pin"/></svg>Mirpur 10, Dhaka · area only</p>
+      </div>
+      <div class="chips" style="margin-top:var(--s3)">
+        <span class="chip c-verified"><svg class="i"><use href="#tick"/></svg>Verified on ShikkhokPlus</span>
+        <span class="chip c-neutral">6 teachers</span>
+      </div>
+      <div class="card" style="margin-top:var(--s3)">
+        <div style="display:flex;align-items:baseline;gap:var(--s2)"><span class="big">4.6</span><span class="stars"><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg><svg class="off-star"><use href="#star"/></svg></span></div>
+        <p class="meta">41 reviews across 5 batches · latest Nov 2026</p>
+      </div>
+      <div class="sec">
+        <div class="sec-h"><span>About</span><span class="bn">বাংলা | English</span></div>
+        <p class="meta clamp" style="color:var(--on-surface)">২০১৯ সাল থেকে মিরপুরে এসএসসি ও এইচএসসি বিজ্ঞান বিভাগের শিক্ষার্থীদের জন্য ছোট ব্যাচে পড়ানো হয়। প্রতি মাসে মডেল টেস্ট ও অভিভাবক সভা।</p>
+        <a class="btn-x" style="display:inline-flex;min-height:40px;align-items:center;font-weight:600;font-size:14px;padding:0">Read more</a>
+      </div>
+      <div class="sec">
+        <div class="sec-h"><span>Open batches · 5</span><span>See all</span></div>
+        <div class="card" style="padding-top:var(--s1);padding-bottom:var(--s1)">
+          <div class="row"><div class="grow"><p class="title" style="font-size:16px;line-height:26px">এইচএসসি পদার্থবিজ্ঞান · Batch A</p><p class="cap">Sat Mon Wed · 4:30 pm · 4.7 · 23 reviews</p></div><span class="chip c-open">Open</span></div>
+          <div class="row"><div class="grow"><p class="title" style="font-size:16px;line-height:26px">SSC Chemistry · Batch C</p><p class="cap">Sun Tue · 6:00 pm · 4 reviews</p></div><span class="chip c-neutral">Full</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="bar"><a class="btn btn-p wide"><svg class="i"><use href="#chat"/></svg>Ask a question</a></div>
+  </div>
+</figure>
+
+<!-- (c) BATCH LISTING -->
+<figure>
+  <figcaption><b>c · Batch listing</b> · rating summary + reviews</figcaption>
+  <div class="phone">
+    <div class="status"><span>9:41</span><span>4G ▮▮▮</span></div>
+    <div class="topbar"><span class="ib"><svg class="i"><use href="#back"/></svg></span><h2 style="font-size:16px">জ্যোতির্ময় কোচিং সেন্টার</h2></div>
+    <div class="scroll" style="padding-top:0">
+      <div class="photo" style="height:120px"><svg class="i"><use href="#board"/></svg><span class="tag">Classroom · 1 of 4 · 38 KB</span></div>
+      <p class="h1" style="margin-top:var(--s3)">এইচএসসি পদার্থবিজ্ঞান · Batch A</p>
+      <div class="chips" style="margin:var(--s1) 0 var(--s3)"><span class="chip c-open">Accepting · 3 seats</span><span class="chip c-verified"><svg class="i"><use href="#tick"/></svg>Verified</span></div>
+      <dl class="kv">
+        <dt>Class</dt><dd>HSC 2027 (Science)</dd>
+        <dt>Schedule</dt><dd>Sat, Mon, Wed · 4:30–6:00 pm</dd>
+        <dt>Fee</dt><dd class="money">৳1,500 / month</dd>
+      </dl>
+      <div class="card" style="margin-top:var(--s4)">
+        <div class="sum">
+          <div><div class="big">4.7</div><span class="stars"><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg></span><p class="cap">23 reviews</p></div>
+          <dl class="hist" aria-label="Rating distribution">
+            <div class="hrow"><span>5</span><div class="track"><div class="fill" style="width:74%"></div></div><span>17</span></div>
+            <div class="hrow"><span>4</span><div class="track"><div class="fill" style="width:17%"></div></div><span>4</span></div>
+            <div class="hrow"><span>3</span><div class="track"><div class="fill" style="width:4%"></div></div><span>1</span></div>
+            <div class="hrow"><span>2</span><div class="track"><div class="fill" style="width:0"></div></div><span>0</span></div>
+            <div class="hrow"><span>1</span><div class="track"><div class="fill" style="width:4%"></div></div><span>1</span></div>
+          </dl>
+        </div>
+        <p class="cap" style="margin-top:var(--s2)">Only verified guardians of enrolled students can review · 18 in the last 12 months</p>
+      </div>
+      <div class="card">
+        <div class="rv">
+          <div class="who"><span class="shield"><svg class="i"><use href="#shield"/></svg></span>Verified guardian · enrolled 6–12 months</div>
+          <p><span class="stars"><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg></span> <span class="cap">Oct 2026</span></p>
+          <p>স্যার প্রতিটি অধ্যায় শেষে পরীক্ষা নেন, আর ফলাফল অ্যাপে সঙ্গে সঙ্গে দেখা যায়।</p>
+          <div class="reply"><b>Owner reply</b> · ধন্যবাদ! পরের মাসে মডেল টেস্ট শুরু হবে।</div>
+        </div>
+      </div>
+    </div>
+    <div class="bar"><a class="btn btn-p wide">Call or WhatsApp the teacher</a></div>
+  </div>
+</figure>
+
+<!-- (d) WRITE A REVIEW SHEET -->
+<figure>
+  <figcaption><b>d · Write a review</b> · guardian, in app</figcaption>
+  <div class="phone">
+    <div class="status"><span>9:41</span><span>4G ▮▮▮</span></div>
+    <div class="topbar"><span class="ib"><svg class="i"><use href="#back"/></svg></span><h2>সৌমিত্র's batches</h2></div>
+    <div class="scroll">
+      <div class="card"><p class="title">এইচএসসি পদার্থবিজ্ঞান · Batch A</p><p class="meta">Paid for October</p></div>
+    </div>
+    <div class="scrim"></div>
+    <div class="sheet" role="dialog" aria-label="Write a review">
+      <div class="handle"></div>
+      <p class="title">Review this batch</p>
+      <p class="meta">এইচএসসি পদার্থবিজ্ঞান · জ্যোতির্ময় কোচিং সেন্টার</p>
+      <div class="starpick" role="radiogroup" aria-label="Rating">
+        <span><svg class="on-star"><use href="#star"/></svg></span><span><svg class="on-star"><use href="#star"/></svg></span><span><svg class="on-star"><use href="#star"/></svg></span><span class="sel"><svg class="on-star"><use href="#star"/></svg></span><span><svg class="off-star"><use href="#star"/></svg></span>
+      </div>
+      <p class="cap" style="text-align:center;margin:0 0 var(--s3)">4 of 5 · Good</p>
+      <div class="ta">ক্লাস নিয়মিত হয়, তবে ব্যাচে শিক্ষার্থী একটু বেশি।</div>
+      <div class="count">48 / 1000</div>
+      <div class="notice" style="margin-top:var(--s2)"><svg class="i"><use href="#eye"/></svg><div><b>Public.</b> The teacher will read it. You appear as<br><b>Verified guardian · enrolled 6–12 months</b> — no name, no photo. Don't include phone numbers or names.</div></div>
+      <a class="btn btn-p wide" style="margin-top:var(--s3)">Post review</a>
+    </div>
+  </div>
+</figure>
+
+<!-- (e) LISTING EDITOR -->
+<figure>
+  <figcaption><b>e · Listing editor</b> · owner, completeness</figcaption>
+  <div class="phone">
+    <div class="status"><span>9:41</span><span>4G ▮▮▮</span></div>
+    <div class="topbar"><span class="ib"><svg class="i"><use href="#back"/></svg></span><h2>Public listing</h2><span class="chip c-neutral" style="margin-right:var(--s2)">Draft</span></div>
+    <div class="scroll" style="padding-top:0">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><p class="title">Listing 72% complete</p><span class="cap">Publish from 60%</span></div>
+        <div class="meter" role="progressbar" aria-valuenow="72" aria-valuemin="0" aria-valuemax="100"><i></i></div>
+        <div class="check"><span class="dot done"><svg class="i"><use href="#tick"/></svg></span>Name, area and subjects</div>
+        <div class="check"><span class="dot done"><svg class="i"><use href="#tick"/></svg></span>About (বাংলা)</div>
+        <div class="check"><span class="dot todo"></span><span style="flex:1">Add 2 more photos</span><span class="chip c-filter" style="min-height:32px">Add</span></div>
+        <div class="check"><span class="dot todo"></span><span style="flex:1">About in English (optional)</span></div>
+      </div>
+      <div class="sec">
+        <div class="sec-h"><span>Photos · 1 of 8</span><span>Guidance</span></div>
+        <div class="grid">
+          <div class="photo"><svg class="i"><use href="#building"/></svg><span class="tag">Cover</span></div>
+          <div class="add">+ Add<br>photo</div>
+          <div class="add">+ Add<br>photo</div>
+        </div>
+        <p class="hint">Rooms, boards, notes. No student who can be recognised.</p>
+      </div>
+      <div class="sec">
+        <div class="sec-h"><span>Syllabus &amp; routine</span><span>Text</span></div>
+        <div class="card"><p style="margin:0;font-weight:600">সিলেবাস ২০২৭ — Syllabus</p><p class="cap" style="margin:4px 0 0">অধ্যায় ১–৬: ভৌতজগৎ ও পরিমাপ, ভেক্টর, গতিবিদ্যা… · PDF uploads come in a later release</p></div>
+      </div>
+      <div class="sec">
+        <div class="sec-h"><span>What visitors see</span></div>
+        <div class="card" style="padding-top:var(--s1);padding-bottom:var(--s1)">
+          <div class="row" style="min-height:56px"><span class="grow">Monthly fee (৳1,500)</span><span class="sw on" role="switch" aria-checked="true"></span></div>
+          <div class="row" style="min-height:56px"><span class="grow">Phone number<br><span class="cap">Off: the page shows no contact button</span></span><span class="sw" role="switch" aria-checked="false"></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="bar"><a class="btn btn-o">Preview</a><a class="btn btn-p">Publish</a></div>
+  </div>
+</figure>
+
+<!-- (f) REVIEWS INBOX -->
+<figure>
+  <figcaption><b>f · Reviews inbox</b> · owner reply</figcaption>
+  <div class="phone">
+    <div class="status"><span>9:41</span><span>4G ▮▮▮</span></div>
+    <div class="topbar"><span class="ib"><svg class="i"><use href="#back"/></svg></span><h2>Reviews</h2></div>
+    <div class="scroll" style="padding-top:0">
+      <div class="tabs"><span class="tab on">New<span class="badge">2</span></span><span class="tab">Replied</span><span class="tab">Reported</span></div>
+      <div class="banner b-review"><svg class="i"><use href="#clock"/></svg><div>Your new photo is under review. The rest of your listing is live.</div></div>
+      <div class="card outlined" style="margin-top:var(--s3)">
+        <p class="cap" style="margin:0 0 var(--s1)">এইচএসসি পদার্থবিজ্ঞান · Batch A</p>
+        <div class="who"><span class="shield"><svg class="i"><use href="#shield"/></svg></span>Verified guardian · enrolled under 6 months</div>
+        <p style="margin:var(--s1) 0 0"><span class="stars"><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg><svg class="off-star"><use href="#star"/></svg><svg class="off-star"><use href="#star"/></svg></span> <span class="cap">Nov 2026</span></p>
+        <p style="margin:var(--s1) 0 0;font-size:15px;line-height:24px">Classes start late on Mondays. Content is good though.</p>
+        <div class="reply-field">দুঃখিত, সোমবারের রুম বদলানো হয়েছে — এখন থেকে সময়মতো শুরু হবে।</div>
+        <p class="hint">Public. One reply, editable for 24 hours. Don't mention the student or fees.</p>
+        <div class="actions"><a class="btn btn-x btn-s"><svg class="i" style="width:18px;height:18px"><use href="#flag"/></svg>Report</a><a class="btn btn-p btn-s">Post reply</a></div>
+      </div>
+      <div class="card outlined">
+        <p class="cap" style="margin:0 0 var(--s1)">SSC Chemistry · Batch C</p>
+        <div class="who"><span class="shield"><svg class="i"><use href="#shield"/></svg></span>Verified guardian · enrolled over 1 year</div>
+        <p style="margin:var(--s1) 0 0"><span class="stars"><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg><svg class="on-star"><use href="#star"/></svg></span> <span class="cap">Nov 2026</span></p>
+        <p style="margin:var(--s1) 0 0;font-size:15px;line-height:24px">মেয়ের রসায়নে অনেক উন্নতি হয়েছে।</p>
+        <div class="actions"><a class="btn btn-x btn-s">Report</a><a class="btn btn-t btn-s">Reply</a></div>
+      </div>
+    </div>
+  </div>
+</figure>
+
+</main>
+<section class="notes">
+  <strong style="color:var(--on-surface)">Reading these frames</strong>
+  <ul>
+    <li>Reviewer identity is a server-composed pseudonym; small batches drop class and tenure. No names, initials or photos of minors anywhere.</li>
+    <li>Averages appear only from 5 reviews (frame a, second card); counts and distribution are always shown.</li>
+    <li>There is no Delete on the owner side — only Reply and Report.</li>
+  </ul>
+</section>
+</body>
+</html>

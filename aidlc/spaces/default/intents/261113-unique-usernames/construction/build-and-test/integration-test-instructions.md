@@ -26,7 +26,7 @@ contract → client, with a gate at each link, rather than one end-to-end test.
 
 | What must hold | Check | Command |
 |---|---|---|
-| One Alembic chain; both migrations (0034 U2, 0035 U1) apply to a fresh database | `tests/db/test_migration_runs.py`, `tests/db/test_migration_from_head.py`, head pin `tests/db/test_migration_head_pin.py` | B1 |
+| One Alembic chain; both migrations (0037 U2, 0038 U1) apply to a fresh database | `tests/db/test_migration_runs.py`, `tests/db/test_migration_from_head.py`, head pin `tests/db/test_migration_head_pin.py` | B1 |
 | `app/db/models.py` describes exactly the migrated schema | `tests/db/test_schema_parity.py` | B1 |
 | Sign-up (U1's `create_account_rows`) calls U2's `match_contact`; a linked seat is `pending`, never accepted (FR2.5, FR6.6) | `tests/accounts/test_seat_linking.py`, `tests/accounts/test_verify_first_signup.py`, `tests/accounts/test_contact_matching.py` | B1 |
 | The username key and the contact keys are taken in one advisory-lock call in a fixed order (BR10.1, LO-1) | `tests/accounts/test_username_concurrency.py`, `tests/accounts/test_contact_concurrency.py` (two real connections, explicit transaction control) | B1 |

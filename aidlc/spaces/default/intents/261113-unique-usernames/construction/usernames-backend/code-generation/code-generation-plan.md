@@ -89,8 +89,8 @@ complete.
 ### Part A — structure and runner
 
 - [x] **Step 1: Runner check.** Confirm the virtualenv, Docker and that `.venv/bin/python -m pytest -q -p no:cacheprovider tests/accounts/test_signup.py` runs its integration tests (not skipped). The unit-scoped commands are in `unit-test-instructions.md`.
-- [x] **Step 2: Migration `0035_usernames`.** Forward-only, `down_revision` = 0034. Adds `account.username`, `account.username_key` (UNIQUE; CHECK `username_key = lower(username)`; CHECK both-set-or-both-null, BR1.9; a shape CHECK per BR1.9), `account.username_changed_at`, `account.username_reclaimed_at`; `pending_signup.username`; the `username_hold` table (`key_digest` PK, `held_until`, `releasing_account_id` FK `account.id ON DELETE SET NULL`, `created_at`) created after the account columns. No row rewritten. *(entities.md; NFR7.x; BR1.9, BR7.3, BR7.4)*
-- [x] **Step 3: Models parity.** Mirror Step 2 in `app/db/models.py`; correct the stale "dormant account" prose in the `Account` docstring and in `otp.verify` (NFR3.7, FR8.4 second half). `tests/db/test_schema_parity.py` passes; migration-head pins move to 0035.
+- [x] **Step 2: Migration `0038_usernames`.** Forward-only, `down_revision` = 0037. Adds `account.username`, `account.username_key` (UNIQUE; CHECK `username_key = lower(username)`; CHECK both-set-or-both-null, BR1.9; a shape CHECK per BR1.9), `account.username_changed_at`, `account.username_reclaimed_at`; `pending_signup.username`; the `username_hold` table (`key_digest` PK, `held_until`, `releasing_account_id` FK `account.id ON DELETE SET NULL`, `created_at`) created after the account columns. No row rewritten. *(entities.md; NFR7.x; BR1.9, BR7.3, BR7.4)*
+- [x] **Step 3: Models parity.** Mirror Step 2 in `app/db/models.py`; correct the stale "dormant account" prose in the `Account` docstring and in `otp.verify` (NFR3.7, FR8.4 second half). `tests/db/test_schema_parity.py` passes; migration-head pins move to 0038.
 
 ### Part B — test-first rules (written and run red first)
 

@@ -763,6 +763,7 @@ private fun ShikkhokGraph(
         profileRoutes(client, navController, session.lens, session.settings)
         accountRoutes(client, navController, session)
         helpRoutes(client, navController)
+        hubRoutes(client, navController)
         mfaRoutes(client, navController, session.mfaStatus)
 
         composable(Destination.PaymentMethods.route) {
@@ -908,6 +909,8 @@ internal fun moreActionsFor(
         Lens.TEACHER ->
             rows.copy(
                 onPaymentMethods = { navigate(Destination.PaymentMethods.route) },
+                onPublicListing = { navigate(Destination.HubListing.route) },
+                onNameConsent = { navigate(Destination.NameConsent.route) },
                 onCollections = { navigate(Destination.Collections.route) },
                 onExpenses = { navigate(Destination.Expenses.route) },
                 onMoneySummary = { navigate(Destination.MoneySummary.route) },
@@ -919,7 +922,11 @@ internal fun moreActionsFor(
                 onCentrePayroll = centreOpener(base, Destination.CentrePayroll.route, navigate),
             )
         // A centre teacher can still accept another centre's offer.
-        Lens.CLASS_TEACHER -> rows.copy(onCentreOffers = { navigate(Destination.CentreOffers.route) })
+        Lens.CLASS_TEACHER ->
+            rows.copy(
+                onCentreOffers = { navigate(Destination.CentreOffers.route) },
+                onNameConsent = { navigate(Destination.NameConsent.route) },
+            )
         Lens.STUDENT -> rows.copy(onInvitations = { navigate(Destination.Invitations.route) })
         Lens.GUARDIAN ->
             rows.copy(

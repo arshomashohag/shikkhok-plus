@@ -5,12 +5,12 @@ is this file, `source-manifest.json` and `traceability.json`).
 
 ## Files
 
-- **Migration and models**: `migrations/versions/0034_contacts_and_email_invites.py` (new), `app/db/models.py`.
+- **Migration and models**: `migrations/versions/0037_contacts_and_email_invites.py` (new), `app/db/models.py`.
 - **New modules**: `app/accounts/matching.py` (`match_contact`, `lock_contact`, `lock_account`), `app/db/advisory.py` (advisory-key naming and ordering, LO-1), `app/db/retry.py` (`run_with_retry`).
 - **Services**: `app/accounts/identifier.py` (`resolve_link_target`, `optional_email`), `app/accounts/service.py` (matcher wired into `create_account_rows` with keys taken before the insert; email lookup; `link_phone_seats` removed), `app/accounts/contact.py` (add, replace request and verify, remove), `app/students/service.py` (seat linking, relink blocking, save-path locking, email recording and identification), `app/batches/service.py` (guardian state, roster emails), `app/centres/memberships.py`, `app/centres/service.py`, `app/auth/otp.py` (`contact_replace` purpose bound to its requester; locked re-check), `app/auth/ceilings.py` (`contact_chg_day`, non-committing consume, lookup refusal as 429), `app/auth/delivery.py` and `app/gateway/template.py` (removed-contact notice), `app/governance/deletion.py` (keys, locked re-read, relink markers, replacement-code purge), `app/governance/dispositions.py`, `app/audit/log.py` (`CONTACT_REPLACED`, `CONTACT_REMOVED`), `app/errors/_classes.py` and `handler.py` (`ConflictError.status` 409 or 429).
 - **API, schemas, logging**: `app/api/credentials.py` (new `POST /v1/me/contact/remove`), `accounts.py`, `students.py`, `batches.py`, `centres.py`, `deletion.py`; `app/schemas/identifier.py`, `students.py`, `centres.py`, `batches.py`; `app/contract/routes.py`; `app/logging_setup.py`, `app/request_scope.py`.
 - **Contract and generated**: `openapi.json` (regenerated), `message-keys.json` (6 new keys), `docs/legal/PRIVACY.md` (manifest digest), `Makefile` (100% branch gate on the matcher and advisory modules).
-- **Tests**: new `tests/accounts/test_contact_matching.py`, `test_contact_change.py`, `test_contact_concurrency.py`, `contact_support.py`; extended lookup, students, roster, centres, deletion, privacy, admin-contract, route-lens, logging and conftest tests; migration-head pins moved to 0034.
+- **Tests**: new `tests/accounts/test_contact_matching.py`, `test_contact_change.py`, `test_contact_concurrency.py`, `contact_support.py`; extended lookup, students, roster, centres, deletion, privacy, admin-contract, route-lens, logging and conftest tests; migration-head pins moved to 0037.
 
 ## Key decisions
 

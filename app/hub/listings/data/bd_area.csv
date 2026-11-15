@@ -1,0 +1,568 @@
+code,kind,parent_code,name_en,name_bn
+BD20,division,,Chattogram,চট্টগ্রাম
+BD50,division,,Rajshahi,রাজশাহী
+BD40,division,,Khulna,খুলনা
+BD10,division,,Barishal,বরিশাল
+BD60,division,,Sylhet,সিলেট
+BD30,division,,Dhaka,ঢাকা
+BD55,division,,Rangpur,রংপুর
+BD45,division,,Mymensingh,ময়মনসিংহ
+BD2019,district,BD20,Cumilla,কুমিল্লা
+BD2030,district,BD20,Feni,ফেনী
+BD2012,district,BD20,Brahmanbaria,ব্রাহ্মণবাড়িয়া
+BD2084,district,BD20,Rangamati,রাঙ্গামাটি
+BD2075,district,BD20,Noakhali,নোয়াখালী
+BD2013,district,BD20,Chandpur,চাঁদপুর
+BD2051,district,BD20,Lakshmipur,লক্ষ্মীপুর
+BD2015,district,BD20,Chattogram,চট্টগ্রাম
+BD2022,district,BD20,Cox's Bazar,কক্সবাজার
+BD2046,district,BD20,Khagrachhari,খাগড়াছড়ি
+BD2003,district,BD20,Bandarban,বান্দরবান
+BD5088,district,BD50,Sirajganj,সিরাজগঞ্জ
+BD5076,district,BD50,Pabna,পাবনা
+BD5010,district,BD50,Bogura,বগুড়া
+BD5081,district,BD50,Rajshahi,রাজশাহী
+BD5069,district,BD50,Natore,নাটোর
+BD5038,district,BD50,Joypurhat,জয়পুরহাট
+BD5070,district,BD50,Chapainababganj,চাঁপাইনবাবগঞ্জ
+BD5064,district,BD50,Naogaon,নওগাঁ
+BD4041,district,BD40,Jashore,যশোর
+BD4087,district,BD40,Satkhira,সাতক্ষীরা
+BD4057,district,BD40,Meherpur,মেহেরপুর
+BD4065,district,BD40,Narail,নড়াইল
+BD4018,district,BD40,Chuadanga,চুয়াডাঙ্গা
+BD4050,district,BD40,Kushtia,কুষ্টিয়া
+BD4055,district,BD40,Magura,মাগুরা
+BD4047,district,BD40,Khulna,খুলনা
+BD4001,district,BD40,Bagerhat,বাগেরহাট
+BD4044,district,BD40,Jhenaidah,ঝিনাইদহ
+BD1042,district,BD10,Jhalokati,ঝালকাঠি
+BD1078,district,BD10,Patuakhali,পটুয়াখালী
+BD1079,district,BD10,Pirojpur,পিরোজপুর
+BD1006,district,BD10,Barishal,বরিশাল
+BD1009,district,BD10,Bhola,ভোলা
+BD1004,district,BD10,Barguna,বরগুনা
+BD6091,district,BD60,Sylhet,সিলেট
+BD6058,district,BD60,Moulvibazar,মৌলভীবাজার
+BD6036,district,BD60,Habiganj,হবিগঞ্জ
+BD6090,district,BD60,Sunamganj,সুনামগঞ্জ
+BD3068,district,BD30,Narsingdi,নরসিংদী
+BD3033,district,BD30,Gazipur,গাজীপুর
+BD3086,district,BD30,Shariatpur,শরীয়তপুর
+BD3067,district,BD30,Narayanganj,নারায়ণগঞ্জ
+BD3093,district,BD30,Tangail,টাঙ্গাইল
+BD3048,district,BD30,Kishoreganj,কিশোরগঞ্জ
+BD3056,district,BD30,Manikganj,মানিকগঞ্জ
+BD3026,district,BD30,Dhaka,ঢাকা
+BD3059,district,BD30,Munshiganj,মুন্সিগঞ্জ
+BD3082,district,BD30,Rajbari,রাজবাড়ী
+BD3054,district,BD30,Madaripur,মাদারীপুর
+BD3035,district,BD30,Gopalganj,গোপালগঞ্জ
+BD3029,district,BD30,Faridpur,ফরিদপুর
+BD5577,district,BD55,Panchagarh,পঞ্চগড়
+BD5527,district,BD55,Dinajpur,দিনাজপুর
+BD5552,district,BD55,Lalmonirhat,লালমনিরহাট
+BD5573,district,BD55,Nilphamari,নীলফামারী
+BD5532,district,BD55,Gaibandha,গাইবান্ধা
+BD5594,district,BD55,Thakurgaon,ঠাকুরগাঁও
+BD5585,district,BD55,Rangpur,রংপুর
+BD5549,district,BD55,Kurigram,কুড়িগ্রাম
+BD4589,district,BD45,Sherpur,শেরপুর
+BD4561,district,BD45,Mymensingh,ময়মনসিংহ
+BD4539,district,BD45,Jamalpur,জামালপুর
+BD4572,district,BD45,Netrakona,নেত্রকোণা
+BD20190040,upazila,BD2019,Debidwar,দেবিদ্বার
+BD20190009,upazila,BD2019,Barura,বরুড়া
+BD20190015,upazila,BD2019,Brahmanpara,ব্রাহ্মণপাড়া
+BD20190027,upazila,BD2019,Chandina,চান্দিনা
+BD20190031,upazila,BD2019,Chauddagram,চৌদ্দগ্রাম
+BD20190036,upazila,BD2019,Daudkandi,দাউদকান্দি
+BD20190054,upazila,BD2019,Homna,হোমনা
+BD20190072,upazila,BD2019,Laksam,লাকসাম
+BD20190081,upazila,BD2019,Muradnagar,মুরাদনগর
+BD20190087,upazila,BD2019,Nangalkot,নাঙ্গলকোট
+BD20190067,upazila,BD2019,Adarsha Sadar,কুমিল্লা আদর্শ সদর
+BD20190075,upazila,BD2019,Meghna,মেঘনা
+BD20190074,upazila,BD2019,Manoharganj,মনোহরগঞ্জ
+BD20190033,upazila,BD2019,Sadar Dakkhin,সদর দক্ষিণ
+BD20190094,upazila,BD2019,Titas,তিতাস
+BD20190018,upazila,BD2019,Burichang,বুড়িচং
+BD20190073,upazila,BD2019,Lalmai,লালমাই
+BD20300014,upazila,BD2030,Chhagalnaiya,ছাগলনাইয়া
+BD20300029,upazila,BD2030,Feni Sadar,ফেনী সদর
+BD20300094,upazila,BD2030,Sonagazi,সোনাগাজী
+BD20300041,upazila,BD2030,Fulgazi,ফুলগাজী
+BD20300051,upazila,BD2030,Parashuram,পরশুরাম
+BD20300025,upazila,BD2030,Daganbhuiyan,দাগনভূঞা
+BD20120013,upazila,BD2012,Brahmanbaria Sadar,ব্রাহ্মণবাড়িয়া সদর
+BD20120063,upazila,BD2012,Kasba,কসবা
+BD20120090,upazila,BD2012,Nasirnagar,নাসিরনগর
+BD20120094,upazila,BD2012,Sarail,সরাইল
+BD20120033,upazila,BD2012,Ashuganj,আশুগঞ্জ
+BD20120002,upazila,BD2012,Akhaura,আখাউড়া
+BD20120085,upazila,BD2012,Nabinagar,নবীনগর
+BD20120004,upazila,BD2012,Banchharampur,বাঞ্ছারামপুর
+BD20120007,upazila,BD2012,Bijoynagar,বিজয়নগর
+BD20840087,upazila,BD2084,Rangamati Sadar,রাঙ্গামাটি সদর
+BD20840036,upazila,BD2084,Kaptai,কাপ্তাই
+BD20840025,upazila,BD2084,Kawkhali,কাউখালী
+BD20840007,upazila,BD2084,Baghaichhari,বাঘাইছড়ি
+BD20840021,upazila,BD2084,Barkal,বরকল
+BD20840058,upazila,BD2084,Langadu,লংগদু
+BD20840078,upazila,BD2084,Rajasthali,রাজস্থলী
+BD20840029,upazila,BD2084,Belaichhari,বিলাইছড়ি
+BD20840047,upazila,BD2084,Jurachhari,জুরাছড়ি
+BD20840075,upazila,BD2084,Naniarchar,নানিয়ারচর
+BD20750087,upazila,BD2075,Noakhali Sadar,নোয়াখালী সদর
+BD20750021,upazila,BD2075,Companiganj,কোম্পানীগঞ্জ
+BD20750007,upazila,BD2075,Begumganj,বেগমগঞ্জ
+BD20750036,upazila,BD2075,Hatiya,হাতিয়া
+BD20750085,upazila,BD2075,Subarnachar,সুবর্ণচর
+BD20750047,upazila,BD2075,Kabirhat,কবিরহাট
+BD20750080,upazila,BD2075,Senbag,সেনবাগ
+BD20750010,upazila,BD2075,Chatkhil,চাটখিল
+BD20750083,upazila,BD2075,Sonaimuri,সোনাইমুড়ী
+BD20130047,upazila,BD2013,Haimchar,হাইমচর
+BD20130058,upazila,BD2013,Kachua,কচুয়া
+BD20130095,upazila,BD2013,Shahrasti,শাহরাস্তি	
+BD20130022,upazila,BD2013,Chandpur Sadar,চাঁদপুর সদর
+BD20130076,upazila,BD2013,Matlab Dakkhin,মতলব দক্ষিণ
+BD20130049,upazila,BD2013,Hajiganj,হাজীগঞ্জ
+BD20130079,upazila,BD2013,Matlab Uttar,মতলব উত্তর
+BD20130045,upazila,BD2013,Faridganj,ফরিদগঞ্জ
+BD20510043,upazila,BD2051,Lakshmipur Sadar,লক্ষ্মীপুর সদর
+BD20510033,upazila,BD2051,Kamalnagar,কমলনগর
+BD20510058,upazila,BD2051,Raipur,রায়পুর
+BD20510073,upazila,BD2051,Ramgati,রামগতি
+BD20510065,upazila,BD2051,Ramganj,রামগঞ্জ
+BD20150070,upazila,BD2015,Rangunia,রাঙ্গুনিয়া
+BD20150086,upazila,BD2015,Sitakunda,সীতাকুন্ড
+BD20150053,upazila,BD2015,Mirsarai,মীরসরাই
+BD20150061,upazila,BD2015,Patiya,পটিয়া
+BD20150078,upazila,BD2015,Sandwip,সন্দ্বীপ
+BD20150008,upazila,BD2015,Banshkhali,বাঁশখালী
+BD20150012,upazila,BD2015,Boalkhali,বোয়ালখালী
+BD20150004,upazila,BD2015,Anwara,আনোয়ারা
+BD20150018,upazila,BD2015,Chandanaish,চন্দনাইশ
+BD20150082,upazila,BD2015,Satkania,সাতকানিয়া
+BD20150047,upazila,BD2015,Lohagara,লোহাগাড়া
+BD20150037,upazila,BD2015,Hathazari,হাটহাজারী
+BD20150033,upazila,BD2015,Fatikchhari,ফটিকছড়ি
+BD20150074,upazila,BD2015,Raozan,রাউজান
+BD20150039,upazila,BD2015,Karnaphuli,কর্ণফুলী
+BD20220024,upazila,BD2022,Coxs Bazar Sadar,কক্সবাজার সদর
+BD20220016,upazila,BD2022,Chakaria,চকরিয়া
+BD20220045,upazila,BD2022,Kutubdia,কুতুবদিয়া
+BD20220094,upazila,BD2022,Ukhia,উখিয়া
+BD20220049,upazila,BD2022,Maheshkhali,মহেশখালী
+BD20220056,upazila,BD2022,Pekua,পেকুয়া
+BD20220066,upazila,BD2022,Ramu,রামু
+BD20220090,upazila,BD2022,Teknaf,টেকনাফ
+BD20460049,upazila,BD2046,Khagrachhari Sadar,খাগড়াছড়ি সদর
+BD20460043,upazila,BD2046,Dighinala,দিঘীনালা
+BD20460077,upazila,BD2046,Panchhari,পানছড়ি
+BD20460061,upazila,BD2046,Lakkhichhari,লক্ষীছড়ি
+BD20460065,upazila,BD2046,Mahalchhari,মহালছড়ি
+BD20460067,upazila,BD2046,Manikchhari,মানিকছড়ি
+BD20460080,upazila,BD2046,Ramgarh,রামগড়
+BD20460070,upazila,BD2046,Matiranga,মাটিরাঙ্গা
+BD20460047,upazila,BD2046,Guimara,গুইমারা
+BD20030014,upazila,BD2003,Bandarban Sadar,বান্দরবান সদর
+BD20030004,upazila,BD2003,Alikadam,আলীকদম
+BD20030073,upazila,BD2003,Naikkhongchhari,নাইক্ষ্যংছড়ি
+BD20030089,upazila,BD2003,Rowangchhari,রোয়াংছড়ি
+BD20030051,upazila,BD2003,Lama,লামা
+BD20030091,upazila,BD2003,Ruma,রুমা
+BD20030095,upazila,BD2003,Thanchi,থানচি
+BD50880011,upazila,BD5088,Belkuchi,বেলকুচি
+BD50880027,upazila,BD5088,Chouhali,চৌহালি
+BD50880044,upazila,BD5088,Kamarkhanda,কামারখন্দ
+BD50880050,upazila,BD5088,Kazipur,কাজীপুর
+BD50880061,upazila,BD5088,Rayganj,রায়গঞ্জ
+BD50880067,upazila,BD5088,Shahjadpur,শাহজাদপুর
+BD50880078,upazila,BD5088,Sirajganj Sadar,সিরাজগঞ্জ সদর
+BD50880089,upazila,BD5088,Tarash,তাড়াশ
+BD50880094,upazila,BD5088,Ullapara,উল্লাপাড়া
+BD50760083,upazila,BD5076,Sujanagar,সুজানগর
+BD50760039,upazila,BD5076,Ishwardi,ঈশ্বরদী
+BD50760019,upazila,BD5076,Bhangura,ভাঙ্গুড়া
+BD50760055,upazila,BD5076,Pabna Sadar,পাবনা সদর
+BD50760016,upazila,BD5076,Bera,বেড়া
+BD50760005,upazila,BD5076,Atgharia,আটঘরিয়া
+BD50760022,upazila,BD5076,Chatmohar,চাটমোহর
+BD50760072,upazila,BD5076,Santhia,সাঁথিয়া
+BD50760033,upazila,BD5076,Faridpur,ফরিদপুর
+BD50100054,upazila,BD5010,Kahaloo,কাহালু
+BD50100020,upazila,BD5010,Bogura Sadar,বগুড়া সদর
+BD50100081,upazila,BD5010,Sariakandi,সারিয়াকান্দি
+BD50100085,upazila,BD5010,Shajahanpur,শাজাহানপুর
+BD50100033,upazila,BD5010,Dupchachia,দুপচাচিঁয়া
+BD50100006,upazila,BD5010,Adamdighi,আদমদিঘি
+BD50100067,upazila,BD5010,Nandigram,নন্দিগ্রাম
+BD50100095,upazila,BD5010,Sonatala,সোনাতলা
+BD50100027,upazila,BD5010,Dhunat,ধুনট
+BD50100040,upazila,BD5010,Gabtali,গাবতলী
+BD50100088,upazila,BD5010,Sherpur,শেরপুর
+BD50100094,upazila,BD5010,Shibganj,শিবগঞ্জ
+BD50810072,upazila,BD5081,Paba,পবা
+BD50810031,upazila,BD5081,Durgapur,দুর্গাপুর
+BD50810053,upazila,BD5081,Mohanpur,মোহনপুর
+BD50810025,upazila,BD5081,Charghat,চারঘাট
+BD50810082,upazila,BD5081,Puthia,পুঠিয়া
+BD50810010,upazila,BD5081,Bagha,বাঘা
+BD50810034,upazila,BD5081,Godagari,গোদাগাড়ী
+BD50810094,upazila,BD5081,Tanore,তানোর
+BD50810012,upazila,BD5081,Bagmara,বাগমারা
+BD50690063,upazila,BD5069,Natore Sadar,নাটোর সদর
+BD50690091,upazila,BD5069,Singra,সিংড়া
+BD50690015,upazila,BD5069,Baraigram,বড়াইগ্রাম
+BD50690009,upazila,BD5069,Bagatipara,বাগাতিপাড়া
+BD50690044,upazila,BD5069,Lalpur,লালপুর
+BD50690041,upazila,BD5069,Gurudaspur,গুরুদাসপুর
+BD50690055,upazila,BD5069,Naldanga,নলডাঙ্গা
+BD50380013,upazila,BD5038,Akkelpur,আক্কেলপুর
+BD50380058,upazila,BD5038,Kalai,কালাই
+BD50380061,upazila,BD5038,Khetlal,ক্ষেতলাল
+BD50380074,upazila,BD5038,Panchbibi,পাঁচবিবি
+BD50380047,upazila,BD5038,Joypurhat Sadar,জয়পুরহাট সদর
+BD50700066,upazila,BD5070,Chapainawabganj Sadar,চাঁপাইনবাবগঞ্জ সদর
+BD50700037,upazila,BD5070,Gomastapur,গোমস্তাপুর
+BD50700056,upazila,BD5070,Nachole,নাচোল
+BD50700018,upazila,BD5070,Bholahat,ভোলাহাট
+BD50700088,upazila,BD5070,Shibganj,শিবগঞ্জ
+BD50640050,upazila,BD5064,Mahadebpur,মহাদেবপুর
+BD50640006,upazila,BD5064,Badalgachhi,বদলগাছী
+BD50640075,upazila,BD5064,Patnitala,পত্নিতলা
+BD50640028,upazila,BD5064,Dhamoirhat,ধামইরহাট
+BD50640069,upazila,BD5064,Niamatpur,নিয়ামতপুর
+BD50640047,upazila,BD5064,Manda,মান্দা
+BD50640003,upazila,BD5064,Atrai,আত্রাই
+BD50640085,upazila,BD5064,Raninagar,রাণীনগর
+BD50640060,upazila,BD5064,Naogaon Sadar,নওগাঁ সদর
+BD50640079,upazila,BD5064,Porsha,পোরশা
+BD50640086,upazila,BD5064,Sapahar,সাপাহার
+BD40410061,upazila,BD4041,Manirampur,মণিরামপুর
+BD40410004,upazila,BD4041,Abhaynagar,অভয়নগর
+BD40410009,upazila,BD4041,Bagharpara,বাঘারপাড়া
+BD40410011,upazila,BD4041,Chaugachha,চৌগাছা
+BD40410023,upazila,BD4041,Jhikargachha,ঝিকরগাছা
+BD40410038,upazila,BD4041,Keshabpur,কেশবপুর
+BD40410047,upazila,BD4041,Jashore Sadar,যশোর সদর
+BD40410090,upazila,BD4041,Sharsha,শার্শা
+BD40870004,upazila,BD4087,Ashashuni,আশাশুনি
+BD40870025,upazila,BD4087,Debhata,দেবহাটা
+BD40870043,upazila,BD4087,Kalaroa,কলারোয়া
+BD40870082,upazila,BD4087,Satkhira Sadar,সাতক্ষীরা সদর
+BD40870086,upazila,BD4087,Shyamnagar,শ্যামনগর
+BD40870090,upazila,BD4087,Tala,তালা
+BD40870047,upazila,BD4087,Kaliganj,কালিগঞ্জ
+BD40570060,upazila,BD4057,Mujibnagar,মুজিবনগর
+BD40570087,upazila,BD4057,Meherpur Sadar,মেহেরপুর সদর
+BD40570047,upazila,BD4057,Gangni,গাংনী
+BD40650076,upazila,BD4065,Narail Sadar,নড়াইল সদর
+BD40650052,upazila,BD4065,Lohagara,লোহাগড়া
+BD40650028,upazila,BD4065,Kalia,কালিয়া
+BD40180023,upazila,BD4018,Chuadanga Sadar,চুয়াডাঙ্গা সদর
+BD40180007,upazila,BD4018,Alamdanga,আলমডাঙ্গা
+BD40180031,upazila,BD4018,Damurhuda,দামুড়হুদা
+BD40180055,upazila,BD4018,Jibannagar,জীবননগর
+BD40500079,upazila,BD4050,Kushtia Sadar,কুষ্টিয়া সদর
+BD40500071,upazila,BD4050,Kumarkhali,কুমারখালী
+BD40500063,upazila,BD4050,Khoksa,খোকসা
+BD40500094,upazila,BD4050,Mirpur,মিরপুর
+BD40500039,upazila,BD4050,Daulatpur,দৌলতপুর
+BD40500015,upazila,BD4050,Bheramara,ভেড়ামারা
+BD40550085,upazila,BD4055,Shalikha,শালিখা
+BD40550095,upazila,BD4055,Sreepur,শ্রীপুর
+BD40550057,upazila,BD4055,Magura Sadar,মাগুরা সদর
+BD40550066,upazila,BD4055,Mohammadpur,মহম্মদপুর
+BD40470064,upazila,BD4047,Paikgachha,পাইকগাছা
+BD40470069,upazila,BD4047,Phultala,ফুলতলা
+BD40470040,upazila,BD4047,Dighalia,দিঘলিয়া
+BD40470075,upazila,BD4047,Rupsa,রূপসা
+BD40470094,upazila,BD4047,Terokhada,তেরখাদা
+BD40470030,upazila,BD4047,Dumuria,ডুমুরিয়া
+BD40470012,upazila,BD4047,Batiaghata,বটিয়াঘাটা
+BD40470017,upazila,BD4047,Dacope,দাকোপ
+BD40470053,upazila,BD4047,Koyra,কয়রা
+BD40010034,upazila,BD4001,Fakirhat,ফকিরহাট
+BD40010008,upazila,BD4001,Bagerhat Sadar,বাগেরহাট সদর
+BD40010056,upazila,BD4001,Mollahat,মোল্লাহাট
+BD40010077,upazila,BD4001,Sharankhola,শরণখোলা
+BD40010073,upazila,BD4001,Rampal,রামপাল
+BD40010060,upazila,BD4001,Morelganj,মোড়েলগঞ্জ
+BD40010038,upazila,BD4001,Kachua,কচুয়া
+BD40010058,upazila,BD4001,Mongla,মোংলা
+BD40010014,upazila,BD4001,Chitalmari,চিতলমারী
+BD40440019,upazila,BD4044,Jhenaidah Sadar,ঝিনাইদহ সদর
+BD40440080,upazila,BD4044,Shailkupa,শৈলকুপা
+BD40440014,upazila,BD4044,Harinakundu,হরিণাকুন্ডু
+BD40440033,upazila,BD4044,Kaliganj,কালীগঞ্জ
+BD40440042,upazila,BD4044,Kotchandpur,কোটচাঁদপুর
+BD40440071,upazila,BD4044,Maheshpur,মহেশপুর
+BD10420040,upazila,BD1042,Jhalokathi Sadar,ঝালকাঠি সদর
+BD10420043,upazila,BD1042,Kanthalia,কাঠালিয়া
+BD10420073,upazila,BD1042,Nalchhity,নলছিটি
+BD10420084,upazila,BD1042,Rajapur,রাজাপুর
+BD10780038,upazila,BD1078,Bauphal,বাউফল
+BD10780095,upazila,BD1078,Patuakhali Sadar,পটুয়াখালী সদর
+BD10780055,upazila,BD1078,Dumki,দুমকি
+BD10780052,upazila,BD1078,Dashmina,দশমিনা
+BD10780066,upazila,BD1078,Kalapara,কলাপাড়া
+BD10780076,upazila,BD1078,Mirzaganj,মির্জাগঞ্জ
+BD10780057,upazila,BD1078,Galachipa,গলাচিপা
+BD10780097,upazila,BD1078,Rangabali,রাঙ্গাবালী
+BD10790080,upazila,BD1079,Pirojpur Sadar,পিরোজপুর সদর
+BD10790076,upazila,BD1079,Nazirpur,নাজিরপুর
+BD10790047,upazila,BD1079,Kawkhali,কাউখালী
+BD10790090,upazila,BD1079,Indurkani,ইন্দুরকানী
+BD10790014,upazila,BD1079,Bhandaria,ভান্ডারিয়া
+BD10790058,upazila,BD1079,Mathbaria,মঠবাড়ীয়া
+BD10790087,upazila,BD1079,Nesarabad (Swarupkathi),নেছারাবাদ
+BD10060051,upazila,BD1006,Barishal Sadar (Kotwali),বরিশাল সদর
+BD10060007,upazila,BD1006,Bakerganj,বাকেরগঞ্জ
+BD10060003,upazila,BD1006,Babuganj,বাবুগঞ্জ
+BD10060094,upazila,BD1006,Ujirpur,উজিরপুর
+BD10060010,upazila,BD1006,Banaripara,বানারীপাড়া
+BD10060032,upazila,BD1006,Gaurnadi,গৌরনদী
+BD10060002,upazila,BD1006,Agailjhara,আগৈলঝাড়া
+BD10060062,upazila,BD1006,Mehendiganj,মেহেন্দিগঞ্জ
+BD10060069,upazila,BD1006,Muladi,মুলাদী
+BD10060036,upazila,BD1006,Hijla,হিজলা
+BD10090018,upazila,BD1009,Bhola Sadar,ভোলা সদর
+BD10090021,upazila,BD1009,Borhanuddin,বোরহান উদ্দিন
+BD10090025,upazila,BD1009,Charfasson,চরফ্যাশন
+BD10090029,upazila,BD1009,Daulatkhan,দৌলতখান
+BD10090065,upazila,BD1009,Monpura,মনপুরা
+BD10090091,upazila,BD1009,Tazumuddin,তজুমদ্দিন
+BD10090054,upazila,BD1009,Lalmohan,লালমোহন
+BD10040009,upazila,BD1004,Amtali,আমতলী
+BD10040028,upazila,BD1004,Barguna Sadar,বরগুনা সদর
+BD10040047,upazila,BD1004,Betagi,বেতাগী
+BD10040019,upazila,BD1004,Bamna,বামনা
+BD10040085,upazila,BD1004,Patharghata,পাথরঘাটা
+BD10040090,upazila,BD1004,Taltali,তালতলি
+BD60910008,upazila,BD6091,Balaganj,বালাগঞ্জ
+BD60910017,upazila,BD6091,Beanibazar,বিয়ানীবাজার
+BD60910020,upazila,BD6091,Bishwanath,বিশ্বনাথ
+BD60910027,upazila,BD6091,Companiganj,কোম্পানীগঞ্জ
+BD60910035,upazila,BD6091,Fenchuganj,ফেঞ্চুগঞ্জ
+BD60910038,upazila,BD6091,Golapganj,গোলাপগঞ্জ
+BD60910041,upazila,BD6091,Gowainghat,গোয়াইনঘাট
+BD60910053,upazila,BD6091,Jaintapur,জৈন্তাপুর
+BD60910059,upazila,BD6091,Kanaighat,কানাইঘাট
+BD60910062,upazila,BD6091,Sylhet Sadar,সিলেট সদর
+BD60910094,upazila,BD6091,Zakiganj,জকিগঞ্জ
+BD60910031,upazila,BD6091,Dakkhin Surma,দক্ষিণ সুরমা
+BD60910060,upazila,BD6091,Osmaninagar,ওসমানী নগর
+BD60580014,upazila,BD6058,Baralekha,বড়লেখা
+BD60580056,upazila,BD6058,Kamalganj,কমলগঞ্জ
+BD60580065,upazila,BD6058,Kulaura,কুলাউড়া
+BD60580074,upazila,BD6058,Moulvibazar Sadar,মৌলভীবাজার সদর
+BD60580080,upazila,BD6058,Rajnagar,রাজনগর
+BD60580083,upazila,BD6058,Sreemangal,শ্রীমঙ্গল
+BD60580035,upazila,BD6058,Juri,জুড়ী
+BD60360077,upazila,BD6036,Nabiganj,নবীগঞ্জ
+BD60360005,upazila,BD6036,Bahubal,বাহুবল
+BD60360002,upazila,BD6036,Ajmiriganj,আজমিরীগঞ্জ
+BD60360011,upazila,BD6036,Baniachong,বানিয়াচং
+BD60360068,upazila,BD6036,Lakhai,লাখাই
+BD60360026,upazila,BD6036,Chunarughat,চুনারুঘাট
+BD60360044,upazila,BD6036,Habiganj Sadar,হবিগঞ্জ সদর
+BD60360071,upazila,BD6036,Madhabpur,মাধবপুর
+BD60900089,upazila,BD6090,Sunamganj Sadar,সুনামগঞ্জ সদর
+BD60900087,upazila,BD6090,Shantiganj,শান্তিগঞ্জ
+BD60900018,upazila,BD6090,Bishwambharpur,বিশ্বম্ভরপুর
+BD60900023,upazila,BD6090,Chhatak,ছাতক
+BD60900047,upazila,BD6090,Jagannathpur,জগন্নাথপুর
+BD60900033,upazila,BD6090,Dowarabazar,দোয়ারাবাজার
+BD60900092,upazila,BD6090,Tahirpur,তাহিরপুর
+BD60900032,upazila,BD6090,Dharmapasha,ধর্মপাশা
+BD60900050,upazila,BD6090,Jamalganj,জামালগঞ্জ
+BD60900086,upazila,BD6090,Shalla,শাল্লা
+BD60900029,upazila,BD6090,Derai,দিরাই
+BD30680007,upazila,BD3068,Belabo,বেলাবো
+BD30680052,upazila,BD3068,Manohardi,মনোহরদী
+BD30680060,upazila,BD3068,Narsingdi Sadar,নরসিংদী সদর
+BD30680063,upazila,BD3068,Palash,পলাশ
+BD30680064,upazila,BD3068,Raipura,রায়পুরা
+BD30680076,upazila,BD3068,Shibpur,শিবপুর
+BD30330034,upazila,BD3033,Kaliganj,কালীগঞ্জ
+BD30330032,upazila,BD3033,Kaliakair,কালিয়াকৈর
+BD30330036,upazila,BD3033,Kapasia,কাপাসিয়া
+BD30330030,upazila,BD3033,Gazipur Sadar,গাজীপুর সদর
+BD30330086,upazila,BD3033,Sreepur,শ্রীপুর
+BD30860069,upazila,BD3086,Shariatpur Sadar,শরিয়তপুর সদর
+BD30860065,upazila,BD3086,Naria,নড়িয়া
+BD30860094,upazila,BD3086,Zajira,জাজিরা
+BD30860036,upazila,BD3086,Gosairhat,গোসাইরহাট
+BD30860014,upazila,BD3086,Bhedarganj,ভেদরগঞ্জ
+BD30860025,upazila,BD3086,Damudya,ডামুড্যা
+BD30670002,upazila,BD3067,Araihazar,আড়াইহাজার
+BD30670006,upazila,BD3067,Bandar,বন্দর
+BD30670058,upazila,BD3067,Narayanganj Sadar,নারায়নগঞ্জ সদর
+BD30670068,upazila,BD3067,Rupganj,রূপগঞ্জ
+BD30670004,upazila,BD3067,Sonargaon,সোনারগাঁ
+BD30930009,upazila,BD3093,Basail,বাসাইল
+BD30930019,upazila,BD3093,Bhuanpur,ভুয়াপুর
+BD30930023,upazila,BD3093,Delduar,দেলদুয়ার
+BD30930028,upazila,BD3093,Ghatail,ঘাটাইল
+BD30930038,upazila,BD3093,Gopalpur,গোপালপুর
+BD30930057,upazila,BD3093,Madhupur,মধুপুর
+BD30930066,upazila,BD3093,Mirzapur,মির্জাপুর
+BD30930076,upazila,BD3093,Nagarpur,নাগরপুর
+BD30930085,upazila,BD3093,Sakhipur,সখিপুর
+BD30930095,upazila,BD3093,Tangail Sadar,টাঙ্গাইল সদর
+BD30930047,upazila,BD3093,Kalihati,কালিহাতী
+BD30930025,upazila,BD3093,Dhanbari,ধনবাড়ী
+BD30480033,upazila,BD3048,Itna,ইটনা
+BD30480045,upazila,BD3048,Katiadi,কটিয়াদী
+BD30480011,upazila,BD3048,Bhairab,ভৈরব
+BD30480092,upazila,BD3048,Tarail,তাড়াইল
+BD30480027,upazila,BD3048,Hossainpur,হোসেনপুর
+BD30480079,upazila,BD3048,Pakundia,পাকুন্দিয়া
+BD30480054,upazila,BD3048,Kuliarchar,কুলিয়ারচর
+BD30480049,upazila,BD3048,Kishoreganj Sadar,কিশোরগঞ্জ সদর
+BD30480042,upazila,BD3048,Karimganj,করিমগঞ্জ
+BD30480006,upazila,BD3048,Bajitpur,বাজিতপুর
+BD30480002,upazila,BD3048,Austagram,অষ্টগ্রাম
+BD30480059,upazila,BD3048,Mithamain,মিঠামইন
+BD30480076,upazila,BD3048,Nikli,নিকলী
+BD30560028,upazila,BD3056,Harirampur,হরিরামপুর
+BD30560070,upazila,BD3056,Saturia,সাটুরিয়া
+BD30560046,upazila,BD3056,Manikganj Sadar,মানিকগঞ্জ সদর
+BD30560022,upazila,BD3056,Ghior,ঘিওর
+BD30560078,upazila,BD3056,Shibalay,শিবালয়
+BD30560010,upazila,BD3056,Daulatpur,দৌলতপুর
+BD30560082,upazila,BD3056,Singair,সিংগাইর
+BD30260072,upazila,BD3026,Savar,সাভার
+BD30260014,upazila,BD3026,Dhamrai,ধামরাই
+BD30260038,upazila,BD3026,Keraniganj,কেরাণীগঞ্জ
+BD30260062,upazila,BD3026,Nawabganj,নবাবগঞ্জ
+BD30260018,upazila,BD3026,Dohar,দোহার
+BD30590056,upazila,BD3059,Munshiganj Sadar,মুন্সিগঞ্জ সদর
+BD30590084,upazila,BD3059,Sreenagar,শ্রীনগর
+BD30590074,upazila,BD3059,Sirajdikhan,সিরাজদিখান
+BD30590044,upazila,BD3059,Louhajang,লৌহজং
+BD30590024,upazila,BD3059,Gazaria,গজারিয়া
+BD30590094,upazila,BD3059,Tongibari,টংগীবাড়ি
+BD30820076,upazila,BD3082,Rajbari Sadar,রাজবাড়ী সদর
+BD30820029,upazila,BD3082,Goalanda,গোয়ালন্দ
+BD30820073,upazila,BD3082,Pangsha,পাংশা
+BD30820007,upazila,BD3082,Baliakandi,বালিয়াকান্দি
+BD30820047,upazila,BD3082,Kalukhali,কালুখালী
+BD30540054,upazila,BD3054,Madaripur Sadar,মাদারীপুর সদর
+BD30540087,upazila,BD3054,Shibchar,শিবচর
+BD30540040,upazila,BD3054,Kalkini,কালকিনি
+BD30540080,upazila,BD3054,Rajoir,রাজৈর
+BD30350032,upazila,BD3035,Gopalganj Sadar,গোপালগঞ্জ সদর
+BD30350043,upazila,BD3035,Kashiani,কাশিয়ানী
+BD30350091,upazila,BD3035,Tungipara,টুংগীপাড়া
+BD30350051,upazila,BD3035,Kotalipara,কোটালীপাড়া
+BD30350058,upazila,BD3035,Muksudpur,মুকসুদপুর
+BD30290047,upazila,BD3029,Faridpur Sadar,ফরিদপুর সদর
+BD30290003,upazila,BD3029,Alfadanga,আলফাডাঙ্গা
+BD30290018,upazila,BD3029,Boalmari,বোয়ালমারী
+BD30290084,upazila,BD3029,Sadarpur,সদরপুর
+BD30290062,upazila,BD3029,Nagarkanda,নগরকান্দা
+BD30290010,upazila,BD3029,Bhanga,ভাঙ্গা
+BD30290021,upazila,BD3029,Char Bhadrasan,চরভদ্রাসন
+BD30290056,upazila,BD3029,Madhukhali,মধুখালী
+BD30290090,upazila,BD3029,Saltha,সালথা
+BD55770073,upazila,BD5577,Panchagarh Sadar,পঞ্চগড় সদর
+BD55770034,upazila,BD5577,Debiganj,দেবীগঞ্জ
+BD55770025,upazila,BD5577,Boda,বোদা
+BD55770004,upazila,BD5577,Atowari,আটোয়ারী
+BD55770090,upazila,BD5577,Tentulia,তেতুলিয়া
+BD55270069,upazila,BD5527,Nababganj,নবাবগঞ্জ
+BD55270012,upazila,BD5527,Birganj,বীরগঞ্জ
+BD55270043,upazila,BD5527,Ghoraghat,ঘোড়াঘাট
+BD55270010,upazila,BD5527,Birampur,বিরামপুর
+BD55270077,upazila,BD5527,Parbatipur,পার্বতীপুর
+BD55270021,upazila,BD5527,Bochaganj,বোচাগঞ্জ
+BD55270056,upazila,BD5527,Kaharole,কাহারোল
+BD55270038,upazila,BD5527,Fulbari,ফুলবাড়ী
+BD55270064,upazila,BD5527,Dinajpur Sadar,দিনাজপুর সদর
+BD55270047,upazila,BD5527,Hakimpur,হাকিমপুর
+BD55270060,upazila,BD5527,Khansama,খানসামা
+BD55270017,upazila,BD5527,Birol,বিরল
+BD55270030,upazila,BD5527,Chirirbandar,চিরিরবন্দর
+BD55520055,upazila,BD5552,Lalmonirhat Sadar,লালমনিরহাট সদর
+BD55520039,upazila,BD5552,Kaliganj,কালীগঞ্জ
+BD55520033,upazila,BD5552,Hatibandha,হাতীবান্ধা
+BD55520070,upazila,BD5552,Patgram,পাটগ্রাম
+BD55520002,upazila,BD5552,Aditmari,আদিতমারী
+BD55730085,upazila,BD5573,Saidpur,সৈয়দপুর
+BD55730015,upazila,BD5573,Domar,ডোমার
+BD55730012,upazila,BD5573,Dimla,ডিমলা
+BD55730036,upazila,BD5573,Jaldhaka,জলঢাকা
+BD55730045,upazila,BD5573,Kishoreganj,কিশোরগঞ্জ
+BD55730064,upazila,BD5573,Nilphamari Sadar,নীলফামারী সদর
+BD55320082,upazila,BD5532,Sadullapur,সাদুল্লাপুর
+BD55320024,upazila,BD5532,Gaibandha Sadar,গাইবান্ধা সদর
+BD55320067,upazila,BD5532,Palashbari,পলাশবাড়ী
+BD55320088,upazila,BD5532,Saghata,সাঘাটা
+BD55320030,upazila,BD5532,Gobindaganj,গোবিন্দগঞ্জ
+BD55320091,upazila,BD5532,Sundarganj,সুন্দরগঞ্জ
+BD55320021,upazila,BD5532,Fulchhari,ফুলছড়ি
+BD55940094,upazila,BD5594,Thakurgaon Sadar,ঠাকুরগাঁও সদর
+BD55940082,upazila,BD5594,Pirganj,পীরগঞ্জ
+BD55940086,upazila,BD5594,Ranishankail,রাণীশংকৈল
+BD55940051,upazila,BD5594,Haripur,হরিপুর
+BD55940008,upazila,BD5594,Baliadangi,বালিয়াডাঙ্গী
+BD55850049,upazila,BD5585,Rangpur Sadar,রংপুর সদর
+BD55850027,upazila,BD5585,Gangachara,গংগাচড়া
+BD55850092,upazila,BD5585,Taraganj,তারাগঞ্জ
+BD55850003,upazila,BD5585,Badarganj,বদরগঞ্জ
+BD55850058,upazila,BD5585,Mithapukur,মিঠাপুকুর
+BD55850076,upazila,BD5585,Pirganj,পীরগঞ্জ
+BD55850042,upazila,BD5585,Kaunia,কাউনিয়া
+BD55850073,upazila,BD5585,Pirgachha,পীরগাছা
+BD55490052,upazila,BD5549,Kurigram Sadar,কুড়িগ্রাম সদর
+BD55490061,upazila,BD5549,Nageshwari,নাগেশ্বরী
+BD55490006,upazila,BD5549,Bhurungamari,ভুরুঙ্গামারী
+BD55490018,upazila,BD5549,Phulbari,ফুলবাড়ী
+BD55490077,upazila,BD5549,Rajarhat,রাজারহাট
+BD55490094,upazila,BD5549,Ulipur,উলিপুর
+BD55490009,upazila,BD5549,Chilmari,চিলমারী
+BD55490079,upazila,BD5549,Roumari,রৌমারী
+BD55490008,upazila,BD5549,Rajibpur,চর রাজিবপুর
+BD45890088,upazila,BD4589,Sherpur Sadar,শেরপুর সদর
+BD45890070,upazila,BD4589,Nalitabari,নালিতাবাড়ী
+BD45890090,upazila,BD4589,Sreebardi,শ্রীবরদী
+BD45890067,upazila,BD4589,Nakla,নকলা
+BD45890037,upazila,BD4589,Jhenaigati,ঝিনাইগাতী
+BD45610020,upazila,BD4561,Fulbaria,ফুলবাড়ীয়া
+BD45610094,upazila,BD4561,Trishal,ত্রিশাল
+BD45610013,upazila,BD4561,Bhaluka,ভালুকা
+BD45610065,upazila,BD4561,Muktagachha,মুক্তাগাছা
+BD45610052,upazila,BD4561,Mymensingh Sadar,ময়মনসিংহ সদর
+BD45610016,upazila,BD4561,Dhobaura,ধোবাউড়া
+BD45610081,upazila,BD4561,Fulpur,ফুলপুর
+BD45610024,upazila,BD4561,Haluaghat,হালুয়াঘাট
+BD45610023,upazila,BD4561,Gouripur,গৌরীপুর
+BD45610022,upazila,BD4561,Gafargaon,গফরগাঁও
+BD45610031,upazila,BD4561,Ishwarganj,ঈশ্বরগঞ্জ
+BD45610072,upazila,BD4561,Nandail,নান্দাইল
+BD45610088,upazila,BD4561,Tarakanda,তারাকান্দা
+BD45390036,upazila,BD4539,Jamalpur Sadar,জামালপুর সদর
+BD45390061,upazila,BD4539,Melandaha,মেলান্দহ
+BD45390029,upazila,BD4539,Islampur,ইসলামপুর
+BD45390015,upazila,BD4539,Dewanganj,দেওয়ানগঞ্জ
+BD45390085,upazila,BD4539,Sarishabari,সরিষাবাড়ী
+BD45390058,upazila,BD4539,Madarganj,মাদারগঞ্জ
+BD45390007,upazila,BD4539,Bakshiganj,বকশীগঞ্জ
+BD45720009,upazila,BD4572,Barhatta,বারহাট্টা
+BD45720018,upazila,BD4572,Durgapur,দুর্গাপুর
+BD45720047,upazila,BD4572,Kendua,কেন্দুয়া
+BD45720004,upazila,BD4572,Atpara,আটপাড়া
+BD45720056,upazila,BD4572,Madan,মদন
+BD45720038,upazila,BD4572,Khaliajuri,খালিয়াজুরী
+BD45720040,upazila,BD4572,Kalmakanda,কলমাকান্দা
+BD45720063,upazila,BD4572,Mohanganj,মোহনগঞ্জ
+BD45720083,upazila,BD4572,Purbadhala,পূর্বধলা
+BD45720074,upazila,BD4572,Netrakona Sadar,নেত্রকোণা সদর
+BD20220032,upazila,BD2022,Eidgaon,ঈদগাঁও
+BD60900063,upazila,BD6090,Madhyanagar,মধ্যনগর
+BD30540018,upazila,BD3054,Dasar,ডাসার
+BD60360087,upazila,BD6036,Shayestaganj,শায়েস্তাগঞ্জ

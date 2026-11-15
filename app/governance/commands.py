@@ -114,6 +114,7 @@ _AGE_COLUMN: Final[dict[str, str]] = {
     "staging_sms_outbox": "recorded_at",
     "rate_limit_counter": "window_start",
     "auth_audit_log": "occurred_at",
+    "hub_moderation_event": "at",
     "reminder_event": "sent_at",
     "notification": "created_at",
     "refresh_token": "expires_at",

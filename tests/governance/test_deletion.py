@@ -118,6 +118,7 @@ def test_the_column_scopes_name_a_column_and_the_others_do_not() -> None:
         needs_column = target.scope in (
             Scope.ACCOUNT_COLUMN,
             Scope.PHONE_COLUMN,
+            Scope.SOLO_OWNER,
         )
         assert (target.column is not None) is needs_column, table
 
@@ -143,6 +144,18 @@ def _rows_for_account(
     counts: dict[str, int] = {}
     for table, target in sorted(HARD_DELETE_SCOPES.items()):
         if target.column is None:
+            continue
+        if target.scope is Scope.SOLO_OWNER:
+            counts[table] = int(
+                session.execute(
+                    sa.text(
+                        f"SELECT count(*) FROM {table} "  # noqa: S608
+                        f"WHERE {target.column} IN (SELECT id FROM owner "
+                        "WHERE account_id = :value AND kind = 'teacher')"
+                    ),
+                    {"value": account_id},
+                ).scalar_one()
+            )
             continue
         value = account_id if target.scope is Scope.ACCOUNT_COLUMN else phone
         counts[table] = int(

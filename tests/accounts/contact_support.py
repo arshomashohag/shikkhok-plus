@@ -1,6 +1,6 @@
 """Arrange seats, invitations and accounts that carry phones and emails.
 
-Shared by the contact suites of U2 [0034]: the matcher, the teacher
+Shared by the contact suites of U2 [0037]: the matcher, the teacher
 edit, the lookup, contact changes and deletion markers. Every helper
 writes through an ARRANGING session and commits, so the assertions that
 follow are made through the restricted role the application uses, never

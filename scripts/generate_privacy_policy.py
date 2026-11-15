@@ -53,6 +53,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
+from app.governance.deletion import HARD_DELETE_SCOPES, Scope
 from app.governance.dispositions import (
     DISPOSITIONS,
     Disposition,
@@ -141,6 +142,19 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
         "can take it, stored only as a keyed digest"
     ),
     "auth_audit_log": "A sign-in audit record carrying no name or code",
+    "bd_area": "The fixed list of Bangladesh divisions, districts and upazilas",
+    "owner_listing": (
+        "What a solo teacher chose to publish about themselves on the public hub"
+    ),
+    "batch_listing": (
+        "What a solo teacher chose to publish about one of their classes on the "
+        "public hub"
+    ),
+    "hub_report": "A complaint you filed about something on the public hub",
+    "hub_moderation_event": (
+        "A record that moderation acted on a hub listing or report; it holds "
+        "no free text and names nobody"
+    ),
     "staging_sms_outbox": "Test-only message records, never used in production",
     "owner": "The link between a class and the teacher who runs it",
     "batch": "A class a teacher runs",
@@ -293,6 +307,37 @@ def teacher_disclosure() -> str:
     )
 
 
+def centre_listing_disclosure() -> str:
+    """Say that a coaching centre's public listing outlives a manager.
+
+    **Derived from the deletion scope, like :func:`teacher_disclosure`.**
+    The listing tables are listed under "deleted outright", which is true
+    of a solo teacher's listing only: they are deleted through
+    ``Scope.SOLO_OWNER``, and a centre's owner row belongs to no account,
+    so a manager's deletion never reaches it. Were the scope ever an
+    account's own, the listings would go with any deleting manager and
+    this paragraph would say so instead.
+
+    :return: The paragraph
+    :raises KeyError: If the deletion manifest has no ``owner_listing``
+    """
+    if HARD_DELETE_SCOPES["owner_listing"].scope is not Scope.SOLO_OWNER:
+        return (
+            "When the person who runs a public listing deletes their "
+            "account, the listing is removed with it."
+        )
+
+    return (
+        "**A coaching centre's public listing stays with the centre.** If "
+        "you are a manager of a coaching centre and delete your account, "
+        "what the centre published on the public hub -- its own page and "
+        "its class pages -- is kept, because it belongs to the centre and "
+        "not to you, and the centre's other managers may still run it. "
+        "Your own account is removed as described above. A solo teacher's "
+        "public listing is not kept: it is deleted with their account."
+    )
+
+
 def manifest_digest() -> str:
     """Hash every field of the manifest, including each ``basis``.
 
@@ -432,7 +477,16 @@ def render() -> str:
         ]
         lines.append("")
 
-    lines += [disclosure(), "", teacher_disclosure(), "", _manifest_digest_line(), ""]
+    lines += [
+        disclosure(),
+        "",
+        teacher_disclosure(),
+        "",
+        centre_listing_disclosure(),
+        "",
+        _manifest_digest_line(),
+        "",
+    ]
     return "\n".join(lines)
 
 

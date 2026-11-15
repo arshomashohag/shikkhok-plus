@@ -35,6 +35,7 @@ import { accountPaths } from '../family/reader'
 import { useUnreadCount } from './area/unread'
 import { helpPaths, useNewReplies } from '../help'
 import { WorkspaceSection } from './Workspaces'
+import { NameConsent } from '../teacher/hub/NameConsent'
 import { MfaEntry } from './security'
 
 /** One More row: a link when there is somewhere to go, else greyed. */
@@ -192,6 +193,8 @@ export function More() {
 
       <WorkspaceSection online={online} />
 
+      {session.lens === 'teacher' || session.lens === 'class_teacher' ? <NameConsent /> : null}
+
       {session.lens === 'teacher' ? (
         <>
           <Section title={t('more_section_getting_paid')}>
@@ -201,6 +204,24 @@ export function More() {
                 icon={<WalletIcon />}
                 title={t('more_where_students_pay')}
                 sub={needsConnection ?? t('more_where_students_pay_sub')}
+                disabled={!online}
+              />
+            </ul>
+          </Section>
+          <Section title={t('web_hub_more_title')}>
+            <ul className="card flush list">
+              <Row
+                to={paths.hub()}
+                icon={<LayersIcon />}
+                title={t('web_hub_more_title')}
+                sub={needsConnection ?? t('web_hub_more_sub')}
+                disabled={!online}
+              />
+              <Row
+                to={paths.hubBatches()}
+                icon={<LayersIcon />}
+                title={t('web_hub_batches_row')}
+                sub={needsConnection ?? t('web_hub_batches_sub')}
                 disabled={!online}
               />
             </ul>

@@ -24,6 +24,7 @@ obligation remains partly manual.
 
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 import subprocess
 import sys
@@ -31,6 +32,7 @@ from pathlib import Path
 
 import pytest
 
+from app.governance.deletion import HARD_DELETE_SCOPES, Scope
 from app.governance.dispositions import (
     DISPOSITIONS,
     Disposition,
@@ -40,6 +42,7 @@ from scripts.generate_privacy_policy import (
     BEGIN_MARKER,
     END_MARKER,
     POLICY_PATH,
+    centre_listing_disclosure,
     describe,
     disclosure,
     generated_document,
@@ -402,6 +405,43 @@ def test_the_disclosure_is_derived_from_the_manifest_not_hardcoded(
         "the disclosure is printed unconditionally rather than derived "
         "from the enrollment disposition"
     )
+
+
+def test_the_generated_text_discloses_a_centre_listing_outlives_a_manager() -> None:
+    """A coaching centre's public listing stays when a manager deletes.
+
+    The listing tables sit under "deleted outright", which is true of a
+    solo teacher's and false of a centre's. Without this sentence a
+    manager reading the policy would believe their centre's page went with
+    their account.
+
+    :return: None
+    """
+    region = render().lower()
+
+    assert "coaching centre's public listing" in region
+    assert "stays" in region
+    assert "manager" in region
+
+
+def test_the_centre_listing_disclosure_follows_the_deletion_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Were listings deleted by account, the policy would stop claiming it.
+
+    :param monkeypatch: Used to move the owner listing's deletion scope
+    :return: None
+    """
+    assert "stays with the centre" in centre_listing_disclosure()
+
+    moved = HARD_DELETE_SCOPES["owner_listing"]
+    monkeypatch.setitem(
+        HARD_DELETE_SCOPES,
+        "owner_listing",
+        dataclasses.replace(moved, scope=Scope.ACCOUNT_COLUMN),
+    )
+
+    assert "stays with the centre" not in centre_listing_disclosure()
 
 
 # ---------------------------------------------------------------------

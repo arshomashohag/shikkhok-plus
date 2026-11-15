@@ -51,7 +51,7 @@ The backend tests are reached through the chain FR → business rule (BR) in
 |---|---|---|---|---|
 | FR1.1 | U1 OK | `app/accounts/usernames.py` | `tests/accounts/test_usernames.py` (BR1.2, 1.3, 1.9) — B1 | OK |
 | FR1.2 | U1 OK | `app/accounts/usernames.py` | `test_usernames.py` (BR1.4, 1.5) — B1 | OK |
-| FR1.3 | U1 OK | `migrations/versions/0035_usernames.py` | `test_usernames.py` (BR1.7 case-insensitive key), `test_username_claims.py`, `test_username_concurrency.py` (BR10.2) — B1 | OK |
+| FR1.3 | U1 OK | `migrations/versions/0038_usernames.py` | `test_usernames.py` (BR1.7 case-insensitive key), `test_username_claims.py`, `test_username_concurrency.py` (BR10.2) — B1 | OK |
 | FR1.4 | U1 OK | `tests/accounts/test_usernames.py` | `test_usernames.py` (BR1.1 trim) — B1 | OK |
 | FR1.5 | U1 OK | `app/accounts/usernames.py` | `test_usernames.py` (BR1.8 reserved list) — B1 | OK |
 | FR1.6 | U1 OK, U3 OK | `tests/accounts/test_usernames.py`; `core/ui/UsernameField.kt`, strings | `test_usernames.py`, `test_message_keys.py` — B1; `UsernameFieldTest`, `MessageKeyCoverageTest` — B3d; `i18n.test.ts`, `UsernameField.test.tsx` — B4 | OK |

@@ -21,7 +21,7 @@
     { "id": "NFR5/android-coverage-ratchet", "status": "N/A", "target": "Owned by the clients (U3, U4): Kotlin coverage must not decrease; U1 ships no client code" },
     { "id": "NFR6/clients-tolerate-unknown-fields", "status": "N/A", "target": "Owned by the clients (U3, U4): parsing the new MeResponse fields and statuses; U1 keeps /v1 additive (NFR6.2)" },
     { "id": "NFR6/installed-pre-change-clients", "status": "N/A", "target": "Narrowed by the contract-design direction of 2026-11-14: app versions installed before this change are not a compatibility constraint" },
-    { "id": "NFR7/u2-migration", "status": "N/A", "target": "Owned by U2: migration 0034 for recorded emails and invitations; U1's revision follows it (NFR7.1)" },
+    { "id": "NFR7/u2-migration", "status": "N/A", "target": "Owned by U2: migration 0037 for recorded emails and invitations; U1's revision follows it (NFR7.1)" },
     { "id": "NFR8/already-added-lookup-latency", "status": "N/A", "target": "Owned by U2: the already-added lookup's 300 ms p95 (U2 NFR8.1)" },
     { "id": "NFR8/client-debounce", "status": "N/A", "target": "Owned by the clients (U3, U4): debounce of at least 500 ms on typing-time checks, which NFR2.1's sizing assumes" }
   ]

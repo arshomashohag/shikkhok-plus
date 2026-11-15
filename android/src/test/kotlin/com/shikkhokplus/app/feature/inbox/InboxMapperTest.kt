@@ -39,10 +39,11 @@ class InboxMapperTest {
                 "fee_reminder", "payment_approved", "payment_partial", "payment_rejected",
                 "payment_recorded", "notice", "exam_scheduled", "exam_cancelled",
                 "marks_available", "claim_to_verify", "class_cancelled", "class_rescheduled",
+                "hub_listing_suspended",
             )
         val kept = messages(*(known + "future").map { dto(it) }.toTypedArray())
 
-        assertEquals(12, kept.size)
+        assertEquals(13, kept.size)
         assertEquals(InboxKind.entries.toSet(), kept.map { it.kind }.toSet())
     }
 
@@ -240,6 +241,14 @@ class InboxMapperTest {
         val loaded = assertIs<InboxDetailUiState.Loaded>(opened)
         val content = assertIs<InboxContent.ClassChanged>(loaded.detail.content)
         assertEquals(ClassChange("2099-04-14", "18:00:00", "2099-04-12", "16:00:00"), content.change)
+    }
+
+    @Test
+    fun `a suspended listing opens the owner's listing, not a detail`() {
+        val message = messages(dto("hub_listing_suspended", enrollment = null, source = "o-1")).single()
+
+        assertEquals(InboxKind.HUB_LISTING_SUSPENDED, message.kind)
+        assertEquals(InboxTarget.HubListing, InboxMapper.targetOf(message))
     }
 
     @Test

@@ -1,0 +1,3 @@
+"""Fixture: a public-hub module that reaches the full ORM model layer."""
+
+from app.db.models import Account  # noqa: F401
