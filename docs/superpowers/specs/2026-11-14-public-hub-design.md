@@ -154,7 +154,7 @@ review            id, batch_id, author_account_id, enrollment_id, author_role
                   published_month, edited_at, decided_at
                   UNIQUE (batch_id, author_account_id)
 review_reply      review_id PK, body <= 1000, status, written_by_account_id
-hub_report        id, target_kind (listing|media|review|reply), target_id,
+hub_report        id, target_kind (owner_listing|batch_listing|media|review|reply), target_id,
                   reporter_account_id, reason, status
                   UNIQUE (target_kind, target_id, reporter_account_id)
 hub_moderation_event  append-only, closed enums, no free text
@@ -303,7 +303,7 @@ That is a deliberate trade for privacy.
 
 **Owner decision (builder check):** reporting is for signed-in users only.
 - **Entry point:** every public page carries a "Report" link that opens the
-  web app at `/ui/hub-report?kind=<listing|media|review|reply>&id=<id>`, or
+  web app at `/ui/hub-report?kind=<owner_listing|batch_listing|media|review|reply>&id=<id>`, or
   the Android app through an App Link to the same path. The user signs in if
   needed and lands on a pre-filled report form that calls
   `POST /v1/hub/reports`. No new API route is needed.
@@ -350,3 +350,18 @@ These are not owner decisions; correct any of them.
 - The subject-tag vocabulary and the Bangla transliteration helper.
 - How the server-side checklist weights listing completeness.
 - Copy, within the tone of `claude_design/` and the existing string bundles.
+
+## Changes recorded during H0/H1 build (2026-11-15)
+
+- **Report kinds:** `listing` is split into `owner_listing` and `batch_listing`
+  (PostgreSQL enum values cannot be dropped later, and one kind spanning two
+  tables was ambiguous). §3 and §10 above are updated.
+- **Public batch title:** a batch listing carries its own `public_title`
+  (phone-scanned, required to publish). `batch.name` is a teacher's own
+  record, often a family's name for a home-visit batch, and must never appear
+  on a public page or in the admin queue.
+- **H2 blocker: metropolitan thanas.** The area vocabulary (BBS
+  divisions/districts/upazilas) has no Dhaka city thanas; the only "Mirpur"
+  row is in Kushtia. Public search must not ship until city areas are added,
+  or "HSC physics tutor Mirpur", the spec's own success example, cannot be
+  expressed and would match the wrong district.
