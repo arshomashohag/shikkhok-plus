@@ -5,9 +5,15 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from app.db.models import OwnerListing
+from app.db.models import BatchListing, OwnerListing
 
-__all__ = ["ChecklistItem", "owner_checklist", "owner_publishable"]
+__all__ = [
+    "BATCH_REQUIRED",
+    "ChecklistItem",
+    "batch_checklist",
+    "owner_checklist",
+    "owner_publishable",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,3 +66,37 @@ def owner_publishable(items: Iterable[ChecklistItem]) -> bool:
     :return: True when nothing is missing
     """
     return all(item.done for item in items)
+
+
+#: The batch checklist keys that block publishing, in order. ``mode`` is shown
+#: to the owner but is optional, because a batch may leave it unstated.
+BATCH_REQUIRED: tuple[str, ...] = ("slug", "description", "class_levels", "subjects")
+
+
+def batch_checklist(
+    listing: BatchListing | None, subject_count: int
+) -> list[ChecklistItem]:
+    """List the requirements of one batch listing in their fixed order.
+
+    :param listing: The batch listing, or None when none exists yet
+    :param subject_count: How many subjects the batch has
+    :return: The checklist items
+    """
+    if listing is None:
+        return [
+            ChecklistItem("slug", False),
+            ChecklistItem("description", False),
+            ChecklistItem("class_levels", False),
+            ChecklistItem("subjects", subject_count > 0),
+            ChecklistItem("mode", False),
+        ]
+    return [
+        ChecklistItem("slug", _filled(listing.slug)),
+        ChecklistItem(
+            "description",
+            _filled(listing.description_en) or _filled(listing.description_bn),
+        ),
+        ChecklistItem("class_levels", len(listing.class_levels) > 0),
+        ChecklistItem("subjects", subject_count > 0),
+        ChecklistItem("mode", listing.mode is not None),
+    ]

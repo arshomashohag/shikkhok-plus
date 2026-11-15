@@ -9,20 +9,25 @@ never opens the hub is never listed [Review Focus 1].
 from __future__ import annotations
 
 import datetime as dt
-import re
 from dataclasses import dataclass
 from typing import Final
 
 import sqlalchemy as sa
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, object_session
 
-from app.accounts.phone import canonical_phone, contains_phone
+from app.accounts.phone import canonical_phone
 from app.authz.lenses import TeacherLens
 from app.db.models import OwnerListing
 from app.errors import ConflictError, ValidationError
 from app.hub.listings.checklist import owner_checklist
 from app.hub.listings.consent import HUB_CONSENT_VERSION
+from app.hub.listings.shared import (
+    SLUG,
+    flush_slug_unique,
+    refuse_phone_in,
+    refuse_suspended,
+    require_slug_shape,
+)
 
 __all__ = [
     "OwnerListingUpdate",
@@ -32,8 +37,6 @@ __all__ = [
     "unpublish",
     "update",
 ]
-
-_SLUG: Final = re.compile(r"[a-z0-9-]{3,60}")
 
 #: The owner's own free-text columns, which may not carry a phone number.
 _FREE_TEXT: Final = (
@@ -107,18 +110,6 @@ def _load(session: Session, lens: TeacherLens) -> OwnerListing:
     return listing if listing is not None else get_or_draft(session, lens)
 
 
-def _refuse_suspended(listing: OwnerListing) -> None:
-    """Refuse any owner action on a suspended listing.
-
-    :param listing: The listing
-    :raises ConflictError: It is suspended
-    """
-    if listing.status == "suspended":
-        raise ConflictError(
-            code="HUB_LISTING_SUSPENDED", message_key="hub.listing_suspended"
-        )
-
-
 def get_or_draft(session: Session, lens: TeacherLens) -> OwnerListing:
     """Return the owner's listing, creating a draft on first call.
 
@@ -155,7 +146,7 @@ def slug_available(session: Session, slug: str, lens: TeacherLens) -> bool:
     :param lens: The asking owner
     :return: True when it is well formed and nobody else holds it
     """
-    if not _SLUG.fullmatch(slug):
+    if not SLUG.fullmatch(slug):
         return False
     taken = session.execute(
         sa.text(
@@ -216,22 +207,12 @@ def update(
         carries a phone number outside the public contact field
     """
     listing = _load(session, lens)
-    _refuse_suspended(listing)
+    refuse_suspended(listing)
 
-    for name in (*_FREE_TEXT, "slug"):
-        value = getattr(changes, name)
-        if value is not None and contains_phone(value):
-            raise ValidationError(
-                code="HUB_TEXT_CONTAINS_CONTACT",
-                message_key="hub.text_contains_contact",
-                details={"field": name},
-            )
+    refuse_phone_in((n, getattr(changes, n)) for n in (*_FREE_TEXT, "slug"))
 
     if changes.slug is not None:
-        if not _SLUG.fullmatch(changes.slug):
-            raise ValidationError(
-                code="HUB_SLUG_INVALID", message_key="hub.slug_invalid"
-            )
+        require_slug_shape(changes.slug)
         if not slug_available(session, changes.slug, lens):
             raise ConflictError(code="HUB_SLUG_TAKEN", message_key="hub.slug_taken")
         listing.slug = changes.slug
@@ -270,16 +251,7 @@ def update(
     listing.updated_at = dt.datetime.now(tz=dt.UTC)
     if listing.status != "draft":
         _require_complete(listing)
-    try:
-        with session.begin_nested():
-            session.flush()
-    except IntegrityError as error:
-        if "uq_owner_listing_slug" not in str(error.orig):
-            raise
-        session.rollback()
-        raise ConflictError(
-            code="HUB_SLUG_TAKEN", message_key="hub.slug_taken"
-        ) from error
+    flush_slug_unique(session, "uq_owner_listing_slug")
     session.commit()
     return listing
 
@@ -318,19 +290,12 @@ def publish(
         listing is incomplete (``details["missing"]`` lists the keys)
     """
     listing = _load(session, lens)
-    _refuse_suspended(listing)
+    refuse_suspended(listing)
     if consent_version != HUB_CONSENT_VERSION:
         raise ValidationError(
             code="HUB_CONSENT_OUTDATED", message_key="hub.consent_outdated"
         )
-    for name in _FREE_TEXT:
-        value = getattr(listing, name)
-        if value and contains_phone(value):
-            raise ValidationError(
-                code="HUB_TEXT_CONTAINS_CONTACT",
-                message_key="hub.text_contains_contact",
-                details={"field": name},
-            )
+    refuse_phone_in((n, getattr(listing, n)) for n in _FREE_TEXT)
     _require_complete(listing)
     listing.status = "published"
     listing.consent_version = consent_version
@@ -352,7 +317,7 @@ def unpublish(session: Session, lens: TeacherLens, now: dt.datetime) -> OwnerLis
     :raises ConflictError: The listing is suspended
     """
     listing = _load(session, lens)
-    _refuse_suspended(listing)
+    refuse_suspended(listing)
     if listing.status == "published":
         listing.status = "hidden"
         listing.updated_at = now
