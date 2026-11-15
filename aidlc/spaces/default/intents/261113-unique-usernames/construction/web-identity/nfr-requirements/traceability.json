@@ -1,0 +1,29 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "web-identity",
+  "upstream_ids": ["NFR1", "NFR2", "NFR3", "NFR4", "NFR5", "NFR6", "NFR7", "NFR8", "NFR9"],
+  "coverage": [
+    { "id": "NFR1", "status": "OK", "target": "NFR1.1, NFR1.2, NFR1.3, NFR1.4 (security-requirements.md)" },
+    { "id": "NFR2", "status": "OK", "target": "NFR2.1, NFR2.2, NFR2.3 (performance-requirements.md)" },
+    { "id": "NFR3", "status": "OK", "target": "NFR3.1, NFR3.2, NFR3.3, NFR3.4, NFR3.5, NFR3.6, NFR3.7, NFR3.8, NFR3.9, NFR3.10, NFR3.11, NFR3.12, NFR3.13, NFR3.14, NFR3.15, NFR3.16, NFR3.17 (security-requirements.md)" },
+    { "id": "NFR4", "status": "OK", "target": "NFR4.1 (security-requirements.md): the ordering predicate holds for no web client code; tests are test-after from the acceptance steps" },
+    { "id": "NFR5", "status": "OK", "target": "NFR5.1, NFR5.2 (tech-stack-decisions.md): no web coverage figure exists and none is added (Q2); named tests per new module; the web gate green at completion" },
+    { "id": "NFR6", "status": "OK", "target": "NFR6.1, NFR6.2, NFR6.3 (tech-stack-decisions.md)" },
+    { "id": "NFR7", "status": "N/A", "target": "No schema or migration in the web client; the migrations are U1's and U2's" },
+    { "id": "NFR8", "status": "OK", "target": "NFR8.1, NFR8.2, NFR8.3, NFR8.4, NFR8.5, NFR8.6 (performance-requirements.md); NFR8.7, NFR8.8 (security-requirements.md, cancellation and the session)" },
+    { "id": "NFR9", "status": "OK", "target": "NFR9.1 (tech-stack-decisions.md): schema.d.ts regenerated from openapi.json and kept equal by check:generated, compiled by tsc; compile-time only, stated" }
+  ],
+  "reverse": [
+    { "id": "NFR1/uniform-refusal-and-timing", "status": "N/A", "target": "Owned by U1: identical responses and timing for unknown, password-less and wrong credentials; the web only renders the key (NFR1.1)" },
+    { "id": "NFR2/lookup-and-claim-ceilings", "status": "N/A", "target": "Owned by U1 (Families A-D) and U2 (already-added lookup); the web honours them by debounce, single in-flight request, stop after 429 and no automatic retry (NFR8.1, NFR8.2, NFR2.1)" },
+    { "id": "NFR3/privacy-gate-and-owner-only-schemas", "status": "N/A", "target": "Owned by U1 (privacy gate, OWN_ACCOUNT_FIELDS) and U2 (recorded-email allowlist); the web reads username only from the owner-only responses its generated types declare (NFR3.7)" },
+    { "id": "NFR3/already-added-query-string", "status": "N/A", "target": "Owned by U2: the already-added lookup's ?phone= and ?email= query is defined by C2; this unit calls it as defined and makes no URL claim for it (NFR3.1)" },
+    { "id": "NFR3/cdn-headers-and-csp", "status": "N/A", "target": "Built infrastructure and build config (infra/modules/cdn/web.tf, vite.config.ts CSP); unchanged by this unit (NFR3.9)" },
+    { "id": "NFR4/server-test-first-cases", "status": "N/A", "target": "Owned by U1 and U2: uniform refusal, ceilings, seat linking, last-contact refusal" },
+    { "id": "NFR5/backend-and-android-coverage", "status": "N/A", "target": "Owned by U1, U2 (backend 80% line floor, --cov list) and U3 (Android ratchet)" },
+    { "id": "NFR6/additive-v1", "status": "N/A", "target": "Owned by U1 and U2: /v1 stays additive; the web's part is tolerance (NFR6.1-NFR6.3)" },
+    { "id": "NFR8/server-lookup-p95", "status": "N/A", "target": "Owned by U1 and U2: 300 ms p95 on staging; an input to NFR8.4's budget, not a client obligation" },
+    { "id": "NFR8/client-debounce", "status": "OK", "target": "U1's sizing assumption kept for the web: NFR8.1 (500 ms debounce)" },
+    { "id": "NFR9/schema-diff-gate", "status": "N/A", "target": "Owned by the backend units: the schema-diff gate keeps openapi.json true to the server; the web's check:generated keeps schema.d.ts true to openapi.json (NFR9.1)" }
+  ]
+}
