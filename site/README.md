@@ -116,6 +116,11 @@ have one front door.
   [0, one hour] with those six query strings in the key.
 - The API sets the hub pages' own `Content-Security-Policy`; the site
   response-headers policy sets its CSP only when the origin sent none.
+- The distribution's 403/404 error mapping is distribution-wide, so a hub
+  404 is served as the site's 404 page with a real 404 status (uniform, 60
+  s, matching the hub's own s-maxage=60 on 404s). An origin-secret
+  mismatch would also surface as a 404, so the deploy smoke must assert
+  200 on `/hub/en` through the site host.
 - `robots.txt` also lists `/hub/sitemap.xml`.
 
 `hub-query.test.mjs` and (on the API distribution)

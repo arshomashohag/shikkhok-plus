@@ -12,6 +12,14 @@
 //   * q is truncated to 200 characters
 //   * /hub and /hub/ -> 301 /hub/en (query string kept)
 //
+// Values are normalised DECODED and re-encoded: CloudFront hands the
+// function a UTF-8 percent-encoded value unchanged (AWS, "Restrictions on
+// all edge functions"), so each value is decoded ('+' is a space, then
+// decodeURIComponent), lowercased / truncated by code point on the decoded
+// string (never mid-escape, never mid-character), and encoded again with
+// encodeURIComponent for both the forwarded value and the Location header.
+// A malformed escape (e.g. a trailing %E) gets 400.
+//
 // Everything else passes through untouched. cloudfront-js-2.0 runtime:
 // `value` is the first value of a key and `multiValue` lists all of them
 // when it repeats. Tested by hub-query.test.mjs beside it
@@ -31,27 +39,30 @@ function handler(event) {
       return { statusCode: 400, statusDescription: 'Bad Request' };
     }
     var entry = incoming[key];
-    var value = entry.multiValue && entry.multiValue.length ? entry.multiValue[0].value : entry.value;
-    value = value === undefined || value === null ? '' : String(value);
+    var raw = entry.multiValue && entry.multiValue.length ? entry.multiValue[0].value : entry.value;
+    raw = raw === undefined || raw === null ? '' : String(raw);
+    var value;
+    try {
+      value = decodeURIComponent(raw.replace(/\+/g, ' '));
+    } catch (e) {
+      return { statusCode: 400, statusDescription: 'Bad Request' };
+    }
     if (LOWERCASED.indexOf(key) !== -1) {
       value = value.toLowerCase();
     }
-    if (key === 'q' && value.length > Q_MAX) {
-      value = value.slice(0, Q_MAX);
+    if (key === 'q') {
+      var points = Array.from(value);
+      if (points.length > Q_MAX) {
+        value = points.slice(0, Q_MAX).join('');
+      }
     }
-    clean[key] = { value: value };
-    parts.push(key + '=' + value);
+    var encoded = encodeURIComponent(value);
+    clean[key] = { value: encoded };
+    parts.push(key + '=' + encoded);
   }
 
   if (request.uri === '/hub' || request.uri === '/hub/') {
-    // The values are already percent-decoded by CloudFront; encode them
-    // again for the Location header.
-    var qs = parts
-      .map(function (p) {
-        var i = p.indexOf('=');
-        return p.slice(0, i) + '=' + encodeURIComponent(p.slice(i + 1));
-      })
-      .join('&');
+    var qs = parts.join('&');
     return {
       statusCode: 301,
       statusDescription: 'Moved Permanently',

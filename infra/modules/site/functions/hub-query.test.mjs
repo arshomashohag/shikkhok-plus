@@ -117,3 +117,46 @@ describe('hub-query: the bare /hub', () => {
     assert.equal(r.uri, '/hub/sitemap.xml');
   });
 });
+
+describe('hub-query: percent-encoded input', () => {
+  const bangla = 'ঢাকা'; // Dhaka
+  const enc = encodeURIComponent;
+
+  it('truncates a long Bangla q by characters, not mid-escape', () => {
+    const long = bangla.repeat(15); // 60 code points, 540 encoded chars
+    const longer = (bangla + ' ').repeat(60); // 300 code points
+    const r = handler(event('/hub/en', { q: one(enc(long + longer)) }));
+    assert.equal(r.statusCode, undefined);
+    const decoded = decodeURIComponent(r.querystring.q.value);
+    assert.equal(Array.from(decoded).length, 200);
+    assert.equal(decoded, Array.from(long + longer).slice(0, 200).join(''));
+  });
+
+  it('does not double-encode on the redirect and turns + into a space', () => {
+    const r = handler(event('/hub', { q: one(`${enc(bangla)}+physics`), level: one('SSC') }));
+    assert.equal(r.statusCode, 301);
+    assert.equal(r.headers.location.value, `/hub/en?q=${enc(bangla + ' physics')}&level=ssc`);
+  });
+
+  it('forwards decoded-then-reencoded values', () => {
+    const r = handler(event('/hub/en', { q: one('a+b%26c') }));
+    assert.equal(r.querystring.q.value, 'a%20b%26c');
+  });
+
+  it('lowercases after decoding', () => {
+    const r = handler(event('/hub/en', { subject: one('%50HYSICS') }));
+    assert.equal(r.querystring.subject.value, 'physics');
+  });
+
+  for (const bad of ['%E', '%E0%A6', '100%']) {
+    it(`answers 400 for malformed escape ${bad}`, () => {
+      assert.equal(handler(event('/hub/en', { q: one(bad) })).statusCode, 400);
+      assert.equal(handler(event('/hub', { district: one(bad) })).statusCode, 400);
+    });
+  }
+
+  it('keeps the first value of a repeated encoded key', () => {
+    const r = handler(event('/hub/en', { q: many(enc(bangla), 'x') }));
+    assert.equal(r.querystring.q.value, enc(bangla));
+  });
+});

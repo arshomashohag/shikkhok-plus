@@ -472,6 +472,15 @@ resource "aws_cloudfront_distribution" "site" {
   # Cached for a minute only: a page that is missing now may exist after
   # the next deploy, and the deploy's invalidation does not reach cached
   # error responses for paths it never names.
+  #
+  # **This is distribution-wide, so it covers /hub/* too.** A hub 404 (a
+  # draft, missing or suspended page) is deliberately served as the site's
+  # 404 page with a real 404 status: still one uniform answer, so no
+  # existence oracle, and the 60 s error TTL matches the hub's own
+  # s-maxage=60 on its 404s. The cost: nginx's 403 for an origin-secret
+  # mismatch is masked the same way and surfaces as a 404 on /hub/*, which
+  # is why the deploy smoke must assert 200 on /hub/en through the site
+  # host, not merely "not a 5xx".
   dynamic "custom_error_response" {
     for_each = [403, 404]
     content {
