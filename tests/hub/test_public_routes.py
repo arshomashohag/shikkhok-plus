@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import re
 import time
 import uuid
 from html.parser import HTMLParser
@@ -47,6 +48,16 @@ NOT_FOUND_CACHE: Final[str] = "public, s-maxage=60"
 PAGE_CSP: Final[str] = (
     "default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; "
     "form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+)
+
+#: Dhaka district, its northern city corporation, and Mirpur within it.
+DHAKA: Final[str] = "BD3026"
+DNCC: Final[str] = "BD30262500"
+MIRPUR: Final[str] = "MT3026250003"
+
+#: One ``<option>``: its value, whether it is selected, and its text.
+_OPTION: Final[re.Pattern[str]] = re.compile(
+    r'<option value="([^"]*)"( selected)?>([^<]*)</option>'
 )
 
 #: The public name carries markup, so escaping is exercised on every page.
@@ -282,6 +293,7 @@ def _public_paths() -> list[str]:
         for path in (
             f"/hub/{locale}",
             f"/hub/{locale}?q=maths",
+            f"/hub/{locale}?district={DHAKA}&upazila={MIRPUR}",
             f"/hub/{locale}/t/rahim-sir",
             f"/hub/{locale}/t/rahim-sir/class-9-maths",
         )
@@ -759,3 +771,69 @@ def test_vocabulary_labels_match_the_app_bundles() -> None:
         )
         for key in keys:
             assert MESSAGES[key][locale] == bundle[key], (locale, key)
+
+
+def _select(body: str, name: str) -> list[tuple[str, bool, str]]:
+    """Read one select's options, in order.
+
+    :param body: The page
+    :param name: The select's ``name``
+    :return: ``(value, selected, text)`` per option; empty when absent
+    """
+    found = re.search(rf'<select id="{name}" name="{name}">(.*?)</select>', body, re.S)
+    if found is None:
+        return []
+    return [(v, bool(sel), text) for v, sel, text in _OPTION.findall(found[1])]
+
+
+def test_search_form_chooses_a_district_then_an_area(
+    api_client: TestClient, owner_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The form offers every district, then the chosen district's areas [R12].
+
+    Both choices are plain selects in the GET form, so they work with no
+    script; each keeps the reader's choice, and a filter no select shows
+    rides along as a hidden input.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param monkeypatch: The patcher
+    :return: None
+    """
+    client = _client(api_client, monkeypatch)
+    _published_tutor(owner_session)
+
+    for locale, dhaka in (("en", "Dhaka"), ("bn", "ঢাকা")):
+        body = client.get(f"/hub/{locale}").text
+        districts = _select(body, "district")
+        assert districts[0] == ("", False, t("search_any_district", locale))
+        names = [text for _, _, text in districts[1:]]
+        assert len(names) == 64
+        assert names == sorted(names)
+        assert (DHAKA, False, dhaka) in districts
+        assert _select(body, "upazila") == []
+        assert f'<label for="district">{t("search_district", locale)}</label>' in body
+
+    body = client.get(f"/hub/en?district={DHAKA}&upazila={MIRPUR}&level=class_9").text
+    assert (DHAKA, True, "Dhaka") in _select(body, "district")
+    areas = _select(body, "upazila")
+    assert areas[0] == ("", False, "All areas")
+    assert [value for value, selected, _ in areas if selected] == [MIRPUR]
+    assert (DNCC, False, "All of Dhaka North City Corporation") in areas
+    assert ("BD30260072", False, "Savar") in areas
+    assert '<optgroup label="Dhaka North City Corporation">' in body
+    assert '<optgroup label="Upazilas">' in body
+    hidden = _parse(body).find("input", type="hidden")
+    assert hidden == [{"type": "hidden", "name": "level", "value": "class_9"}]
+    assert t("search_clear_filters", "en") in body
+
+    bn = client.get(f"/hub/bn?district={DHAKA}").text
+    assert (DNCC, False, "ঢাকা উত্তর সিটি কর্পোরেশন-এর সব এলাকা") in _select(bn, "upazila")
+
+    # An area with no district chosen has no select to keep it, so it
+    # rides along hidden rather than being lost on the next search.
+    alone = client.get(f"/hub/en?upazila={MIRPUR}").text
+    assert _select(alone, "upazila") == []
+    assert _parse(alone).find("input", type="hidden", name="upazila") == [
+        {"type": "hidden", "name": "upazila", "value": MIRPUR}
+    ]

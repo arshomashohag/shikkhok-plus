@@ -26,6 +26,8 @@ from app.money import Money
 
 __all__ = [
     "AreaNames",
+    "AreaOption",
+    "CityAreas",
     "HubBatchCard",
     "HubBatchPage",
     "HubOwnerCard",
@@ -185,6 +187,35 @@ class HubBatchPage(BaseModel):
     syllabus: str | None
 
 
+class AreaOption(BaseModel):
+    """One area the search form offers, by code, in both languages.
+
+    :ivar code: The area code, as the ``district`` or ``upazila`` filter
+        takes it
+    :ivar en: The area's English name
+    :ivar bn: The area's Bangla name
+    """
+
+    model_config = _FROZEN
+
+    code: str
+    en: str
+    bn: str
+
+
+class CityAreas(BaseModel):
+    """A city corporation and the metropolitan thanas within it.
+
+    :ivar city: The city corporation; choosing it covers all its thanas
+    :ivar thanas: Its metropolitan thanas
+    """
+
+    model_config = _FROZEN
+
+    city: AreaOption
+    thanas: list[AreaOption]
+
+
 class HubSearchFilters(BaseModel):
     """The structured filters a search applied.
 
@@ -209,8 +240,16 @@ class HubSearchFilters(BaseModel):
 class HubSearchPage(BaseModel):
     """One page of search results.
 
+    The form's area choices come with it: every district, and once a
+    district is chosen, that district's upazilas and city corporations,
+    each city corporation with its metropolitan thanas. They are public
+    reference data, the same for every reader.
+
     :ivar query: The query as typed, for the search box
     :ivar filters: The filters applied
+    :ivar districts: Every district, for the district choice
+    :ivar upazilas: The chosen district's upazilas, else empty
+    :ivar cities: The chosen district's city corporations, else empty
     :ivar results: The owners on this page
     :ivar page: This page's number, from 1
     :ivar pages: How many pages there are, at least 1
@@ -221,6 +260,9 @@ class HubSearchPage(BaseModel):
 
     query: str | None
     filters: HubSearchFilters
+    districts: list[AreaOption]
+    upazilas: list[AreaOption]
+    cities: list[CityAreas]
     results: list[HubOwnerCard]
     page: int
     pages: int

@@ -31,6 +31,8 @@ from app.hub.public.normalise import query_terms
 from app.hub.public.settings import site_url
 from app.hub.public.views import (
     AreaNames,
+    AreaOption,
+    CityAreas,
     HubBatchCard,
     HubBatchPage,
     HubOwnerCard,
@@ -107,6 +109,22 @@ _BATCH_SELECT: Final[str] = (
     "FROM hub_public_batch b"
 )
 
+#: Every district, for the search form's district choice.
+_DISTRICTS: Final[str] = (
+    "SELECT code, name_en, name_bn FROM hub_public_area WHERE kind = 'district'"
+)
+
+#: A district's upazilas and city corporations, and each city corporation's
+#: metropolitan thanas, for the search form's area choice.
+_DISTRICT_AREAS: Final[str] = """
+SELECT a.code, a.kind::text AS kind, a.parent_code, a.name_en, a.name_bn
+FROM hub_public_area a
+WHERE (a.parent_code = :district AND a.kind IN ('upazila', 'city_corporation'))
+   OR (a.kind = 'metro_thana' AND a.parent_code IN (
+        SELECT c.code FROM hub_public_area c
+        WHERE c.parent_code = :district AND c.kind = 'city_corporation'))
+"""
+
 #: Past this page number a search is past the end without asking, so the
 #: offset stays far inside ``bigint`` whatever page a URL names.
 MAX_PAGE: Final[int] = 1_000_000
@@ -115,8 +133,12 @@ MAX_PAGE: Final[int] = 1_000_000
 #: list; each term holds only letters, marks and digits
 #: (:func:`app.hub.public.normalise.query_terms`), so ``term || ':*'`` is a
 #: prefix query that cannot carry query syntax. Every term must match the
-#: owner's text or any of its batches' text. A NULL filter is off. Returns
-#: one row even past the end: the total, and NULL owner columns.
+#: owner's text, any of its batches' text, or one of the owner's area
+#: names [R12]: its district, its upazila, city corporation or metropolitan
+#: thana, and a thana's city corporation, each in English and Bangla and
+#: normalised by ``hub_search_norm`` as the listing text is. An area match
+#: adds nothing to the rank. A NULL filter is off. Returns one row even past
+#: the end: the total, and NULL owner columns.
 _SEARCH: Final[str] = """
 WITH q AS (
     SELECT CAST(:terms AS text[]) AS terms,
@@ -146,6 +168,18 @@ WITH q AS (
                 SELECT 1 FROM hub_public_batch b
                 WHERE b.owner_slug = o.slug
                   AND b.search_text @@ to_tsquery('simple', term || ':*')
+            )
+            OR EXISTS (
+                SELECT 1 FROM hub_public_area a
+                WHERE a.code IN (
+                    o.district_code,
+                    o.upazila_code,
+                    (SELECT t.parent_code FROM hub_public_area t
+                     WHERE t.code = o.upazila_code AND t.kind = 'metro_thana')
+                )
+                AND to_tsvector(
+                    'simple', hub_search_norm(a.name_en || ' ' || a.name_bn)
+                ) @@ to_tsquery('simple', term || ':*')
             )
         )
     )
@@ -333,6 +367,41 @@ def _subject(value: str | None) -> str | None:
     return cleaned
 
 
+def _option(row: Any) -> AreaOption:
+    """Build one area choice from an area row.
+
+    :param row: A row with ``code``, ``name_en`` and ``name_bn``
+    :return: The choice
+    """
+    return AreaOption(code=row.code, en=row.name_en, bn=row.name_bn)
+
+
+def _district_areas(
+    session: Session, district: str | None
+) -> tuple[list[AreaOption], list[CityAreas]]:
+    """Read the areas a chosen district offers beneath it.
+
+    :param session: A session already reading as the hub reader
+    :param district: The chosen district's code, or None
+    :return: Its upazilas, and its city corporations with their thanas;
+        both empty when no district is chosen or the code names none
+    """
+    if district is None:
+        return [], []
+    rows = session.execute(sa.text(_DISTRICT_AREAS), {"district": district}).all()
+    upazilas = [_option(row) for row in rows if row.kind == "upazila"]
+    thanas: dict[str, list[AreaOption]] = {}
+    for row in rows:
+        if row.kind == "metro_thana":
+            thanas.setdefault(row.parent_code, []).append(_option(row))
+    cities = [
+        CityAreas(city=_option(row), thanas=thanas.get(row.code, []))
+        for row in rows
+        if row.kind == "city_corporation"
+    ]
+    return upazilas, cities
+
+
 def search(
     session: Session,
     *,
@@ -354,8 +423,9 @@ def search(
     case) and ``level`` must both hold for one and the same published
     batch; a ``level`` outside :data:`CLASS_LEVELS` is ignored. Area codes
     are read in any case, and a ``district`` or ``upazila`` that is not
-    shaped like one (:data:`AREA_CODE`), or a ``subject`` longer than
-    :data:`MAX_SUBJECT_LENGTH`, is ignored too.
+    shaped like one (:data:`AREA_CODE`), an ``upazila`` outside a chosen
+    ``district``, or a ``subject`` longer than :data:`MAX_SUBJECT_LENGTH`,
+    is ignored too. The page also carries the form's area choices.
 
     Ranked by each term's ``ts_rank`` against the owner and its best
     batch, summed; then newest published; then slug. A page past the end
@@ -374,9 +444,21 @@ def search(
     """
     del locale
     as_hub_reader(session)
+    district_code = _area_code(district)
+    upazila_code = _area_code(upazila)
+    districts = [_option(row) for row in session.execute(sa.text(_DISTRICTS))]
+    upazilas, cities = _district_areas(session, district_code)
+    if district_code is not None and upazila_code is not None:
+        # A choice left over from another district would AND the search
+        # into nothing; the form cannot clear it without a script.
+        within = {area.code for area in upazilas} | {
+            area.code for city in cities for area in (city.city, *city.thanas)
+        }
+        if upazila_code not in within:
+            upazila_code = None
     filters = HubSearchFilters(
-        district=_area_code(district),
-        upazila=_area_code(upazila),
+        district=district_code,
+        upazila=upazila_code,
         subject=_subject(subject),
         level=level if level in CLASS_LEVELS else None,
     )
@@ -398,6 +480,9 @@ def search(
     return HubSearchPage(
         query=q,
         filters=filters,
+        districts=districts,
+        upazilas=upazilas,
+        cities=cities,
         results=[
             _owner_card(row) for row in rows if row.slug is not None and not past_end
         ],

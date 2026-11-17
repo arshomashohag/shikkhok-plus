@@ -829,3 +829,102 @@ def test_area_filters_match_through_the_edge_function(
     for raw in ({"district": DHAKA}, {"upazila": MIRPUR}, {"upazila": DNCC}):
         forwarded = _through_the_edge(**raw)
         assert _search(restricted_session, **forwarded) == ["t-mirpur"], raw
+
+
+def test_search_terms_match_the_owners_area_names(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A place typed into the search box finds owners there [R12].
+
+    Neither tutor's own text names a place. Each term must still match
+    somewhere, so "physics Mirpur" needs physics in the listing and Mirpur
+    in the owner's areas: the thana, its city corporation, or the district.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    # The default public name repeats the slug, so each gets a placeless one.
+    for slug, upazila in (("t-mirpur", MIRPUR), ("t-savar", SAVAR)):
+        owner_id, batch_id = _tutor(
+            owner_session,
+            slug,
+            public_name=f"Tutor {upazila}",
+            headline_en="Physics tutor",
+            upazila=upazila,
+        )
+        _batch_listing(
+            owner_session, batch_id, owner_id, title="Class 10", subject_tags=()
+        )
+    for slug, district in (("t-nowhere", None), ("t-ctg", CHATTOGRAM)):
+        _tutor(
+            owner_session,
+            slug,
+            public_name=f"Tutor {slug[2:5]}",
+            headline_en="Physics",
+            district=district,
+        )
+
+    def found(q: str) -> set[str]:
+        return set(_search(restricted_session, q=q))
+
+    for q in ("physics Mirpur", "PHYSICS mirpur", "physics মিরপুর", "মির‍পুর"):
+        assert found(q) == {"t-mirpur"}, ascii(q)
+    assert found("physics north") == {"t-mirpur"}
+    assert found("physics savar") == {"t-savar"}
+    assert found("physics সাভার") == {"t-savar"}
+    assert found("physics dhaka") == {"t-mirpur", "t-savar"}
+    assert found("physics ঢাকা") == {"t-mirpur", "t-savar"}
+    assert found("physics chattogram") == {"t-ctg"}
+    assert found("physics") == {"t-mirpur", "t-savar", "t-nowhere", "t-ctg"}
+    assert found("chemistry mirpur") == set()
+
+
+def test_search_lists_districts_and_the_chosen_districts_areas(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """Every district is offered; a chosen one's areas are offered beneath it.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    _tutor(owner_session, "t-mirpur", district=DHAKA, upazila=MIRPUR)
+
+    def page(**kwargs: object) -> object:
+        arguments: dict[str, object] = {
+            "locale": "en",
+            "q": None,
+            "district": None,
+            "upazila": None,
+            "subject": None,
+            "level": None,
+            "page": 1,
+        }
+        arguments.update(kwargs)
+        found = queries.search(restricted_session, **arguments)  # type: ignore[arg-type]
+        restricted_session.rollback()
+        return found
+
+    landing = page()
+    assert len(landing.districts) == 64  # type: ignore[attr-defined]
+    dhaka = next(d for d in landing.districts if d.code == DHAKA)  # type: ignore[attr-defined]
+    assert (dhaka.en, dhaka.bn) == ("Dhaka", "ঢাকা")
+    assert landing.upazilas == [] and landing.cities == []  # type: ignore[attr-defined]
+
+    chosen = page(district=DHAKA)
+    assert {u.code for u in chosen.upazilas} == {  # type: ignore[attr-defined]
+        "BD30260072",
+        "BD30260014",
+        "BD30260038",
+        "BD30260062",
+        "BD30260018",
+    }
+    cities = {c.city.code: c for c in chosen.cities}  # type: ignore[attr-defined]
+    assert set(cities) == {DNCC, "BD30262000"}
+    assert MIRPUR in {t.code for t in cities[DNCC].thanas}
+
+    # An area outside the chosen district is ignored, not ANDed into nothing.
+    elsewhere = page(district=CHATTOGRAM, upazila=MIRPUR)
+    assert elsewhere.filters.upazila is None  # type: ignore[attr-defined]
+    assert page(district=DHAKA, upazila=MIRPUR).filters.upazila == MIRPUR  # type: ignore[attr-defined]

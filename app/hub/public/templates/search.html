@@ -4,12 +4,40 @@
 <form class="search" method="get" action="/hub/{{ locale }}" role="search">
 <label for="q">{{ m("search_label") }}</label>
 <input id="q" name="q" type="search" maxlength="200" value="{{ view.query or '' }}">
+<label for="district">{{ m("search_district") }}</label>
+<select id="district" name="district">
+<option value="">{{ m("search_any_district") }}</option>
+{% for option in by_name(view.districts) %}
+<option value="{{ option.code }}"{% if option.code == view.filters.district %} selected{% endif %}>{{ area_name(option) }}</option>
+{% endfor %}
+</select>
+{% if view.upazilas or view.cities %}
+<label for="upazila">{{ m("search_area") }}</label>
+<select id="upazila" name="upazila">
+<option value="">{{ m("search_any_area") }}</option>
+{% if view.upazilas %}
+<optgroup label="{{ m('search_upazilas') }}">
+{% for option in by_name(view.upazilas) %}
+<option value="{{ option.code }}"{% if option.code == view.filters.upazila %} selected{% endif %}>{{ area_name(option) }}</option>
+{% endfor %}
+</optgroup>
+{% endif %}
+{% for city in by_name(view.cities) %}
+<optgroup label="{{ area_name(city.city) }}">
+<option value="{{ city.city.code }}"{% if city.city.code == view.filters.upazila %} selected{% endif %}>{{ m("search_whole_city", name=area_name(city.city)) }}</option>
+{% for option in by_name(city.thanas) %}
+<option value="{{ option.code }}"{% if option.code == view.filters.upazila %} selected{% endif %}>{{ area_name(option) }}</option>
+{% endfor %}
+</optgroup>
+{% endfor %}
+</select>
+{% endif %}
 {% for name, value in hidden_filters %}
 <input type="hidden" name="{{ name }}" value="{{ value }}">
 {% endfor %}
 <button type="submit">{{ m("search_button") }}</button>
 </form>
-{% if hidden_filters %}
+{% if filtered %}
 <p class="muted">{{ m("search_filtered") }} <a href="{{ clear_href }}">{{ m("search_clear_filters") }}</a></p>
 {% endif %}
 <p class="muted">{{ m("search_results", total=view.total) }}</p>

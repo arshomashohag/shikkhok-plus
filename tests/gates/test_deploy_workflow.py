@@ -1050,6 +1050,9 @@ def _landing_page() -> str:
     view = HubSearchPage(
         query=None,
         filters=HubSearchFilters(district=None, upazila=None, subject=None, level=None),
+        districts=[],
+        upazilas=[],
+        cities=[],
         results=[],
         page=1,
         pages=1,

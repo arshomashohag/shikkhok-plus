@@ -25,9 +25,10 @@ from __future__ import annotations
 import functools
 import hashlib
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, TypeVar
 from urllib.parse import urlencode
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
@@ -38,6 +39,8 @@ from app.hub.public.messages import LOCALES, MESSAGES, Locale, t
 from app.hub.public.registry import registered_views
 from app.hub.public.settings import site_url, web_app_url
 from app.hub.public.views import (
+    AreaOption,
+    CityAreas,
     HubBatchCard,
     HubBatchPage,
     HubOwnerCard,
@@ -90,6 +93,20 @@ _ENV: Final[Environment] = Environment(
     keep_trailing_newline=True,
 )
 _ENV.globals.update(t=t, locales=LOCALES, stylesheet=STYLESHEET_PATH)
+
+
+#: What :func:`_helpers`' ``by_name`` sorts: area choices, or city
+#: corporations with their thanas, each named by its own choice.
+_Named = TypeVar("_Named", AreaOption, CityAreas)
+
+
+def _option_of(item: AreaOption | CityAreas) -> AreaOption:
+    """Find the area choice that names an item.
+
+    :param item: An area choice, or a city corporation with its thanas
+    :return: The choice itself, or the city corporation's
+    """
+    return item.city if isinstance(item, CityAreas) else item
 
 
 @dataclass(frozen=True, slots=True)
@@ -381,6 +398,22 @@ def _helpers(locale: Locale) -> dict[str, Any]:
         """
         return _area(card, locale)
 
+    def area_name(option: AreaOption) -> str:
+        """Name an area choice in the page's locale.
+
+        :param option: The choice
+        :return: Its name
+        """
+        return option.en if locale == "en" else option.bn
+
+    def by_name(options: Sequence[_Named]) -> list[_Named]:
+        """Order area choices by their name in the page's locale.
+
+        :param options: Area choices, or city corporations with their thanas
+        :return: The same, sorted
+        """
+        return sorted(options, key=lambda item: area_name(_option_of(item)))
+
     def title(batch: HubBatchCard) -> str:
         """Name a batch by its public title, never by ``batch.name``.
 
@@ -395,6 +428,8 @@ def _helpers(locale: Locale) -> dict[str, Any]:
         "labels": labels,
         "weekday": weekday,
         "area": area,
+        "area_name": area_name,
+        "by_name": by_name,
         "title": title,
     }
 
@@ -402,22 +437,37 @@ def _helpers(locale: Locale) -> dict[str, Any]:
 def _search_context(view: HubSearchPage, locale: Locale) -> dict[str, Any]:
     """Build what only the search page needs: its filters and its pager.
 
+    A district or area the form's choices already show is carried by its
+    select; any other applied filter rides along as a hidden input, so
+    searching again from the box keeps it.
+
     :param view: The search page
     :param locale: The page's locale
     :return: The extra template context
     """
     base = f"/hub/{locale}"
-    filters = [
-        (key, value)
+    shown = {
+        "district": {area.code for area in view.districts},
+        "upazila": {area.code for area in view.upazilas}
+        | {area.code for city in view.cities for area in (city.city, *city.thanas)},
+    }
+    applied = {
+        key: value
         for key, value in view.filters.model_dump().items()
         if value is not None
+    }
+    hidden = [
+        (key, value)
+        for key, value in applied.items()
+        if value not in shown.get(key, set())
     ]
     clear = base + ("?" + urlencode({"q": view.query}) if view.query else "")
     # Past the end, "previous" is the last page that has results.
     previous = min(view.page - 1, view.pages) if view.page > 1 else None
     following = view.page + 1 if view.page < view.pages else None
     return {
-        "hidden_filters": filters,
+        "hidden_filters": hidden,
+        "filtered": bool(applied),
         "clear_href": clear,
         "previous_href": None
         if previous is None
