@@ -1479,6 +1479,14 @@ jobs:
       # edges serve this release's pages, which name only this release's
       # assets. A browser still holding a previous page (five minutes at
       # most) holds its assets too -- they were immutable.
+      #
+      # **hub-assets/ is never pruned.** That is only safe for files whose
+      # referencing pages ship in this same build. The hub stylesheet is
+      # linked by pages the API renders, which deploys in a different job,
+      # possibly at a different ref, and whose pages the edge caches for up
+      # to ten minutes. Pruning it would leave those pages unstyled. The files
+      # are a few KB, immutable and named by content, so keeping every old
+      # one costs nothing (tests/gates/test_deploy_workflow.py).
       - name: Prune old files
         env:
           BUCKET: ${{ steps.target.outputs.bucket }}
@@ -1488,6 +1496,7 @@ jobs:
           aws s3api list-objects-v2 --bucket "$BUCKET" --query 'Contents[].Key' --output text \
             | tr '\t' '\n' | while read -r key; do
                 if [ -z "$key" ] || [ "$key" = "None" ]; then continue; fi
+                if [[ "$key" == hub-assets/* ]]; then continue; fi
                 if [ ! -f "$key" ]; then
                   echo "removing $key"
                   aws s3 rm "s3://$BUCKET/$key" --only-show-errors

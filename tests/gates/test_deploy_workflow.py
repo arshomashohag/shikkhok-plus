@@ -521,3 +521,126 @@ def test_the_preflight_checks_the_kid_the_release_writes() -> None:
     written = re.findall(r"SHIKKHOKPLUS_JWT_ACTIVE_KID=(\w+)", str(record[0]["run"]))
 
     assert written == [_keyring_env()["JWT_ACTIVE_KID"]]
+
+
+# ---------------------------------------------------------------------------
+# The public hub's stylesheet [H2]. The site build ships it under
+# hub-assets/, but the pages that link it are rendered by the API, which
+# deploys separately and is cached at the edge for up to ten minutes. The
+# site's prune may therefore never delete a hub-assets/ key: a page still
+# linking the previous name would lose its styling.
+# ---------------------------------------------------------------------------
+
+#: A stand-in ``aws`` that logs every call and lists the given bucket keys.
+_FAKE_AWS = """#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "$AWS_LOG"
+if [ "$1 $2" = "s3api list-objects-v2" ]; then
+  printf '%s' "$BUCKET_KEYS"
+fi
+"""
+
+
+def _site_step(name: str) -> dict[str, object]:
+    """Return one named step of the site job.
+
+    :param name: The step's name
+    :return: The step
+    """
+    named = [s for s in _steps("site") if s.get("name") == name]
+    assert len(named) == 1, name
+    return named[0]
+
+
+def _run_site_step(
+    name: str, tmp_path: pathlib.Path, dist: list[str], bucket: list[str]
+) -> list[str]:
+    """Run a site step's script against a fake bucket, as Actions runs it.
+
+    :param name: The step's name
+    :param tmp_path: A scratch directory
+    :param dist: The files the new build holds, relative to ``site/dist``
+    :param bucket: The keys the bucket holds before the step
+    :return: Each ``aws`` invocation, one argument string per call
+    """
+    built = tmp_path / "dist"
+    for rel in dist:
+        (built / rel).parent.mkdir(parents=True, exist_ok=True)
+        (built / rel).write_text("x")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake = bin_dir / "aws"
+    fake.write_text(_FAKE_AWS)
+    fake.chmod(0o755)
+    log = tmp_path / "aws.log"
+    log.write_text("")
+    result = subprocess.run(  # noqa: S603 -- a fixed interpreter and our own script
+        [  # noqa: S607 -- bash from PATH, as the runner finds it
+            "bash",
+            "--noprofile",
+            "--norc",
+            "-eo",
+            "pipefail",
+            "-c",
+            str(_site_step(name)["run"]),
+        ],
+        cwd=built,
+        env={
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "BUCKET": "site-bucket",
+            "AWS_LOG": str(log),
+            "BUCKET_KEYS": "\t".join(bucket),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    return log.read_text().splitlines()
+
+
+def test_the_site_prune_keeps_every_hub_stylesheet(tmp_path: pathlib.Path) -> None:
+    """Old hub stylesheets survive the prune; other stale keys do not.
+
+    :param tmp_path: A scratch directory
+    :return: None
+    """
+    calls = _run_site_step(
+        "Prune old files",
+        tmp_path,
+        dist=["index.html", "assets/site.new.css", "hub-assets/hub.000000000002.css"],
+        bucket=[
+            "index.html",
+            "assets/site.new.css",
+            "assets/site.old.css",
+            "hub-assets/hub.000000000001.css",
+            "hub-assets/hub.000000000002.css",
+        ],
+    )
+    removed = [call for call in calls if call.startswith("s3 rm ")]
+
+    assert removed == ["s3 rm s3://site-bucket/assets/site.old.css --only-show-errors"]
+
+
+def test_the_site_upload_ships_the_hub_stylesheet_immutable(
+    tmp_path: pathlib.Path,
+) -> None:
+    """hub-assets/ is uploaded as CSS, cached for a year and immutable.
+
+    :param tmp_path: A scratch directory
+    :return: None
+    """
+    calls = _run_site_step(
+        "Upload",
+        tmp_path,
+        dist=["index.html", "hub-assets/hub.000000000002.css"],
+        bucket=[],
+    )
+    hub = [call for call in calls if "s3://site-bucket/hub-assets/" in call]
+
+    assert hub == [
+        "s3 cp hub-assets s3://site-bucket/hub-assets/ --recursive "
+        "--only-show-errors --exclude * --include *.css "
+        "--content-type text/css; charset=utf-8 "
+        "--cache-control public, max-age=31536000, immutable"
+    ]
