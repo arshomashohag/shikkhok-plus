@@ -776,9 +776,12 @@ chmod 0644 /etc/cron.d/shikkhokplus-hub-feedback-question
 # it from the instance's credentials [OPS-4]. So this host script asks
 # the RUNNING container which rows are unsent (`exec`, never a new
 # container every two minutes on a 2 GB host), sends them with the
-# host's AWS CLI, and reports back with `ack` or `fail`. `claim` stamps
-# the job's heartbeat every run; it changes no row, so a host with no
-# distribution (the rehearsal host) claims harmlessly and sends nothing.
+# host's AWS CLI, and reports back with `ack` or `fail`. The job's
+# heartbeat moves only on real progress [R8a]: a `claim` that finds
+# nothing to send, or a successful `ack`, never a claim that hands out
+# rows, so a sender whose every send fails goes stale and alerts. `claim`
+# changes no row, so a host with no distribution (the rehearsal host)
+# claims harmlessly and sends nothing.
 # A stopped container skips the run; the rows wait for the next one.
 # CloudFront's "too many invalidations in progress" is a wait, not a
 # failure: the run ends, the rows stay offered, and no attempt is
@@ -794,7 +797,7 @@ say() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
 exec 9>/run/lock/shikkhokplus-hub-invalidate.lock
 flock -n 9 || { say "previous run still sending; skipped"; exit 0; }
 cd /srv/shikkhokplus || { say "no application directory; skipped"; exit 0; }
-if ! docker compose ps --status running --services 2>/dev/null | grep -qx api; then
+if ! docker compose ps --status running --services 2>/dev/null | grep -x api >/dev/null; then
   say "api container not running; skipped"
   exit 0
 fi

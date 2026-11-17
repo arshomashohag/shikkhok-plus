@@ -289,9 +289,11 @@ HUB_BADGE_JOB = "hub_badge_refresh"
 
 #: H2's sender of the CloudFront invalidation outbox, ``cdn_invalidation``
 #: [0041, R8]. Every takedown enqueues its paths in its own transaction; the
-#: host's two-minute cron claims them through ``app.hub.public.commands``,
-#: which stamps this heartbeat on every claim. A sender that stopped would
-#: leave taken-down pages served from the edge cache until their TTL ends.
+#: host's two-minute cron claims them through ``app.hub.public.commands``.
+#: The heartbeat moves only on real progress [R8a]: a claim that finds
+#: nothing to send, or a successful ``ack`` -- never a claim that hands out
+#: rows. A sender that stopped, or whose every send fails, would leave
+#: taken-down pages served from the edge cache until their TTL ends.
 HUB_INVALIDATION_JOB = "hub_cdn_invalidation"
 
 #: H2's daily demand question [0042]: "Did the hub bring you a student?",

@@ -147,7 +147,12 @@ def host(tmp_path: pathlib.Path) -> pathlib.Path:
         'echo "$*" >> "$STUB_DIR/docker.log"\n'
         'case "$*" in\n'
         '  "compose ps --status running --services")\n'
-        '    [ "$STUB_API_UP" = 1 ] && echo api; exit 0 ;;\n'
+        '    [ "$STUB_API_UP" = 1 ] && echo api\n'
+        # A long list still being written after "api": a reader that stops
+        # at the first match leaves this writer to die of SIGPIPE.
+        '    [ "$STUB_API_UP" = long ] && echo api && '
+        "printf 'worker\\n%.0s' $(seq 100000)\n"
+        "    exit 0 ;;\n"
         '  *"commands claim"*) cat "$STUB_DIR/claim.json"; exit 0 ;;\n'
         '  *"commands ack"*) [ "$STUB_ACK_FAIL" = 1 ] && exit 2; exit 0 ;;\n'
         "  *) exit 0 ;;\n"
@@ -174,7 +179,7 @@ def _run(
     host: pathlib.Path,
     claim: dict[str, object],
     *,
-    api_up: bool = True,
+    api_up: bool | str = True,
     aws_fails: bool | str = False,
     aws_stderr: bool = False,
     ack_fails: bool = False,
@@ -187,7 +192,8 @@ def _run(
 
     :param host: The stand-ins' directory
     :param claim: What the stand-in container's ``claim`` prints
-    :param api_up: Whether the stand-in reports the api container running
+    :param api_up: Whether the stand-in reports the api container running,
+        or ``"long"`` to report it first in a long list
     :param aws_fails: Whether the stand-in CloudFront call fails, or
         ``"throttle"`` to fail with TooManyInvalidationsInProgress
     :param aws_stderr: Whether a successful call also writes to stderr
@@ -207,7 +213,7 @@ def _run(
         **os.environ,
         "PATH": f"{host / 'bin'}:{os.environ['PATH']}",
         "STUB_DIR": str(host),
-        "STUB_API_UP": "1" if api_up else "0",
+        "STUB_API_UP": api_up if isinstance(api_up, str) else ("1" if api_up else "0"),
         "STUB_AWS_FAIL": aws_fails
         if isinstance(aws_fails, str)
         else ("1" if aws_fails else "0"),
@@ -282,11 +288,25 @@ def test_a_stopped_container_skips_the_run(host: pathlib.Path) -> None:
     assert "api container not running" in result.stdout
 
 
+def test_a_long_service_list_is_not_read_as_a_stopped_container(
+    host: pathlib.Path,
+) -> None:
+    # `grep -q` exits at its first match, and a `docker compose` still
+    # writing dies of SIGPIPE; under pipefail that whole check failed and
+    # a running container read as stopped. The reader must drain the list.
+    result = _run(host, CLAIM, api_up="long")
+
+    assert "api container not running" not in result.stdout
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"compose exec -T api {COMMANDS} claim" in _docker_calls(host)
+
+
 def test_a_host_with_no_distribution_claims_but_sends_nothing(
     host: pathlib.Path,
 ) -> None:
-    # The rehearsal host: the claim still stamps the heartbeat, and changes
-    # no row, so the primary host sends what is waiting.
+    # The rehearsal host: the claim changes no row, so the primary host
+    # sends what is waiting. A claim that hands out rows stamps no
+    # heartbeat [R8a]; only the primary's ack does.
     result = _run(host, CLAIM, distribution="")
 
     assert result.returncode == 0
