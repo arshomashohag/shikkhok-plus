@@ -23,6 +23,11 @@ export interface RequestOptions {
   query?: Record<string, string | number | boolean | undefined>
   /** For the unauthenticated auth routes. */
   anonymous?: boolean
+  /**
+   * The workspace to act on for this one request, in place of the stored
+   * choice: a choice, never a grant, as `workspace.ts` says.
+   */
+  workspace?: string
   signal?: AbortSignal
 }
 
@@ -45,7 +50,7 @@ async function send(
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
   if (token) {
     headers.Authorization = `Bearer ${token}`
-    const workspace = currentWorkspace()
+    const workspace = options.workspace ?? currentWorkspace()
     if (workspace) headers[WORKSPACE_HEADER] = workspace
   }
   try {

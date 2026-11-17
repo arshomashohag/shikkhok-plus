@@ -690,6 +690,18 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "when a manager's account is deleted."
         ),
     ),
+    "hub_feedback": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A publishing teacher's answers to whether the public hub brought "
+            "them a student, asked 60 and 90 days after they first published, "
+            "and which account answered. A solo teacher's answers go when "
+            "they delete their account. A coaching centre's answers belong to "
+            "the centre, so they stay when a manager's account is deleted, "
+            "and no longer say which manager answered."
+        ),
+    ),
     "batch_listing": TableGovernance(
         disposition=Disposition.HARD_DELETE,
         retention=RetentionClass.LIFE_OF_ACCOUNT,

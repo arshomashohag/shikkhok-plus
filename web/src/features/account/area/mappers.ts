@@ -40,6 +40,7 @@ export const INBOX_KINDS = [
   'class_cancelled',
   'class_rescheduled',
   'hub_listing_suspended',
+  'hub_feedback_question',
 ] as const satisfies readonly ApiInboxKind[]
 
 export type InboxKind = (typeof INBOX_KINDS)[number]
@@ -88,6 +89,17 @@ export interface InboxMessage {
   sourceId: string | null
   preview: string | null
   classChange: ClassChange | null
+  /** For the hub's demand question, which one: 60 or 90. */
+  feedbackDay: FeedbackDay | null
+}
+
+/** The days the hub's demand question is asked on. */
+export type FeedbackDay = 60 | 90
+
+/** The demand question's `preview` is its day, not a line to show. */
+function feedbackDayOf(kind: InboxKind, preview: string | null): FeedbackDay | null {
+  if (kind !== 'hub_feedback_question') return null
+  return preview === '60' ? 60 : preview === '90' ? 90 : null
 }
 
 export interface InboxModel {
@@ -113,8 +125,9 @@ export function mapInbox(dto: Schemas['InboxResponse']): InboxModel {
               unread: !i.read,
               enrollmentId: i.enrollment_id ?? null,
               sourceId: i.source_id ?? null,
-              preview: i.preview ?? null,
+              preview: i.kind === 'hub_feedback_question' ? null : (i.preview ?? null),
               classChange: classChangeOf(i),
+              feedbackDay: feedbackDayOf(i.kind, i.preview ?? null),
             },
           ]
         : [],
@@ -137,6 +150,7 @@ export const TITLE_KEY: Record<InboxKind, string> = {
   class_cancelled: 'inbox_class_cancelled_title',
   class_rescheduled: 'inbox_class_rescheduled_title',
   hub_listing_suspended: 'web_inbox_hub_listing_suspended_title',
+  hub_feedback_question: 'inbox_hub_feedback_question_title',
 }
 
 /** "Child · Batch", or just the batch for the reader's own seat. */
@@ -184,6 +198,7 @@ export function inboxBody(
 ): string | null {
   const line = classLine(m.kind, m.classChange, t, when)
   if (line) return line
+  if (m.feedbackDay) return t('hub_feedback_day', String(m.feedbackDay))
   if (m.preview) return m.preview
   if (!m.amount) return null
   const money = m.amount.format()
@@ -232,6 +247,9 @@ export function targetOf(m: InboxMessage): InboxTarget {
     return { to: m.sourceId ? paths.payment(m.sourceId) : paths.verify(), lens: 'teacher' }
   }
   if (m.kind === 'hub_listing_suspended') return { to: paths.hub(), lens: 'teacher' }
+  if (m.kind === 'hub_feedback_question' && m.sourceId && m.feedbackDay) {
+    return { to: paths.hubFeedback(m.sourceId, m.feedbackDay), lens: 'teacher' }
+  }
   return { to: accountPaths.inboxItem(m.id), lens: null }
 }
 

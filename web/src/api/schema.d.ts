@@ -2942,6 +2942,36 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/hub/feedback': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Answer Feedback
+     * @description Answer "Did the hub bring you a student?"; answering again overwrites.
+     *
+     *     The question answered is the workspace's own: a centre manager names the
+     *     centre with ``X-Workspace-Id``, as the inbox item's ``source_id`` gives
+     *     it. A day this owner was never asked is refused with
+     *     ``HUB_FEEDBACK_NOT_ASKED`` (409).
+     *
+     *     :param body: The day of the question and the answer
+     *     :param lens: The answering manager's lens on the owner
+     *     :param session: The request-scoped session
+     *     :return: An empty 204
+     */
+    post: operations['answer_feedback_v1_hub_feedback_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/hub/listing': {
     parameters: {
       query?: never
@@ -8236,6 +8266,26 @@ export interface components {
       status: 'approved_full' | 'approved_partial' | 'pending' | 'rejected'
     }
     /**
+     * HubFeedbackRequest
+     * @description An owner's answer to "Did the hub bring you a student?" [0042].
+     *
+     *     :ivar day: Which question: the one asked at day 60 or day 90 after the
+     *         first publish, as the inbox item's ``preview`` names it
+     *     :ivar answer: ``yes``, ``not_yet`` or ``not_sure``
+     */
+    HubFeedbackRequest: {
+      /**
+       * Answer
+       * @enum {string}
+       */
+      answer: 'not_sure' | 'not_yet' | 'yes'
+      /**
+       * Day
+       * @enum {integer}
+       */
+      day: 60 | 90
+    }
+    /**
      * HubReportRequest
      * @description A reader's report about one hub target.
      *
@@ -9100,6 +9150,7 @@ export interface components {
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
+        | 'hub_feedback_question'
         | 'hub_listing_suspended'
         | 'marks_available'
         | 'notice'
@@ -9141,7 +9192,9 @@ export interface components {
      *     :ivar read: Whether the reader has opened the inbox since
      *     :ivar source_id: The record that produced it, if any
      *     :ivar child_name: Which child it is about, for a guardian's copy
-     *     :ivar preview: A short line of its content, if any
+     *     :ivar preview: A short line of its content, if any; for a
+     *         ``hub_feedback_question``, the question's day, ``60`` or ``90``,
+     *         which the answer sends back
      *     :ivar class_date: For a class change, the day the class is now on, or
      *         was on if cancelled
      *     :ivar class_time: For a class change, its start time that day
@@ -9176,6 +9229,7 @@ export interface components {
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
+        | 'hub_feedback_question'
         | 'hub_listing_suspended'
         | 'marks_available'
         | 'notice'
@@ -19791,6 +19845,100 @@ export interface operations {
       }
       /** @description No lens reaches this; absence reads the same. */
       403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  answer_feedback_v1_hub_feedback_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubFeedbackRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
         headers: {
           [name: string]: unknown
         }

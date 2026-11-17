@@ -1958,6 +1958,7 @@
     <string name="hub_report_reason_invalid">Choose one of the listed reasons.</string>
     <string name="hub_batch_inactive">This batch is retired, so its listing cannot be published.</string>
     <string name="hub_owner_not_published">Publish your own listing first, then publish this batch.</string>
+    <string name="hub_feedback_not_asked">This question was not asked for this listing, so there is nothing to answer.</string>
     <string name="hub_batch_value_invalid">One of the chosen options is not allowed. Pick from the list.</string>
     <string name="hub_more_title">Public listing</string>
     <string name="hub_more_sub">Your page on ShikkhokPlus that parents can find</string>
@@ -2092,4 +2093,13 @@
     <string name="hub_consent_empty">You are not a member of any centre yet.</string>
     <string name="hub_more_section">PUBLIC PAGE</string>
     <string name="inbox_hub_listing_suspended_title">Listing suspended · %1$s</string>
+    <string name="inbox_hub_feedback_question_title">Did the hub bring you a student? · %1$s</string>
+    <string name="hub_feedback_title">Hub feedback</string>
+    <string name="hub_feedback_question">Did the hub bring you a student?</string>
+    <string name="hub_feedback_day">%1$s days after you first published</string>
+    <string name="hub_feedback_yes">Yes</string>
+    <string name="hub_feedback_not_yet">Not yet</string>
+    <string name="hub_feedback_not_sure">Not sure</string>
+    <string name="hub_feedback_thanks">Thank you. You can change your answer here at any time.</string>
+    <string name="hub_feedback_failed">Your answer was not saved.</string>
 </resources>

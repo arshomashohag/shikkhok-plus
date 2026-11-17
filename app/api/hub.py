@@ -31,7 +31,7 @@ from app.api.html import HUB_PAGE_CSP, html_response
 from app.auth.ceilings import CeilingChecker
 from app.authz.lenses import CentreMemberLens, TeacherLens
 from app.db.models import OwnerListing
-from app.hub import areas
+from app.hub import areas, feedback
 from app.hub.listings import batches, owner
 from app.hub.listings.badge import runs_classes
 from app.hub.listings.batches import BatchListingUpdate, BatchListingView
@@ -60,6 +60,7 @@ from app.schemas.hub import (
     CentreMembershipResponse,
     ChecklistItemWire,
     ConsentRequest,
+    HubFeedbackRequest,
     OwnerListingResponse,
     OwnerListingUpdateRequest,
     PublishRequest,
@@ -517,6 +518,33 @@ def file_report(
         str(getattr(request.state, "correlation_id", "unknown"))[:64],
     )
     return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.post(
+    "/hub/feedback",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    responses=_WRITE_ERRORS,
+)
+def answer_feedback(
+    body: HubFeedbackRequest,
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    """Answer "Did the hub bring you a student?"; answering again overwrites.
+
+    The question answered is the workspace's own: a centre manager names the
+    centre with ``X-Workspace-Id``, as the inbox item's ``source_id`` gives
+    it. A day this owner was never asked is refused with
+    ``HUB_FEEDBACK_NOT_ASKED`` (409).
+
+    :param body: The day of the question and the answer
+    :param lens: The answering manager's lens on the owner
+    :param session: The request-scoped session
+    :return: An empty 204
+    """
+    feedback.answer(session, lens, body.day, body.answer, dt.datetime.now(tz=dt.UTC))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(

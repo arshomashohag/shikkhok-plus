@@ -92,5 +92,6 @@ export const paths = {
   // hub/ -- the public listing [0036]
   hub: () => '/more/hub',
   hubBatches: () => '/more/hub/batches',
+  hubFeedback: (ownerId: string, day: number) => `/more/hub/feedback/${id(ownerId)}/${day}`,
   batchMonth: (batchId: string, period: string) => `/batches/${id(batchId)}/month/${id(period)}`,
 } as const

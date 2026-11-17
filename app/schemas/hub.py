@@ -26,6 +26,7 @@ __all__ = [
     "CentreMembershipResponse",
     "ChecklistItemWire",
     "ConsentRequest",
+    "HubFeedbackRequest",
     "OwnerListingResponse",
     "OwnerListingUpdateRequest",
     "PublishRequest",
@@ -303,6 +304,20 @@ class ConsentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     consent: bool
+
+
+class HubFeedbackRequest(BaseModel):
+    """An owner's answer to "Did the hub bring you a student?" [0042].
+
+    :ivar day: Which question: the one asked at day 60 or day 90 after the
+        first publish, as the inbox item's ``preview`` names it
+    :ivar answer: ``yes``, ``not_yet`` or ``not_sure``
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    day: Literal[60, 90]
+    answer: Literal["yes", "not_yet", "not_sure"]
 
 
 class CentreMembershipResponse(BaseModel):

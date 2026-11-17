@@ -294,6 +294,12 @@ HUB_BADGE_JOB = "hub_badge_refresh"
 #: leave taken-down pages served from the edge cache until their TTL ends.
 HUB_INVALIDATION_JOB = "hub_cdn_invalidation"
 
+#: H2's daily demand question [0042]: "Did the hub bring you a student?",
+#: asked at day 60 and day 90 after an owner's first publish. The day-90
+#: answers decide whether the hub continues, so a job that stopped would
+#: silently leave that decision without its evidence.
+HUB_FEEDBACK_JOB = "hub_feedback_question"
+
 #: Every job the host is expected to run [audit C-01]. The freshness check
 #: reports each of these even when it has no heartbeat row: enumerating
 #: rows alone protected only jobs that had already run once, and the
@@ -307,6 +313,7 @@ EXPECTED_JOBS: frozenset[str] = frozenset(
         RETENTION_PURGE_JOB,
         HUB_BADGE_JOB,
         HUB_INVALIDATION_JOB,
+        HUB_FEEDBACK_JOB,
     }
 )
 
@@ -405,6 +412,7 @@ __all__ = [
     "HELP_AUTHOR_VALUES",
     "HELP_TICKET_STATUS_VALUES",
     "HUB_BADGE_JOB",
+    "HUB_FEEDBACK_JOB",
     "HUB_INVALIDATION_JOB",
     "HUB_SEARCH_NORM_FUNCTION",
     "HUB_TAGS_TEXT_FUNCTION",
@@ -3680,6 +3688,10 @@ class OwnerListing(Base):
     :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
     :ivar public_name: The name shown publicly
     :ivar public_name_latin: The owner's own Latin spelling of that name
+    :ivar published_at: When it was last published; a republish moves it
+    :ivar first_published_at: When it was first published [0042]; set once
+        and never moved, so the demand question's day 60 and day 90 count
+        from the first publish however often the owner hides and republishes
     :ivar runs_classes: The stored badge [0040]; the public views cannot
         read ``enrollment`` to compute it, so the application sets it from
         ``app.hub.listings.badge`` on save, on publish and daily
@@ -3733,6 +3745,9 @@ class OwnerListing(Base):
         nullable=True,
     )
     published_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    first_published_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     suspended_at: Mapped[dt.datetime | None] = mapped_column(
@@ -4070,4 +4085,60 @@ class CdnInvalidation(Base):
             "requested_at",
             postgresql_where=text("sent_at IS NULL"),
         ),
+    )
+
+
+class HubFeedback(Base):
+    """One demand question put to an owner, and its answer [0042].
+
+    "Did the hub bring you a student?" is asked at day 60 and day 90 after
+    the owner's first publish, once per ``(owner_id, day)``: the unique
+    constraint, not a check-then-insert, is what keeps overlapping runs of
+    the daily job from asking twice. The latest answer stands.
+
+    :ivar id: Surrogate key
+    :ivar owner_id: Whose listing the question is about
+    :ivar asked_on: The Dhaka date the job asked it
+    :ivar day: ``60`` or ``90``
+    :ivar answer: ``yes``, ``not_yet`` or ``not_sure``; NULL until answered
+    :ivar answered_at: When the latest answer was given
+    :ivar answered_by_account_id: Who gave it, cleared if their account goes
+    """
+
+    __tablename__ = "hub_feedback"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner.id", ondelete="CASCADE", name=conv("fk_hub_feedback_owner")),
+        nullable=False,
+    )
+    asked_on: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    day: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    answer: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    answered_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    answered_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_hub_feedback_answered_by_account_id"),
+        ),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("owner_id", "day", name=conv("uq_hub_feedback_owner_day")),
+        CheckConstraint("day IN (60, 90)", name=conv("ck_hub_feedback_day")),
+        CheckConstraint(
+            "answer IN ('yes', 'not_yet', 'not_sure')",
+            name=conv("ck_hub_feedback_answer"),
+        ),
+        CheckConstraint(
+            "(answer IS NULL) = (answered_at IS NULL)",
+            name=conv("ck_hub_feedback_answered"),
+        ),
+        Index("ix_hub_feedback_answered_by_account_id", "answered_by_account_id"),
     )

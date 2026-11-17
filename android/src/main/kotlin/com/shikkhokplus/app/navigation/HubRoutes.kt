@@ -6,13 +6,19 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.shikkhokplus.app.feature.hublisting.BatchListingsViewModel
 import com.shikkhokplus.app.feature.hublisting.HttpHubApi
+import com.shikkhokplus.app.feature.hublisting.HttpHubFeedbackApi
+import com.shikkhokplus.app.feature.hublisting.HubFeedbackViewModel
 import com.shikkhokplus.app.feature.hublisting.HubListingViewModel
 import com.shikkhokplus.app.feature.hublisting.NameConsentViewModel
 import com.shikkhokplus.app.feature.hublisting.ui.BatchListingsActions
 import com.shikkhokplus.app.feature.hublisting.ui.BatchListingsScreen
+import com.shikkhokplus.app.feature.hublisting.ui.HubFeedbackActions
+import com.shikkhokplus.app.feature.hublisting.ui.HubFeedbackScreen
 import com.shikkhokplus.app.feature.hublisting.ui.HubListingActions
 import com.shikkhokplus.app.feature.hublisting.ui.HubListingScreen
 import com.shikkhokplus.app.feature.hublisting.ui.NameConsentScreen
@@ -20,7 +26,8 @@ import io.ktor.client.HttpClient
 
 /**
  * The public hub's owner screens, pushed over More: the listing editor,
- * its batch listings, and a centre member's name consent.
+ * its batch listings, and a centre member's name consent; and the demand
+ * question, opened from its inbox item.
  *
  * @param client The authenticated HTTP client
  * @param navController The app's controller
@@ -91,6 +98,30 @@ internal fun NavGraphBuilder.hubRoutes(
             onRetry = model::retry,
             onRetryLoad = model::retryLoad,
             onBack = { navController.popBackStack() },
+        )
+    }
+
+    composable(
+        route = Destination.HubFeedback.route,
+        arguments =
+            listOf(
+                navArgument(Destination.HubFeedback.ARG_OWNER) { type = NavType.StringType },
+                navArgument(Destination.HubFeedback.ARG_DAY) { type = NavType.IntType },
+            ),
+    ) { entry ->
+        val ownerId = entry.arguments?.getString(Destination.HubFeedback.ARG_OWNER).orEmpty()
+        val day = entry.arguments?.getInt(Destination.HubFeedback.ARG_DAY) ?: 0
+        val model: HubFeedbackViewModel =
+            viewModel(key = "$ownerId/$day") { HubFeedbackViewModel(HttpHubFeedbackApi(client), ownerId, day) }
+        val state by model.state.collectAsState()
+        HubFeedbackScreen(
+            state = state,
+            actions =
+                HubFeedbackActions(
+                    onAnswer = model::answer,
+                    onRetry = model::retry,
+                    onBack = { navController.popBackStack() },
+                ),
         )
     }
 }

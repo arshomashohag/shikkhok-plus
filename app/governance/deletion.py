@@ -267,6 +267,15 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
             "cascade fires; deleted by owner, and a centre's survives."
         ),
     ),
+    "hub_feedback": _Target(
+        scope=Scope.SOLO_OWNER,
+        column="owner_id",
+        note=(
+            "A solo teacher's answers to the demand question. `owner` is "
+            "retained, so no cascade fires; a centre's answers survive, and "
+            "the answering manager's id is cleared by its foreign key."
+        ),
+    ),
     "batch_listing": _Target(
         scope=Scope.SOLO_OWNER,
         column="owner_id",

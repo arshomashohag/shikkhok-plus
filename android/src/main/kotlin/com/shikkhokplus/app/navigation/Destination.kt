@@ -728,6 +728,26 @@ sealed interface Destination {
         override val route: String = "hub/name-consent"
     }
 
+    /** "Did the hub bring you a student?", opened from its inbox item. */
+    data object HubFeedback : Destination {
+        override val route: String = "hub/feedback/{ownerId}/{day}"
+
+        /** The owner argument's name. */
+        const val ARG_OWNER: String = "ownerId"
+
+        /** The day argument's name. */
+        const val ARG_DAY: String = "day"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param ownerId The listing's owner
+         * @param day Which question: 60 or 90
+         * @return The route to navigate to
+         */
+        fun of(ownerId: String, day: Int): String = "hub/feedback/$ownerId/$day"
+    }
+
     /** Adding a payment method (P2, P3). */
     data object AddPaymentMethod : Destination {
         override val route: String = "payment-methods/new?kind={kind}"

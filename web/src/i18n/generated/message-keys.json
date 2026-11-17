@@ -132,6 +132,7 @@
   "hub.batch_inactive": "hub_batch_inactive",
   "hub.batch_value_invalid": "hub_batch_value_invalid",
   "hub.consent_outdated": "hub_consent_outdated",
+  "hub.feedback_not_asked": "hub_feedback_not_asked",
   "hub.listing_incomplete": "hub_listing_incomplete",
   "hub.listing_suspended": "hub_listing_suspended",
   "hub.owner_not_published": "hub_owner_not_published",

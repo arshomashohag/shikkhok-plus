@@ -8,8 +8,10 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { Route, Routes } from 'react-router'
 import { json, renderScreen } from '../../../test/render'
 import { BatchListings } from './BatchListings'
+import { HubFeedback } from './Feedback'
 import { HubListing } from './Listing'
 import { NameConsent } from './NameConsent'
 import { translate } from '../../../i18n/i18n'
@@ -628,5 +630,62 @@ describe('publish sheet focus', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Publish' }))
     const dialog = await screen.findByRole('dialog')
     expect(dialog.contains(document.activeElement)).toBe(true)
+  })
+})
+
+describe('HubFeedback', () => {
+  function open(path: string) {
+    return renderScreen(
+      <Routes>
+        <Route path="/more/hub/feedback/:ownerId/:day" element={<HubFeedback />} />
+      </Routes>,
+      path,
+    )
+  }
+
+  it("sends the reply for the item's day, and shows the accepted one", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+    open('/more/hub/feedback/centre-1/90')
+
+    expect(
+      screen.getByRole('heading', { name: 'Did the hub bring you a student?' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('90 days after you first published')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Not yet' }))
+
+    await screen.findByText('Thank you. You can change your answer here at any time.')
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toMatch(/\/v1\/hub\/feedback$/)
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ day: 90, answer: 'not_yet' })
+    expect(screen.getByRole('button', { name: 'Not yet' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('keeps the last accepted reply when a send fails, and offers retry', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockRejectedValueOnce(new TypeError('offline'))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    open('/more/hub/feedback/owner-1/60')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Not sure' }))
+    await screen.findByText('Thank you. You can change your answer here at any time.')
+    await userEvent.click(screen.getByRole('button', { name: 'Yes' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Your answer was not saved.')
+    expect(screen.getByRole('button', { name: 'Not sure' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(
+      within(alert).getByRole('button', { name: translate('en', 'web_hub_retry') }),
+    )
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'true'),
+    )
+    expect(JSON.parse(fetchMock.mock.calls[2]![1].body as string)).toEqual({
+      day: 60,
+      answer: 'yes',
+    })
   })
 })

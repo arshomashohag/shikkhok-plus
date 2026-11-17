@@ -1891,6 +1891,7 @@
     <string name="hub_report_reason_invalid">তালিকা থেকে একটি কারণ বেছে নিন।</string>
     <string name="hub_batch_inactive">এই ব্যাচটি বন্ধ করা হয়েছে, তাই এর তালিকা প্রকাশ করা যাবে না।</string>
     <string name="hub_owner_not_published">আগে আপনার নিজের তালিকা প্রকাশ করুন, তারপর এই ব্যাচ প্রকাশ করুন।</string>
+    <string name="hub_feedback_not_asked">এই তালিকার জন্য প্রশ্নটি জিজ্ঞেস করা হয়নি, তাই উত্তর দেওয়ার কিছু নেই।</string>
     <string name="hub_batch_value_invalid">বেছে নেওয়া একটি বিকল্প গ্রহণযোগ্য নয়। তালিকা থেকে বেছে নিন।</string>
     <string name="hub_more_title">পাবলিক লিস্টিং</string>
     <string name="hub_more_sub">শিক্ষকপ্লাসে আপনার পেজ, যেখানে অভিভাবকরা আপনাকে খুঁজে পান</string>
@@ -2025,4 +2026,13 @@
     <string name="hub_consent_empty">আপনি এখনও কোনো সেন্টারের সদস্য নন।</string>
     <string name="hub_more_section">পাবলিক পেজ</string>
     <string name="inbox_hub_listing_suspended_title">লিস্টিং স্থগিত · %1$s</string>
+    <string name="inbox_hub_feedback_question_title">হাব থেকে কি কোনো শিক্ষার্থী পেয়েছেন? · %1$s</string>
+    <string name="hub_feedback_title">হাব নিয়ে মতামত</string>
+    <string name="hub_feedback_question">হাব থেকে কি কোনো শিক্ষার্থী পেয়েছেন?</string>
+    <string name="hub_feedback_day">প্রথম প্রকাশের %1$s দিন পর</string>
+    <string name="hub_feedback_yes">হ্যাঁ</string>
+    <string name="hub_feedback_not_yet">এখনো না</string>
+    <string name="hub_feedback_not_sure">নিশ্চিত নই</string>
+    <string name="hub_feedback_thanks">ধন্যবাদ। আপনি যেকোনো সময় এখানে উত্তর বদলাতে পারেন।</string>
+    <string name="hub_feedback_failed">আপনার উত্তর সংরক্ষণ হয়নি।</string>
 </resources>

@@ -247,10 +247,11 @@ def test_no_life_of_account_table_appears_in_the_window_map(
     # tables and which app each account uses; 35 since 0028 added the
     # authenticator factor and its recovery codes; 36 since 0035 added
     # the fixed Bangladesh area vocabulary; 39 since 0036 added the hub's
-    # two listing tables and its reports.
-    assert len(life_of_account) == 39, (
+    # two listing tables and its reports; 40 since 0042 added the hub's
+    # demand-question answers.
+    assert len(life_of_account) == 40, (
         f"the manifest now marks {len(life_of_account)} tables "
-        "LIFE_OF_ACCOUNT, not 39. If that is deliberate, this count is "
+        "LIFE_OF_ACCOUNT, not 40. If that is deliberate, this count is "
         "the claim that needs updating with it."
     )
 

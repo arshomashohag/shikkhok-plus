@@ -39,11 +39,11 @@ class InboxMapperTest {
                 "fee_reminder", "payment_approved", "payment_partial", "payment_rejected",
                 "payment_recorded", "notice", "exam_scheduled", "exam_cancelled",
                 "marks_available", "claim_to_verify", "class_cancelled", "class_rescheduled",
-                "hub_listing_suspended",
+                "hub_listing_suspended", "hub_feedback_question",
             )
         val kept = messages(*(known + "future").map { dto(it) }.toTypedArray())
 
-        assertEquals(13, kept.size)
+        assertEquals(14, kept.size)
         assertEquals(InboxKind.entries.toSet(), kept.map { it.kind }.toSet())
     }
 
@@ -249,6 +249,27 @@ class InboxMapperTest {
 
         assertEquals(InboxKind.HUB_LISTING_SUSPENDED, message.kind)
         assertEquals(InboxTarget.HubListing, InboxMapper.targetOf(message))
+    }
+
+    @Test
+    fun `the demand question opens its answer screen for its owner and day`() {
+        val message =
+            messages(dto("hub_feedback_question", enrollment = null, source = "o-1").copy(preview = "90")).single()
+
+        assertEquals(InboxKind.HUB_FEEDBACK_QUESTION, message.kind)
+        // The day is the question's, not a line to show.
+        assertEquals(null, message.preview)
+        assertEquals(90, message.feedbackDay)
+        assertEquals(InboxTarget.HubFeedback("o-1", 90), InboxMapper.targetOf(message))
+    }
+
+    @Test
+    fun `a demand question naming no day it knows opens its detail`() {
+        val message =
+            messages(dto("hub_feedback_question", enrollment = null, source = "o-1").copy(preview = "30")).single()
+
+        assertEquals(null, message.feedbackDay)
+        assertEquals(InboxTarget.Detail("n-1"), InboxMapper.targetOf(message))
     }
 
     @Test

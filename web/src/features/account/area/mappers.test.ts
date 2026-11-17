@@ -472,6 +472,28 @@ describe('class changes (PO-1, PO-10)', () => {
     expect(BUNDLES.bn[key]).toMatch(/[ঀ-৿]/)
   })
 
+  it('opens the hub demand question for its owner and day, showing the day not the preview', () => {
+    const m = one({
+      kind: 'hub_feedback_question',
+      batch_name: 'Udoy Coaching',
+      amount: null,
+      period: null,
+      enrollment_id: null,
+      source_id: 'centre-1',
+      preview: '90',
+    })
+    expect(m.preview).toBeNull()
+    expect(m.feedbackDay).toBe(90)
+    expect(targetOf(m)).toEqual({ to: '/more/hub/feedback/centre-1/90', lens: 'teacher' })
+    expect(inboxBody(m, t, (p) => p)).toBe('hub_feedback_day(90)')
+    expect(translate('en', TITLE_KEY.hub_feedback_question, 'Udoy Coaching')).toBe(
+      'Did the hub bring you a student? · Udoy Coaching',
+    )
+    expect(translate('bn', 'hub_feedback_question')).toBe('হাব থেকে কি কোনো শিক্ষার্থী পেয়েছেন?')
+    // A day it does not know opens the message's own page instead.
+    expect(targetOf({ ...m, feedbackDay: null }).to).toBe('/inbox/n1')
+  })
+
   it('announces every kind it can draw, so the badge counts only those', () => {
     expect(INBOX_KINDS).toContain('class_cancelled')
     expect(INBOX_KINDS).toContain('class_rescheduled')

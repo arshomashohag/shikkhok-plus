@@ -410,6 +410,21 @@ export const setPublicNameConsent = (centreId: string, consent: boolean) =>
     body: { consent },
   })
 
+/**
+ * Answer "Did the hub bring you a student?"; answering again overwrites.
+ * The question is the owner's, so it is sent as that workspace whichever
+ * one is open: a centre manager answers for the centre.
+ */
+export const answerHubFeedback = (
+  ownerId: string,
+  day: Schemas['HubFeedbackRequest']['day'],
+  answer: Schemas['HubFeedbackRequest']['answer'],
+) =>
+  request<undefined>('POST', '/v1/hub/feedback', {
+    body: { day, answer },
+    workspace: ownerId,
+  })
+
 function enc(segment: string): string {
   return encodeURIComponent(segment)
 }

@@ -357,6 +357,10 @@ def publish(
     listing.consent_at = now
     listing.consent_by_account_id = lens.account_id
     listing.published_at = now
+    # Set once: the demand question counts its days from the first publish,
+    # so hiding and republishing must not move it [0042].
+    if listing.first_published_at is None:
+        listing.first_published_at = now
     listing.updated_at = now
     listing.runs_classes = runs_classes(session, lens.owner_id, bangladesh_today(now))
     session.commit()

@@ -28,43 +28,15 @@ from app.db.models import (
     HubModerationEvent,
     Owner,
     OwnerListing,
-    OwnerMember,
 )
 from app.errors import ValidationError
 from app.hub.listings.evict import evict_owner
+from app.hub.listings.shared import managing_accounts
 from app.moderation.reports import admin_not_found
 from app.moderation.vocab import REASONS
 from app.notifications.inbox import HUB_LISTING_SUSPENDED, deliver
 
 __all__ = ["set"]
-
-
-def _managing_accounts(session: Session, owner: Owner) -> list[uuid.UUID]:
-    """Find who runs an owner's listing.
-
-    A solo tutor's own account, and a centre's accepted, unrevoked managers.
-
-    :param session: The session
-    :param owner: The owner
-    :return: Distinct account ids, in a stable order
-    """
-    accounts: list[uuid.UUID] = []
-    if owner.account_id is not None:
-        accounts.append(owner.account_id)
-    accounts.extend(
-        a
-        for a in session.scalars(
-            sa.select(OwnerMember.account_id).where(
-                OwnerMember.owner_id == owner.id,
-                OwnerMember.role == "manager",
-                OwnerMember.decision == "accepted",
-                OwnerMember.revoked_at.is_(None),
-                OwnerMember.account_id.is_not(None),
-            )
-        )
-        if a is not None
-    )
-    return sorted(dict.fromkeys(accounts))
 
 
 def set(
@@ -125,7 +97,7 @@ def set(
         owner = session.get_one(Owner, owner_id)
         deliver(
             session,
-            account_ids=_managing_accounts(session, owner),
+            account_ids=managing_accounts(session, owner),
             kind=HUB_LISTING_SUSPENDED,
             batch_name=listing.public_name,
             now=now,

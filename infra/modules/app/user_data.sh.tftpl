@@ -682,6 +682,7 @@ install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-fee-generati
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-session-generation.log
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-retention-purge.log
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-badge-refresh.log
+install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-feedback-question.log
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-invalidation.log
 cat > /etc/cron.d/shikkhokplus-fee-generation <<'CRON'
 SHELL=/bin/bash
@@ -751,6 +752,23 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 30 2 * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.hub.listings.badge_commands refresh >> /var/log/shikkhokplus-hub-badge-refresh.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/shikkhokplus-hub-badge-refresh
+
+# **The daily hub demand question** [0042]. "Did the hub bring you a
+# student?" goes to each publishing owner at day 60 and day 90 after their
+# first publish; the day-90 answers decide whether the hub continues, so a
+# job that stopped would leave that decision without its evidence. 03:00
+# UTC is 09:00 in Dhaka: after the badge refresh at 02:30, before the purge
+# at 03:30, and a time a teacher reads the inbox. A missed run asks up to
+# seven days late and never asks twice.
+echo "Installing the hub-feedback-question cron entry..." \
+  >> /var/log/shikkhokplus-provision.log
+cat > /etc/cron.d/shikkhokplus-hub-feedback-question <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# min hour dom mon dow user command
+0 3 * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.hub.feedback_commands ask >> /var/log/shikkhokplus-hub-feedback-question.log 2>&1
+CRON
+chmod 0644 /etc/cron.d/shikkhokplus-hub-feedback-question
 
 # **Sending the hub's edge-cache invalidations, from the HOST** [0041, R8].
 # Every takedown enqueues the paths to evict in its own transaction. The

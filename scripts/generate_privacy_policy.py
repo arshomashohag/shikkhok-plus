@@ -153,6 +153,10 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
         "What a solo teacher chose to publish about one of their classes on the "
         "public hub"
     ),
+    "hub_feedback": (
+        "A solo teacher's answers to whether the public hub brought them a "
+        "student"
+    ),
     "hub_report": "A complaint you filed about something on the public hub",
     "hub_moderation_event": (
         "A record that moderation acted on a hub listing or report; it holds "
@@ -338,7 +342,8 @@ def centre_listing_disclosure() -> str:
         "**A coaching centre's public listing stays with the centre.** If "
         "you are a manager of a coaching centre and delete your account, "
         "what the centre published on the public hub -- its own page and "
-        "its class pages -- is kept, because it belongs to the centre and "
+        "its class pages -- and its answers to whether the hub brought it "
+        "students are kept, because they belong to the centre and "
         "not to you, and the centre's other managers may still run it. "
         "Your own account is removed as described above. A solo teacher's "
         "public listing is not kept: it is deleted with their account."

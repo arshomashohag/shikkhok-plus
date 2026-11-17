@@ -5618,6 +5618,35 @@
         "title": "HistoryLineResponse",
         "type": "object"
       },
+      "HubFeedbackRequest": {
+        "additionalProperties": false,
+        "description": "An owner's answer to \"Did the hub bring you a student?\" [0042].\n\n:ivar day: Which question: the one asked at day 60 or day 90 after the\n    first publish, as the inbox item's ``preview`` names it\n:ivar answer: ``yes``, ``not_yet`` or ``not_sure``",
+        "properties": {
+          "answer": {
+            "enum": [
+              "not_sure",
+              "not_yet",
+              "yes"
+            ],
+            "title": "Answer",
+            "type": "string"
+          },
+          "day": {
+            "enum": [
+              60,
+              90
+            ],
+            "title": "Day",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "answer",
+          "day"
+        ],
+        "title": "HubFeedbackRequest",
+        "type": "object"
+      },
       "HubReportRequest": {
         "additionalProperties": false,
         "description": "A reader's report about one hub target.\n\n:ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,\n    ``review`` or ``reply``\n:ivar target_id: The target's id: an owner id for an owner listing, a\n    batch id for a batch listing\n:ivar reason: A closed reason\n:ivar note: An optional note; it may not carry a phone number",
@@ -7047,6 +7076,7 @@
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
+              "hub_feedback_question",
               "hub_listing_suspended",
               "marks_available",
               "notice",
@@ -7160,7 +7190,7 @@
       },
       "NotificationResponse": {
         "additionalProperties": false,
-        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any\n:ivar class_date: For a class change, the day the class is now on, or\n    was on if cancelled\n:ivar class_time: For a class change, its start time that day\n:ivar moved_from_date: For a reschedule, the day it was moved from\n:ivar moved_from_time: For a reschedule, the start time it was moved from",
+        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any; for a\n    ``hub_feedback_question``, the question's day, ``60`` or ``90``,\n    which the answer sends back\n:ivar class_date: For a class change, the day the class is now on, or\n    was on if cancelled\n:ivar class_time: For a class change, its start time that day\n:ivar moved_from_date: For a reschedule, the day it was moved from\n:ivar moved_from_time: For a reschedule, the start time it was moved from",
         "properties": {
           "amount": {
             "anyOf": [
@@ -7236,6 +7266,7 @@
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
+              "hub_feedback_question",
               "hub_listing_suspended",
               "marks_available",
               "notice",
@@ -22959,6 +22990,111 @@
           }
         },
         "summary": "List Batch Listings",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/feedback": {
+      "post": {
+        "description": "Answer \"Did the hub bring you a student?\"; answering again overwrites.\n\nThe question answered is the workspace's own: a centre manager names the\ncentre with ``X-Workspace-Id``, as the inbox item's ``source_id`` gives\nit. A day this owner was never asked is refused with\n``HUB_FEEDBACK_NOT_ASKED`` (409).\n\n:param body: The day of the question and the answer\n:param lens: The answering manager's lens on the owner\n:param session: The request-scoped session\n:return: An empty 204",
+        "operationId": "answer_feedback_v1_hub_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HubFeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Answer Feedback",
         "tags": [
           "hub"
         ]

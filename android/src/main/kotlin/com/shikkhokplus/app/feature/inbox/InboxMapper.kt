@@ -29,7 +29,11 @@ object InboxMapper {
             "class_cancelled" to InboxKind.CLASS_CANCELLED,
             "class_rescheduled" to InboxKind.CLASS_RESCHEDULED,
             "hub_listing_suspended" to InboxKind.HUB_LISTING_SUSPENDED,
+            "hub_feedback_question" to InboxKind.HUB_FEEDBACK_QUESTION,
         )
+
+    /** The days the hub's demand question is asked on, as its `preview` names them. */
+    private val FEEDBACK_DAYS: Set<Int> = setOf(60, 90)
 
     /**
      * The wire names of every kind this app can show, sent as `?kind=` with
@@ -80,6 +84,8 @@ object InboxMapper {
      */
     private fun toMessage(dto: NotificationDto): InboxMessage? =
         KINDS[dto.kind]?.let { kind ->
+            // The demand question's `preview` is its day, not a line to show.
+            val feedback = kind == InboxKind.HUB_FEEDBACK_QUESTION
             InboxMessage(
                 id = dto.notificationId,
                 batchName = dto.batchName,
@@ -91,8 +97,9 @@ object InboxMapper {
                 enrollmentId = dto.enrollmentId,
                 sourceId = dto.sourceId,
                 childName = dto.childName,
-                preview = dto.preview,
+                preview = if (feedback) null else dto.preview,
                 classChange = classChangeOf(dto.classDate, dto.classTime, dto.movedFromDate, dto.movedFromTime),
+                feedbackDay = if (feedback) dto.preview?.toIntOrNull()?.takeIf { it in FEEDBACK_DAYS } else null,
             )
         }
 
@@ -158,6 +165,8 @@ object InboxMapper {
             message.kind == InboxKind.CLAIM_TO_VERIFY && source != null -> InboxTarget.Payment(source)
             message.kind == InboxKind.CLAIM_TO_VERIFY -> InboxTarget.Verify
             message.kind == InboxKind.HUB_LISTING_SUSPENDED -> InboxTarget.HubListing
+            message.kind == InboxKind.HUB_FEEDBACK_QUESTION && source != null && message.feedbackDay != null ->
+                InboxTarget.HubFeedback(source, message.feedbackDay)
             else -> InboxTarget.Detail(message.id)
         }
     }
