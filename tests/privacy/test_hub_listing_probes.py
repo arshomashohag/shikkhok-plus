@@ -103,8 +103,11 @@ def test_no_hub_schema_contains_collection_number_or_phone() -> None:
         for method, operation in item.items():
             if "responses" not in operation:
                 continue
+            # A JSON body has a schema to walk. An HTML page (the owner's
+            # preview) has none: it renders a registered view model, which
+            # tests/contract/test_public_privacy.py walks instead.
             if not any(
-                code.startswith("2") and "content" in body
+                code.startswith("2") and "application/json" in body.get("content", {})
                 for code, body in operation["responses"].items()
             ):
                 continue

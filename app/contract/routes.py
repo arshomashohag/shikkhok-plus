@@ -36,17 +36,31 @@ __all__ = [
     "unlensed_routes",
 ]
 
+#: The public hub's four pages [H2]: the landing and search page, an
+#: owner's page, a batch's page, and the sitemap.
+_HUB_PAGES: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("GET", "/hub/{locale}"),
+        ("GET", "/hub/{locale}/t/{owner_slug}"),
+        ("GET", "/hub/{locale}/t/{owner_slug}/{batch_slug}"),
+        ("GET", "/hub/sitemap.xml"),
+    }
+)
+
 #: Public routes whose responses a shared cache may serve to anyone. A
 #: subset of :data:`PUBLIC_ROUTES`, GET only, and none may depend on an
 #: authenticated account: :func:`authenticated_cacheable_routes` enforces it.
-PUBLIC_CACHEABLE_ROUTES: frozenset[tuple[str, str]] = frozenset()
+#: Exactly the hub's four pages, asserted by
+#: ``tests/contract/test_public_cacheable.py``.
+PUBLIC_CACHEABLE_ROUTES: frozenset[tuple[str, str]] = _HUB_PAGES
 
-#: Routes reachable with no authentication at all. **Exactly fifteen**,
-#: and the count IS asserted: a sixteenth entry is a diff against a
+#: Routes reachable with no authentication at all. **Exactly nineteen**,
+#: and the count IS asserted: a twentieth entry is a diff against a
 #: stated number rather than a line appended to a growing list. The three
 #: admin sign-in routes moved it from eight, the app sign-in's second
 #: step to twelve [0028], password sign-in and password setup to
-#: fourteen [0032], and the public username lookup to fifteen [U1: BR3.5].
+#: fourteen [0032], the public username lookup to fifteen [U1: BR3.5],
+#: and the public hub's four pages to nineteen [H2].
 #:
 #: The number read "five" over a six-entry set until 2026-10-22 — the two
 #: deletion routes were added without it, so the stated count and the
@@ -129,6 +143,17 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # public because it must work before anyone can authenticate,
         # which is its whole purpose.
         ("GET", "/staging/last-otp"),
+        # The public hub's four pages [H2], public because they are the
+        # product's shop window: an anonymous reader and a crawler must
+        # reach them, and a shared cache serves them, so they are also
+        # PUBLIC_CACHEABLE_ROUTES and may depend on no authentication.
+        # They read only the four public views, as the hub reader, from a
+        # handler inside app/hub/public whose imports the public import
+        # gate confines; they write nothing but the per-network read
+        # counter, bounded at HUB_PUBLIC_READ_IP_MINUTE; and a draft,
+        # hidden or suspended listing answers the same 404 as one that
+        # never existed.
+        *_HUB_PAGES,
     }
 )
 

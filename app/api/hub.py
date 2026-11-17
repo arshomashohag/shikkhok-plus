@@ -14,10 +14,11 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from typing import Annotated, Final
+from typing import Annotated, Final, Literal
 
 import sqlalchemy as sa
 from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -26,6 +27,7 @@ from app.api.deps import (
     get_session,
     teacher_lens,
 )
+from app.api.html import HUB_PAGE_CSP, html_response
 from app.auth.ceilings import CeilingChecker
 from app.authz.lenses import CentreMemberLens, TeacherLens
 from app.db.models import OwnerListing
@@ -45,6 +47,8 @@ from app.hub.listings.member_consent import (
 )
 from app.hub.listings.names import teacher_names
 from app.hub.listings.owner import OwnerListingUpdate
+from app.hub.listings.preview import owner_page as preview_owner_page
+from app.hub.public import render
 from app.local_time import bangladesh_today
 from app.moderation import reports
 from app.money.wire import to_wire
@@ -257,6 +261,42 @@ def put_listing(
     CeilingChecker(session).check_and_consume_hub_listing(lens.owner_id)
     listing = owner.update(session, lens, OwnerListingUpdate(**body.model_dump()))
     return _owner_response(session, lens, listing)
+
+
+@router.get(
+    "/hub/listing/preview",
+    response_class=HTMLResponse,
+    responses={
+        **_AUTH_ERRORS,
+        200: {
+            "description": "The owner's page as it would read, drafts included",
+            "content": {"text/html": {"schema": {"type": "string"}}},
+        },
+    },
+)
+def preview_listing(
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    session: Annotated[Session, Depends(get_session)],
+    locale: Annotated[Literal["en", "bn"], Query()] = "en",
+) -> HTMLResponse:
+    """Show the owner their own public page before it is public.
+
+    Built from the owner's own rows by a separate, owner-scoped builder,
+    into the same registered page model and through the same template as
+    the public page, with a banner saying it is not public. Never cached:
+    it is one owner's unpublished draft.
+
+    :param lens: The owner's lens; the page is always this owner's
+    :param session: The request-scoped session
+    :param locale: ``en`` or ``bn``
+    :return: The page
+    """
+    view = preview_owner_page(session, lens, locale)
+    return html_response(
+        render.page(view, "owner.html", locale, preview=True),
+        csp=HUB_PAGE_CSP,
+        cache_control="no-store",
+    )
 
 
 @router.post(

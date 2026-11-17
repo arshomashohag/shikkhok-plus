@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="{{ locale }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ meta.title }}</title>
+<meta name="description" content="{{ meta.description }}">
+{% if meta.noindex %}
+<meta name="robots" content="noindex">
+{% endif %}
+<link rel="canonical" href="{{ meta.canonical }}">
+{% for hreflang, href in meta.alternates %}
+<link rel="alternate" hreflang="{{ hreflang }}" href="{{ href }}">
+{% endfor %}
+<link rel="stylesheet" href="{{ stylesheet }}">
+{% if meta.json_ld is not none %}
+<script type="application/ld+json">{{ meta.json_ld }}</script>
+{% endif %}
+</head>
+<body>
+<a class="skip" href="#main">{{ m("skip_to_content") }}</a>
+<header class="bar">
+<a class="brand" href="/hub/{{ locale }}">{{ m("hub_name") }}</a>
+<a href="{{ meta.other_href }}" hreflang="{{ meta.other_locale }}" lang="{{ meta.other_locale }}">{{ m("other_language") }}</a>
+</header>
+{% if preview %}
+<p class="banner" role="status">{{ m("preview_banner") }}</p>
+{% endif %}
+<main id="main">
+{% block content %}{% endblock %}
+</main>
+<footer class="foot">
+<p class="muted"><a href="/">{{ m("site_name") }}</a></p>
+</footer>
+</body>
+</html>

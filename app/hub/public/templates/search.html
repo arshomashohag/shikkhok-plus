@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ m("search_title") }}</h1>
+<form class="search" method="get" action="/hub/{{ locale }}" role="search">
+<label for="q">{{ m("search_label") }}</label>
+<input id="q" name="q" type="search" maxlength="200" value="{{ view.query or '' }}">
+{% for name, value in hidden_filters %}
+<input type="hidden" name="{{ name }}" value="{{ value }}">
+{% endfor %}
+<button type="submit">{{ m("search_button") }}</button>
+</form>
+{% if hidden_filters %}
+<p class="muted">{{ m("search_filtered") }} <a href="{{ clear_href }}">{{ m("search_clear_filters") }}</a></p>
+{% endif %}
+<p class="muted">{{ m("search_results", total=view.total) }}</p>
+{% if view.results %}
+<ul class="cards">
+{% for card in view.results %}
+<li class="card">
+<h2><a href="/hub/{{ locale }}/t/{{ card.slug }}">{{ card.public_name }}</a></h2>
+<p class="meta">{{ m("kind_" ~ card.kind) }}{% if area(card) %} · {{ area(card) }}{% endif %}</p>
+{% if card.runs_classes %}
+<p><span class="badge">{{ m("runs_classes") }}</span></p>
+{% endif %}
+</li>
+{% endfor %}
+</ul>
+{% else %}
+<p>{{ m("search_none") }}</p>
+{% endif %}
+{% if previous_href or next_href %}
+<nav class="pager">
+{% if previous_href %}
+<a href="{{ previous_href }}" rel="prev">{{ m("page_previous") }}</a>
+{% else %}
+<span></span>
+{% endif %}
+<span class="muted">{{ m("page_of", page=view.page, pages=view.pages) }}</span>
+{% if next_href %}
+<a href="{{ next_href }}" rel="next">{{ m("page_next") }}</a>
+{% else %}
+<span></span>
+{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

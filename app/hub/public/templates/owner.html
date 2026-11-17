@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+{% set owner = view.owner %}
+<h1>{{ owner.public_name }}</h1>
+<p class="meta">{{ m("kind_" ~ owner.kind) }}{% if area(owner) %} · {{ area(owner) }}{% endif %}</p>
+{% if owner.runs_classes %}
+<p><span class="badge">{{ m("runs_classes") }}</span></p>
+{% endif %}
+{% if view.headline %}
+<p class="lead">{{ view.headline }}</p>
+{% endif %}
+{% if view.bio %}
+<h2>{{ m("owner_about") }}</h2>
+<p class="prose">{{ view.bio }}</p>
+{% endif %}
+{% if view.qualifications or view.teaching_mode or view.street_address or view.public_contact_phone %}
+<dl class="facts">
+{% if view.qualifications %}
+<dt>{{ m("owner_qualifications") }}</dt>
+<dd class="prose">{{ view.qualifications }}</dd>
+{% endif %}
+{% if view.teaching_mode %}
+<dt>{{ m("owner_teaching_mode") }}</dt>
+<dd>{{ labels("hub_mode_", view.teaching_mode) }}</dd>
+{% endif %}
+{% if view.street_address %}
+<dt>{{ m("owner_address") }}</dt>
+<dd>{{ view.street_address }}</dd>
+{% endif %}
+{% if view.public_contact_phone %}
+<dt>{{ m("owner_contact") }}</dt>
+<dd><a href="tel:{{ view.public_contact_phone }}">{{ view.public_contact_phone }}</a></dd>
+{% endif %}
+</dl>
+{% endif %}
+<h2>{{ m("owner_batches") }}</h2>
+{% if view.batches %}
+<ul class="cards">
+{% for batch in view.batches %}
+<li class="card">
+{% if preview %}
+<h3>{{ title(batch) }}</h3>
+{% else %}
+<h3><a href="/hub/{{ locale }}/t/{{ owner.slug }}/{{ batch.slug }}">{{ title(batch) }}</a></h3>
+{% endif %}
+{% include "_batch.html" %}
+</li>
+{% endfor %}
+</ul>
+{% else %}
+<p class="muted">{{ m("owner_no_batches") }}</p>
+{% endif %}
+<p><a href="{{ meta.report_href }}">{{ m("report_page") }}</a></p>
+{% endblock %}

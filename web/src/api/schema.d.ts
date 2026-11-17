@@ -88,6 +88,108 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/hub/sitemap.xml': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Sitemap
+     * @description Serve every public owner and batch page, in both locales.
+     *
+     *     :param request: The incoming request
+     *     :param allowed: Whether this read was within the ceiling
+     *     :return: The sitemap, or the 429 page
+     */
+    get: operations['hub_sitemap_hub_sitemap_xml_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/hub/{locale}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Search
+     * @description Serve the landing page, or a page of search results.
+     *
+     *     :param locale: ``en`` or ``bn``
+     *     :param request: The incoming request, whose six keys are read
+     *     :param allowed: Whether this read was within the ceiling
+     *     :return: The page, the 404 page, or the 429 page
+     */
+    get: operations['hub_search_hub__locale__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/hub/{locale}/t/{owner_slug}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Owner
+     * @description Serve a published owner's page.
+     *
+     *     :param locale: ``en`` or ``bn``
+     *     :param owner_slug: The owner's slug
+     *     :param request: The incoming request
+     *     :param allowed: Whether this read was within the ceiling
+     *     :return: The page, the 404 page, or the 429 page
+     */
+    get: operations['hub_owner_hub__locale__t__owner_slug__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/hub/{locale}/t/{owner_slug}/{batch_slug}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Batch
+     * @description Serve a published batch's page under its published owner.
+     *
+     *     :param locale: ``en`` or ``bn``
+     *     :param owner_slug: The owner's slug
+     *     :param batch_slug: The batch's slug
+     *     :param request: The incoming request
+     *     :param allowed: Whether this read was within the ceiling
+     *     :return: The page, the 404 page, or the 429 page
+     */
+    get: operations['hub_batch_hub__locale__t__owner_slug___batch_slug__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/accounts': {
     parameters: {
       query?: never
@@ -2870,6 +2972,36 @@ export interface paths {
      *     :raises CeilingBreach: The owner has used today's edits
      */
     put: operations['put_listing_v1_hub_listing_put']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/listing/preview': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Preview Listing
+     * @description Show the owner their own public page before it is public.
+     *
+     *     Built from the owner's own rows by a separate, owner-scoped builder,
+     *     into the same registered page model and through the same template as
+     *     the public page, with a banner saying it is not public. Never cached:
+     *     it is one owner's unpublished draft.
+     *
+     *     :param lens: The owner's lens; the page is always this owner's
+     *     :param session: The request-scoped session
+     *     :param locale: ``en`` or ``bn``
+     *     :return: The page
+     */
+    get: operations['preview_listing_v1_hub_listing_preview_get']
+    put?: never
     post?: never
     delete?: never
     options?: never
@@ -12023,6 +12155,264 @@ export interface operations {
       }
     }
   }
+  hub_sitemap_hub_sitemap_xml_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The sitemap */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/xml': string
+        }
+      }
+      /** @description Too many reads from this network this minute */
+      429: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  hub_search_hub__locale__get: {
+    parameters: {
+      query?: {
+        q?: string
+        district?: string
+        upazila?: string
+        subject?: string
+        level?: string
+        page?: string
+      }
+      header?: never
+      path: {
+        locale: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The page */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description Not public: the same page for every such path */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Too many reads from this network this minute */
+      429: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  hub_owner_hub__locale__t__owner_slug__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        locale: string
+        owner_slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The page */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description Not public: the same page for every such path */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Too many reads from this network this minute */
+      429: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  hub_batch_hub__locale__t__owner_slug___batch_slug__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        locale: string
+        owner_slug: string
+        batch_slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The page */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description Not public: the same page for every such path */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Too many reads from this network this minute */
+      429: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
   sign_up_v1_accounts_post: {
     parameters: {
       query?: never
@@ -19549,6 +19939,73 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  preview_listing_v1_hub_listing_preview_get: {
+    parameters: {
+      query?: {
+        locale?: 'bn' | 'en'
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The owner's page as it would read, drafts included */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': components['schemas']['ErrorEnvelope']
         }
       }
       /** @description The request could not be parsed */

@@ -41,7 +41,9 @@ def test_no_canary_on_any_cacheable_public_page(
 
     bodies = walk_cacheable_routes(api_client, world, PUBLIC_CACHEABLE_ROUTES)
 
-    assert len(bodies) == len(PUBLIC_CACHEABLE_ROUTES) * len(LOCALES)
+    # Each route once per locale, except the sitemap, which has none.
+    assert len(bodies) == (len(PUBLIC_CACHEABLE_ROUTES) - 1) * len(LOCALES) + 1
+    assert any(world.owner_slug in path for path in bodies)
     assert canary_leaks(bodies, world) == []
 
 
@@ -80,8 +82,8 @@ def test_unknown_placeholder_is_refused_not_skipped(owner_session: Session) -> N
     """
     world = seed_canaries(owner_session)
 
-    with pytest.raises(NotImplementedError, match="owner_slug"):
-        _resolve("/hub/{locale}/{owner_slug}", world)
+    with pytest.raises(NotImplementedError, match="review_id"):
+        _resolve("/hub/{locale}/r/{review_id}", world)
 
 
 def test_resolve_expands_both_locales(owner_session: Session) -> None:
@@ -93,6 +95,10 @@ def test_resolve_expands_both_locales(owner_session: Session) -> None:
     world: CanaryWorld = seed_canaries(owner_session)
 
     assert _resolve("/hub/{locale}", world) == ["/hub/en", "/hub/bn"]
+    assert _resolve("/hub/{locale}/t/{owner_slug}/{batch_slug}", world) == [
+        f"/hub/en/t/{world.owner_slug}/{world.batch_slug}",
+        f"/hub/bn/t/{world.owner_slug}/{world.batch_slug}",
+    ]
 
 
 def _planted(render: str) -> FastAPI:

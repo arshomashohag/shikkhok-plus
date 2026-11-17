@@ -11,7 +11,15 @@ import { tmpdir } from 'node:os'
 import { join, relative, sep } from 'node:path'
 import { after, before, describe, it } from 'node:test'
 
-import { ASSET_EXTENSIONS, CONTACT_EMAIL, HASH_LENGTH, PLAY_URL, build, resolveConfig } from '../build.mjs'
+import {
+  ASSET_EXTENSIONS,
+  CONTACT_EMAIL,
+  HASH_LENGTH,
+  HUB_CSS,
+  PLAY_URL,
+  build,
+  resolveConfig,
+} from '../build.mjs'
 
 const ENV = {
   SITE_URL: 'https://site.example.test/',
@@ -121,6 +129,10 @@ describe('links and assets', () => {
     for (const f of files) {
       const name = rel(f)
       if (name.startsWith('assets/')) continue
+      if (name.startsWith('hub-assets/')) {
+        assert.match(name, /^hub-assets\/hub\.[0-9a-f]{12}\.css$/, `${name} is unexpected`)
+        continue
+      }
       assert.match(name, /(\.html|^robots\.txt|^sitemap\.xml|^favicon\.ico|^OFL\.txt)$/, `${name} is unexpected`)
     }
   })
@@ -143,6 +155,29 @@ describe('links and assets', () => {
       if (/\.(webp|png)$/.test(f)) assert.ok(size < 150_000, `${rel(f)} is ${size} bytes`)
     }
     assert.ok(total < 900_000, `the whole site is ${total} bytes`)
+  })
+})
+
+describe('the public hub stylesheet', () => {
+  // The API links /hub-assets/hub.<first 12 hex of SHA-256>.css, computed
+  // from app/hub/public/static/hub.css at import (render.STYLESHEET_PATH);
+  // tests/hub/test_public_routes.py pins that formula on the Python side.
+  const source = readFileSync(HUB_CSS)
+  const digest = createHash('sha256').update(source).digest('hex')
+  const expected = `/hub-assets/hub.${digest.slice(0, 12)}.css`
+
+  it('is copied under the name the API links, byte for byte', () => {
+    assert.equal(result.hubStylesheet, expected)
+    const shipped = files.filter((f) => rel(f).startsWith('hub-assets/')).map(rel)
+    assert.deepEqual(shipped, [expected.slice(1)])
+    assert.ok(readFileSync(join(out, ...expected.slice(1).split('/'))).equals(source))
+  })
+
+  it('is named by the same rule the API uses', () => {
+    const api = readFileSync(join(HUB_CSS, '..', '..', 'render.py'), 'utf8')
+    assert.ok(api.includes('_HERE / "static" / "hub.css"'), 'render.py reads a different file')
+    assert.ok(api.includes('"/hub-assets/hub."'), 'render.py uses a different prefix')
+    assert.ok(api.includes('hexdigest()[:12]'), 'render.py uses a different hash length')
   })
 })
 

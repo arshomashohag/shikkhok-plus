@@ -5,13 +5,23 @@ from __future__ import annotations
 import os
 from typing import Final
 
-__all__ = ["DEFAULT_ORIGIN", "SITE_URL_ENV", "site_url"]
+__all__ = [
+    "DEFAULT_ORIGIN",
+    "SITE_URL_ENV",
+    "WEB_APP_URL_ENV",
+    "site_url",
+    "web_app_url",
+]
 
 #: The public site's origin: canonical links, ``hreflang`` and sitemap
 #: ``loc`` values are absolute URLs on it [R1].
 SITE_URL_ENV: Final[str] = "SHIKKHOKPLUS_SITE_URL"
 
-#: The origin used when the variable is unset, as locally and in tests.
+#: The web app's origin: a public page's report link opens the report form
+#: there, at ``/ui/hub-report`` [R1].
+WEB_APP_URL_ENV: Final[str] = "SHIKKHOKPLUS_WEB_APP_URL"
+
+#: The origin used when either variable is unset, as locally and in tests.
 DEFAULT_ORIGIN: Final[str] = "http://localhost"
 
 
@@ -24,3 +34,13 @@ def site_url() -> str:
     :return: The origin, e.g. ``https://shikkhokplus.com``
     """
     return (os.environ.get(SITE_URL_ENV) or DEFAULT_ORIGIN).rstrip("/")
+
+
+def web_app_url() -> str:
+    """Return the web app's origin, with no trailing slash.
+
+    Read at each call, as :func:`site_url` is.
+
+    :return: The origin, e.g. ``https://app.shikkhokplus.com``
+    """
+    return (os.environ.get(WEB_APP_URL_ENV) or DEFAULT_ORIGIN).rstrip("/")

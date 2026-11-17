@@ -1455,6 +1455,8 @@ jobs:
           put assets assets/ "*.png"  "image/png"               "$immutable"
           put assets assets/ "*.webp" "image/webp"              "$immutable"
           put assets assets/ "*.ttf"  "font/ttf"                "$immutable"
+          # The public hub pages' stylesheet, named by content like assets/.
+          put hub-assets hub-assets/ "*.css" "text/css; charset=utf-8" "$immutable"
 
           put . "" "*.ico"       "image/x-icon"                      "$page"
           put . "" "*.txt"       "text/plain; charset=utf-8"         "$page"

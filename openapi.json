@@ -13115,6 +13115,382 @@
         ]
       }
     },
+    "/hub/sitemap.xml": {
+      "get": {
+        "description": "Serve every public owner and batch page, in both locales.\n\n:param request: The incoming request\n:param allowed: Whether this read was within the ceiling\n:return: The sitemap, or the 429 page",
+        "operationId": "hub_sitemap_hub_sitemap_xml_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The sitemap"
+          },
+          "429": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Too many reads from this network this minute"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Sitemap",
+        "tags": [
+          "hub-public"
+        ]
+      }
+    },
+    "/hub/{locale}": {
+      "get": {
+        "description": "Serve the landing page, or a page of search results.\n\n:param locale: ``en`` or ``bn``\n:param request: The incoming request, whose six keys are read\n:param allowed: Whether this read was within the ceiling\n:return: The page, the 404 page, or the 429 page",
+        "operationId": "hub_search_hub__locale__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "locale",
+            "required": true,
+            "schema": {
+              "title": "Locale",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "district",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "upazila",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "level",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The page"
+          },
+          "404": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Not public: the same page for every such path"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "429": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Too many reads from this network this minute"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Search",
+        "tags": [
+          "hub-public"
+        ]
+      }
+    },
+    "/hub/{locale}/t/{owner_slug}": {
+      "get": {
+        "description": "Serve a published owner's page.\n\n:param locale: ``en`` or ``bn``\n:param owner_slug: The owner's slug\n:param request: The incoming request\n:param allowed: Whether this read was within the ceiling\n:return: The page, the 404 page, or the 429 page",
+        "operationId": "hub_owner_hub__locale__t__owner_slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "locale",
+            "required": true,
+            "schema": {
+              "title": "Locale",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "owner_slug",
+            "required": true,
+            "schema": {
+              "title": "Owner Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The page"
+          },
+          "404": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Not public: the same page for every such path"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "429": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Too many reads from this network this minute"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Owner",
+        "tags": [
+          "hub-public"
+        ]
+      }
+    },
+    "/hub/{locale}/t/{owner_slug}/{batch_slug}": {
+      "get": {
+        "description": "Serve a published batch's page under its published owner.\n\n:param locale: ``en`` or ``bn``\n:param owner_slug: The owner's slug\n:param batch_slug: The batch's slug\n:param request: The incoming request\n:param allowed: Whether this read was within the ceiling\n:return: The page, the 404 page, or the 429 page",
+        "operationId": "hub_batch_hub__locale__t__owner_slug___batch_slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "locale",
+            "required": true,
+            "schema": {
+              "title": "Locale",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "owner_slug",
+            "required": true,
+            "schema": {
+              "title": "Owner Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_slug",
+            "required": true,
+            "schema": {
+              "title": "Batch Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The page"
+          },
+          "404": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Not public: the same page for every such path"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "429": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Too many reads from this network this minute"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Batch",
+        "tags": [
+          "hub-public"
+        ]
+      }
+    },
     "/v1/accounts": {
       "post": {
         "description": "Hold the signup form, then send the code that completes it [C-07].\n\n**Verify first, create second.** This used to create the account,\nprofile, owner and centre here and answer an existing number with a\n409: an existence oracle for any phone number, and a way to squat a\nstranger's number with a name, address and role the real owner then\ninherited. Now the form is held as a draft\n(:mod:`app.auth.pending`) and the account is created only when the\ncode sent to the number is verified at ``POST /v1/auth/verify`` --\nwhich is the call both clients already make next, so neither changes.\n\n**The same answer for every number.** A number with an account gets\nthe same 201 and the same body shape, and the code sent to it signs\nthe person in to the account they already have; a new number's code\ncreates the account. The ``account_id`` reported is the draft's,\nfresh on every request, and becomes the account's id if the draft is\ncompleted. Both branches write a draft and a code, so the work is\nthe same too [BR2.7].\n\nThe ceiling is consumed **before** anything is written, for the\nreason the OTP path checks before its gateway call. The SMS goes\nafter the response, from **signup's own** send budget [C-05], for\nan existing number too: signup can never spend what sign-in needs.\n\nPublic by design, and in ``PUBLIC_ROUTES``: there is no session to\nauthenticate with before an account exists.\n\n:param body: The signup request\n:param request: The incoming request\n:param background: Runs the SMS send after the response is written\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:param email_gateway: The configured email gateway\n:return: The draft's id and where its code went\n:raises CeilingBreach: A signup ceiling refused this request",
@@ -22755,6 +23131,94 @@
           }
         },
         "summary": "Put Listing",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/listing/preview": {
+      "get": {
+        "description": "Show the owner their own public page before it is public.\n\nBuilt from the owner's own rows by a separate, owner-scoped builder,\ninto the same registered page model and through the same template as\nthe public page, with a banner saying it is not public. Never cached:\nit is one owner's unpublished draft.\n\n:param lens: The owner's lens; the page is always this owner's\n:param session: The request-scoped session\n:param locale: ``en`` or ``bn``\n:return: The page",
+        "operationId": "preview_listing_v1_hub_listing_preview_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "default": "en",
+              "enum": [
+                "bn",
+                "en"
+              ],
+              "title": "Locale",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The owner's page as it would read, drafts included"
+          },
+          "401": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Preview Listing",
         "tags": [
           "hub"
         ]

@@ -124,6 +124,7 @@ __all__ = [
     "DEL_PER_NUMBER_HOURLY",
     "GLOBAL_DAILY",
     "HUB_LISTING_OWNER_DAILY",
+    "HUB_PUBLIC_READ_IP_MINUTE",
     "HUB_REPORT_ACCOUNT_DAILY",
     "LOOKUP_GLOBAL_HOURLY",
     "LOOKUP_PER_COARSE_IP_HOURLY",
@@ -401,6 +402,13 @@ HUB_LISTING_OWNER_DAILY: Final = 50
 #: the moderation queue, and the cap also bounds target-existence probing.
 HUB_REPORT_ACCOUNT_DAILY: Final = 10
 
+#: Public hub page reads one network may make at the origin in a minute.
+#: The edge cache answers almost every read, so the origin sees misses
+#: only; a caller sending more than two a second is walking the site to
+#: defeat the cache, not reading it [H2 global constraints].
+HUB_PUBLIC_READ_IP_MINUTE: Final = 120
+
+_MINUTE = dt.timedelta(minutes=1)
 _HOUR = dt.timedelta(hours=1)
 _DAY = dt.timedelta(days=1)
 
@@ -482,6 +490,10 @@ class ScopeKind(enum.Enum):
     HUB_OWNER_DAILY = "hub_owner_day"
     # The public hub's reports, one counter per reporting account.
     HUB_REPORT_DAILY = "hub_report_day"
+    # The public hub's anonymous page reads, one counter per network per
+    # minute. Its refusal is never shown as an error envelope: the page
+    # routes answer it with their own 429 page.
+    HUB_PUBLIC_READ_MINUTE = "hub_read_min"
     # Email and passwords [0032], inside `String(16)` like the rest.
     EMAIL_GLOBAL_DAILY = "em_global_day"
     PASSWORD_FAIL_ID_HOURLY = "pw_fail_id_hour"  # noqa: S105 -- a name, not a password
@@ -763,6 +775,8 @@ def _window_start(now: dt.datetime, window: dt.timedelta) -> dt.datetime:
     """
     if window == _DAY:
         return now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if window == _MINUTE:
+        return now.replace(second=0, microsecond=0)
     return now.replace(minute=0, second=0, microsecond=0)
 
 
@@ -1443,6 +1457,26 @@ class CeilingChecker:
         """
         scope = _Scope(ScopeKind.HUB_REPORT_DAILY, HUB_REPORT_ACCOUNT_DAILY, _DAY)
         self._consume([(scope, str(account_id))], now)
+
+    def check_and_consume_hub_public_read(
+        self, ip_prefix: str, now: dt.datetime | None = None
+    ) -> None:
+        """Consume one public hub page read from the network's minute.
+
+        Committed before the page is read, by :meth:`_consume`, so the
+        count stands whatever the page answers -- a 404 included -- and is
+        never written inside the hub reader's transaction.
+
+        :param ip_prefix: The viewer's IP prefix
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: The network has made this minute's
+            allowance of reads
+        """
+        scope = _Scope(
+            ScopeKind.HUB_PUBLIC_READ_MINUTE, HUB_PUBLIC_READ_IP_MINUTE, _MINUTE
+        )
+        self._consume([(scope, ip_prefix)], now)
 
     def check_and_consume_deletion(
         self,

@@ -42,6 +42,10 @@ api = [
     # the standard library has no AEAD cipher. The package PyJWT's own
     # `crypto` extra uses, rather than anything hand-rolled.
     "cryptography==50.0.2",
+    # The public hub's server-rendered pages (app/hub/public/render.py):
+    # one autoescaping environment with StrictUndefined, so an unescaped
+    # value or a misspelt variable is a failure rather than a blank.
+    "jinja2==3.1.6",
 ]
 dev = [
     "pytest==9.2.0",

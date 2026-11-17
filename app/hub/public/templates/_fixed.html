@@ -1,0 +1,26 @@
+{#- The two fixed pages: the 404 every hidden page answers and the 429.
+    Both languages at once, and nothing from the request, so one body
+    serves every path. -#}
+{% macro fixed_page(prefix) -%}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{{ t(prefix ~ "_title", "en") }} · {{ t(prefix ~ "_title", "bn") }}</title>
+<link rel="stylesheet" href="{{ stylesheet }}">
+</head>
+<body>
+<main id="main">
+{% for locale in locales %}
+<section lang="{{ locale }}">
+<h1>{{ t(prefix ~ "_title", locale) }}</h1>
+<p>{{ t(prefix ~ "_body", locale) }}</p>
+<p><a href="/hub/{{ locale }}">{{ t("not_found_search", locale) }}</a></p>
+</section>
+{% endfor %}
+</main>
+</body>
+</html>
+{% endmacro %}

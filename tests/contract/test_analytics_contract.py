@@ -115,13 +115,13 @@ def test_d5_adds_no_public_route() -> None:
     too; this is the second of the two places the number is pinned, and
     it is here so a D5 reader meets the obligation in D5's own file. It
     moved from eight to twelve with the admin and app MFA sign-in routes
-    [0028], to fourteen with password sign-in and setup [0032], and to
-    fifteen with the public username lookup [U1: BR3.5], none of which is
-    D5's.
+    [0028], to fourteen with password sign-in and setup [0032], to
+    fifteen with the public username lookup [U1: BR3.5], and to nineteen
+    with the public hub's four pages [H2], none of which is D5's.
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 15
+    assert len(PUBLIC_ROUTES) == 19
     assert ("GET", "/v1/me/dues") not in PUBLIC_ROUTES
     assert ("GET", "/v1/me/overview") not in PUBLIC_ROUTES
 

@@ -21,6 +21,7 @@ import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+import sqlalchemy as sa
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -47,10 +48,14 @@ class CanaryWorld:
 
     :ivar strings: Every private string a public body must not contain
     :ivar owner_id: The solo owner the strings were seeded under
+    :ivar owner_slug: The owner's published listing's slug
+    :ivar batch_slug: The batch's published listing's slug
     """
 
     strings: frozenset[str]
     owner_id: uuid.UUID
+    owner_slug: str
+    batch_slug: str
 
 
 def _canary(label: str) -> str:
@@ -87,6 +92,7 @@ def seed_canaries(session: Session) -> CanaryWorld:
     collection_number = "01" + _digits(9)
     enrollment_name = _canary("enrollment-name")
     student_name = _canary("student-name")
+    batch_name = _canary("batch-name")
 
     account = Account(phone=phone, created_at=now, activated_at=now)
     session.add(account)
@@ -97,7 +103,7 @@ def seed_canaries(session: Session) -> CanaryWorld:
     session.flush()
     batch = Batch(
         owner_id=owner.id,
-        name="Canary batch",
+        name=batch_name,
         collection_number=collection_number,
         marksheet_visible=True,
         active=True,
@@ -124,6 +130,27 @@ def seed_canaries(session: Session) -> CanaryWorld:
     )
     session.add(enrollment)
     session.flush()
+    # Published, so every cacheable page has something of this owner's to
+    # render: the owner page, the batch page, a search hit, the sitemap.
+    owner_slug, batch_slug = "canary-owner", "canary-batch"
+    session.execute(
+        sa.text(
+            "INSERT INTO owner_listing (owner_id, slug, status, public_name, "
+            "headline_en, published_at) VALUES (:o, :slug, 'published', "
+            "'Canary Tutor', 'Canary headline', :now)"
+        ),
+        {"o": owner.id, "slug": owner_slug, "now": now},
+    )
+    session.execute(
+        sa.text(
+            "INSERT INTO batch_listing (batch_id, owner_id, slug, status, "
+            "public_title, class_levels, subject_tags, show_fee, "
+            "show_schedule, published_at) VALUES (:b, :o, :slug, 'published', "
+            "'Canary public title', ARRAY['class_9']::varchar[], "
+            "ARRAY['maths']::varchar[], true, true, :now)"
+        ),
+        {"b": batch.id, "o": owner.id, "slug": batch_slug, "now": now},
+    )
     session.commit()
 
     return CanaryWorld(
@@ -135,33 +162,41 @@ def seed_canaries(session: Session) -> CanaryWorld:
                 enrollment_name,
                 guardian_phone,
                 student_name,
+                batch_name,
                 str(enrollment.id),
                 enrollment.id.hex,
             }
         ),
         owner_id=owner.id,
+        owner_slug=owner_slug,
+        batch_slug=batch_slug,
     )
 
 
 def _resolve(path: str, world: CanaryWorld) -> list[str]:
     """Expand a route template into every concrete path to probe.
 
-    ``{locale}`` expands to each of :data:`LOCALES`. Any other placeholder
-    raises, so a public route added without a resolver cannot be silently
-    skipped: the probe fails loudly until someone teaches it the slug.
+    ``{locale}`` expands to each of :data:`LOCALES`, and ``{owner_slug}``
+    and ``{batch_slug}`` to the seeded world's published listings. Any
+    other placeholder raises, so a public route added without a resolver
+    cannot be silently skipped: the probe fails loudly until someone
+    teaches it the placeholder.
 
     :param path: A route template such as ``/hub/{locale}``
     :param world: The seeded world, for resolvers that need its slugs
     :return: The concrete paths
     :raises NotImplementedError: For a placeholder with no resolver
     """
-    del world  # slug resolution arrives with the hub pages
+    slugs = {"owner_slug": world.owner_slug, "batch_slug": world.batch_slug}
     paths = [path]
     for name in dict.fromkeys(_PLACEHOLDER.findall(path)):
-        if name != "locale":
+        if name == "locale":
+            paths = [p.replace("{locale}", loc) for p in paths for loc in LOCALES]
+        elif name in slugs:
+            paths = [p.replace(f"{{{name}}}", slugs[name]) for p in paths]
+        else:
             msg = f"no canary resolver for placeholder {{{name}}} in {path!r}"
             raise NotImplementedError(msg)
-        paths = [p.replace("{locale}", loc) for p in paths for loc in LOCALES]
     return paths
 
 
