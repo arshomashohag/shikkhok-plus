@@ -51,10 +51,15 @@ function handler(event) {
       value = value.toLowerCase();
     }
     if (key === 'q') {
-      var points = Array.from(value);
-      if (points.length > Q_MAX) {
-        value = points.slice(0, Q_MAX).join('');
+      // By code point, without Array.from (absent from the CloudFront
+      // Functions 2.0 runtime): an astral character is two UTF-16 units.
+      var i = 0;
+      var count = 0;
+      while (i < value.length && count < Q_MAX) {
+        i += value.codePointAt(i) > 0xffff ? 2 : 1;
+        count += 1;
       }
+      value = value.slice(0, i);
     }
     var encoded = encodeURIComponent(value);
     clean[key] = { value: encoded };
