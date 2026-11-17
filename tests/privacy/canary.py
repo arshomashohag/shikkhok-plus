@@ -26,6 +26,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.db.models import Account, Batch, Enrollment, Owner, Profile, Student
+from tests.batches.conftest import make_teacher
+from tests.hub.support import add_member, assign_slot, centre_with_manager
 
 __all__ = [
     "LOCALES",
@@ -50,12 +52,37 @@ class CanaryWorld:
     :ivar owner_id: The solo owner the strings were seeded under
     :ivar owner_slug: The owner's published listing's slug
     :ivar batch_slug: The batch's published listing's slug
+    :ivar centre_slug: The published centre's listing slug
+    :ivar centre_batch_slug: The centre's published batch listing slug
+    :ivar account_phone: The solo owner's account phone, a canary
+    :ivar public_phone: The number the solo owner chose to publish, which
+        is NOT a canary and differs from ``account_phone``
+    :ivar batch_name: The solo batch's private ``batch.name``
+    :ivar draft_name: The never-published draft's public name
+    :ivar draft_slug: The never-published draft's slug
+    :ivar member_name: The unconsented centre member's display name
+    :ivar member_phone: The unconsented centre member's invited phone
+    :ivar other_owner_strings: Every private string seeded under the draft
+        and the centre, which no other owner's preview may show
+    :ivar consented_name: The consented centre member's name, which a
+        public page SHOULD show
     """
 
     strings: frozenset[str]
     owner_id: uuid.UUID
     owner_slug: str
     batch_slug: str
+    centre_slug: str
+    centre_batch_slug: str
+    account_phone: str
+    public_phone: str
+    batch_name: str
+    draft_name: str
+    draft_slug: str
+    member_name: str
+    member_phone: str
+    other_owner_strings: frozenset[str]
+    consented_name: str
 
 
 def _canary(label: str) -> str:
@@ -74,6 +101,182 @@ def _digits(width: int) -> str:
     :return: Exactly ``width`` digits from the system CSPRNG
     """
     return f"{secrets.randbelow(10**width):0{width}d}"
+
+
+#: The centre member who agreed to be named: a page SHOULD show this.
+CONSENTED_NAME = "Consented Canary Sir"
+
+
+@dataclass(frozen=True)
+class _Draft:
+    """The seeded never-published owner.
+
+    :ivar name: Its public name
+    :ivar slug: Its slug
+    :ivar strings: Every private string seeded under it
+    """
+
+    name: str
+    slug: str
+    strings: frozenset[str]
+
+
+@dataclass(frozen=True)
+class _Centre:
+    """The seeded published centre.
+
+    :ivar slug: The centre listing's slug
+    :ivar batch_slug: Its batch listing's slug
+    :ivar member_name: The unconsented member's display name
+    :ivar member_phone: The unconsented member's invited phone
+    :ivar strings: Every private string seeded under it
+    """
+
+    slug: str
+    batch_slug: str
+    member_name: str
+    member_phone: str
+    strings: frozenset[str]
+
+
+def _seed_draft(session: Session, now: dt.datetime) -> _Draft:
+    """Seed an owner that never published, with a public name and a slug.
+
+    Its batch listing IS published, so only the owner's draft status keeps
+    the batch off the hub: the trap an owner unpublish also springs.
+
+    :param session: An arranging session
+    :param now: The seeding time
+    :return: The draft's identifying strings
+    """
+    batch_name = _canary("draft-batch-name")
+    teacher = make_teacher(session, name=batch_name)
+    name, slug, batch_slug = (
+        _canary("draft-public-name"),
+        _canary("draft-slug").lower(),
+        _canary("draft-batch-slug").lower(),
+    )
+    account_phone = session.execute(
+        sa.text("SELECT phone FROM account WHERE id = :a"),
+        {"a": teacher.account_id},
+    ).scalar_one()
+    session.execute(
+        sa.text(
+            "INSERT INTO owner_listing (owner_id, slug, status, public_name) "
+            "VALUES (:o, :slug, 'draft', :name)"
+        ),
+        {"o": teacher.owner_id, "slug": slug, "name": name},
+    )
+    session.execute(
+        sa.text(
+            "INSERT INTO batch_listing (batch_id, owner_id, slug, status, "
+            "public_title, class_levels, subject_tags, show_fee, "
+            "show_schedule, published_at) VALUES (:b, :o, :slug, 'published', "
+            "'Draft batch title', ARRAY['class_9']::varchar[], "
+            "ARRAY['maths']::varchar[], true, true, :now)"
+        ),
+        {"b": teacher.batch_id, "o": teacher.owner_id, "slug": batch_slug, "now": now},
+    )
+    session.commit()
+    return _Draft(
+        name=name,
+        slug=slug,
+        strings=frozenset({name, slug, batch_slug, batch_name, account_phone}),
+    )
+
+
+def _seed_centre(session: Session, now: dt.datetime) -> _Centre:
+    """Seed a published centre, a published batch and two members.
+
+    The consented member is named on the batch page. The unconsented one
+    teaches a slot of the same published batch, so only the consent rule
+    keeps their name and phone off the page.
+
+    :param session: An arranging session
+    :param now: The seeding time
+    :return: The centre's identifying strings
+    """
+    centre_name = _canary("centre-owner-name")
+    centre = centre_with_manager(session, name=centre_name)
+    batch_name = _canary("centre-batch-name")
+    manager_name = _canary("manager-name")
+    member_name = _canary("member-name")
+    member_phone = "+8801" + _digits(9)
+    member_account_phone = "+8801" + _digits(9)
+    consented_account_phone = "+8801" + _digits(9)
+    slug, batch_slug = "canary-centre", "canary-centre-batch"
+
+    accounts = []
+    for account_phone in (member_account_phone, consented_account_phone):
+        account = Account(phone=account_phone, created_at=now, activated_at=now)
+        session.add(account)
+        session.flush()
+        accounts.append(account.id)
+    session.commit()
+    unconsented, _ = add_member(
+        session, centre.owner_id, name=member_name, account_id=accounts[0]
+    )
+    consented, _ = add_member(
+        session,
+        centre.owner_id,
+        name=CONSENTED_NAME,
+        consented=True,
+        account_id=accounts[1],
+    )
+    session.execute(
+        sa.text("UPDATE owner_member SET invited_phone = :p WHERE id = :m"),
+        {"p": member_phone, "m": unconsented},
+    )
+    session.execute(
+        sa.text(
+            "UPDATE owner_member SET display_name = :n "
+            "WHERE owner_id = :o AND role = 'manager'"
+        ),
+        {"n": manager_name, "o": centre.owner_id},
+    )
+    session.execute(
+        sa.text("UPDATE batch SET name = :n WHERE id = :b"),
+        {"n": batch_name, "b": centre.batch_id},
+    )
+    session.commit()
+    assign_slot(session, centre.batch_id, unconsented)
+    assign_slot(session, centre.batch_id, consented)
+    session.execute(
+        sa.text(
+            "INSERT INTO owner_listing (owner_id, slug, status, public_name, "
+            "headline_en, published_at) VALUES (:o, :slug, 'published', "
+            "'Canary Centre', 'Canary centre headline', :now)"
+        ),
+        {"o": centre.owner_id, "slug": slug, "now": now},
+    )
+    session.execute(
+        sa.text(
+            "INSERT INTO batch_listing (batch_id, owner_id, slug, status, "
+            "public_title, class_levels, subject_tags, show_fee, "
+            "show_schedule, published_at) VALUES (:b, :o, :slug, 'published', "
+            "'Centre public title', ARRAY['class_9']::varchar[], "
+            "ARRAY['maths']::varchar[], true, true, :now)"
+        ),
+        {"b": centre.batch_id, "o": centre.owner_id, "slug": batch_slug, "now": now},
+    )
+    session.commit()
+    return _Centre(
+        slug=slug,
+        batch_slug=batch_slug,
+        member_name=member_name,
+        member_phone=member_phone,
+        strings=frozenset(
+            {
+                centre_name,
+                batch_name,
+                manager_name,
+                member_name,
+                member_phone,
+                member_account_phone,
+                consented_account_phone,
+            }
+        ),
+    )
 
 
 def seed_canaries(session: Session) -> CanaryWorld:
@@ -151,7 +354,20 @@ def seed_canaries(session: Session) -> CanaryWorld:
         ),
         {"b": batch.id, "o": owner.id, "slug": batch_slug, "now": now},
     )
+    # The owner publishes a contact number that is not their account phone.
+    public_phone = "+8801" + _digits(9)
+    while public_phone == phone:
+        public_phone = "+8801" + _digits(9)
+    session.execute(
+        sa.text(
+            "UPDATE owner_listing SET public_contact_phone = :p WHERE owner_id = :o"
+        ),
+        {"p": public_phone, "o": owner.id},
+    )
     session.commit()
+
+    draft = _seed_draft(session, now)
+    centre = _seed_centre(session, now)
 
     return CanaryWorld(
         strings=frozenset(
@@ -165,11 +381,24 @@ def seed_canaries(session: Session) -> CanaryWorld:
                 batch_name,
                 str(enrollment.id),
                 enrollment.id.hex,
+                *draft.strings,
+                *centre.strings,
             }
         ),
         owner_id=owner.id,
         owner_slug=owner_slug,
         batch_slug=batch_slug,
+        centre_slug=centre.slug,
+        centre_batch_slug=centre.batch_slug,
+        account_phone=phone,
+        public_phone=public_phone,
+        batch_name=batch_name,
+        draft_name=draft.name,
+        draft_slug=draft.slug,
+        member_name=centre.member_name,
+        member_phone=centre.member_phone,
+        other_owner_strings=frozenset({*draft.strings, *centre.strings}),
+        consented_name=CONSENTED_NAME,
     )
 
 
@@ -177,7 +406,7 @@ def _resolve(path: str, world: CanaryWorld) -> list[str]:
     """Expand a route template into every concrete path to probe.
 
     ``{locale}`` expands to each of :data:`LOCALES`, and ``{owner_slug}``
-    and ``{batch_slug}`` to the seeded world's published listings. Any
+    and ``{batch_slug}`` to both the solo pair and the centre pair. Any
     other placeholder raises, so a public route added without a resolver
     cannot be silently skipped: the probe fails loudly until someone
     teaches it the placeholder.
@@ -187,16 +416,25 @@ def _resolve(path: str, world: CanaryWorld) -> list[str]:
     :return: The concrete paths
     :raises NotImplementedError: For a placeholder with no resolver
     """
-    slugs = {"owner_slug": world.owner_slug, "batch_slug": world.batch_slug}
+    pairs = (
+        (world.owner_slug, world.batch_slug),
+        (world.centre_slug, world.centre_batch_slug),
+    )
     paths = [path]
     for name in dict.fromkeys(_PLACEHOLDER.findall(path)):
         if name == "locale":
             paths = [p.replace("{locale}", loc) for p in paths for loc in LOCALES]
-        elif name in slugs:
-            paths = [p.replace(f"{{{name}}}", slugs[name]) for p in paths]
-        else:
+        elif name not in {"owner_slug", "batch_slug"}:
             msg = f"no canary resolver for placeholder {{{name}}} in {path!r}"
             raise NotImplementedError(msg)
+    if "{owner_slug}" in path or "{batch_slug}" in path:
+        # The two slugs travel as one pair, so a path naming either yields
+        # one path per pair, whichever of them it names.
+        paths = [
+            p.replace("{owner_slug}", owner).replace("{batch_slug}", batch)
+            for p in paths
+            for owner, batch in pairs
+        ]
     return paths
 
 
