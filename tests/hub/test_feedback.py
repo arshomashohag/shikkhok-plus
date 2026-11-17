@@ -182,6 +182,53 @@ def test_asks_at_day_60_and_90_dhaka_date(
     assert HUB_FEEDBACK_QUESTION not in LEGACY_KINDS
 
 
+def test_asks_only_owners_whose_listing_is_published(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A hidden or suspended listing is not asked; republished in time, it is.
+
+    The question is about the hub bringing students, so an owner who is not
+    on the hub today is not asked today [R10]. The seven-day self-heal
+    window still applies: an owner back on the hub within it is asked then.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    hidden = make_teacher(owner_session)
+    _listing(owner_session, hidden.owner_id, _days_ago(60))
+    suspended = make_teacher(owner_session)
+    _listing(owner_session, suspended.owner_id, _days_ago(60))
+    owner_session.execute(
+        sa.text("UPDATE owner_listing SET status = 'hidden' WHERE owner_id = :o"),
+        {"o": hidden.owner_id},
+    )
+    owner_session.execute(
+        sa.text(
+            "UPDATE owner_listing SET status = 'suspended', suspended_at = now(), "
+            "suspension_reason_code = 'spam' WHERE owner_id = :o"
+        ),
+        {"o": suspended.owner_id},
+    )
+    owner_session.commit()
+
+    assert ask_due(restricted_session, TODAY, now=NOW) == 0
+    assert _asked(owner_session) == set()
+    assert _questions(owner_session) == []
+
+    # Republished two days later, still inside the self-heal window.
+    owner_session.execute(
+        sa.text("UPDATE owner_listing SET status = 'published' WHERE owner_id = :o"),
+        {"o": hidden.owner_id},
+    )
+    owner_session.commit()
+    later = TODAY + dt.timedelta(days=2)
+
+    assert ask_due(restricted_session, later, now=NOW) == 1
+    assert _asked(owner_session) == {(hidden.owner_id, 60)}
+    assert _questions(owner_session) == [(hidden.account_id, hidden.owner_id, "60")]
+
+
 def test_self_heals_missed_run_within_7_days(
     owner_session: Session, restricted_session: Session
 ) -> None:

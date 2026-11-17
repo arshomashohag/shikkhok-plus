@@ -13,6 +13,12 @@ insert waits on the first's row, then finds it and does nothing. An
 application-level "already asked?" check would ask twice under exactly
 that overlap.
 
+**Only owners on the hub today are asked** [R10]. A hidden, suspended or
+never-published listing is skipped: the question is whether the hub brought
+a student, and an owner not on it is not asked about it. Skipping is not
+final -- an owner back on the hub within the self-heal window below is
+asked on that day's run.
+
 **A missed run heals.** An owner is due while their first publish lies
 between ``day`` and ``day + 7`` Dhaka days back, so a job that did not run
 for up to a week still asks, late, and the eighth day lets it go rather
@@ -49,7 +55,8 @@ ANSWERS: Final[tuple[str, ...]] = ("yes", "not_yet", "not_sure")
 _ASK: Final = sa.text(
     "INSERT INTO hub_feedback (id, owner_id, asked_on, day) "
     "SELECT gen_random_uuid(), owner_id, :today, :day FROM owner_listing "
-    "WHERE first_published_at >= :start AND first_published_at < :end "
+    "WHERE status = 'published' "
+    "AND first_published_at >= :start AND first_published_at < :end "
     "ORDER BY owner_id "
     "ON CONFLICT (owner_id, day) DO NOTHING RETURNING owner_id"
 )
