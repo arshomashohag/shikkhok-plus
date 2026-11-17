@@ -325,6 +325,9 @@ def test_search_normalises_bangla_input(
     for q in (
         "ঢাকা  physics",
         "মিরপুর‍",
+        # A joiner inside the word: unstripped, it would split the word
+        # into "মির" and "পুর", and "পুর" begins no word of the listing.
+        "মির\u200dপুর",
         "class ১০",
         "রহিম Sir",
         "​রহিম﻿",
