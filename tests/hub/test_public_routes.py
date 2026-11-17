@@ -837,3 +837,47 @@ def test_search_form_chooses_a_district_then_an_area(
     assert _parse(alone).find("input", type="hidden", name="upazila") == [
         {"type": "hidden", "name": "upazila", "value": MIRPUR}
     ]
+
+
+def test_head_answers_as_get_without_a_body(
+    api_client: TestClient, owner_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """HEAD on a hub page is GET's status and headers, and no body.
+
+    CloudFront forwards a viewer's HEAD to the origin, and link checkers
+    and crawlers send one; a 405 there reads as a broken page. Only the
+    hub's paths are widened: elsewhere HEAD is still refused.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param monkeypatch: The patcher
+    :return: None
+    """
+    client = _client(api_client, monkeypatch)
+    _published_tutor(owner_session)
+
+    same = (
+        "cache-control",
+        "content-security-policy",
+        "content-type",
+        "content-length",
+        "x-content-type-options",
+        "x-frame-options",
+    )
+    for path in (
+        "/hub/en",
+        "/hub/bn?q=maths",
+        "/hub/en/t/rahim-sir",
+        "/hub/bn/t/rahim-sir/class-9-maths",
+        "/hub/sitemap.xml",
+        "/hub/en/t/nobody",
+    ):
+        get = client.get(path)
+        head = client.head(path)
+        assert head.status_code == get.status_code, path
+        assert get.content, path
+        assert head.content == b"", path
+        for header in same:
+            assert head.headers.get(header) == get.headers.get(header), (path, header)
+
+    assert client.head("/health").status_code == 405
