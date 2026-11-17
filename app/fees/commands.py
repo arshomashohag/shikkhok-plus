@@ -31,13 +31,19 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from app.db.models import EXPECTED_JOBS, FEE_GENERATION_JOB, JobHeartbeat
+from app.db.models import (
+    EXPECTED_JOBS,
+    FEE_GENERATION_JOB,
+    HUB_INVALIDATION_JOB,
+    JobHeartbeat,
+)
 from app.db.session import build_engine, session_scope
 from app.fees.generation import (
     GenerationResult,
@@ -46,6 +52,7 @@ from app.fees.generation import (
 )
 
 __all__ = [
+    "JOB_STALENESS_THRESHOLDS",
     "STALENESS_THRESHOLD",
     "FreshnessVerdict",
     "check_all_jobs",
@@ -55,6 +62,7 @@ __all__ = [
     "main_generate",
     "report_unhealthy_jobs",
     "run_generation",
+    "staleness_threshold",
     "stamp_heartbeat",
 ]
 
@@ -71,6 +79,27 @@ log = logging.getLogger(__name__)
 #: monthly billing cycle would tolerate longer; a teacher watching for
 #: a fee to appear would not.
 STALENESS_THRESHOLD = dt.timedelta(hours=48)
+
+#: Thresholds for the jobs that do not run daily; every other job takes
+#: :data:`STALENESS_THRESHOLD`.
+#:
+#: **The hub's invalidation sender runs every two minutes** [0041, R8], and
+#: its heartbeat moves only on real progress [R8a], so 48 hours would let
+#: some fifteen hundred failed runs pass while a taken-down page stays on
+#: the edge. Thirty minutes is fifteen missed runs: past a brief CloudFront
+#: or container hiccup, and reported by the hourly check's next pass.
+JOB_STALENESS_THRESHOLDS: Mapping[str, dt.timedelta] = {
+    HUB_INVALIDATION_JOB: dt.timedelta(minutes=30),
+}
+
+
+def staleness_threshold(job_name: str) -> dt.timedelta:
+    """Say how long a job may go without succeeding before it is stale.
+
+    :param job_name: The job
+    :return: Its own threshold, else :data:`STALENESS_THRESHOLD`
+    """
+    return JOB_STALENESS_THRESHOLDS.get(job_name, STALENESS_THRESHOLD)
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,7 +225,7 @@ def check_generation_freshness(
         return FreshnessVerdict(healthy=False, reason="never_ran", staleness=None)
 
     staleness = moment - row.last_success_at
-    if staleness >= STALENESS_THRESHOLD:
+    if staleness >= staleness_threshold(job_name):
         return FreshnessVerdict(healthy=False, reason="stale", staleness=staleness)
     return FreshnessVerdict(healthy=True, reason="fresh", staleness=staleness)
 

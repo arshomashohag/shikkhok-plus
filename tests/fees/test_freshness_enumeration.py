@@ -48,8 +48,9 @@ from app.fees.commands import (
 
 NOW = dt.datetime(2027, 3, 1, 12, 0, tzinfo=dt.UTC)
 
-#: Comfortably inside the 48-hour window.
-FRESH = NOW - dt.timedelta(hours=2)
+#: Comfortably inside every job's window, the shortest being the hub
+#: invalidation sender's thirty minutes.
+FRESH = NOW - dt.timedelta(minutes=10)
 
 #: Comfortably outside it.
 STALE = NOW - dt.timedelta(hours=72)
