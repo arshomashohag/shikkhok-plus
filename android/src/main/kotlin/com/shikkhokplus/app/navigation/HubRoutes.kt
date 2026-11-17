@@ -42,6 +42,7 @@ internal fun NavGraphBuilder.hubRoutes(
                     onPickDivision = model::pickDivision,
                     onPickDistrict = model::pickDistrict,
                     onPickUpazila = model::pickUpazila,
+                    onPickThana = model::pickThana,
                     onRetryAreas = model::retryAreas,
                     onSave = model::save,
                     onCheckSlug = model::checkSlug,
