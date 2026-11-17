@@ -4,6 +4,8 @@ Usage::
 
     python3 deploy/smoke.py <base-url> [--attempts N] [--interval S]
         [--sign-in-phone +8801XXXXXXXXX]
+    python3 deploy/smoke.py <site-url> --hub --api-url <api-url>
+        [--attempts N] [--interval S]
 
 Run by the deploy workflow against the PUBLIC URL -- through CloudFront,
 the origin's certificate and nginx's origin-secret check, which is the
@@ -27,6 +29,19 @@ that number's daily OTP issues. **Production runs without it**: the
 outbox cannot exist there, and no other way to obtain a code without a
 real SMS is safe to build. A fee read, which team.md's smoke set also
 names, needs seeded data and is not automated.
+
+**Given ``--hub``, the public hub instead** [H2]. The base URL is then the
+public SITE, and ``--api-url`` names the API. The hub's pages are rendered
+by the API but served only through the site's distribution, which answers
+a hub 404 -- and a 403 -- with the site's own 404 page. So an
+origin-secret mismatch between the two distributions reads as a missing
+page, and the first check is the one that cannot be faked by that: ``GET
+{site}/hub/en`` answers 200 carrying the hub's own CSP, a canonical link
+on the site's origin, and a stylesheet the site serves. Then the sitemap
+(200), an unknown query key (400, from the edge function), a teacher no
+listing can be (404, not a soft 200), and the API host's own ``/hub/en``
+(404, from its hub-block function). It needs no listing to exist, so it
+runs against production as well.
 """
 
 from __future__ import annotations
@@ -106,6 +121,149 @@ def fetch_health(base_url: str) -> dict[str, object]:
     :return: The decoded body
     """
     return _call(base_url, "GET", "/health")
+
+
+#: The public hub page's Content-Security-Policy, verbatim. This script
+#: imports nothing from ``app/`` (it runs on a bare runner), so the copy is
+#: held to ``app.api.html.HUB_PAGE_CSP`` by tests/gates/test_deploy_workflow.py.
+HUB_PAGE_CSP = (
+    "default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; "
+    "form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+)
+
+#: A teacher slug no listing can ever hold: the underscore is outside the
+#: slug pattern ``[a-z0-9-]{3,60}``, so this is a 404 in every environment.
+ABSENT_SLUG = "no_such_teacher"
+
+#: The hub stylesheet a page links, named by its content.
+_STYLESHEET = re.compile(
+    r'<link rel="stylesheet" href="(/hub-assets/hub\.[0-9a-f]{12}\.css)"'
+)
+
+
+class _NoRedirects(urllib.request.HTTPRedirectHandler):
+    """Report a redirect as its own status instead of following it."""
+
+    def redirect_request(self, *args: object, **kwargs: object) -> None:
+        """Decline every redirect.
+
+        :param args: Unused
+        :param kwargs: Unused
+        :return: None, so urllib raises the 3xx as an HTTPError
+        """
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirects)
+
+
+def _get(url: str) -> tuple[int, dict[str, str], str]:
+    """GET one URL and return its answer, whatever the status.
+
+    :param url: The absolute URL
+    :return: The status, the headers (names lowercased) and the body
+    """
+    request = urllib.request.Request(  # noqa: S310 -- the URL is ours, https or localhost
+        url, headers={"User-Agent": "shikkhokplus-smoke"}
+    )
+    try:
+        with _OPENER.open(request, timeout=10) as response:
+            status = response.status
+            headers = response.headers
+            body = response.read()
+    except urllib.error.HTTPError as exc:
+        status, headers, body = exc.code, exc.headers, exc.read()
+    return (
+        status,
+        {name.lower(): value for name, value in headers.items()},
+        body.decode("utf-8", "replace"),
+    )
+
+
+def _expect(url: str, status: int, what: str) -> None:
+    """Fail unless one URL answers one status.
+
+    :param url: The absolute URL
+    :param status: The status it must answer
+    :param what: How to name it in the failure
+    :raises RuntimeError: It answered anything else
+    """
+    actual, _, _ = _get(url)
+    if actual != status:
+        raise RuntimeError(f"{what} answered {actual}, not {status}")
+
+
+def _check_landing(site: str) -> None:
+    """Check ``/hub/en`` is the hub's page, not the site's 404.
+
+    :param site: The site origin, no trailing slash
+    :raises RuntimeError: Any part of the page is wrong; the message says which
+    """
+    url = f"{site}/hub/en"
+    status, headers, body = _get(url)
+    if status != 200:
+        raise RuntimeError(
+            f"{url} answered {status}; the site's 404 page here usually means "
+            "the site distribution's origin secret no longer matches nginx's"
+        )
+    csp = headers.get("content-security-policy", "")
+    if csp != HUB_PAGE_CSP:
+        raise RuntimeError(
+            f"{url} carries Content-Security-Policy {csp!r}, not the hub's own"
+        )
+    canonical = f'<link rel="canonical" href="{url}">'
+    if canonical not in body:
+        raise RuntimeError(
+            f"{url} has no canonical link on {site}; SHIKKHOKPLUS_SITE_URL is "
+            "missing or wrong in the API's runtime env"
+        )
+    stylesheet = _STYLESHEET.search(body)
+    if stylesheet is None:
+        raise RuntimeError(f"{url} links no hub stylesheet")
+    sheet = f"{site}{stylesheet.group(1)}"
+    sheet_status, sheet_headers, _ = _get(sheet)
+    if sheet_status != 200 or not sheet_headers.get("content-type", "").startswith(
+        "text/css"
+    ):
+        raise RuntimeError(
+            f"the stylesheet {sheet} answered {sheet_status} "
+            f"({sheet_headers.get('content-type', 'no type')}); the site build "
+            "and the API disagree on hub.css"
+        )
+
+
+def smoke_hub(site_url: str, api_url: str, *, attempts: int, interval: float) -> str:
+    """Check the public hub through the site's and the API's distributions.
+
+    :param site_url: The public site, e.g. ``https://shikkhokplus.com``
+    :param api_url: The API, e.g. ``https://api.shikkhokplus.com``
+    :param attempts: How many times to try the landing page
+    :param interval: Seconds between those tries
+    :return: A one-line description of what was verified
+    :raises RuntimeError: Any check failed; the message names which
+    """
+    site = site_url.rstrip("/")
+    api = api_url.rstrip("/")
+    for attempt in range(1, attempts + 1):
+        try:
+            _check_landing(site)
+            break
+        except (RuntimeError, urllib.error.URLError, OSError) as exc:
+            if attempt == attempts:
+                raise RuntimeError(str(exc)) from None
+            print(f"attempt {attempt}/{attempts}: {exc}", file=sys.stderr)
+            time.sleep(interval)
+
+    _expect(f"{site}/hub/sitemap.xml", 200, f"{site}/hub/sitemap.xml")
+    _expect(f"{site}/hub/en?utm=x", 400, f"{site}/hub/en?utm=x")
+    absent = f"{site}/hub/en/t/{ABSENT_SLUG}"
+    _expect(absent, 404, absent)
+    _expect(f"{api}/hub/en", 404, f"the API host's {api}/hub/en")
+    return (
+        f"the hub answers at {site}/hub/en with its own CSP, the sitemap, "
+        "the stylesheet, a 400 for an unknown query key and a 404 for an "
+        "unknown teacher, and the API host refuses it"
+    )
 
 
 #: The six-digit code inside the rendered SMS. Bounded by non-alphanumerics
@@ -204,7 +362,30 @@ def main() -> int:
         default="",
         help="staging only: also sign in through the outbox with this number",
     )
+    parser.add_argument(
+        "--hub",
+        action="store_true",
+        help="smoke the public hub instead: base_url is the public site",
+    )
+    parser.add_argument("--api-url", default="", help="with --hub: the API's URL")
     args = parser.parse_args()
+
+    if args.hub:
+        if not args.api_url:
+            parser.error("--hub needs --api-url")
+        try:
+            print(
+                smoke_hub(
+                    args.base_url,
+                    args.api_url,
+                    attempts=args.attempts,
+                    interval=args.interval,
+                )
+            )
+        except (RuntimeError, urllib.error.URLError, OSError) as exc:
+            print(f"::error::hub smoke failed: {exc}", file=sys.stderr)
+            return 1
+        return 0
 
     head = migration_head()
     last = "no response"

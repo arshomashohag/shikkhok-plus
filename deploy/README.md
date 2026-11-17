@@ -30,6 +30,21 @@ and optionally a ref. `.github/workflows/deploy.yml` then:
      CloudFront, requiring the database at this commit's migration head;
    - on any failure after the state was written, **restores the previous
      release** in SSM, and if the smoke failed, rolls the host back.
+4. **web**, **site** and **admin** -- the web client, the public site and
+   the platform admin UI, each built, uploaded, invalidated and smoked.
+5. **hub** -- once the release and the site have both shipped, runs
+   `deploy/smoke.py <site-url> --hub --api-url <api-url>`: the public hub's
+   pages are rendered by the API but served only through the site's
+   distribution, so neither earlier smoke reaches them. It requires
+   `{site}/hub/en` to answer 200 with the hub's own CSP (the site
+   distribution turns an origin 403 or 404 into its own 404 page, so an
+   origin-secret mismatch would otherwise read as a missing page), a
+   canonical link on the site's origin and a stylesheet the site serves;
+   then `{site}/hub/sitemap.xml` 200, `{site}/hub/en?utm=x` 400,
+   `{site}/hub/en/t/no_such_teacher` 404, and `{api}/hub/en` 404. It holds
+   no AWS credentials and rolls nothing back: what it catches is edge
+   wiring between two distributions, which the previous image would not
+   undo.
 
 There is no SSH and no manual host step. A shell, when one is needed, is
 `aws ssm start-session --target <instance-id>`.
@@ -52,6 +67,22 @@ database URL; the API and every scheduled job connect as the restricted
 `shikkhok_app` role [OPS-5]. Then the cron entries, the freshness
 service, the readiness probe, DNS self-registration and the lifecycle
 signal.
+
+**A new scheduled job reaches a host with the deploy that ships its
+code.** The cron entries (fee and session generation, the retention
+purge, the hub badge refresh at 02:30, the hub demand question at 03:00,
+the hub invalidation sender every two minutes) are written by this boot
+script, so only a host booted from the current launch template has them.
+Every deploy gets one: the release waits for the infrastructure job's
+apply, which writes the new template version, and `deploy/roll.sh`
+replaces the host from the group's `$Latest` template
+(tests/gates/test_deploy_workflow.py,
+`test_every_deploy_boots_a_host_from_the_applied_template`). Until the
+first run of a new job, the freshness check reports it `never_ran`;
+that is expected for up to a day after the deploy that adds it. An
+apply run **outside** this workflow changes the template and leaves the
+running host on the old one, missing the new entries, until the next
+deploy or `deploy/roll.sh shikkhokplus-<env>` with the deploy role.
 
 ## The runtime environment
 
@@ -76,6 +107,8 @@ GitHub environment's secrets and variables.
 | `SHIKKHOKPLUS_SES_SMTP_HOST`, `SHIKKHOKPLUS_SES_SMTP_PORT` | SSM `ses-smtp-host`, fixed `587` | STARTTLS |
 | `SHIKKHOKPLUS_EMAIL_FROM`, `SHIKKHOKPLUS_SES_CONFIGURATION_SET` | SSM `email-from`, `ses-configuration-set` | the only From address the credentials may send as |
 | `SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL` | variable, default `1000` | the daily send ceiling; the same variable prices email in the plan's budget guard |
+| `SHIKKHOKPLUS_SITE_URL` | SSM `site-url` | the public site's origin: the code email's website link, and the public hub's canonical, `hreflang` and sitemap links. Unreadable, the release warns and writes it empty; the hub smoke then fails on the canonical link |
+| `SHIKKHOKPLUS_WEB_APP_URL` | SSM `web-url`, less its `/ui/` | the web app's origin: every public hub page's report link opens `{origin}/ui/hub-report`. The release stops before writing anything if it is unreadable or not `https://<host>/ui/` |
 | `SHIKKHOKPLUS_DATABASE_URL` | SSM `database-url`, by the boot script | the `shikkhok_app` role |
 | `SHIKKHOKPLUS_MIGRATION_DATABASE_URL`, `SHIKKHOKPLUS_APP_DB_PASSWORD` | SSM, by the boot script | `migrate` service only, never written to `.env` |
 | `API_IMAGE` | the image tag in SSM | a commit SHA, never `latest` |

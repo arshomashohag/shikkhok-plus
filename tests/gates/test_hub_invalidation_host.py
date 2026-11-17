@@ -97,6 +97,24 @@ def test_the_template_receives_the_distribution_id() -> None:
     assert TEMPLATE_VALUES["site_distribution_id"] in "\n".join(_script())
 
 
+def test_the_root_hands_the_site_distribution_to_the_app_host() -> None:
+    # The other end of the chain [R8]: the id the template receives is cut
+    # from the ARN the root module passes in. Unset, the module's default
+    # (null) renders an empty id and the sender claims rows it never sends.
+    root = (ROOT / "infra" / "main.tf").read_text()
+    module = root[root.index('module "app" {') :]
+    module = module[: module.index("\n}\n")]
+    main_tf = (TEMPLATE.parent / "main.tf").read_text()
+
+    assert re.search(
+        r"site_distribution_arn\s*=\s*module\.site\.distribution_arn", module
+    )
+    assert re.search(
+        r"site_distribution_id\s*=.*split\(\"/\",\s*var\.site_distribution_arn\),\s*1\)",
+        main_tf,
+    )
+
+
 def test_no_aws_sdk_reaches_the_container() -> None:
     # The whole point of R8: nothing the image installs or imports can call
     # AWS, so the hop-limit decision [OPS-4] keeps holding.

@@ -23,14 +23,26 @@ shipped, or a control whose absence would be silent:
 from __future__ import annotations
 
 import fnmatch
+import http.server
+import importlib.util
 import json
 import os
 import pathlib
 import re
 import subprocess
+import threading
+import urllib.parse
+from collections.abc import Iterator
+from types import ModuleType
 
 import pytest
 import yaml
+
+from app.api.html import HUB_PAGE_CSP
+from app.hub.listings.shared import SLUG
+from app.hub.public import render
+from app.hub.public.settings import SITE_URL_ENV
+from app.hub.public.views import HubSearchFilters, HubSearchPage
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DEPLOY = ROOT / ".github" / "workflows" / "deploy.yml"
@@ -995,3 +1007,409 @@ def test_the_web_build_names_the_site_the_release_read() -> None:
         if "configure-aws-credentials" in str(step.get("uses"))
     ]
     assert names.index("Check and build for /ui/") < credentials[0]
+
+
+# ---------------------------------------------------------------------------
+# The public hub, smoked after the API and the site have both shipped
+# [H2 task 11]. The pages are rendered by the API and served only through
+# the site's distribution, so neither the API smoke nor the site smoke
+# reaches them. CloudFront answers a hub 404 -- and a 403 -- with the
+# site's own 404 page, so an origin-secret mismatch reads as a missing
+# page: the smoke must see a 200 carrying the hub's own CSP before it can
+# call anything else a pass [R9].
+# ---------------------------------------------------------------------------
+
+COMPOSE_STAGING = ROOT / "deploy" / "docker-compose.staging.yml"
+
+
+def _load_smoke() -> ModuleType:
+    """Import ``deploy/smoke.py``, which is a script rather than a package.
+
+    :return: The module
+    """
+    spec = importlib.util.spec_from_file_location(
+        "smoke_for_hub", ROOT / "deploy" / "smoke.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+smoke = _load_smoke()
+
+#: The site's own policy, which a page served from the bucket carries.
+_SITE_CSP = "default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'"
+
+
+def _landing_page() -> str:
+    """Render the real, empty ``/hub/en`` landing page.
+
+    :return: The HTML the API would send
+    """
+    view = HubSearchPage(
+        query=None,
+        filters=HubSearchFilters(district=None, upazila=None, subject=None, level=None),
+        results=[],
+        page=1,
+        pages=1,
+        total=0,
+    )
+    return render.page(view, "search.html", "en")
+
+
+class _HubHost(http.server.BaseHTTPRequestHandler):
+    """The site host (or, with ``server.api``, the API host).
+
+    ``server.behaviour`` names the one thing that is broken.
+    """
+
+    def log_message(self, format: str, *args: object) -> None:
+        """Stay quiet.
+
+        :param format: Unused
+        :param args: Unused
+        :return: None
+        """
+
+    def _send(
+        self, status: int, body: str, csp: str = HUB_PAGE_CSP, kind: str = "text/html"
+    ) -> None:
+        """Write one answer.
+
+        :param status: The HTTP status
+        :param body: The body
+        :param csp: The Content-Security-Policy header
+        :param kind: The Content-Type
+        :return: None
+        """
+        payload = body.encode()
+        self.send_response(status)
+        self.send_header("Content-Type", kind)
+        self.send_header("Content-Security-Policy", csp)
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def do_GET(self) -> None:
+        """Answer as the site distribution, or the API's, would.
+
+        :return: None
+        """
+        behaviour = self.server.behaviour  # type: ignore[attr-defined]
+        url = urllib.parse.urlsplit(self.path)
+        if self.server.api:  # type: ignore[attr-defined]
+            # The API distribution's hub-block function.
+            if url.path.startswith("/hub") and behaviour != "api-serves-hub":
+                self._send(404, "not found", csp=_SITE_CSP)
+            else:
+                self._send(200, _landing_page())
+            return
+        site = self.server.origin  # type: ignore[attr-defined]
+        absent = f"/hub/en/t/{smoke.ABSENT_SLUG}"
+        if url.path == "/hub/en" and url.query:
+            if behaviour == "query-passed":
+                self._send(200, _landing_page())
+            else:
+                self._send(400, "Bad Request", csp=_SITE_CSP)
+        elif url.path == "/hub/en":
+            page = _landing_page()
+            if behaviour == "origin-refused":
+                self._send(404, "<h1>Page not found</h1>", csp=_SITE_CSP)
+            elif behaviour == "site-csp":
+                self._send(200, page, csp=_SITE_CSP)
+            elif behaviour == "localhost-canonical":
+                self._send(200, page.replace(site, "http://localhost"))
+            else:
+                self._send(200, page)
+        elif url.path == "/hub/sitemap.xml" and behaviour != "no-sitemap":
+            self._send(200, "<urlset/>", kind="application/xml")
+        elif url.path == absent and behaviour == "soft-404":
+            self._send(200, _landing_page())
+        elif url.path == render.STYLESHEET_PATH and behaviour != "no-stylesheet":
+            self._send(200, "body{}", csp=_SITE_CSP, kind="text/css; charset=utf-8")
+        else:
+            self._send(404, "<h1>Page not found</h1>", csp=_SITE_CSP)
+
+
+def _serve(behaviour: str, *, api: bool) -> http.server.ThreadingHTTPServer:
+    """Bind one stand-in host on a free local port, not yet serving.
+
+    :param behaviour: What is broken
+    :param api: True for the API host, False for the site host
+    :return: The server
+    """
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _HubHost)
+    server.behaviour = behaviour  # type: ignore[attr-defined]
+    server.api = api  # type: ignore[attr-defined]
+    server.origin = f"http://127.0.0.1:{server.server_address[1]}"  # type: ignore[attr-defined]
+    return server
+
+
+@pytest.fixture
+def hub(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[tuple[str, str]]:
+    """Serve a stand-in site host and API host.
+
+    The landing page is the real render, with the site's origin as
+    ``SHIKKHOKPLUS_SITE_URL``, as the deploy sets it.
+
+    :param request: Carries the behaviour to break, via indirect params
+    :param monkeypatch: Sets the site origin for the renderer
+    :return: A context manager yielding the site and API base URLs
+    """
+    behaviour = getattr(request, "param", "ok")
+    servers = [_serve(behaviour, api=False), _serve(behaviour, api=True)]
+    monkeypatch.setenv(SITE_URL_ENV, servers[0].origin)  # type: ignore[attr-defined]
+    for server in servers:
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield servers[0].origin, servers[1].origin + "/"  # type: ignore[attr-defined]
+    finally:
+        for server in servers:
+            server.shutdown()
+            server.server_close()
+
+
+def test_a_working_hub_passes_the_smoke(hub: tuple[str, str]) -> None:
+    site, api = hub
+
+    outcome = smoke.smoke_hub(site + "/", api, attempts=1, interval=0)
+
+    assert outcome == (
+        f"the hub answers at {site}/hub/en with its own CSP, the sitemap, "
+        "the stylesheet, a 400 for an unknown query key and a 404 for an "
+        "unknown teacher, and the API host refuses it"
+    )
+
+
+@pytest.mark.parametrize(
+    ("hub", "reason"),
+    [
+        ("origin-refused", r"/hub/en answered 404"),
+        ("site-csp", r"Content-Security-Policy"),
+        ("localhost-canonical", r"canonical"),
+        ("no-stylesheet", r"stylesheet .* answered 404"),
+        ("no-sitemap", r"/hub/sitemap.xml answered 404"),
+        ("query-passed", r"\?utm=x answered 200, not 400"),
+        ("soft-404", r"no_such_teacher answered 200, not 404"),
+        ("api-serves-hub", r"API host's .*/hub/en answered 200, not 404"),
+    ],
+    indirect=["hub"],
+)
+def test_a_broken_hub_fails_the_smoke(hub: tuple[str, str], reason: str) -> None:
+    site, api = hub
+
+    with pytest.raises(RuntimeError, match=reason):
+        smoke.smoke_hub(site, api, attempts=1, interval=0)
+
+
+def test_the_hub_smoke_expects_the_policy_the_api_sends() -> None:
+    # smoke.py imports nothing from app/ (it runs on a bare runner), so
+    # its copy of the policy is held to the API's here.
+    assert smoke.HUB_PAGE_CSP == HUB_PAGE_CSP
+
+
+def test_the_absent_teacher_can_never_be_a_listing() -> None:
+    # Outside the slug pattern, so no publish can ever make it a 200.
+    assert not SLUG.fullmatch(smoke.ABSENT_SLUG)
+
+
+def test_deploy_smokes_hub_routes() -> None:
+    """A job after the release and the site smokes the hub through both.
+
+    The URLs come from the two jobs as outputs, so the hub job holds no
+    AWS credentials, and reach the shell through the environment.
+
+    :return: None
+    """
+    workflow = yaml.safe_load(DEPLOY.read_text())
+    jobs = workflow["jobs"]
+    hub_job = jobs["hub"]
+    runs = [s for s in hub_job["steps"] if "deploy/smoke.py" in str(s.get("run", ""))]
+
+    assert {"plan", "release", "site"} <= set(hub_job["needs"])
+    assert len(runs) == 1
+    run = str(runs[0]["run"])
+    assert re.search(r'deploy/smoke\.py "\$SITE_URL" --hub --api-url "\$API_URL"', run)
+    assert "${{" not in run
+    assert runs[0]["env"] == {
+        "SITE_URL": "${{ needs.site.outputs.url }}",
+        "API_URL": "${{ needs.release.outputs.api_url }}",
+    }
+    assert not any(
+        "configure-aws-credentials" in str(s.get("uses")) for s in hub_job["steps"]
+    )
+
+    assert jobs["site"]["outputs"]["url"] == "${{ steps.target.outputs.url }}"
+    assert jobs["release"]["outputs"]["api_url"] == "${{ steps.smoke.outputs.api_url }}"
+    smoke_step = next(s for s in _steps("release") if s.get("id") == "smoke")
+    assert 'echo "api_url=${url}" >> "$GITHUB_OUTPUT"' in str(smoke_step["run"])
+
+
+# ---------------------------------------------------------------------------
+# The two origins the hub's pages are built from reach the container [R1]:
+# the public site (canonical, hreflang, sitemap) and the web app (the
+# report link, at /ui/hub-report). The release step is run here against a
+# stand-in ``aws`` and the runtime env it would store is read back.
+# ---------------------------------------------------------------------------
+
+#: A stand-in ``aws``: answers each SSM read from ``$PARAMS/<name>`` and
+#: keeps what a ``put-parameter --value file://...`` stores.
+_FAKE_AWS_RECORD = """#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "$AWS_LOG"
+name="" value="" prev=""
+for arg in "$@"; do
+  [ "$prev" = "--name" ] && name="$arg"
+  [ "$prev" = "--value" ] && value="$arg"
+  prev="$arg"
+done
+key="${name##*/}"
+if [ "$1 $2" = "ssm get-parameter" ]; then
+  [ -f "$PARAMS/$key" ] || { echo "ParameterNotFound" >&2; exit 254; }
+  cat "$PARAMS/$key"
+fi
+if [ "$1 $2" = "ssm put-parameter" ] && [ "${value#file://}" != "$value" ]; then
+  cp "${value#file://}" "$CAPTURE/$key"
+fi
+"""
+
+#: What SSM holds for every parameter the record step reads.
+_RECORD_PARAMS = {
+    "admin-edge-secret": "A" * 40,
+    "ses-smtp-username": "AKIA" + "B" * 16,
+    "ses-smtp-password": "c" * 44,
+    "email-from": "ShikkhokPlus <codes@example.test>",
+    "ses-configuration-set": "shikkhokplus-staging",
+    "ses-smtp-host": "email-smtp.us-east-1.amazonaws.com",
+    "site-url": "https://site.example.test",
+    "web-url": "https://app.example.test/ui/",
+}
+
+
+def _run_record_step(
+    tmp_path: pathlib.Path, **overrides: str | None
+) -> tuple[subprocess.CompletedProcess[str], list[str], dict[str, str]]:
+    """Run the release's record step against a stand-in SSM.
+
+    :param tmp_path: A scratch directory
+    :param overrides: Parameter values to replace; None removes one
+    :return: The process, each ``aws`` call, and the stored runtime env
+    """
+    params = tmp_path / "params"
+    capture = tmp_path / "capture"
+    bin_dir = tmp_path / "bin"
+    for directory in (params, capture, bin_dir):
+        directory.mkdir()
+    for key, value in {**_RECORD_PARAMS, **overrides}.items():
+        if value is not None:
+            (params / key).write_text(value + "\n")
+    fake = bin_dir / "aws"
+    fake.write_text(_FAKE_AWS_RECORD)
+    fake.chmod(0o755)
+    log = tmp_path / "aws.log"
+    log.write_text("")
+    output = tmp_path / "github-output"
+    record = next(s for s in _steps("release") if s.get("id") == "record")
+    finished = subprocess.run(  # noqa: S603 -- a fixed interpreter and our own script
+        [  # noqa: S607 -- bash from PATH, as the runner finds it
+            "bash",
+            "--noprofile",
+            "--norc",
+            "-eo",
+            "pipefail",
+            "-c",
+            str(record["run"]),
+        ],
+        cwd=tmp_path,
+        env={
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "ENVIRONMENT": "staging",
+            "SHA": "0" * 40,
+            "GITHUB_OUTPUT": str(output),
+            "AWS_LOG": str(log),
+            "PARAMS": str(params),
+            "CAPTURE": str(capture),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    stored = capture / "runtime-env"
+    runtime: dict[str, str] = {}
+    if stored.exists():
+        for line in stored.read_text().splitlines():
+            key, _, value = line.partition("=")
+            runtime[key] = value
+    return finished, log.read_text().splitlines(), runtime
+
+
+@pytest.mark.parametrize(
+    ("web_url", "origin"),
+    [
+        ("https://app.example.test/ui/", "https://app.example.test"),
+        # A web client with no hostname of its own is served by the API's.
+        ("https://api.example.test/ui/", "https://api.example.test"),
+    ],
+)
+def test_the_container_gets_the_site_and_web_app_origins(
+    tmp_path: pathlib.Path, web_url: str, origin: str
+) -> None:
+    finished, _, runtime = _run_record_step(tmp_path, **{"web-url": web_url})
+
+    assert finished.returncode == 0, finished.stdout + finished.stderr
+    assert runtime["SHIKKHOKPLUS_SITE_URL"] == "https://site.example.test"
+    assert runtime["SHIKKHOKPLUS_WEB_APP_URL"] == origin
+
+
+@pytest.mark.parametrize(
+    "web_url",
+    [None, "http://app.example.test/ui/", "None"],
+    ids=["unset", "plain-http", "aws-prints-None"],
+)
+def test_no_web_app_origin_stops_the_release_before_anything_is_written(
+    tmp_path: pathlib.Path, web_url: str | None
+) -> None:
+    finished, calls, runtime = _run_record_step(tmp_path, **{"web-url": web_url})
+
+    assert finished.returncode != 0
+    assert "web-url" in finished.stdout
+    assert not [c for c in calls if c.startswith("ssm put-parameter")]
+    assert runtime == {}
+
+
+@pytest.mark.parametrize("name", ["SHIKKHOKPLUS_SITE_URL", "SHIKKHOKPLUS_WEB_APP_URL"])
+def test_compose_hands_both_origins_to_the_container(name: str) -> None:
+    document = yaml.safe_load(COMPOSE_STAGING.read_text())
+
+    for service in ("api", "migrate"):
+        environment = document["services"][service]["environment"]
+        assert environment[name] == f"${{{name}:-}}", service
+
+
+# ---------------------------------------------------------------------------
+# The hub's three scheduled jobs (badge refresh, demand question, edge
+# invalidation sender) are cron entries the boot script writes. They reach
+# a host only when one boots from the new launch template, so the deploy
+# that ships their code must also replace the host: the release waits for
+# the apply, and rolls the group, whose template is $Latest, every time.
+# ---------------------------------------------------------------------------
+
+
+def test_every_deploy_boots_a_host_from_the_applied_template() -> None:
+    workflow = yaml.safe_load(DEPLOY.read_text())
+    roll = [s for s in _steps("release") if s.get("id") == "roll"]
+    asg = (ROOT / "infra" / "modules" / "app" / "main.tf").read_text()
+
+    assert "infrastructure" in workflow["jobs"]["release"]["needs"]
+    assert "if" not in workflow["jobs"]["release"]
+    assert len(roll) == 1
+    assert "if" not in roll[0]
+    assert "deploy/roll.sh" in str(roll[0]["run"])
+    assert re.search(
+        r"launch_template\s*\{\s*id\s*=\s*aws_launch_template\.app\.id\s*"
+        r'version\s*=\s*"\$Latest"',
+        asg,
+    )

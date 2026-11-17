@@ -161,6 +161,48 @@ the origin's `Cache-Control`); the deploy uploads hashed assets as
 invalidates `/*`. `site/README.md` has the details, and the first deploy
 needs `bootstrap/` re-applied (see `bootstrap/README.md`).
 
+**The one exception is `/hub/*`, the public hub**, which this
+distribution forwards to the API host: credential-less, GET-only, with
+the query-string allowlist enforced at the edge
+(`modules/site/functions/hub-query.js`) and the API's own
+`Cache-Control` and CSP honoured. The API's distribution answers `/hub*`
+404 (`modules/cdn/functions/hub-block.js`). After every deploy the
+`hub` job smokes both sides (`deploy/README.md`, step 5).
+
+The hub's takedown invalidations are sent by the **app host**, not the
+container: a cron entry runs `/usr/local/bin/shikkhokplus-hub-invalidate`
+every two minutes with the instance role, which may call
+`cloudfront:CreateInvalidation` on this distribution only. Its id
+reaches the boot script from `module.site.distribution_arn`.
+
+## Scheduled jobs reach a host only by replacement
+
+Every scheduled job is a cron entry `user_data` writes at boot (fee and
+session generation, the retention purge, and the hub's badge refresh,
+demand question and invalidation sender). Applying a template change
+does **not** roll the host: the group references the launch template's
+`$Latest` and its `instance_refresh` has no triggers, deliberately, so an
+apply never replaces a running instance by itself.
+
+**The deploy workflow is what installs new entries.** Its release job
+waits for the infrastructure job's apply and then always runs
+`deploy/roll.sh`, which starts an instance refresh; the replacement
+boots from `$Latest` and so carries every entry the template now holds.
+No separate operator step is needed for a job that ships through the
+workflow. The freshness check reports a newly expected job as
+`never_ran` until its first scheduled run, so expect that alert for up
+to a day after the deploy that adds the job.
+
+**If you apply outside the workflow** (from a laptop, for instance), the
+running host keeps its old crontab. Replace it with
+
+```bash
+deploy/roll.sh shikkhokplus-<env>    # with the deploy role's credentials
+```
+
+which launches the replacement before terminating the old host, exactly
+as a deploy does.
+
 ## The platform admin surface
 
 `modules/admin` serves the admin UI and the admin API (`/v1/admin/*`) at

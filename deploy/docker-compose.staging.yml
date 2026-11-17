@@ -78,9 +78,14 @@ x-app-environment: &app-environment
   SHIKKHOKPLUS_EMAIL_FROM: ${SHIKKHOKPLUS_EMAIL_FROM:-}
   SHIKKHOKPLUS_SES_CONFIGURATION_SET: ${SHIKKHOKPLUS_SES_CONFIGURATION_SET:-}
   SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL: ${SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL:-}
-  # The public site's origin, for the link in the code email. Empty
-  # leaves the link out; it never stops a code being sent.
+  # The public site's origin, for the link in the code email and the
+  # public hub's canonical, hreflang and sitemap links. Empty leaves the
+  # email link out; it never stops a code being sent.
   SHIKKHOKPLUS_SITE_URL: ${SHIKKHOKPLUS_SITE_URL:-}
+  # The web app's origin: each public hub page's "Report this page" link
+  # opens {origin}/ui/hub-report. The deploy refuses to record a release
+  # without it.
+  SHIKKHOKPLUS_WEB_APP_URL: ${SHIKKHOKPLUS_WEB_APP_URL:-}
 
 # **Every container ships its output to CloudWatch** [OPS-11] -- the
 # API, the migrate runs and each scheduled job (`run --rm api` inherits
