@@ -559,11 +559,12 @@ def test_named_member_account_deletion_enqueues(
     }
 
 
-def _heartbeat(session: Session) -> tuple[dt.datetime, int, int, int]:
+def _heartbeat(session: Session) -> tuple[dt.datetime, int, int, int] | None:
     """Read this job's heartbeat row.
 
     :param session: The arranging session
-    :return: ``(last_success_at, offered, still_waiting, retrying)``
+    :return: ``(last_success_at, sent, still_waiting, retrying)``, or None
+        when the job has never made progress
     """
     session.rollback()
     row = session.execute(
@@ -572,14 +573,14 @@ def _heartbeat(session: Session) -> tuple[dt.datetime, int, int, int]:
             "periods_failed FROM job_heartbeat WHERE job_name = :j"
         ),
         {"j": HUB_INVALIDATION_JOB},
-    ).one()
-    return row[0], row[1], row[2], row[3]
+    ).one_or_none()
+    return None if row is None else (row[0], row[1], row[2], row[3])
 
 
-def test_claim_offers_oldest_first_up_to_limit_and_records_heartbeat(
+def test_claim_offers_oldest_first_up_to_limit_and_ack_records_heartbeat(
     owner_session: Session, restricted_session: Session
 ) -> None:
-    """A claim offers the oldest rows, de-duplicated, and stamps the job.
+    """A claim offers the oldest rows; only the ack stamps the job [R8a].
 
     :param owner_session: An arranging session
     :param restricted_session: The application role's session
@@ -597,7 +598,8 @@ def test_claim_offers_oldest_first_up_to_limit_and_records_heartbeat(
     assert first.ids == sorted(first.ids)
     assert len(first.ids) == 3
     assert str(uuid.UUID(first.caller_reference)) == first.caller_reference
-    assert _heartbeat(owner_session) == (NOW, 3, 3, 0)
+    # A claim that hands out rows has sent nothing, so stamps nothing.
+    assert _heartbeat(owner_session) is None
 
     # Claiming does not send: the same rows are offered until acked.
     again = commands.claim(restricted_session, limit=3, now=NOW)
@@ -605,6 +607,7 @@ def test_claim_offers_oldest_first_up_to_limit_and_records_heartbeat(
     assert again.caller_reference != first.caller_reference
 
     assert commands.ack(restricted_session, first.ids, "I1EXAMPLE", NOW) == 3
+    assert _heartbeat(owner_session) == (NOW, 3, 3, 0)
     second = commands.claim(restricted_session, now=NOW)
     assert set(second.paths) == {*invalidation.batch_paths("bbb", "ccc"), SITEMAP}
     assert commands.ack(restricted_session, second.ids, "I2EXAMPLE", NOW) == 3
@@ -638,7 +641,7 @@ def test_claim_offers_a_path_once_however_many_rows_carry_it(
     assert all(r.sent_at == NOW for r in _rows(owner_session))
 
 
-def test_empty_claim_still_records_heartbeat(
+def test_empty_claim_records_heartbeat(
     owner_session: Session, restricted_session: Session
 ) -> None:
     """Nothing to send is the normal case, and the job still registers fresh.
@@ -679,7 +682,70 @@ def test_fail_increments_attempts_and_keeps_row(
     assert all(r.sent_at is None and r.attempts == 1 for r in rows)
     retried = commands.claim(restricted_session, now=NOW)
     assert retried.ids == offered.ids
-    assert _heartbeat(owner_session) == (NOW, 3, 0, 3)
+
+
+def test_a_sender_that_only_fails_goes_stale(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """Claim and fail, run after run, never stamp the heartbeat [R8a].
+
+    The freshness check reads only the heartbeat's time, so a sender whose
+    every send fails must not look fresh. Once a send is acked, it is.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    invalidation.enqueue(restricted_session, invalidation.owner_paths("aaa"), NOW)
+    restricted_session.commit()
+
+    for _ in range(3):
+        offered = commands.claim(restricted_session, now=NOW)
+        commands.fail(restricted_session, offered.ids)
+
+    assert _heartbeat(owner_session) is None
+    later = NOW + dt.timedelta(minutes=6)
+    assert commands.ack(restricted_session, offered.ids, "I1EXAMPLE", later) == 3
+    assert _heartbeat(owner_session) == (later, 3, 0, 0)
+
+
+def test_a_claim_never_offers_more_than_fourteen_wildcard_paths(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """Twenty owner takedowns are sent seven owners at a time, oldest first.
+
+    CloudFront refuses more than fifteen wildcard paths in progress per
+    distribution, and each owner takedown enqueues two. Rows are claimed
+    whole and in id order, so each claim is a prefix of what waits.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    slugs = [f"owner-{n:02d}" for n in range(20)]
+    for slug in slugs:
+        invalidation.enqueue(restricted_session, invalidation.owner_paths(slug), NOW)
+    restricted_session.commit()
+    all_ids = sorted(
+        owner_session.execute(sa.text("SELECT id FROM cdn_invalidation"))
+        .scalars()
+        .all()
+    )
+
+    sent: list[str] = []
+    claimed: list[int] = []
+    for expected_owners in (7, 7, 6):
+        offered = commands.claim(restricted_session, now=NOW)
+        wildcards = [p for p in offered.paths if p.endswith("*")]
+        assert len(wildcards) == 2 * expected_owners <= commands.MAX_WILDCARDS
+        assert offered.ids == all_ids[len(claimed) : len(claimed) + len(offered.ids)]
+        assert len(offered.ids) == 3 * expected_owners
+        claimed.extend(offered.ids)
+        sent.extend(wildcards)
+        commands.ack(restricted_session, offered.ids, "I1EXAMPLE", NOW)
+
+    assert sent == [p for slug in slugs for p in invalidation.owner_paths(slug)]
+    assert commands.claim(restricted_session, now=NOW).ids == []
 
 
 def test_ack_refuses_a_malformed_invalidation_id(

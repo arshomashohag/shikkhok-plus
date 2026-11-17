@@ -762,6 +762,10 @@ chmod 0644 /etc/cron.d/shikkhokplus-hub-badge-refresh
 # the job's heartbeat every run; it changes no row, so a host with no
 # distribution (the rehearsal host) claims harmlessly and sends nothing.
 # A stopped container skips the run; the rows wait for the next one.
+# CloudFront's "too many invalidations in progress" is a wait, not a
+# failure: the run ends, the rows stay offered, and no attempt is
+# counted. An ack that fails exits non-zero rather than logging "sent",
+# because the rows would otherwise be sent, and paid for, every run.
 echo "Installing the hub-invalidation sender..." \
   >> /var/log/shikkhokplus-provision.log
 cat > /usr/local/bin/shikkhokplus-hub-invalidate <<'INVALIDATE'
@@ -796,17 +800,26 @@ if [ -z "$distribution" ]; then
   say "no site distribution on this host; rows $ids left unsent"
   exit 0
 fi
-if aws_id=$(aws cloudfront create-invalidation --region us-east-1 \
+err=$(mktemp) || exit 1
+trap 'rm -f "$err"' EXIT
+if ! aws_id=$(aws cloudfront create-invalidation --region us-east-1 \
     --distribution-id "$distribution" --invalidation-batch "$batch" \
-    --query Invalidation.Id --output text 2>&1); then
-  docker compose exec -T api python -m app.hub.public.commands ack \
-    --ids "$ids" --aws-id "$aws_id"
-  say "sent rows $ids as $aws_id"
-else
-  say "create-invalidation failed for rows $ids: $aws_id"
-  docker compose exec -T api python -m app.hub.public.commands fail --ids "$ids"
+    --query Invalidation.Id --output text 2>"$err"); then
+  if grep -q TooManyInvalidationsInProgress "$err"; then
+    say "earlier invalidations still in progress; rows $ids retried next run"
+    exit 0
+  fi
+  say "create-invalidation failed for rows $ids: $(tr '\n' ' ' <"$err")"
+  docker compose exec -T api python -m app.hub.public.commands fail --ids "$ids" \
+    || say "fail could not be recorded for rows $ids"
   exit 1
 fi
+if ! docker compose exec -T api python -m app.hub.public.commands ack \
+    --ids "$ids" --aws-id "$aws_id"; then
+  say "sent rows $ids as $aws_id but ack failed; they will be sent again"
+  exit 1
+fi
+say "sent rows $ids as $aws_id"
 INVALIDATE
 chmod 0755 /usr/local/bin/shikkhokplus-hub-invalidate
 cat > /etc/cron.d/shikkhokplus-hub-invalidation <<'CRON'

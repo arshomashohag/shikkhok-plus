@@ -131,6 +131,7 @@ def host(tmp_path: pathlib.Path) -> pathlib.Path:
         '  "compose ps --status running --services")\n'
         '    [ "$STUB_API_UP" = 1 ] && echo api; exit 0 ;;\n'
         '  *"commands claim"*) cat "$STUB_DIR/claim.json"; exit 0 ;;\n'
+        '  *"commands ack"*) [ "$STUB_ACK_FAIL" = 1 ] && exit 2; exit 0 ;;\n'
         "  *) exit 0 ;;\n"
         "esac\n"
     )
@@ -139,6 +140,11 @@ def host(tmp_path: pathlib.Path) -> pathlib.Path:
         "#!/bin/bash\n"
         'printf "%s\\n" "$@" > "$STUB_DIR/aws.args"\n'
         'if [ "$STUB_AWS_FAIL" = 1 ]; then echo "AccessDenied" >&2; exit 254; fi\n'
+        'if [ "$STUB_AWS_FAIL" = throttle ]; then\n'
+        '  echo "An error occurred (TooManyInvalidationsInProgress)" >&2\n'
+        "  exit 254\n"
+        "fi\n"
+        '[ "$STUB_AWS_STDERR" = 1 ] && echo "warning: deprecated option" >&2\n'
         "echo I2J0EXAMPLE\n"
     )
     for stub in (docker, aws):
@@ -151,7 +157,9 @@ def _run(
     claim: dict[str, object],
     *,
     api_up: bool = True,
-    aws_fails: bool = False,
+    aws_fails: bool | str = False,
+    aws_stderr: bool = False,
+    ack_fails: bool = False,
     distribution: str = TEMPLATE_VALUES["site_distribution_id"],
 ) -> subprocess.CompletedProcess[str]:
     """Run the rendered sender against the stand-ins.
@@ -162,7 +170,10 @@ def _run(
     :param host: The stand-ins' directory
     :param claim: What the stand-in container's ``claim`` prints
     :param api_up: Whether the stand-in reports the api container running
-    :param aws_fails: Whether the stand-in CloudFront call fails
+    :param aws_fails: Whether the stand-in CloudFront call fails, or
+        ``"throttle"`` to fail with TooManyInvalidationsInProgress
+    :param aws_stderr: Whether a successful call also writes to stderr
+    :param ack_fails: Whether the stand-in container's ``ack`` fails
     :param distribution: The distribution id the template receives
     :return: The finished process
     """
@@ -179,7 +190,11 @@ def _run(
         "PATH": f"{host / 'bin'}:{os.environ['PATH']}",
         "STUB_DIR": str(host),
         "STUB_API_UP": "1" if api_up else "0",
-        "STUB_AWS_FAIL": "1" if aws_fails else "0",
+        "STUB_AWS_FAIL": aws_fails
+        if isinstance(aws_fails, str)
+        else ("1" if aws_fails else "0"),
+        "STUB_AWS_STDERR": "1" if aws_stderr else "0",
+        "STUB_ACK_FAIL": "1" if ack_fails else "0",
     }
     bash = shutil.which("bash")
     if bash is None:
@@ -260,3 +275,41 @@ def test_a_host_with_no_distribution_claims_but_sends_nothing(
     assert not (host / "aws.args").exists()
     assert not any(" ack " in c or " fail " in c for c in _docker_calls(host))
     assert "no site distribution" in result.stdout
+
+
+def test_stderr_on_a_successful_send_never_reaches_the_id(
+    host: pathlib.Path,
+) -> None:
+    # A CLI warning folded into the id made the ack refuse, and the rows
+    # were sent again every run.
+    result = _run(host, CLAIM, aws_stderr=True)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (
+        f"compose exec -T api {COMMANDS} ack --ids 1,2,3 --aws-id I2J0EXAMPLE"
+        in _docker_calls(host)
+    )
+
+
+def test_a_failed_ack_exits_non_zero_and_never_logs_sent(
+    host: pathlib.Path,
+) -> None:
+    result = _run(host, CLAIM, ack_fails=True)
+
+    assert result.returncode == 1
+    assert "ack failed" in result.stdout
+    assert "sent rows 1,2,3 as I2J0EXAMPLE\n" not in result.stdout
+    assert not any(" fail " in call for call in _docker_calls(host))
+
+
+def test_invalidations_in_progress_is_a_wait_not_a_failure(
+    host: pathlib.Path,
+) -> None:
+    # Fifteen wildcard paths in progress per distribution: the rows wait for
+    # the next run with no attempt counted.
+    result = _run(host, CLAIM, aws_fails="throttle")
+
+    assert result.returncode == 0
+    calls = _docker_calls(host)
+    assert not any(" fail " in call or " ack " in call for call in calls)
+    assert "still in progress" in result.stdout

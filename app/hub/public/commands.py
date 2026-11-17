@@ -8,12 +8,24 @@ instance's credentials. So the host sends, and this module is what it asks:
 * ``claim [--limit 50]`` prints one JSON object --
   ``{"caller_reference": ..., "ids": [...], "paths": [...]}`` -- for the
   oldest unsent rows, paths de-duplicated, ``paths`` empty when there is
-  nothing to send. Every run records the
-  :data:`~app.db.models.HUB_INVALIDATION_JOB` heartbeat, empty or not, so a
-  host whose cron stopped is the one the freshness check notices.
+  nothing to send.
 * ``ack --ids 1,2,3 --aws-id <id>`` stamps the rows CloudFront accepted.
 * ``fail --ids 1,2,3`` counts a failed attempt; the rows stay unsent and
   the next claim offers them again.
+
+**At most** :data:`MAX_WILDCARDS` **distinct wildcard paths per claim.**
+CloudFront refuses a request that would put more than fifteen wildcard paths
+in progress on one distribution, and every owner takedown enqueues two. A
+claim that offered more would be refused every run, forever, and hold every
+newer row behind it. Rows are claimed whole, in id order, and the claim stops
+before the row that would cross the cap; one row is one path, so no row can
+cross it alone.
+
+**The heartbeat means real progress** [R8a]. The
+:data:`~app.db.models.HUB_INVALIDATION_JOB` heartbeat is stamped by a claim
+that finds nothing to send and by a successful ``ack`` -- never by a claim
+that hands out rows. A sender whose every send fails therefore goes stale
+and the freshness check alerts, while an idle one stays fresh.
 
 The host script is ``/usr/local/bin/shikkhokplus-hub-invalidate``, installed
 by ``infra/modules/app/user_data.sh.tftpl`` and run every two minutes with
@@ -47,12 +59,25 @@ from app.fees.commands import stamp_heartbeat
 from app.fees.generation import GenerationResult as HeartbeatCounts
 from app.hub.public.invalidation import OUTBOX
 
-__all__ = ["DEFAULT_LIMIT", "Claim", "ack", "claim", "fail", "main", "parse_ids"]
+__all__ = [
+    "DEFAULT_LIMIT",
+    "MAX_WILDCARDS",
+    "Claim",
+    "ack",
+    "claim",
+    "fail",
+    "main",
+    "parse_ids",
+]
 
 log = logging.getLogger(__name__)
 
 #: The most rows one claim offers; well under CloudFront's per-request cap.
 DEFAULT_LIMIT: Final[int] = 50
+
+#: The most distinct wildcard paths one claim offers: one under CloudFront's
+#: fifteen in progress per distribution, so a single batch always fits.
+MAX_WILDCARDS: Final[int] = 14
 
 #: A CloudFront invalidation id: upper-case letters and digits.
 _AWS_ID: Final = re.compile(r"[A-Z0-9]{1,64}")
@@ -86,49 +111,79 @@ class Claim:
         )
 
 
+def _stamp(session: Session, sent: int, now: dt.datetime | None) -> None:
+    """Record this job's heartbeat for a run that made progress.
+
+    The counts reuse the fee job's columns, as every job does: rows sent by
+    this run, rows still waiting, and waiting rows that have failed before.
+
+    :param session: The session to work through
+    :param sent: Rows this run stamped as sent
+    :param now: The heartbeat timestamp; the real clock by default
+    :return: None
+    """
+    waiting, retrying = session.execute(
+        sa.select(
+            sa.func.count(),
+            sa.func.count().filter(OUTBOX.c.attempts > 0),
+        ).where(OUTBOX.c.sent_at.is_(None))
+    ).one()
+    stamp_heartbeat(
+        session,
+        result=HeartbeatCounts(
+            cycles_created=sent,
+            cycles_skipped=int(waiting),
+            periods_failed=int(retrying),
+        ),
+        job_name=HUB_INVALIDATION_JOB,
+        now=now,
+    )
+
+
+def _is_wildcard(path: str) -> bool:
+    """Say whether CloudFront counts a path as a wildcard path.
+
+    :param path: The path
+    :return: True when it ends in ``*``
+    """
+    return path.endswith("*")
+
+
 def claim(
     session: Session, *, limit: int = DEFAULT_LIMIT, now: dt.datetime | None = None
 ) -> Claim:
-    """Offer the oldest unsent rows and record this job's heartbeat.
+    """Offer the oldest unsent rows, within the wildcard cap.
 
-    The heartbeat's counts reuse the fee job's columns, as every job does:
-    rows offered, rows still waiting beyond this batch, and unsent rows
-    that have failed at least once.
+    Stamps the heartbeat only when nothing waits [R8a]: a claim that hands
+    out rows has sent nothing yet.
 
     :param session: The session to work through
     :param limit: The most rows to offer
     :param now: The heartbeat timestamp; the real clock by default
     :return: The batch, empty when nothing waits
     """
-    unsent = OUTBOX.c.sent_at.is_(None)
     rows = session.execute(
         sa.select(OUTBOX.c.id, OUTBOX.c.path)
-        .where(unsent)
+        .where(OUTBOX.c.sent_at.is_(None))
         .order_by(OUTBOX.c.id)
         .limit(limit)
     ).all()
-    waiting, retrying = session.execute(
-        sa.select(
-            sa.func.count(),
-            sa.func.count().filter(OUTBOX.c.attempts > 0),
-        ).where(unsent)
-    ).one()
-    batch = Claim(
-        caller_reference=str(uuid.uuid4()),
-        ids=[int(row.id) for row in rows],
-        paths=list(dict.fromkeys(str(row.path) for row in rows)),
-    )
-    stamp_heartbeat(
-        session,
-        result=HeartbeatCounts(
-            cycles_created=len(batch.ids),
-            cycles_skipped=int(waiting) - len(batch.ids),
-            periods_failed=int(retrying),
-        ),
-        job_name=HUB_INVALIDATION_JOB,
-        now=now,
-    )
-    return batch
+    ids: list[int] = []
+    paths: dict[str, None] = {}
+    wildcards: set[str] = set()
+    for row in rows:
+        path = str(row.path)
+        if _is_wildcard(path) and path not in wildcards:
+            if len(wildcards) == MAX_WILDCARDS:
+                break
+            wildcards.add(path)
+        ids.append(int(row.id))
+        paths[path] = None
+    if ids:
+        session.rollback()
+    else:
+        _stamp(session, 0, now)
+    return Claim(caller_reference=str(uuid.uuid4()), ids=ids, paths=list(paths))
 
 
 def ack(
@@ -137,7 +192,11 @@ def ack(
     aws_id: str,
     now: dt.datetime | None = None,
 ) -> int:
-    """Stamp rows CloudFront accepted.
+    """Stamp rows CloudFront accepted, and record this job's heartbeat.
+
+    A successful send is the progress the heartbeat stands for [R8a], so it
+    is stamped here even when every row was already stamped by an earlier
+    ack.
 
     :param session: The session to work through
     :param ids: The claimed rows
@@ -154,7 +213,8 @@ def ack(
         .values(sent_at=now or dt.datetime.now(tz=dt.UTC), aws_id=aws_id)
         .returning(OUTBOX.c.id)
     ).all()
-    session.commit()
+    # The heartbeat commits, so the stamp and the heartbeat land together.
+    _stamp(session, len(stamped), now)
     return len(stamped)
 
 
