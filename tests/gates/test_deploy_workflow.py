@@ -665,6 +665,10 @@ DEPLOY_ROLE = ROOT / "infra" / "bootstrap" / "deploy_role.tf"
 #: The one path Android fetches to verify an App Link.
 _ASSETLINKS = "/.well-known/assetlinks.json"
 
+#: The web job's two app-links steps: validate and build, then copy.
+_BUILD_STEP = "Build the Android app-links file"
+_PUBLISH_STEP = "Publish the Android app-links file"
+
 #: A well-formed SHA-256 certificate fingerprint, as keytool prints it.
 _FINGERPRINT = ":".join(["AB"] * 31 + ["0F"])
 
@@ -695,12 +699,15 @@ def _web_step(name: str) -> dict[str, object]:
 def _run_assetlinks_step(
     tmp_path: pathlib.Path, value: str, state: str = "set"
 ) -> tuple[subprocess.CompletedProcess[str], list[str], pathlib.Path]:
-    """Run the app-links step as Actions runs it, against a fake AWS.
+    """Run the app-links steps as Actions runs them, against a fake AWS.
+
+    The build step runs first; the publish step only when it succeeded,
+    as Actions would (Upload sits between them).
 
     :param tmp_path: A scratch directory
     :param value: What SSM holds for ``android-cert-sha256``
     :param state: ``set``, or ``missing`` for a parameter that does not exist
-    :return: The finished process, each ``aws`` call, and the uploaded file
+    :return: The last finished process, each ``aws`` call, and the uploaded file
     """
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -710,32 +717,36 @@ def _run_assetlinks_step(
     log = tmp_path / "aws.log"
     log.write_text("")
     capture = tmp_path / "uploaded.json"
-    finished = subprocess.run(  # noqa: S603 -- a fixed interpreter and our own script
-        [  # noqa: S607 -- bash from PATH, as the runner finds it
-            "bash",
-            "--noprofile",
-            "--norc",
-            "-eo",
-            "pipefail",
-            "-c",
-            str(_web_step("Publish the Android app-links file")["run"]),
-        ],
-        cwd=tmp_path,
-        env={
-            "PATH": f"{bin_dir}:{os.environ['PATH']}",
-            "BUCKET": "web-bucket",
-            "ENVIRONMENT": "staging",
-            "RUNNER_TEMP": str(tmp_path),
-            "AWS_LOG": str(log),
-            "CAPTURE": str(capture),
-            "PARAM_VALUE": value,
-            "PARAM_STATE": state,
-        },
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=30,
-    )
+    env = {
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "BUCKET": "web-bucket",
+        "ENVIRONMENT": "staging",
+        "RUNNER_TEMP": str(tmp_path),
+        "AWS_LOG": str(log),
+        "CAPTURE": str(capture),
+        "PARAM_VALUE": value,
+        "PARAM_STATE": state,
+    }
+    for name in (_BUILD_STEP, _PUBLISH_STEP):
+        finished = subprocess.run(  # noqa: S603 -- a fixed interpreter and our own script
+            [  # noqa: S607 -- bash from PATH, as the runner finds it
+                "bash",
+                "--noprofile",
+                "--norc",
+                "-eo",
+                "pipefail",
+                "-c",
+                str(_web_step(name)["run"]),
+            ],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        if finished.returncode != 0:
+            break
     return finished, log.read_text().splitlines(), capture
 
 
@@ -817,22 +828,38 @@ def test_deploy_refuses_assetlinks_without_a_fingerprint(
     finished, calls, uploaded = _run_assetlinks_step(tmp_path, value, state)
 
     assert finished.returncode != 0
-    assert "::error::" in finished.stdout + finished.stderr
+    output = finished.stdout + finished.stderr
+    assert "::error::" in output
+    # Both manual steps, so the run says how to fix it rather than what broke.
+    assert "android-cert-sha256" in output
+    assert "infra/bootstrap" in output
     assert not [c for c in calls if c.startswith("s3 ")]
     assert not uploaded.exists()
 
 
-def test_the_web_deploy_publishes_assetlinks_and_invalidates_it() -> None:
-    """The file is written after the target is resolved and is invalidated.
+def test_the_fingerprint_is_validated_before_the_web_release_goes_live() -> None:
+    """A bad parameter fails the job before Upload changes anything.
+
+    Upload syncs the new index.html and prunes old assets, so a failure
+    after it would leave a red deploy whose new build is live and never
+    smoked. Only the copy of the already-built file follows Upload, and the
+    file is invalidated with the rest.
 
     :return: None
     """
     names = [s.get("name") for s in _steps("web")]
-    publish = names.index("Publish the Android app-links file")
 
-    assert names.index("Resolve where it goes") < publish < names.index("Invalidate")
-    step = _web_step("Publish the Android app-links file")
-    assert step["env"] == {"BUCKET": "${{ steps.target.outputs.bucket }}"}
+    assert (
+        names.index("Resolve where it goes")
+        < names.index(_BUILD_STEP)
+        < names.index("Upload")
+        < names.index(_PUBLISH_STEP)
+        < names.index("Invalidate")
+    )
+    assert "ssm" not in str(_web_step(_PUBLISH_STEP)["run"])
+    assert _web_step(_PUBLISH_STEP)["env"] == {
+        "BUCKET": "${{ steps.target.outputs.bucket }}"
+    }
     assert f'"{_ASSETLINKS}"' in str(_web_step("Invalidate")["run"])
 
 
