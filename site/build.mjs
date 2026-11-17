@@ -296,7 +296,7 @@ export async function build({ outDir = DIST, env = process.env } = {}) {
   const indexable = pages.filter((p) => !p.standalone)
   await writeFile(
     join(outDir, 'robots.txt'),
-    `User-agent: *\nAllow: /\n\nSitemap: ${config.siteUrl}/sitemap.xml\n`,
+    `User-agent: *\nAllow: /\n\nSitemap: ${config.siteUrl}/sitemap.xml\nSitemap: ${config.siteUrl}/hub/sitemap.xml\n`,
   )
   const urls = indexable
     .map((p) => {

@@ -273,8 +273,11 @@ describe('the two languages mirror each other', () => {
 })
 
 describe('robots.txt and the sitemap', () => {
-  it('points robots at the sitemap', () => {
-    assert.equal(read('robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`)
+  it('points robots at the sitemap and the hub sitemap', () => {
+    assert.equal(
+      read('robots.txt'),
+      `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\nSitemap: ${SITE}/hub/sitemap.xml\n`,
+    )
   })
 
   it('lists every indexable page, with alternates, and nothing else', () => {

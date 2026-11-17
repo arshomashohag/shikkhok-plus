@@ -364,6 +364,11 @@ module "site" {
   name_prefix = local.name_prefix
   domain_name = local.project_domain
   zone_id     = aws_route53_zone.project.zone_id
+
+  # The /hub/* behaviour reaches the API's public hub pages at the same
+  # origin the API distribution uses, with the same origin secret.
+  api_origin_fqdn = module.cdn.origin_fqdn
+  origin_secret   = module.app.origin_secret
 }
 
 # **Where deploy.yml puts the site, on the same terms as the web client**

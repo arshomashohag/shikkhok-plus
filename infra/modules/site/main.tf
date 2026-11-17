@@ -8,8 +8,17 @@
 # and would cost a lot of caution. The API's default behaviour caches
 # nothing on purpose, and every cached path added to that distribution is
 # one more pattern that must never match an API route. Here the DEFAULT
-# behaviour can cache for a year, because there is no API behind it to
-# leak.
+# behaviour can cache for a year, because nothing behind it is dynamic.
+#
+# **The one exception is /hub/*: the public hub pages, served by the API.**
+# The default behaviour (the bucket) still has no API behind it. The
+# /hub/* behaviour reaches only the credential-less, GET-only `/hub/*`
+# slice of the API, which receives no cookies and only the viewer-address
+# header (plus the origin secret the host requires of every request). It
+# is a separate, ordered behaviour with its own short-lived cache policy,
+# so the year-long policy below never applies to it, and the API
+# distribution answers /hub* 404 (cdn/functions/hub-block.js) so the pages
+# have exactly one public front door.
 #
 # **Cached at the edge for a year, and a release is still visible at once.**
 # The cache policy below honours whatever Cache-Control the object carries
@@ -53,6 +62,11 @@ locals {
   site_fqdn = var.domain_name
   www_fqdn  = "www.${var.domain_name}"
   origin_id = "shikkhokplus-site"
+  # The hub origin is the API host's own name, the FQDN the API
+  # distribution uses: nginx requires the origin secret on every request,
+  # so this second door must present it too.
+  hub_origin_id     = "shikkhokplus-hub-api"
+  hub_query_strings = ["q", "district", "upazila", "subject", "level", "page"]
 }
 
 # ---------------------------------------------------------------------
@@ -226,11 +240,91 @@ resource "aws_cloudfront_cache_policy" "site" {
   }
 }
 
+# /hub/* query-string allowlist and normalisation. See the source; tested
+# from functions/hub-query.test.mjs.
+resource "aws_cloudfront_function" "hub_query" {
+  name    = "${var.name_prefix}-hub-query"
+  runtime = "cloudfront-js-2.0"
+  comment = "Public hub: query-string allowlist, normalisation, /hub redirect"
+  publish = true
+  code    = file("${path.module}/functions/hub-query.js")
+}
+
+# **The API's Cache-Control decides, within [0, one hour].** The hub pages
+# set their own (owner and batch pages s-maxage=600, search s-maxage=300,
+# sitemap s-maxage=3600); the one-hour ceiling is a backstop against a
+# header that asks for more. default_ttl applies only to a response with
+# no Cache-Control, which the hub never sends.
+#
+# Only the six allowed query strings are in the key, and hub-query.js has
+# already refused everything else and collapsed repeats, so the key space
+# is bounded. No header and no cookie is in the key: in particular
+# CloudFront-Viewer-Address, which the origin policy forwards for the
+# per-IP rate limit, must stay out of it or every client would get a
+# private cache.
+resource "aws_cloudfront_cache_policy" "hub" {
+  name        = "${var.name_prefix}-site-hub"
+  comment     = "Public hub: honour origin Cache-Control, up to an hour"
+  min_ttl     = 0
+  default_ttl = 60
+  max_ttl     = 3600
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    enable_accept_encoding_brotli = true
+    enable_accept_encoding_gzip   = true
+
+    cookies_config {
+      cookie_behavior = "none"
+    }
+    headers_config {
+      header_behavior = "none"
+    }
+    query_strings_config {
+      query_string_behavior = "whitelist"
+      query_strings {
+        items = local.hub_query_strings
+      }
+    }
+  }
+}
+
+# What the origin receives beyond the cache key: the viewer's address (a
+# CloudFront-generated header, so it must be named here to be forwarded)
+# and the same query strings. No cookie, no Authorization. The origin keys
+# its 120/minute per-IP rate limit on CloudFront-Viewer-Address.
+resource "aws_cloudfront_origin_request_policy" "hub" {
+  name    = "${var.name_prefix}-site-hub"
+  comment = "Public hub: the viewer address and the allowed query strings only"
+
+  cookies_config {
+    cookie_behavior = "none"
+  }
+  headers_config {
+    header_behavior = "whitelist"
+    headers {
+      items = ["CloudFront-Viewer-Address"]
+    }
+  }
+  query_strings_config {
+    query_string_behavior = "whitelist"
+    query_strings {
+      items = local.hub_query_strings
+    }
+  }
+}
+
 # **A strict policy, because the site can afford one.** No script at all
 # (site/test/build.test.mjs refuses a <script> tag, an inline handler and
 # an inline style), so the CSP is default-src 'none' plus exactly what
 # the pages load from their own origin. Unlike the web client, which needs
-# a meta CSP built from the API origin, this header is the whole policy.
+# a meta CSP built from the API origin, this header is the whole policy
+# for the static pages.
+#
+# **override = false on the CSP, so the API's wins on /hub/*.** The hub
+# pages set their own CSP (they need form-action 'self' for the search
+# form, which this one forbids). An origin-supplied header is kept when
+# override is false; the bucket sends none, so the static pages still get
+# the policy below. The other headers keep override = true.
 resource "aws_cloudfront_response_headers_policy" "site" {
   name    = "${var.name_prefix}-site-security"
   comment = "Public site security headers"
@@ -268,7 +362,7 @@ resource "aws_cloudfront_response_headers_policy" "site" {
         "frame-ancestors 'none'",
         "upgrade-insecure-requests",
       ])
-      override = true
+      override = false
     }
   }
 
@@ -307,6 +401,52 @@ resource "aws_cloudfront_distribution" "site" {
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
     origin_id                = local.origin_id
     origin_access_control_id = aws_cloudfront_origin_access_control.site.id
+  }
+
+  # The API, for the public hub only. https-only, with a real certificate
+  # on the origin (see the API distribution's origin for why), and the
+  # secret header nginx requires of every request.
+  origin {
+    domain_name = var.api_origin_fqdn
+    origin_id   = local.hub_origin_id
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+
+    custom_header {
+      name  = "X-Origin-Secret"
+      value = var.origin_secret
+    }
+  }
+
+  # GET and HEAD only: the hub is read-only, and a write method never
+  # reaches the origin from here. Ordered ahead of the bucket default; the
+  # bare /hub needs its own pattern because "/hub/*" does not match it, and
+  # hub-query.js redirects it to /hub/en.
+  dynamic "ordered_cache_behavior" {
+    for_each = ["/hub", "/hub/*"]
+    content {
+      path_pattern           = ordered_cache_behavior.value
+      target_origin_id       = local.hub_origin_id
+      viewer_protocol_policy = "redirect-to-https"
+
+      allowed_methods = ["GET", "HEAD"]
+      cached_methods  = ["GET", "HEAD"]
+
+      cache_policy_id            = aws_cloudfront_cache_policy.hub.id
+      origin_request_policy_id   = aws_cloudfront_origin_request_policy.hub.id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.site.id
+      compress                   = true
+
+      function_association {
+        event_type   = "viewer-request"
+        function_arn = aws_cloudfront_function.hub_query.arn
+      }
+    }
   }
 
   default_cache_behavior {

@@ -96,6 +96,32 @@ URL -- and revalidate pages after five minutes. Each deploy invalidates
 completes. A missing page (S3's 403 or 404) becomes `/404.html` with a 404
 status, cached for one minute.
 
+## The public hub (`/hub/*`)
+
+The same distribution also fronts the API's public hub pages (`/hub/en`,
+`/hub/bn`, owner and batch pages, `/hub/sitemap.xml`) through a second
+origin, `shikkhokplus-hub-api`, which is the API's origin host and sends
+the same origin secret. Only the credential-less, GET-only `/hub/*` slice
+reaches it: no cookies, and the only header forwarded is
+`CloudFront-Viewer-Address` (used for the per-IP rate limit, and kept out
+of the cache key). The API distribution answers `/hub*` 404, so the pages
+have one front door.
+
+- `infra/modules/site/functions/hub-query.js` runs at the viewer-request
+  stage: a query key outside `q`, `district`, `upazila`, `subject`,
+  `level`, `page` gets 400; a repeated key keeps its first value;
+  `district`, `upazila`, `subject` and `level` are lowercased; `q` is cut
+  to 200 characters; `/hub` and `/hub/` get a 301 to `/hub/en`.
+- The hub's cache policy honours the API's `Cache-Control` within
+  [0, one hour] with those six query strings in the key.
+- The API sets the hub pages' own `Content-Security-Policy`; the site
+  response-headers policy sets its CSP only when the origin sent none.
+- `robots.txt` also lists `/hub/sitemap.xml`.
+
+`hub-query.test.mjs` and (on the API distribution)
+`infra/modules/cdn/functions/hub-block.test.mjs` run both functions as
+written under `make infra-functions`.
+
 ## Deploying
 
 `deploy.yml`'s `site` job, which needs the `infrastructure` job and not the
