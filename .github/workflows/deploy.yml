@@ -674,6 +674,11 @@ jobs:
     # wait is bounded at 30.
     timeout-minutes: 130
     environment: ${{ inputs.environment }}
+    # The public site's origin, read below for the runtime env and handed
+    # to the web job, which builds it in (VITE_SITE_URL) before it holds
+    # any AWS credentials of its own. Empty when site-url could not be read.
+    outputs:
+      site_url: ${{ steps.record.outputs.site_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -970,6 +975,7 @@ jobs:
             echo "::warning::Cannot read site-url from SSM; the code email will omit the website link."
             SITE_URL=""
           fi
+          echo "site_url=${SITE_URL}" >> "$GITHUB_OUTPUT"
           if ! [[ "$DAILY_EMAIL" =~ ^[0-9]+$ ]]; then
             echo "::error::Variable SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL must be a whole number."
             exit 1
@@ -1224,9 +1230,14 @@ jobs:
       # The same gate CI runs (generated-file drift, format, lint, types,
       # tests, build), with the build aimed at /ui/: asset URLs, the
       # manifest's scope and the service worker's scope all follow it.
+      # The public site's origin comes from the release job (site-url):
+      # the editor's "View public page" links there, and the page's CSP
+      # adds it to style-src for the hub preview's stylesheet. Empty, the
+      # build offers no such link and the preview shows unstyled.
       - name: Check and build for /ui/
         env:
           WEB_BASE: /ui/
+          VITE_SITE_URL: ${{ needs.release.outputs.site_url }}
         run: make web
 
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0

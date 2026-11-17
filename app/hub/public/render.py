@@ -436,7 +436,9 @@ def page(
     :param view: An owner, batch or search page model
     :param template: The page's template, which must be its model's
     :param locale: The page's locale
-    :param preview: Render the owner's own preview: a banner, and noindex
+    :param preview: Render the owner's own preview: a banner, noindex, and
+        the stylesheet named on the site's origin, since the preview is shown
+        on the app host, which serves no ``/hub-assets/`` [R11]
     :return: The HTML
     :raises TypeError: The model is not registered with the privacy gate
     :raises ValueError: The model is not a page, or not this template's
@@ -452,6 +454,8 @@ def page(
         "preview": preview,
         **_helpers(locale),
     }
+    if preview:
+        context["stylesheet"] = site_url() + STYLESHEET_PATH
     if isinstance(view, HubSearchPage):
         context.update(_search_context(view, locale))
     return _ENV.get_template(template).render(context)

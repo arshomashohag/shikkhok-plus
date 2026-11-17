@@ -397,6 +397,11 @@ def test_csp_exact_and_no_script_or_inline_style(
 
     assert HUB_PAGE_CSP == PAGE_CSP
     for response in responses:
+        # The preview is shown on the app host, which serves no
+        # /hub-assets/, so only it names the site's origin [R11].
+        stylesheet = render.STYLESHEET_PATH
+        if response is preview:
+            stylesheet = SITE + render.STYLESHEET_PATH
         assert response.headers["content-security-policy"] == PAGE_CSP
         assert response.headers["x-content-type-options"] == "nosniff"
         assert response.headers["x-frame-options"] == "DENY"
@@ -408,7 +413,7 @@ def test_csp_exact_and_no_script_or_inline_style(
             assert "style" not in attrs, tag
             assert not [name for name in attrs if name.startswith("on")], tag
         stylesheets = page.find("link", rel="stylesheet")
-        assert stylesheets == [{"rel": "stylesheet", "href": render.STYLESHEET_PATH}]
+        assert stylesheets == [{"rel": "stylesheet", "href": stylesheet}]
 
 
 def test_unknown_query_keys_are_ignored(
@@ -552,6 +557,34 @@ def test_preview_shows_draft_with_banner_and_no_store(
         assert _parse(response.text).find("meta", name="robots", content="noindex")
 
     assert api_client.get("/hub/en/t/draft-tutor").status_code == 404
+
+
+def test_preview_links_its_stylesheet_on_the_site_origin(
+    api_client: TestClient, owner_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The preview names the stylesheet absolutely; public pages do not.
+
+    The preview is displayed on the app host -- a sandboxed frame on the
+    web, a WebView on Android -- and the app host serves no /hub-assets/,
+    so a relative link would leave the preview unstyled [R11]. Public
+    pages stay relative, which ``style-src 'self'`` covers on the site.
+    """
+    client = _client(api_client, monkeypatch)
+    account, _, _ = _published_tutor(owner_session)
+
+    preview = client.get(
+        "/v1/hub/listing/preview?locale=bn", headers=bearer(owner_session, account)
+    )
+    public = client.get("/hub/bn/t/rahim-sir")
+    assert public.status_code == 200, public.text
+
+    assert preview.status_code == 200, preview.text
+    assert _parse(preview.text).find("link", rel="stylesheet") == [
+        {"rel": "stylesheet", "href": f"{SITE}{render.STYLESHEET_PATH}"}
+    ]
+    assert _parse(public.text).find("link", rel="stylesheet") == [
+        {"rel": "stylesheet", "href": render.STYLESHEET_PATH}
+    ]
 
 
 def test_preview_names_only_consented_centre_teachers(

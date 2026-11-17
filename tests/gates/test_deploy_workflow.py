@@ -962,3 +962,36 @@ def test_the_deploy_role_may_publish_assetlinks() -> None:
 
     assert '"android-cert-sha256"' in urls
     assert f'"arn:aws:s3:::shikkhokplus-${{each.key}}-web-*{_ASSETLINKS}"' in objects
+
+
+def test_the_web_build_names_the_site_the_release_read() -> None:
+    """The web client is built with the public site's origin [H2 task 10].
+
+    "View public page" links there and the page's CSP adds it to
+    ``style-src`` for the hub preview's stylesheet, so the value is baked
+    in at build time. It is the same ``site-url`` parameter the release
+    already reads for the API's runtime env, handed over as a job output,
+    so the web build keeps running before the web job holds AWS
+    credentials.
+
+    :return: None
+    """
+    workflow = yaml.safe_load(DEPLOY.read_text())
+    release = workflow["jobs"]["release"]
+    record = [s for s in release["steps"] if s.get("id") == "record"]
+    build = _web_step("Check and build for /ui/")
+    names = [s.get("name") for s in _steps("web")]
+
+    assert release["outputs"]["site_url"] == "${{ steps.record.outputs.site_url }}"
+    assert 'echo "site_url=${SITE_URL}" >> "$GITHUB_OUTPUT"' in str(record[0]["run"])
+    assert "release" in workflow["jobs"]["web"]["needs"]
+    assert build["env"] == {
+        "WEB_BASE": "/ui/",
+        "VITE_SITE_URL": "${{ needs.release.outputs.site_url }}",
+    }
+    credentials = [
+        i
+        for i, step in enumerate(_steps("web"))
+        if "configure-aws-credentials" in str(step.get("uses"))
+    ]
+    assert names.index("Check and build for /ui/") < credentials[0]

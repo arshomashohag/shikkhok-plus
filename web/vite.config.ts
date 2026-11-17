@@ -13,7 +13,12 @@
  *    the navigation fallback. Offline, the shell opens and says so.
  * 2. **The API origin is fixed at build time** (`VITE_API_BASE_URL`), and
  *    the Content-Security-Policy's `connect-src` is generated from it, so
- *    the page cannot be talked into sending a token anywhere else.
+ *    the page cannot be talked into sending a token anywhere else. The
+ *    public site's origin (`VITE_SITE_URL`) is fixed the same way and is
+ *    added to `style-src` and nothing else: the owner's hub preview is the
+ *    server's HTML in a sandboxed `srcdoc` frame, which inherits this
+ *    policy, and it links its stylesheet on the site because this host
+ *    serves no `/hub-assets/` [R11].
  * 3. **Local development is same-origin** through Vite's proxy, so no
  *    CORS configuration is needed on a developer's machine.
  * 4. **The path it is served under is fixed at build time** (`WEB_BASE`,
@@ -53,19 +58,22 @@ const BACKEND_PATHS = ['/v1', '/health', '/account-deletion', '/staging']
  * Write the Content-Security-Policy into `index.html`.
  *
  * @param apiBase The API origin the build talks to; empty for same-origin
+ * @param siteBase The public site's origin; empty when the build names none
  * @param dev Whether this is the dev server, which needs its HMR socket
  */
-function contentSecurityPolicy(apiBase: string, dev: boolean): Plugin {
+function contentSecurityPolicy(apiBase: string, siteBase: string, dev: boolean): Plugin {
   const connect = ["'self'"]
   if (apiBase) connect.push(new URL(apiBase).origin)
   if (dev) connect.push('ws:')
+  const style = ["'self'", "'unsafe-inline'"]
+  if (siteBase) style.push(new URL(siteBase).origin)
   const policy = [
     "default-src 'self'",
     `connect-src ${connect.join(' ')}`,
     // The React dev runtime injects an inline preamble; the production
     // build has no inline script at all.
     dev ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
+    `style-src ${style.join(' ')}`,
     "img-src 'self' data:",
     "font-src 'self'",
     "manifest-src 'self'",
@@ -90,13 +98,18 @@ export default defineConfig(({ mode, command }) => {
     // TLS or not at all.
     throw new Error(`VITE_API_BASE_URL must be https, got '${apiBase}'`)
   }
+  const siteBase = env.VITE_SITE_URL ?? ''
+  if (siteBase && command === 'build' && !/^https:\/\/[a-z0-9.-]+\/?$/.test(siteBase)) {
+    // A bare https origin: it is written into the policy and into links.
+    throw new Error(`VITE_SITE_URL must be a bare https origin, got '${siteBase}'`)
+  }
 
   return {
     base: BASE,
     define: { __APP_VERSION__: JSON.stringify(VERSION) },
     plugins: [
       react(),
-      contentSecurityPolicy(apiBase, command === 'serve'),
+      contentSecurityPolicy(apiBase, siteBase, command === 'serve'),
       VitePWA({
         registerType: 'prompt',
         injectRegister: false,

@@ -14,6 +14,7 @@ import { BatchListings } from './BatchListings'
 import { HubFeedback } from './Feedback'
 import { HubListing } from './Listing'
 import { NameConsent } from './NameConsent'
+import { HubPreview } from './Preview'
 import { translate } from '../../../i18n/i18n'
 
 const fetchMock = vi.fn()
@@ -264,6 +265,43 @@ describe('HubListing', () => {
       'BD30260072',
     )
     expect(screen.queryByLabelText('Thana (optional)')).toBeNull()
+  })
+
+  it('view-public link only when published', async () => {
+    vi.stubEnv('VITE_SITE_URL', 'https://site.example/')
+    try {
+      serve(listing())
+      const draft = renderScreen(<HubListing />)
+      await screen.findByRole('button', { name: 'Publish' })
+      expect(screen.queryByRole('link', { name: 'View public page' })).toBeNull()
+      // Preview is offered whatever the status: it is the owner's own draft.
+      const preview = screen.getByRole('link', { name: 'Preview as public' })
+      expect(preview).toHaveAttribute('href', '/more/hub/preview?locale=en')
+      expect(preview).toHaveAttribute('target', '_blank')
+      expect(preview).toHaveAttribute('rel', 'noopener noreferrer')
+      draft.unmount()
+
+      serve(listing({ status: 'published' }))
+      renderScreen(<HubListing />)
+      const view = await screen.findByRole('link', { name: 'View public page' })
+      expect(view).toHaveAttribute('href', 'https://site.example/hub/en/t/sumi-apa')
+      expect(view).toHaveAttribute('target', '_blank')
+      expect(view).toHaveAttribute('rel', 'noopener noreferrer')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('offers no view-public link when the build names no site', async () => {
+    vi.stubEnv('VITE_SITE_URL', '')
+    try {
+      serve(listing({ status: 'published' }))
+      renderScreen(<HubListing />)
+      await screen.findByRole('button', { name: 'Unpublish' })
+      expect(screen.queryByRole('link', { name: 'View public page' })).toBeNull()
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 })
 
@@ -687,5 +725,66 @@ describe('HubFeedback', () => {
       day: 60,
       answer: 'yes',
     })
+  })
+})
+
+describe('HubPreview', () => {
+  const page =
+    '<!doctype html><html lang="en"><head><link rel="stylesheet" ' +
+    'href="https://site.example/hub-assets/hub.0123456789ab.css"></head>' +
+    '<body><p class="banner">Preview — not public yet</p>' +
+    '<script>parent.stolen = true</script></body></html>'
+
+  function open(path: string) {
+    return renderScreen(
+      <Routes>
+        <Route path="/more/hub/preview" element={<HubPreview />} />
+      </Routes>,
+      path,
+    )
+  }
+
+  function answer(asked: string[]) {
+    fetchMock.mockImplementation(async (url: string) => {
+      asked.push(url)
+      return new Response(page, { status: 200, headers: { 'Content-Type': 'text/html' } })
+    })
+  }
+
+  it('preview renders server HTML in a sandboxed frame', async () => {
+    const asked: string[] = []
+    answer(asked)
+    open('/more/hub/preview?locale=bn')
+
+    const frame = await screen.findByTitle('Preview as public')
+    expect(frame.tagName).toBe('IFRAME')
+    // Exactly empty: no allow-* token, so the page can run nothing.
+    expect(frame.getAttribute('sandbox')).toBe('')
+    expect(frame.getAttribute('srcdoc')).toBe(page)
+    expect(frame.getAttribute('src')).toBeNull()
+    expect(asked).toEqual(['/v1/hub/listing/preview?locale=bn'])
+  })
+
+  it('switches the preview to the other language', async () => {
+    const asked: string[] = []
+    answer(asked)
+    open('/more/hub/preview?locale=en')
+    await screen.findByTitle('Preview as public')
+    expect(screen.getByRole('button', { name: 'English' })).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.click(screen.getByRole('button', { name: 'বাংলা' }))
+    await waitFor(() => expect(asked).toContain('/v1/hub/listing/preview?locale=bn'))
+    expect(screen.getByRole('button', { name: 'বাংলা' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('shows a refusal with Retry and no frame', async () => {
+    fetchMock.mockResolvedValue(
+      json(503, {
+        error: { code: 'X', message_key: 'error.network.unreachable', retryable: true },
+      }),
+    )
+    open('/more/hub/preview?locale=en')
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(screen.queryByTitle('Preview as public')).toBeNull()
   })
 })

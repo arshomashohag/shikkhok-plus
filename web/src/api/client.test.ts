@@ -5,12 +5,13 @@
  * device.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { request, revokeSession } from './client'
+import { request, requestText, revokeSession } from './client'
 import {
   checkMyUsername,
   checkUsername,
   inviteMember,
   lookupAlreadyAdded,
+  readHubPreview,
   removeContact,
   requestContactCode,
   setMyUsername,
@@ -454,5 +455,41 @@ describe('client platform headers', () => {
     expect(clientVersion('1.0 (build 7)/x')).toBe('1.0build7x')
     expect(clientVersion('9'.repeat(40))).toHaveLength(32)
     expect(clientVersion('///')).toBe('0')
+  })
+})
+
+describe('requestText', () => {
+  it('reads the hub preview as text, signed in, renewing on a 401', async () => {
+    saveTokens({ access_token: 'A1', refresh_token: 'R1', expires_in: 900 })
+    let previews = 0
+    mockFetch((url) => {
+      if (url.endsWith('/v1/auth/refresh'))
+        return json(200, { access_token: 'A2', refresh_token: 'R2', expires_in: 900 })
+      previews += 1
+      if (previews === 1)
+        return json(401, { error: { code: 'X', message_key: 'x', retryable: false } })
+      return new Response('<!doctype html><p>page</p>', { status: 200 })
+    })
+
+    await expect(readHubPreview('bn')).resolves.toBe('<!doctype html><p>page</p>')
+    const reads = calls.filter((c) => c.url.includes('/v1/hub/listing/preview'))
+    expect(reads.map((c) => c.url)).toEqual([
+      '/v1/hub/listing/preview?locale=bn',
+      '/v1/hub/listing/preview?locale=bn',
+    ])
+    expect(auth(reads[0]!.init)).toBe('Bearer A1')
+    expect(auth(reads[1]!.init)).toBe('Bearer A2')
+    expect((reads[1]!.init.headers as Record<string, string>).Accept).toBe('text/html')
+  })
+
+  it('throws the server refusal as an ApiError, never returning its body', async () => {
+    saveTokens({ access_token: 'A1', refresh_token: 'R1', expires_in: 900 })
+    mockFetch(() =>
+      json(403, { error: { code: 'FORBIDDEN', message_key: 'error.forbidden', retryable: false } }),
+    )
+    const failure = requestText('GET', '/v1/hub/listing/preview').catch((e: unknown) => e)
+    const error = await failure
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).messageKey).toBe('error.forbidden')
   })
 })

@@ -6,7 +6,9 @@
  * the client never decides completeness. A suspended listing is
  * read-only, with the reason it cannot be changed and how to appeal. A
  * failed save keeps everything typed and offers Retry, since there is no
- * offline write queue [TC-8].
+ * offline write queue [TC-8]. "Preview as public" opens the saved page as
+ * it would read (Preview.tsx); "View public page" is offered only while
+ * the server says the listing is published.
  */
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
@@ -20,6 +22,7 @@ import {
   type Schemas,
 } from '../../../api/endpoints'
 import { ApiError } from '../../../api/errors'
+import { publicPageUrl } from '../../../core/site'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import { ErrorCard, Loading, Section, Snackbar, StaleBanner, TopBar } from '../../../ui/components'
@@ -278,7 +281,7 @@ function Field({
 }
 
 function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () => void }) {
-  const { t, message } = useT()
+  const { t, message, lang } = useT()
   // What the server holds now; replaced by each save's answer.
   const [saved, setSaved] = useState(listing)
   const [draft, setDraft] = useState<Draft>(() => draftOf(listing))
@@ -359,6 +362,9 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
   }
 
   const canPublish = saved.publishable && !dirty && !suspended && saved.status !== 'published'
+  // The server's status decides; the site's address is the build's.
+  const publicUrl =
+    saved.status === 'published' && saved.slug ? publicPageUrl(lang, saved.slug) : null
 
   return (
     <>
@@ -559,6 +565,24 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
           <p className="meta">{t('web_hub_save_first')}</p>
         ) : null}
       </form>
+
+      {/* Both open a tab of their own, so nothing typed here is lost. */}
+      <div className="button-row" style={{ marginTop: 8 }}>
+        <Link
+          className="btn btn-text"
+          to={paths.hubPreview(lang)}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {t('hub_preview_as_public')}
+        </Link>
+        {publicUrl ? (
+          <a className="btn btn-text" href={publicUrl} target="_blank" rel="noopener noreferrer">
+            {t('hub_view_public_page')}
+          </a>
+        ) : null}
+      </div>
+      {dirty ? <p className="meta">{t('hub_preview_saved_only')}</p> : null}
 
       <p>
         <Link className="btn btn-text" to={paths.hubBatches()}>

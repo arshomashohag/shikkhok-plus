@@ -185,6 +185,13 @@ data class HubListingState(
 
     /** Whether the street address is asked for: the server's `is_centre`. */
     val showStreet: Boolean get() = saved?.isCentre == true
+
+    /**
+     * The slug "View public page" opens, offered only while the server says
+     * the listing is published and has one; null otherwise.
+     */
+    val publicSlug: String?
+        get() = editing?.takeIf { it.status == ListingStatus.PUBLISHED }?.listing?.slug?.ifBlank { null }
 }
 
 /** The write a Retry repeats. */

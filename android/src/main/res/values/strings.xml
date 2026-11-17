@@ -2019,6 +2019,9 @@
     <string name="hub_unpublished">Your listing is no longer public.</string>
     <string name="hub_published_snack">Your listing is public.</string>
     <string name="hub_batches_link">Batch listings</string>
+    <string name="hub_preview_as_public">Preview as public</string>
+    <string name="hub_preview_saved_only">The preview shows what you have saved. Save to see your changes in it.</string>
+    <string name="hub_view_public_page">View public page</string>
     <string name="hub_publish_title">Publish your listing</string>
     <string name="hub_publish_intro">Publishing makes these parts of your page public, so anyone can read them without signing in:</string>
     <string name="hub_publish_item_profile">your public name, headline, biography, qualifications and the area you teach in</string>

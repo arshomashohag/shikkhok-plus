@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.navigation
 
+import android.content.Intent
 import androidx.compose.material3.Text
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -16,7 +17,10 @@ import androidx.navigation.compose.rememberNavController
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.network.ApiClient
 import com.shikkhokplus.app.core.network.TokenStore
+import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_PREVIEW
+import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_PREVIEW_FRAME
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_SAVE
+import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_VIEW_PUBLIC
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.ContentType
@@ -28,9 +32,12 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.util.Collections
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 /**
  * The listing editor's thana select, driven through the real route.
@@ -123,9 +130,69 @@ class HubListingRouteTest {
         )
     }
 
+    /** A published listing with a slug, served with its preview; records each preview read. */
+    private fun publishedHost(previews: MutableList<String>): NavHostController {
+        val published = listingJson.replace("\"status\":\"draft\"", "\"status\":\"published\",\"slug\":\"rahima\"")
+        val engine =
+            MockEngine { request ->
+                when (request.url.encodedPath) {
+                    "/v1/hub/areas" -> respond("[]", HttpStatusCode.OK, json)
+                    "/v1/hub/listing/preview" -> {
+                        previews += request.url.parameters["locale"].orEmpty()
+                        respond("<!doctype html><p>preview</p>", HttpStatusCode.OK)
+                    }
+                    else -> respond(published, HttpStatusCode.OK, json)
+                }
+            }
+        val client = ApiClient.build("https://staging.example", engine, TokenStore.InMemory())
+        lateinit var nav: NavHostController
+        compose.setContent {
+            ShikkhokTheme {
+                nav = rememberNavController()
+                NavHost(nav, startDestination = HOME) {
+                    composable(HOME) { Text("home") }
+                    hubRoutes(client, nav, siteUrl = SITE)
+                }
+            }
+        }
+        compose.runOnIdle { nav.navigate(Destination.HubListing.route) }
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithTag(TAG_HUB_VIEW_PUBLIC).fetchSemanticsNodes().isNotEmpty()
+        }
+        return nav
+    }
+
+    @Test
+    fun `preview as public opens the servers page through the route`() {
+        val previews = Collections.synchronizedList(mutableListOf<String>())
+        val nav = publishedHost(previews)
+
+        compose.onNodeWithTag(TAG_HUB_PREVIEW).performScrollTo().performClick()
+
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithTag(TAG_HUB_PREVIEW_FRAME).fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(listOf("en"), previews.toList())
+        assertEquals(Destination.HubPreview.route, nav.currentDestination?.route)
+    }
+
+    @Test
+    fun `view public page opens the published page in the browser`() {
+        publishedHost(Collections.synchronizedList(mutableListOf()))
+
+        compose.onNodeWithTag(TAG_HUB_VIEW_PUBLIC).performScrollTo().performClick()
+
+        val started = assertNotNull(shadowOf(RuntimeEnvironment.getApplication()).nextStartedActivity)
+        assertEquals(Intent.ACTION_VIEW, started.action)
+        assertEquals("$SITE/hub/en/t/rahima", started.dataString)
+    }
+
     private companion object {
         /** A plain start screen, so the listing route is navigated to. */
         const val HOME = "home"
+
+        /** The site origin the routes are built with. */
+        const val SITE = "https://site.example"
 
         /** The thana select, tagged by its English label. */
         const val THANA = "hub_area_Thana (optional)"

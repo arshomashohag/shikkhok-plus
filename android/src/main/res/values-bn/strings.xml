@@ -1952,6 +1952,9 @@
     <string name="hub_unpublished">আপনার লিস্টিং আর সবার জন্য খোলা নেই।</string>
     <string name="hub_published_snack">আপনার লিস্টিং এখন সবার জন্য খোলা।</string>
     <string name="hub_batches_link">ব্যাচ লিস্টিং</string>
+    <string name="hub_preview_as_public">পাবলিক প্রিভিউ দেখুন</string>
+    <string name="hub_preview_saved_only">প্রিভিউতে আপনার সংরক্ষিত তথ্যই দেখা যায়। পরিবর্তনগুলো দেখতে আগে সংরক্ষণ করুন।</string>
+    <string name="hub_view_public_page">পাবলিক পেজ দেখুন</string>
     <string name="hub_publish_title">আপনার লিস্টিং প্রকাশ করুন</string>
     <string name="hub_publish_intro">প্রকাশ করলে আপনার পেজের নিচের অংশগুলো সবার জন্য খোলা হবে, সাইন ইন ছাড়াই যে কেউ পড়তে পারবে:</string>
     <string name="hub_publish_item_profile">আপনার পাবলিক নাম, শিরোনাম, পরিচিতি, যোগ্যতা এবং যে এলাকায় পড়ান</string>

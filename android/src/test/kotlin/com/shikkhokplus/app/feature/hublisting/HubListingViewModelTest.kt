@@ -542,4 +542,22 @@ class HubListingViewModelTest {
         assertEquals(2, fake.listingReads)
         assertEquals("typed, not saved", vm.state.value.draft.headlineEn)
     }
+
+    @Test
+    fun the_public_page_is_offered_only_while_the_server_says_published() = runTest(dispatcher) {
+        for ((listing, expected) in
+            listOf(
+                owner(status = "draft", slug = "rahima") to null,
+                owner(status = "published", slug = "rahima") to "rahima",
+                owner(status = "published", slug = null) to null,
+                owner(status = "suspended", slug = "rahima") to null,
+            )) {
+            val fake = FakeHubApi()
+            fake.listing = AuthResult.Ok(listing)
+            val vm = model(fake)
+            vm.load()
+            advanceUntilIdle()
+            assertEquals(expected, vm.state.value.publicSlug, listing.status)
+        }
+    }
 }

@@ -91,6 +91,23 @@ fun appLinkHost(apiBaseUrl: String): String = (project.findProperty("appLinkHost
     ?: runCatching { URI(apiBaseUrl).host }.getOrNull()?.ifBlank { null }
     ?: "unconfigured.invalid"
 
+/**
+ * The public site's origin, where a published hub page lives: the listing
+ * editor's "View public page" opens `{SITE_URL}/hub/{locale}/t/{slug}`.
+ *
+ * `-PsiteUrl` when given (the release passes ANDROID_SITE_URL), else
+ * [fallback]. Blank means the build names no site, and the editor then
+ * offers no such link rather than one to a guessed host. Only the
+ * characters of a URL reach generated source.
+ *
+ * @param fallback This build type's default
+ * @return An origin with no trailing slash, or empty
+ */
+fun siteUrl(fallback: String): String =
+    ((project.findProperty("siteUrl") as String?)?.trim()?.ifBlank { null } ?: fallback)
+        .filter { it.isLetterOrDigit() || it in ":/.-_" }
+        .trimEnd('/')
+
 android {
     // Permanent once published. [TC-2, D-38]
     namespace = "com.shikkhokplus.app"
@@ -167,6 +184,8 @@ android {
             val linkHost = appLinkHost(apiBaseUrl)
             manifestPlaceholders["appLinkHost"] = linkHost
             buildConfigField("String", "APP_LINK_HOST", "\"$linkHost\"")
+            // Locally the API serves the public pages itself, at /hub/.
+            buildConfigField("String", "SITE_URL", "\"${siteUrl(apiBaseUrl)}\"")
         }
         release {
             // No default. A release build must be told which backend it
@@ -178,6 +197,9 @@ android {
             val linkHost = appLinkHost(apiBaseUrl)
             manifestPlaceholders["appLinkHost"] = linkHost
             buildConfigField("String", "APP_LINK_HOST", "\"$linkHost\"")
+            // No default, as for the API: an unconfigured release offers
+            // no "View public page" rather than a wrong host.
+            buildConfigField("String", "SITE_URL", "\"${siteUrl("")}\"")
             // **R8 is on, and the DEX gate is why.** It scans the
             // MINIFIED build: a debug build can differ in which
             // dependencies are present, and the release AAB is what

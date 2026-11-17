@@ -115,6 +115,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           API_BASE_URL: ${{ vars.ANDROID_API_BASE_URL }}
           APP_LINK_HOST: ${{ vars.ANDROID_APP_LINK_HOST }}
+          SITE_URL: ${{ vars.ANDROID_SITE_URL }}
         run: |
           missing=()
           [ -n "$KEYSTORE" ]       || missing+=("secret ANDROID_KEYSTORE_BASE64")
@@ -158,9 +159,20 @@ jobs:
             echo "::warning::ANDROID_APP_LINK_HOST is unset; report links on hub pages will not open the app."
           fi
           echo "App link host: ${APP_LINK_HOST:-(the backend's host)}"
+          # The public site's origin: the listing editor's "View public
+          # page" opens the owner's page there. Unset, the app offers no
+          # such link; a plain-http value would be baked in, so it fails.
+          case "$SITE_URL" in
+            "") echo "::warning::ANDROID_SITE_URL is unset; the listing editor will not offer View public page." ;;
+            https://*) ;;
+            *) echo "::error::ANDROID_SITE_URL must be https, got '$SITE_URL'"
+               exit 1 ;;
+          esac
+          echo "Public site: ${SITE_URL:-(none)}"
           {
             echo "| backend | \`$API_BASE_URL\` |"
             echo "| app link host | \`${APP_LINK_HOST:-(the backend's host)}\` |"
+            echo "| public site | \`${SITE_URL:-(none)}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # **The release gate for Android dependency CVEs, BLOCKING**
@@ -262,6 +274,7 @@ jobs:
             -PversionCode="${{ steps.version.outputs.code }}" \
             -PapiBaseUrl="${{ vars.ANDROID_API_BASE_URL }}" \
             -PappLinkHost="${{ vars.ANDROID_APP_LINK_HOST }}" \
+            -PsiteUrl="${{ vars.ANDROID_SITE_URL }}" \
             -PsupportPhone="${{ vars.SUPPORT_PHONE }}"
 
       - name: Remove the keystore

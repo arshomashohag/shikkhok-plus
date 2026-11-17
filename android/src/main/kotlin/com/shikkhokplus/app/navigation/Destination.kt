@@ -723,6 +723,22 @@ sealed interface Destination {
         override val route: String = "hub/batches"
     }
 
+    /** "Preview as public": the owner's page as it would read, pushed over [HubListing]. */
+    data object HubPreview : Destination {
+        override val route: String = "hub/preview?locale={locale}"
+
+        /** The locale argument's name. */
+        const val ARG_LOCALE: String = "locale"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param locale `bn` or `en`
+         * @return The route to navigate to
+         */
+        fun of(locale: String): String = "hub/preview?locale=$locale"
+    }
+
     /** "Show my name on the centre's public page", opened from More. */
     data object NameConsent : Destination {
         override val route: String = "hub/name-consent"

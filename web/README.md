@@ -62,6 +62,21 @@ laptop, as bootstrap always is): the infrastructure role gains the right
 to create `shikkhokplus-*-web-*` buckets, and the deploy role gains the
 upload, the invalidation and the three new SSM parameters.
 
+### The public site's origin (`VITE_SITE_URL`)
+
+The listing editor links to the owner's published page on the public site
+("View public page", `{VITE_SITE_URL}/hub/{locale}/t/{slug}`), and the
+owner's preview (`src/features/teacher/hub/Preview.tsx`) is the server's
+HTML in a `sandbox=""` srcdoc frame that links its stylesheet on that
+site, since this host serves no `/hub-assets/`. So the build bakes the
+origin in twice: into the code, and into the page's CSP `style-src`
+(`vite.config.ts`), which the frame inherits -- `style-src` only.
+
+`deploy.yml` passes the `site-url` SSM parameter, which the release job
+already reads, as `VITE_SITE_URL`. A build must be given a bare https
+origin or nothing; nothing (as locally) offers no "View public page" link
+and leaves the preview unstyled.
+
 ### The Android app-links file
 
 A public hub page's "Report this page" link opens `/ui/hub-report` here

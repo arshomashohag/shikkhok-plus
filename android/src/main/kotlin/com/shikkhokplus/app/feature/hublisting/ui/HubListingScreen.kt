@@ -86,6 +86,12 @@ const val TAG_HUB_STREET: String = "hub_street"
 /** The Runs classes badge. */
 const val TAG_HUB_BADGE: String = "hub_badge"
 
+/** "Preview as public". */
+const val TAG_HUB_PREVIEW: String = "hub_preview"
+
+/** "View public page", shown only while the listing is published. */
+const val TAG_HUB_VIEW_PUBLIC: String = "hub_view_public"
+
 /** How long a confirmation stays up. */
 private const val NOTICE_MILLIS: Long = 3_000
 
@@ -109,6 +115,9 @@ private const val NOTICE_MILLIS: Long = 3_000
  * @property onRetry Repeats what last failed
  * @property onDismissNotice Forgets the confirmation
  * @property onBatches Opens the batch listings
+ * @property onPreview Opens "Preview as public"
+ * @property onViewPublic Opens the published page for a slug in the browser; null
+ *   when the build names no public site, and then the action is not offered
  * @property onAppeal Opens Help to appeal a suspension
  * @property onBack Leaves the screen
  */
@@ -130,6 +139,8 @@ data class HubListingActions(
     val onRetry: () -> Unit = {},
     val onDismissNotice: () -> Unit = {},
     val onBatches: () -> Unit = {},
+    val onPreview: () -> Unit = {},
+    val onViewPublic: ((String) -> Unit)? = null,
     val onAppeal: () -> Unit = {},
     val onBack: () -> Unit = {},
 )
@@ -211,7 +222,38 @@ private fun ListingBody(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+    PublicPageActions(state, actions)
     TextAction(stringResource(R.string.hub_batches_link), actions.onBatches, Modifier.fillMaxWidth())
+}
+
+/**
+ * "Preview as public", always, and "View public page" while the server
+ * says the listing is published. The preview shows what is saved, so
+ * unsaved edits say so.
+ */
+@Composable
+private fun PublicPageActions(state: HubListingState, actions: HubListingActions) {
+    TextAction(
+        stringResource(R.string.hub_preview_as_public),
+        actions.onPreview,
+        Modifier.fillMaxWidth().testTag(TAG_HUB_PREVIEW),
+    )
+    val slug = state.publicSlug
+    val view = actions.onViewPublic
+    if (slug != null && view != null) {
+        TextAction(
+            stringResource(R.string.hub_view_public_page),
+            { view(slug) },
+            Modifier.fillMaxWidth().testTag(TAG_HUB_VIEW_PUBLIC),
+        )
+    }
+    if (state.dirty) {
+        Text(
+            stringResource(R.string.hub_preview_saved_only),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
