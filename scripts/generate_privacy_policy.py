@@ -142,7 +142,10 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
         "can take it, stored only as a keyed digest"
     ),
     "auth_audit_log": "A sign-in audit record carrying no name or code",
-    "bd_area": "The fixed list of Bangladesh divisions, districts and upazilas",
+    "bd_area": (
+        "The fixed list of Bangladesh divisions, districts, upazilas, "
+        "city corporations and metropolitan thanas"
+    ),
     "owner_listing": (
         "What a solo teacher chose to publish about themselves on the public hub"
     ),

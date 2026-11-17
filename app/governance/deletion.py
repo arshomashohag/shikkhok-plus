@@ -291,9 +291,9 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
         scope=Scope.NOT_PERSONAL,
         column=None,
         note=(
-            "A fixed list of Bangladesh's divisions, districts and "
-            "upazilas. It names no person, so a person's deletion has "
-            "nothing in it to remove."
+            "A fixed list of Bangladesh's divisions, districts, upazilas, "
+            "city corporations and metropolitan thanas. It names no person, "
+            "so a person's deletion has nothing in it to remove."
         ),
     ),
     "room": _Target(

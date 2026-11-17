@@ -1,0 +1,31 @@
+code,kind,parent_code,name_en,name_bn
+BD10065000,city_corporation,BD1006,Barishal City Corporation,বরিশাল সিটি কর্পোরেশন
+BD20151600,city_corporation,BD2015,Chattogram City Corporation,চট্টগ্রাম সিটি কর্পোরেশন
+BD20195000,city_corporation,BD2019,Cumilla City Corporation,কুমিল্লা সিটি কর্পোরেশন
+BD30262000,city_corporation,BD3026,Dhaka South City Corporation,ঢাকা দক্ষিণ সিটি কর্পোরেশন
+BD30262500,city_corporation,BD3026,Dhaka North City Corporation,ঢাকা উত্তর সিটি কর্পোরেশন
+BD30333300,city_corporation,BD3033,Gazipur City Corporation,গাজীপুর সিটি কর্পোরেশন
+BD30674400,city_corporation,BD3067,Narayanganj City Corporation,নারায়ণগঞ্জ সিটি কর্পোরেশন
+BD40473300,city_corporation,BD4047,Khulna City Corporation,খুলনা সিটি কর্পোরেশন
+BD45614000,city_corporation,BD4561,Mymensingh City Corporation,ময়মনসিংহ সিটি কর্পোরেশন
+BD50816600,city_corporation,BD5081,Rajshahi City Corporation,রাজশাহী সিটি কর্পোরেশন
+BD55857500,city_corporation,BD5585,Rangpur City Corporation,রংপুর সিটি কর্পোরেশন
+BD60915000,city_corporation,BD6091,Sylhet City Corporation,সিলেট সিটি কর্পোরেশন
+MT3026200001,metro_thana,BD30262000,Demra,
+MT3026200002,metro_thana,BD30262000,Dhanmondi,
+MT3026200003,metro_thana,BD30262000,Jatrabari,
+MT3026200004,metro_thana,BD30262000,Khilgaon,
+MT3026200005,metro_thana,BD30262000,Lalbag,
+MT3026200006,metro_thana,BD30262000,Motijheel,
+MT3026200007,metro_thana,BD30262000,New market,
+MT3026200008,metro_thana,BD30262000,Palton,
+MT3026200009,metro_thana,BD30262000,Ramna,
+MT3026200010,metro_thana,BD30262000,Sabujbag,
+MT3026200011,metro_thana,BD30262000,Sutrapur,
+MT3026250001,metro_thana,BD30262500,Gulshan,
+MT3026250002,metro_thana,BD30262500,Khilkhet,
+MT3026250003,metro_thana,BD30262500,Mirpur,
+MT3026250004,metro_thana,BD30262500,Mohammadpur,
+MT3026250005,metro_thana,BD30262500,Tejgaon,
+MT3026250006,metro_thana,BD30262500,Uttara,
+MT4047330001,metro_thana,BD40473300,Khulna Sadar,

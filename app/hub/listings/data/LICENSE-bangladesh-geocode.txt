@@ -6,6 +6,22 @@ districts/districts.json, upazilas/upazilas.json); the commit hash was not
 retrievable in the build environment. Names and bbs_code values are
 unmodified; only the format was converted to CSV.
 
+bd_city_area.csv is derived from the same dataset. Fetched 2026-11-17 from
+the master branch (raw.githubusercontent.com,
+city_corporations/city_corporations.json, postcodes/postcodes.json, and
+districts/districts.json to resolve each city corporation's district); the
+commit hash was not retrievable in the build environment. City corporation
+rows carry the dataset's name, bn_name and bbs_code unmodified. Metropolitan
+thana rows are the distinct `thana` values of the postcode rows whose
+link_method is `metro_thana`, grouped by city_corporation_id; their English
+names are unmodified and their codes ("MT" + the city corporation's
+bbs_code digits + a two-digit ordinal in English-name order) are assigned
+by this project, not by the dataset.
+
+bd_metro_thana_bn.csv is not derived from the dataset, which carries no
+Bangla names for metropolitan thanas: those names were entered by hand for
+this project.
+
 The MIT License (MIT)
 
 Copyright (c) 2014 Nuhil Mehdy

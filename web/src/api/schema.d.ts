@@ -5685,10 +5685,11 @@ export interface components {
     }
     /**
      * AreaOption
-     * @description One division, district or upazila.
+     * @description One area: a division, district, upazila, city corporation or thana.
      *
-     *     :ivar code: The BBS geocode
-     *     :ivar kind: ``division``, ``district`` or ``upazila``
+     *     :ivar code: The BBS geocode, or ``MT...`` for a metropolitan thana
+     *     :ivar kind: ``division``, ``district``, ``upazila``,
+     *         ``city_corporation`` or ``metro_thana``
      *     :ivar name_en: The English name
      *     :ivar name_bn: The Bangla name
      */
@@ -5699,7 +5700,7 @@ export interface components {
        * Kind
        * @enum {string}
        */
-      kind: 'district' | 'division' | 'upazila'
+      kind: 'city_corporation' | 'district' | 'division' | 'metro_thana' | 'upazila'
       /** Name Bn */
       name_bn: string
       /** Name En */

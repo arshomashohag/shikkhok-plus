@@ -204,7 +204,7 @@ These records are about how the service itself is running, not about any person.
 | A coaching centre's names for the places its classes meet | no time limit |
 | A record that moderation acted on a hub listing or report; it holds no free text and names nobody | 12 months |
 | Counters that limit sign-in attempts | 48 hours |
-| The fixed list of Bangladesh divisions, districts and upazilas | no time limit |
+| The fixed list of Bangladesh divisions, districts, upazilas, city corporations and metropolitan thanas | no time limit |
 | When our scheduled jobs last ran; it names nobody | no time limit |
 
 **The name a teacher typed for you stays in that teacher's record.** When a teacher invites someone to a class they enter a name for that place themselves. That name belongs to the teacher's own record of the class, so it remains after you delete your account -- and it remains even if you declined the invitation and never used the app. It is not shown to anyone but that teacher. If you want it removed, contact us at the address at the top of this page and we will raise it with the teacher concerned.
@@ -213,7 +213,7 @@ These records are about how the service itself is running, not about any person.
 
 **A coaching centre's public listing stays with the centre.** If you are a manager of a coaching centre and delete your account, what the centre published on the public hub -- its own page and its class pages -- is kept, because it belongs to the centre and not to you, and the centre's other managers may still run it. Your own account is removed as described above. A solo teacher's public listing is not kept: it is deleted with their account.
 
-<!-- governance manifest digest: 94d3adf5b3f32bc5d72c68351c5ce8bafa1b857782d3d3f954805947efdabb41
+<!-- governance manifest digest: 1774adc3adaa29413116f16609462cbe4719dee00ab480232b5f48ec8160e1c9
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

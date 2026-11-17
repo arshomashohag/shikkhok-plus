@@ -100,6 +100,9 @@ def test_names_are_nonblank_in_both_languages(restricted_session: Session) -> No
 def test_the_table_matches_the_committed_csv(restricted_session: Session) -> None:
     """The migration loads every CSV row, no more and no fewer.
 
+    Only the three kinds ``0035`` created are compared: ``0039`` adds city
+    corporations and metropolitan thanas from its own file.
+
     :param restricted_session: A session as the application role
     :return: None
     """
@@ -107,7 +110,12 @@ def test_the_table_matches_the_committed_csv(restricted_session: Session) -> Non
         expected = {row["code"] for row in csv.DictReader(handle)}
     loaded = {
         row[0]
-        for row in restricted_session.execute(sa.text("SELECT code FROM bd_area"))
+        for row in restricted_session.execute(
+            sa.text(
+                "SELECT code FROM bd_area "
+                "WHERE kind IN ('division', 'district', 'upazila')"
+            )
+        )
     }
     assert loaded == expected
 

@@ -3506,8 +3506,16 @@ class MfaRecoveryCode(Base):
     __table_args__ = (Index("ix_mfa_recovery_code_account", "account_id"),)
 
 
-#: The three levels of the Bangladesh area vocabulary [0035].
-BD_AREA_KIND_VALUES: tuple[str, ...] = ("division", "district", "upazila")
+#: The kinds of the Bangladesh area vocabulary: the three levels [0035],
+#: then the city corporation (in a district) and the metropolitan thana
+#: (in a city corporation) [0039], in the enum's label order.
+BD_AREA_KIND_VALUES: tuple[str, ...] = (
+    "division",
+    "district",
+    "upazila",
+    "city_corporation",
+    "metro_thana",
+)
 
 _BD_AREA_KIND = PgEnum(
     *BD_AREA_KIND_VALUES,
@@ -3517,12 +3525,15 @@ _BD_AREA_KIND = PgEnum(
 
 
 class BdArea(Base):
-    """One division, district or upazila of Bangladesh [0035].
+    """One area of Bangladesh [0035, 0039].
 
     A fixed vocabulary seeded from the BBS geocodes; it is about no person.
+    A city corporation's parent is a district and a metropolitan thana's
+    is a city corporation.
 
-    :ivar code: The BBS geocode, the key
-    :ivar kind: ``division``, ``district`` or ``upazila``
+    :ivar code: The BBS geocode, or ``MT...`` for a metropolitan thana
+    :ivar kind: ``division``, ``district``, ``upazila``,
+        ``city_corporation`` or ``metro_thana``
     :ivar parent_code: The enclosing area's code; NULL for a division
     :ivar name_en: The English name
     :ivar name_bn: The Bangla name

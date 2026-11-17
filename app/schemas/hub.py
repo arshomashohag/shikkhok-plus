@@ -185,16 +185,17 @@ class SlugAvailability(BaseModel):
 
 
 class AreaOption(BaseModel):
-    """One division, district or upazila.
+    """One area: a division, district, upazila, city corporation or thana.
 
-    :ivar code: The BBS geocode
-    :ivar kind: ``division``, ``district`` or ``upazila``
+    :ivar code: The BBS geocode, or ``MT...`` for a metropolitan thana
+    :ivar kind: ``division``, ``district``, ``upazila``,
+        ``city_corporation`` or ``metro_thana``
     :ivar name_en: The English name
     :ivar name_bn: The Bangla name
     """
 
     code: str
-    kind: Literal["division", "district", "upazila"]
+    kind: Literal["division", "district", "upazila", "city_corporation", "metro_thana"]
     name_en: str
     name_bn: str
 

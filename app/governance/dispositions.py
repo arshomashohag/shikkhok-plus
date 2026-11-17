@@ -676,8 +676,8 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         disposition=Disposition.NOT_PERSONAL,
         retention=RetentionClass.LIFE_OF_ACCOUNT,
         basis=(
-            "A fixed list of Bangladesh's divisions, districts and "
-            "upazilas; about no person."
+            "A fixed list of Bangladesh's divisions, districts, upazilas, "
+            "city corporations and metropolitan thanas; about no person."
         ),
     ),
     "owner_listing": TableGovernance(

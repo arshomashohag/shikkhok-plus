@@ -29,7 +29,7 @@ from app.api.deps import (
 from app.auth.ceilings import CeilingChecker
 from app.authz.lenses import CentreMemberLens, TeacherLens
 from app.db.models import OwnerListing
-from app.hub.areas import list_areas
+from app.hub import areas
 from app.hub.listings import batches, owner
 from app.hub.listings.badge import runs_classes
 from app.hub.listings.batches import BatchListingUpdate, BatchListingView
@@ -334,12 +334,7 @@ def hub_areas(
     :return: The areas; empty for an unknown parent
     """
     del lens
-    return [
-        AreaOption.model_validate(
-            {"code": a.code, "kind": a.kind, "name_en": a.name_en, "name_bn": a.name_bn}
-        )
-        for a in list_areas(session, parent)
-    ]
+    return areas.children(session, parent)
 
 
 @router.get(

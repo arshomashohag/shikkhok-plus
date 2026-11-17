@@ -161,9 +161,12 @@ def slug_available(session: Session, slug: str, lens: TeacherLens) -> bool:
 def _check_area(session: Session, district: str | None, upazila: str | None) -> None:
     """Check the area codes name real, nested areas.
 
+    ``upazila`` is either an upazila whose parent is the district or a
+    metropolitan thana whose city corporation's parent is the district.
+
     :param session: The session
     :param district: The district code, if any
-    :param upazila: The upazila code, if any
+    :param upazila: The upazila or metropolitan thana code, if any
     :raises ValidationError: An area is unknown or not nested
     """
     if district is None and upazila is None:
@@ -172,8 +175,10 @@ def _check_area(session: Session, district: str | None, upazila: str | None) -> 
         r.code: r
         for r in session.execute(
             sa.text(
-                "SELECT code, kind::text AS kind, parent_code FROM bd_area "
-                "WHERE code = ANY(:codes)"
+                "SELECT a.code, a.kind::text AS kind, a.parent_code, "
+                "p.parent_code AS grandparent_code FROM bd_area a "
+                "LEFT JOIN bd_area p ON p.code = a.parent_code "
+                "WHERE a.code = ANY(:codes)"
             ),
             {"codes": [c for c in (district, upazila) if c is not None]},
         )
@@ -183,12 +188,11 @@ def _check_area(session: Session, district: str | None, upazila: str | None) -> 
     )
     if upazila is not None:
         found = rows.get(upazila)
-        bad = bad or found is None or found.kind != "upazila"
-        bad = (
-            bad
-            or district is None
-            or (found is not None and found.parent_code != district)
+        nested = found is not None and (
+            (found.kind == "upazila" and found.parent_code == district)
+            or (found.kind == "metro_thana" and found.grandparent_code == district)
         )
+        bad = bad or district is None or not nested
     if bad:
         raise ValidationError(code="HUB_AREA_MISMATCH", message_key="hub.area_mismatch")
 

@@ -1195,7 +1195,7 @@
         "type": "object"
       },
       "AreaOption": {
-        "description": "One division, district or upazila.\n\n:ivar code: The BBS geocode\n:ivar kind: ``division``, ``district`` or ``upazila``\n:ivar name_en: The English name\n:ivar name_bn: The Bangla name",
+        "description": "One area: a division, district, upazila, city corporation or thana.\n\n:ivar code: The BBS geocode, or ``MT...`` for a metropolitan thana\n:ivar kind: ``division``, ``district``, ``upazila``,\n    ``city_corporation`` or ``metro_thana``\n:ivar name_en: The English name\n:ivar name_bn: The Bangla name",
         "properties": {
           "code": {
             "title": "Code",
@@ -1203,8 +1203,10 @@
           },
           "kind": {
             "enum": [
+              "city_corporation",
               "district",
               "division",
+              "metro_thana",
               "upazila"
             ],
             "title": "Kind",
