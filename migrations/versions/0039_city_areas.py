@@ -22,7 +22,18 @@ deliberately not through application code that may change later. No
 existing row changes.
 
 A new enum label cannot be used in the transaction that adds it, so the
-labels are added in an autocommit block before the rows are inserted.
+labels are added in an autocommit block before the rows are inserted. Three
+consequences of that block, each handled here:
+
+* the seed files are read and checked **before** it, so a bad file fails
+  the run while the type is still untouched;
+* it commits, so a run that fails after it leaves the labels in place at
+  revision ``0038``; ``ADD VALUE IF NOT EXISTS`` lets the next run proceed;
+* committing ends Alembic's transaction and with it the ``SET LOCAL
+  lock_timeout`` ``env.py`` issued there, which would leave the inserts and
+  every later migration in the run free to queue for a lock indefinitely
+  [audit C-18]. The setting in force is read before the block and restored,
+  transaction-locally, straight after it, so ``env.py`` stays its one source.
 PostgreSQL cannot drop an enum label, so the downgrade rebuilds the type;
 it refuses while a listing names a city area, because those codes are
 the listing's location.
@@ -104,9 +115,19 @@ def upgrade() -> None:
 
     :return: None
     """
+    rows = _rows()
+    lock_timeout = op.get_bind().execute(sa.text("SHOW lock_timeout")).scalar_one()
     with op.get_context().autocommit_block():
         for kind in CITY_KINDS:
-            op.execute(sa.text(f"ALTER TYPE {KIND_TYPE} ADD VALUE '{kind}'"))
+            op.execute(
+                sa.text(f"ALTER TYPE {KIND_TYPE} ADD VALUE IF NOT EXISTS '{kind}'")
+            )
+    # The block committed Alembic's transaction; this is the new one's.
+    op.execute(
+        sa.text("SELECT set_config('lock_timeout', :value, true)").bindparams(
+            value=lock_timeout
+        )
+    )
     # City corporations precede their thanas in the file, so each row's
     # parent is already present when the foreign key is checked.
     table = sa.table(
@@ -117,7 +138,7 @@ def upgrade() -> None:
         sa.column("name_en", sa.Text),
         sa.column("name_bn", sa.Text),
     )
-    op.bulk_insert(table, _rows())
+    op.bulk_insert(table, rows)
 
 
 def downgrade() -> None:

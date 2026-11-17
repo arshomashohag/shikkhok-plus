@@ -22,7 +22,12 @@ from alembic import command
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from tests.db.migration_support import _alembic_config, insert_account, stage_at
+from tests.db.migration_support import (
+    _alembic_config,
+    insert_account,
+    stage_at,
+    upgrade_to_head,
+)
 
 DATA: Final[pathlib.Path] = (
     pathlib.Path(__file__).resolve().parents[2] / "app" / "hub" / "listings" / "data"
@@ -316,3 +321,90 @@ def test_0039_downgrade_refuses_while_a_listing_names_a_metro_thana(
             sa.text("SELECT count(*) FROM bd_area WHERE kind = 'metro_thana'")
         ).scalar_one()
     assert kept > 0
+
+
+@pytest.fixture
+def at_0038(postgres_url: str) -> Iterator[Engine]:
+    """Yield an engine on a throwaway database staged at ``0038``.
+
+    :param postgres_url: The owner connection URL
+    :return: A context manager yielding the staged engine
+    """
+    with stage_at(postgres_url, "0038") as engine:
+        yield engine
+
+
+def test_0039_keeps_the_lock_timeout_for_what_follows(at_0038: Engine) -> None:
+    """Every statement after the enum labels still runs under the 10s timeout.
+
+    ``env.py`` sets ``lock_timeout`` with ``SET LOCAL`` inside Alembic's
+    transaction, and the autocommit block commits that transaction, so
+    without a restore 0039's inserts and every later migration in the same
+    run would queue for a lock indefinitely [audit C-18]. Each statement's
+    setting is read on the same connection, straight after it ran.
+
+    :param at_0038: The engine staged at ``0038``
+    :return: None
+    """
+    seen: list[tuple[str, str]] = []
+
+    def record(
+        conn: object,
+        cursor: object,
+        statement: str,
+        parameters: object,
+        context: object,
+        executemany: bool,
+    ) -> None:
+        """Read the timeout in force after each statement, on its connection.
+
+        :param conn: The SQLAlchemy connection
+        :param cursor: The DBAPI cursor that ran the statement
+        :param statement: The statement
+        :param parameters: Its parameters
+        :param context: The execution context
+        :param executemany: Whether it ran for many rows
+        :return: None
+        """
+        probe = cursor.connection.cursor()  # type: ignore[attr-defined]
+        probe.execute("SHOW lock_timeout")
+        seen.append((statement, str(probe.fetchone()[0])))
+        probe.close()
+
+    sa.event.listen(Engine, "after_cursor_execute", record)
+    try:
+        upgrade_to_head(at_0038)
+    finally:
+        sa.event.remove(Engine, "after_cursor_execute", record)
+
+    labels = [i for i, (sql, _) in enumerate(seen) if "ADD VALUE" in sql]
+    assert len(labels) == 2
+    after = seen[labels[-1] + 1 :]
+    assert any("INSERT INTO bd_area" in sql for sql, _ in after)
+    assert any("hub_public_owner" in sql for sql, _ in after)
+    assert [(sql, timeout) for sql, timeout in after if timeout != "10s"] == []
+
+
+def test_0039_reruns_after_failing_past_its_enum_labels(at_0038: Engine) -> None:
+    """A run that committed the labels and then failed can simply run again.
+
+    The labels commit on their own, before the rows, so a failure after
+    them leaves the type widened at revision ``0038``; the next deploy
+    must not then fail on "already exists".
+
+    :param at_0038: The engine staged at ``0038``
+    :return: None
+    """
+    with at_0038.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        for kind in ("city_corporation", "metro_thana"):
+            conn.execute(sa.text(f"ALTER TYPE bd_area_kind ADD VALUE '{kind}'"))
+
+    url = at_0038.url.render_as_string(hide_password=False)
+    command.upgrade(_alembic_config(url), "0039")
+
+    assert _kinds(at_0038) == [*EARLIER_KINDS, "city_corporation", "metro_thana"]
+    with at_0038.connect() as connection:
+        thanas = connection.execute(
+            sa.text("SELECT count(*) FROM bd_area WHERE kind = 'metro_thana'")
+        ).scalar_one()
+    assert thanas == 18
