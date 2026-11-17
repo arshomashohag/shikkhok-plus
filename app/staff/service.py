@@ -28,6 +28,7 @@ from app.authz.lenses import TeacherLens
 from app.centres.service import add_invitation, centre_of
 from app.db.models import OwnerMember, Staff
 from app.errors import AuthorizationError, ConflictError, ValidationError
+from app.hub.listings.evict import evict_named_member
 from app.local_time import bangladesh_today
 from app.money import Money
 from app.teaching.unassign import unassign_member
@@ -391,7 +392,16 @@ def leave(
     if staff.member_id is not None:
         member = session.get(OwnerMember, staff.member_id, with_for_update=True)
         if member is not None and member.revoked_at is None:
-            member.revoked_at = now or dt.datetime.now(tz=dt.UTC)
+            ended = now or dt.datetime.now(tz=dt.UTC)
+            member.revoked_at = ended
             unassign_member(session, member_id=member.id)
+            # A member who leaves stops being named on the public pages.
+            evict_named_member(
+                session,
+                member.owner_id,
+                member.decision == "accepted"
+                and member.public_name_consent_at is not None,
+                ended,
+            )
     session.commit()
     return _view(session, staff)

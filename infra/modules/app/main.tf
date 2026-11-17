@@ -335,6 +335,9 @@ resource "aws_launch_template" "app" {
       lifecycle_hook_name = local.lifecycle_hook_name
       # Where the containers and the boot log ship [OPS-11].
       log_group = aws_cloudwatch_log_group.app.name
+      # The distribution the host's invalidation sender targets [0041,
+      # R8]; empty when none is passed, and the sender then sends nothing.
+      site_distribution_id = local.site_distribution_id
     }))
     : line if !startswith(trimspace(line), "#") || startswith(trimspace(line), "#!")
   ]))
@@ -607,11 +610,23 @@ resource "aws_iam_role_policy" "self_registration" {
   })
 }
 
-# **Evicting taken-down hub pages from the site's edge cache** [0041].
-# One action on one distribution: a host able to invalidate every
-# distribution in the account could empty the web client's cache too.
-# CreateInvalidation supports no condition keys worth adding, so the
-# resource is the whole scope. Absent when no distribution is passed.
+# **Evicting taken-down hub pages from the site's edge cache** [0041, R8].
+# On the INSTANCE role, which only host processes can use: the host's
+# shikkhokplus-hub-invalidate script calls CloudFront, never the
+# container (hop limit 1, above). One action on one distribution: a host
+# able to invalidate every distribution in the account could empty the
+# web client's cache too. Absent when no distribution is passed.
+#
+# **Needs the workload boundary to allow the action**, which
+# infra/bootstrap now does; bootstrap is applied by a person, and until
+# it is, this policy is capped to nothing and every send fails and is
+# retried.
+locals {
+  # The id the AWS CLI takes, from the ARN Terraform passes in;
+  # arn:aws:cloudfront::<account>:distribution/<id>.
+  site_distribution_id = var.site_distribution_arn == null ? "" : element(split("/", var.site_distribution_arn), 1)
+}
+
 resource "aws_iam_role_policy" "site_invalidation" {
   count = var.site_distribution_arn == null ? 0 : 1
 

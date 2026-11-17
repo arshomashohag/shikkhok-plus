@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.db.models import OwnerListing
 from app.hub.public import invalidation
 
-__all__ = ["evict_batch", "evict_owner", "owner_slug"]
+__all__ = ["evict_batch", "evict_named_member", "evict_owner", "owner_slug"]
 
 
 def owner_slug(session: Session, owner_id: uuid.UUID) -> str | None:
@@ -58,3 +58,31 @@ def evict_batch(
     owner = owner_slug(session, owner_id)
     if owner and batch_slug:
         invalidation.enqueue(session, invalidation.batch_paths(owner, batch_slug), now)
+
+
+def evict_named_member(
+    session: Session, owner_id: uuid.UUID, named: bool, now: dt.datetime
+) -> None:
+    """Enqueue a centre's whole prefix when a publicly named member goes.
+
+    A member is named on the centre's public pages only while accepted,
+    unrevoked and consenting, and the name appears on every batch page
+    they teach **and** on the centre's own page, whose batch cards carry
+    the same names. So withdrawing consent or ending the membership evicts
+    the owner prefix, which covers both, rather than each batch path.
+
+    :param session: The takedown's session
+    :param owner_id: The centre
+    :param named: Whether the member was publicly named until now; a member
+        who never consented was never on a page, and evicts nothing
+    :param now: The moment of the takedown
+    :return: None
+    """
+    if not named:
+        return
+    live = session.execute(
+        sa.select(OwnerListing.slug).where(
+            OwnerListing.owner_id == owner_id, OwnerListing.status == "published"
+        )
+    ).scalar_one_or_none()
+    evict_owner(session, live, now)

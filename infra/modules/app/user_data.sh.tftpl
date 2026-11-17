@@ -752,19 +752,68 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 CRON
 chmod 0644 /etc/cron.d/shikkhokplus-hub-badge-refresh
 
-# **The ten-minute drain of the hub's edge-cache invalidations** [0041].
-# Every takedown enqueues the paths to evict in its own transaction and
-# the request drains them after commit, best-effort; this entry is the
-# backstop for a drain that failed or never ran, so a taken-down page
-# leaves the edge within ten minutes whatever happened to the request.
-# Not every minute: each run starts a container on a 2 GB host.
-echo "Installing the hub-invalidation-drain cron entry..." \
+# **Sending the hub's edge-cache invalidations, from the HOST** [0041, R8].
+# Every takedown enqueues the paths to evict in its own transaction. The
+# container cannot send them and must not be able to: hop limit 1 keeps
+# it from the instance's credentials [OPS-4]. So this host script asks
+# the RUNNING container which rows are unsent (`exec`, never a new
+# container every two minutes on a 2 GB host), sends them with the
+# host's AWS CLI, and reports back with `ack` or `fail`. `claim` stamps
+# the job's heartbeat every run; it changes no row, so a host with no
+# distribution (the rehearsal host) claims harmlessly and sends nothing.
+# A stopped container skips the run; the rows wait for the next one.
+echo "Installing the hub-invalidation sender..." \
   >> /var/log/shikkhokplus-provision.log
+cat > /usr/local/bin/shikkhokplus-hub-invalidate <<'INVALIDATE'
+#!/bin/bash
+set -uo pipefail
+distribution="${site_distribution_id}"
+say() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
+exec 9>/run/lock/shikkhokplus-hub-invalidate.lock
+flock -n 9 || { say "previous run still sending; skipped"; exit 0; }
+cd /srv/shikkhokplus || { say "no application directory; skipped"; exit 0; }
+if ! docker compose ps --status running --services 2>/dev/null | grep -qx api; then
+  say "api container not running; skipped"
+  exit 0
+fi
+if ! claimed=$(docker compose exec -T api python -m app.hub.public.commands claim); then
+  say "claim failed"
+  exit 1
+fi
+parsed=$(printf '%s\n' "$claimed" | tail -n 1 | python3 -I -c '
+import json, sys
+c = json.load(sys.stdin)
+if c["paths"]:
+    print(",".join(str(i) for i in c["ids"]))
+    batch = {"Paths": {"Quantity": len(c["paths"]), "Items": c["paths"]},
+             "CallerReference": c["caller_reference"]}
+    print(json.dumps(batch, separators=(",", ":")))
+') || { say "claim output unreadable"; exit 1; }
+[ -n "$parsed" ] || exit 0
+ids=$(printf '%s\n' "$parsed" | sed -n 1p)
+batch=$(printf '%s\n' "$parsed" | sed -n 2p)
+if [ -z "$distribution" ]; then
+  say "no site distribution on this host; rows $ids left unsent"
+  exit 0
+fi
+if aws_id=$(aws cloudfront create-invalidation --region us-east-1 \
+    --distribution-id "$distribution" --invalidation-batch "$batch" \
+    --query Invalidation.Id --output text 2>&1); then
+  docker compose exec -T api python -m app.hub.public.commands ack \
+    --ids "$ids" --aws-id "$aws_id"
+  say "sent rows $ids as $aws_id"
+else
+  say "create-invalidation failed for rows $ids: $aws_id"
+  docker compose exec -T api python -m app.hub.public.commands fail --ids "$ids"
+  exit 1
+fi
+INVALIDATE
+chmod 0755 /usr/local/bin/shikkhokplus-hub-invalidate
 cat > /etc/cron.d/shikkhokplus-hub-invalidation <<'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # min hour dom mon dow user command
-*/10 * * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.hub.public.commands drain >> /var/log/shikkhokplus-hub-invalidation.log 2>&1
+*/2 * * * * ubuntu /usr/local/bin/shikkhokplus-hub-invalidate >> /var/log/shikkhokplus-hub-invalidation.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/shikkhokplus-hub-invalidation
 

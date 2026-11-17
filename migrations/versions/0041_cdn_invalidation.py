@@ -7,15 +7,17 @@ Create Date: 2026-11-17
 Public owner and batch pages are cached at the edge for up to ten minutes,
 so a takedown that only changes a row leaves the page served from the cache.
 Every takedown -- a suspension, an unpublish, a retired batch, a withdrawn
-name consent, a solo owner's account deletion, a slug change -- therefore
-writes the paths to evict into ``cdn_invalidation`` **in its own
-transaction**, and the rows are sent to CloudFront after commit: by the
-request itself, best-effort, and by a ten-minute cron as the backstop.
+name consent or an ended membership, a solo owner's account deletion, a slug
+change -- therefore writes the paths to evict into ``cdn_invalidation`` **in
+its own transaction**. A host cron sends them every two minutes with the host's AWS
+CLI, claiming rows through ``app.hub.public.commands`` in the running
+container; nothing in the container calls AWS [R8, OPS-4].
 
 **Shapes, not code.** A path starts with ``/`` and carries ``*`` only as its
 last character, because CloudFront rejects a wildcard anywhere else and a
 row it rejects would fail every batch it rode in. Unsent rows are what the
-drain reads, so they carry a partial index.
+claim reads, so they carry a partial index. The id is an identity, so rows
+are claimed in insertion order and the host can pass plain integers back.
 
 The table holds only public slugs and timestamps. The application role may
 read, write and delete it (the retention purge removes rows after seven
@@ -28,7 +30,6 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.elements import conv
 
 from app.db.roles import APP_ROLE
@@ -46,7 +47,9 @@ def upgrade() -> None:
     """
     op.create_table(
         "cdn_invalidation",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column(
+            "id", sa.BigInteger(), sa.Identity(always=True), primary_key=True
+        ),
         sa.Column("path", sa.String(300), nullable=False),
         sa.Column("requested_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("sent_at", sa.DateTime(timezone=True), nullable=True),

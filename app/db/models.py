@@ -55,6 +55,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Identity,
     Index,
     Integer,
     LargeBinary,
@@ -286,11 +287,11 @@ RETENTION_PURGE_JOB = "retention_purge"
 #: registering it here is what makes the freshness check expect it.
 HUB_BADGE_JOB = "hub_badge_refresh"
 
-#: H2's drain of the CloudFront invalidation outbox, ``cdn_invalidation``
-#: [0041]. Every takedown enqueues its paths in its own transaction and the
-#: request drains them after commit; this ten-minute job is the backstop for
-#: a drain that failed or never ran, so a job that stopped would leave taken
-#: down pages served from the edge cache past their TTL's promise.
+#: H2's sender of the CloudFront invalidation outbox, ``cdn_invalidation``
+#: [0041, R8]. Every takedown enqueues its paths in its own transaction; the
+#: host's two-minute cron claims them through ``app.hub.public.commands``,
+#: which stamps this heartbeat on every claim. A sender that stopped would
+#: leave taken-down pages served from the edge cache until their TTL ends.
 HUB_INVALIDATION_JOB = "hub_cdn_invalidation"
 
 #: Every job the host is expected to run [audit C-01]. The freshness check
@@ -4031,11 +4032,12 @@ class CdnInvalidation(Base):
     """One edge-cache path a takedown asked CloudFront to evict [0041].
 
     Written in the takedown's own transaction, so a rolled-back takedown
-    leaves no row and a committed one cannot lose its row; sent after
-    commit by :func:`app.hub.public.invalidation.drain`. A path holds only
-    public slugs, never a name or an id.
+    leaves no row and a committed one cannot lose its row. Sent by the
+    host, never the container: ``app.hub.public.commands`` claims, acks
+    and fails rows for the host's AWS CLI [R8]. A path holds only public
+    slugs, never a name or an id.
 
-    :ivar id: Surrogate key
+    :ivar id: Surrogate key, in insertion order; the host passes ids back
     :ivar path: The CloudFront path, ``*`` allowed only as its last character
     :ivar requested_at: When the takedown enqueued it
     :ivar sent_at: When CloudFront accepted it; NULL while unsent
@@ -4045,7 +4047,7 @@ class CdnInvalidation(Base):
 
     __tablename__ = "cdn_invalidation"
 
-    id: Mapped[uuid.UUID] = _uuid_column()
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     path: Mapped[str] = mapped_column(String(300), nullable=False)
     requested_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False

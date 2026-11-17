@@ -4,8 +4,10 @@ Public owner and batch pages are cached at the edge for up to ten minutes,
 so a takedown that only changed a row would leave the page served from the
 cache. Every takedown therefore writes ``cdn_invalidation`` rows **in its own
 transaction**: a rolled-back takedown leaves no row, and a committed one
-cannot lose its row. The drain sends unsent rows in one ``CreateInvalidation``
-batch, after the request commits and every ten minutes from cron.
+cannot lose its row. Nothing in the container calls AWS [R8]: the host's
+cron claims rows through ``app.hub.public.commands``, sends them with its own
+AWS CLI, and acks or fails them; the container half is tested here, the host
+script in ``tests/gates/test_hub_invalidation_host.py``.
 
 Rows are arranged as the table owner; each service under test is handed the
 application role's session, so the role's grants on the outbox are exercised.
@@ -13,62 +15,44 @@ application role's session, so the role's grants on the outbox are exercised.
 
 from __future__ import annotations
 
+import argparse
 import datetime as dt
+import json
 import logging
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Final
 
-import boto3
 import pytest
 import sqlalchemy as sa
-from botocore.stub import Stubber
-from fastapi.testclient import TestClient
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import CentreMemberLens, PlatformAdminLens, TeacherLens
 from app.batches.service import BatchChanges, update_batch
-from app.db.models import HUB_INVALIDATION_JOB, BatchSubject
+from app.centres.service import revoke_member
+from app.db.models import HUB_INVALIDATION_JOB, BatchSubject, Staff
 from app.governance.deletion import delete_account
 from app.hub.listings import batches, owner
 from app.hub.listings.batches import BatchListingUpdate
 from app.hub.listings.member_consent import set_public_name_consent
 from app.hub.listings.owner import OwnerListingUpdate
-from app.hub.public import cloudfront, commands, invalidation
+from app.hub.public import commands, invalidation
 from app.moderation import suspension
+from app.money import Money
+from app.staff.service import leave
 from tests.batches.conftest import make_teacher
-from tests.conftest import bearer
-from tests.hub.support import add_member, assign_slot, centre_with_manager
+from tests.hub.support import (
+    CentreFixture,
+    add_member,
+    assign_slot,
+    centre_with_manager,
+)
 
 NOW: Final[dt.datetime] = dt.datetime(2026, 11, 17, 9, 0, tzinfo=dt.UTC)
 
 #: Every enqueue carries the sitemap, which lists what a takedown removes.
 SITEMAP: Final[str] = "/hub/sitemap.xml"
-
-
-@dataclass
-class _Recorder:
-    """A stand-in CloudFront that records each request, or fails.
-
-    :ivar calls: ``(paths, caller_reference)`` per request
-    :ivar fail: Raise instead of recording
-    """
-
-    calls: list[tuple[list[str], str]] = field(default_factory=list)
-    fail: bool = False
-
-    def create_invalidation(self, paths: list[str], caller_reference: str) -> str:
-        """Record one request.
-
-        :param paths: The paths
-        :param caller_reference: The idempotency key
-        :return: A fake invalidation id
-        :raises RuntimeError: When told to fail
-        """
-        if self.fail:
-            raise RuntimeError("cloudfront unavailable")
-        self.calls.append((list(paths), caller_reference))
-        return f"I{len(self.calls)}EXAMPLE"
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,8 +212,8 @@ def test_suspension_enqueues_invalidation_in_same_transaction(
 
     The suspension's own commit is replaced by a flush and the transaction
     is then rolled back: the row existed inside it and is gone with it, as
-    the suspension is. Run for real, both commit together, and the drain
-    sends the owner's prefix in both locales with the sitemap.
+    the suspension is. Run for real, both commit together, and the next
+    claim offers the owner's prefix in both locales with the sitemap.
 
     :param owner_session: An arranging session
     :param restricted_session: The application role's session
@@ -261,10 +245,10 @@ def test_suspension_enqueues_invalidation_in_same_transaction(
     suspension.set(restricted_session, admin, lens.owner_id, True, "misleading", NOW)
 
     assert _paths(owner_session) == expected
-    recorder = _Recorder()
-    assert invalidation.drain(restricted_session, recorder, NOW) == len(expected)
-    assert len(recorder.calls) == 1
-    assert set(recorder.calls[0][0]) == expected
+    offered = commands.claim(restricted_session, now=NOW)
+    assert set(offered.paths) == expected
+    assert commands.ack(restricted_session, offered.ids, "I2J0EXAMPLE", NOW) == 3
+    assert all(r.aws_id == "I2J0EXAMPLE" for r in _rows(owner_session))
 
 
 def test_lifting_a_suspension_enqueues_nothing(
@@ -447,46 +431,192 @@ def test_solo_owner_deletion_enqueues(
     assert _paths(owner_session) == {*invalidation.owner_paths("rahim-sir"), SITEMAP}
 
 
-def test_drain_batches_and_stamps(
+def _named_member(
+    session: Session, *, consented: bool = True
+) -> tuple[CentreFixture, uuid.UUID, uuid.UUID]:
+    """Arrange a published centre naming one teaching member, or not.
+
+    :param session: An arranging session
+    :param consented: Whether the member agreed to be named
+    :return: ``(centre, member_id, member_account_id)``
+    """
+    centre = centre_with_manager(session)
+    member_id, account_id = add_member(
+        session, centre.owner_id, name="Karim Sir", consented=consented
+    )
+    assign_slot(session, centre.batch_id, member_id)
+    _owner_listing(session, centre.owner_id, "udoy-coaching")
+    _batch_listing(session, centre.owner_id, centre.batch_id, "class-9-maths")
+    return centre, member_id, account_id
+
+
+def _manager(centre: CentreFixture) -> TeacherLens:
+    """Build the centre manager's lens.
+
+    :param centre: The centre
+    :return: The lens
+    """
+    return TeacherLens(account_id=centre.manager_account_id, owner_id=centre.owner_id)
+
+
+def test_member_revocation_enqueues_invalidation(
     owner_session: Session, restricted_session: Session
 ) -> None:
-    """Unsent rows go oldest first in one request, up to the limit, stamped.
+    """A named member whose membership ends leaves the centre's pages.
+
+    The same exposure as withdrawing consent, so the same owner prefix.
 
     :param owner_session: An arranging session
     :param restricted_session: The application role's session
     :return: None
     """
-    later = NOW + dt.timedelta(seconds=1)
-    invalidation.enqueue(restricted_session, invalidation.owner_paths("aaa"), NOW)
-    invalidation.enqueue(
-        restricted_session, invalidation.batch_paths("bbb", "ccc"), later
+    centre, member_id, _ = _named_member(owner_session)
+
+    revoke_member(
+        restricted_session, lens=_manager(centre), member_id=member_id, now=NOW
     )
-    restricted_session.commit()
-    recorder = _Recorder()
 
-    sent = invalidation.drain(restricted_session, recorder, NOW, limit=3)
-
-    assert sent == 3
-    assert len(recorder.calls) == 1
-    paths, reference = recorder.calls[0]
-    assert set(paths) == {*invalidation.owner_paths("aaa"), SITEMAP}
-    assert len(paths) == 3
-    assert reference
-    stamped = [r for r in _rows(owner_session) if r.sent_at is not None]
-    assert len(stamped) == 3
-    assert {r.aws_id for r in stamped} == {"I1EXAMPLE"}
-
-    assert invalidation.drain(restricted_session, recorder, later, limit=50) == 3
-    assert set(recorder.calls[1][0]) == {
-        *invalidation.batch_paths("bbb", "ccc"),
+    assert _paths(owner_session) == {
+        *invalidation.owner_paths("udoy-coaching"),
         SITEMAP,
     }
-    assert invalidation.drain(restricted_session, recorder, later) == 0
-    assert len(recorder.calls) == 2
-    assert all(r.sent_at is not None for r in _rows(owner_session))
 
 
-def test_drain_sends_a_path_once_however_many_rows_carry_it(
+def test_revoking_an_unnamed_member_enqueues_nothing(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A member who never consented was on no page, so nothing is evicted.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    centre, member_id, _ = _named_member(owner_session, consented=False)
+
+    revoke_member(
+        restricted_session, lens=_manager(centre), member_id=member_id, now=NOW
+    )
+
+    assert _rows(owner_session) == []
+
+
+def test_staff_leaving_enqueues_invalidation(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """Recording that a named teacher left ends their membership and evicts.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    centre, member_id, _ = _named_member(owner_session)
+    staff = Staff(
+        owner_id=centre.owner_id,
+        kind="teacher",
+        display_name="Karim Sir",
+        member_id=member_id,
+        pay_basis="monthly",
+        pay_rate=Money("8000.00"),
+        joined_on=dt.date(2026, 1, 1),
+        created_at=NOW,
+    )
+    owner_session.add(staff)
+    owner_session.commit()
+
+    leave(
+        restricted_session,
+        lens=_manager(centre),
+        staff_id=staff.id,
+        left_on=dt.date(2026, 11, 17),
+        now=NOW,
+    )
+
+    assert _paths(owner_session) == {
+        *invalidation.owner_paths("udoy-coaching"),
+        SITEMAP,
+    }
+
+
+def test_named_member_account_deletion_enqueues(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A named member deleting their own account evicts the centre's pages.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    _, _, account_id = _named_member(owner_session)
+    phone = owner_session.execute(
+        sa.text("SELECT phone FROM account WHERE id = :a"), {"a": account_id}
+    ).scalar_one()
+
+    delete_account(restricted_session, phone)
+
+    assert _paths(owner_session) == {
+        *invalidation.owner_paths("udoy-coaching"),
+        SITEMAP,
+    }
+
+
+def _heartbeat(session: Session) -> tuple[dt.datetime, int, int, int]:
+    """Read this job's heartbeat row.
+
+    :param session: The arranging session
+    :return: ``(last_success_at, offered, still_waiting, retrying)``
+    """
+    session.rollback()
+    row = session.execute(
+        sa.text(
+            "SELECT last_success_at, cycles_created, cycles_skipped, "
+            "periods_failed FROM job_heartbeat WHERE job_name = :j"
+        ),
+        {"j": HUB_INVALIDATION_JOB},
+    ).one()
+    return row[0], row[1], row[2], row[3]
+
+
+def test_claim_offers_oldest_first_up_to_limit_and_records_heartbeat(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A claim offers the oldest rows, de-duplicated, and stamps the job.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    invalidation.enqueue(restricted_session, invalidation.owner_paths("aaa"), NOW)
+    invalidation.enqueue(
+        restricted_session, invalidation.batch_paths("bbb", "ccc"), NOW
+    )
+    restricted_session.commit()
+
+    first = commands.claim(restricted_session, limit=3, now=NOW)
+
+    assert set(first.paths) == {*invalidation.owner_paths("aaa"), SITEMAP}
+    assert first.ids == sorted(first.ids)
+    assert len(first.ids) == 3
+    assert str(uuid.UUID(first.caller_reference)) == first.caller_reference
+    assert _heartbeat(owner_session) == (NOW, 3, 3, 0)
+
+    # Claiming does not send: the same rows are offered until acked.
+    again = commands.claim(restricted_session, limit=3, now=NOW)
+    assert again.ids == first.ids
+    assert again.caller_reference != first.caller_reference
+
+    assert commands.ack(restricted_session, first.ids, "I1EXAMPLE", NOW) == 3
+    second = commands.claim(restricted_session, now=NOW)
+    assert set(second.paths) == {*invalidation.batch_paths("bbb", "ccc"), SITEMAP}
+    assert commands.ack(restricted_session, second.ids, "I2EXAMPLE", NOW) == 3
+
+    rows = _rows(owner_session)
+    assert all(r.sent_at == NOW for r in rows)
+    assert {r.aws_id for r in rows} == {"I1EXAMPLE", "I2EXAMPLE"}
+    # A late ack for rows already sent changes nothing.
+    assert commands.ack(restricted_session, first.ids, "I9EXAMPLE", NOW) == 0
+
+
+def test_claim_offers_a_path_once_however_many_rows_carry_it(
     owner_session: Session, restricted_session: Session
 ) -> None:
     """Two takedowns' sitemap rows ride one batch as one path.
@@ -498,235 +628,122 @@ def test_drain_sends_a_path_once_however_many_rows_carry_it(
     invalidation.enqueue(restricted_session, invalidation.owner_paths("aaa"), NOW)
     invalidation.enqueue(restricted_session, invalidation.owner_paths("bbb"), NOW)
     restricted_session.commit()
-    recorder = _Recorder()
 
-    assert invalidation.drain(restricted_session, recorder, NOW) == 6
+    offered = commands.claim(restricted_session, now=NOW)
 
-    paths = recorder.calls[0][0]
-    assert len(paths) == len(set(paths)) == 5
-    assert paths.count(SITEMAP) == 1
+    assert len(offered.ids) == 6
+    assert len(offered.paths) == len(set(offered.paths)) == 5
+    assert offered.paths.count(SITEMAP) == 1
+    assert commands.ack(restricted_session, offered.ids, "I1EXAMPLE", NOW) == 6
     assert all(r.sent_at == NOW for r in _rows(owner_session))
 
 
-def test_drain_failure_increments_attempts_and_keeps_row(
-    owner_session: Session,
-    restricted_session: Session,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """A failed request leaves every row unsent, counted, and logged.
-
-    :param owner_session: An arranging session
-    :param restricted_session: The application role's session
-    :param caplog: The log capture
-    :return: None
-    """
-    invalidation.enqueue(restricted_session, invalidation.owner_paths("aaa"), NOW)
-    restricted_session.commit()
-
-    with caplog.at_level(logging.WARNING):
-        sent = invalidation.drain(restricted_session, _Recorder(fail=True), NOW)
-
-    assert sent == 0
-    rows = _rows(owner_session)
-    assert len(rows) == 3
-    assert all(r.sent_at is None and r.attempts == 1 for r in rows)
-    assert "invalidation" in caplog.text
-
-    recorder = _Recorder()
-    assert invalidation.drain(restricted_session, recorder, NOW) == 3
-    assert all(r.sent_at is not None for r in _rows(owner_session))
-
-
-def test_drain_without_distribution_id_noops(
-    owner_session: Session,
-    restricted_session: Session,
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Locally there is no distribution: the drain logs and leaves the rows.
-
-    The heartbeat is still stamped: the job ran and had nowhere to send,
-    which is the normal state of a host with no site distribution.
-
-    :param owner_session: An arranging session
-    :param restricted_session: The application role's session
-    :param monkeypatch: The patcher
-    :param caplog: The log capture
-    :return: None
-    """
-    monkeypatch.delenv(cloudfront.DISTRIBUTION_ID_ENV, raising=False)
-    invalidation.enqueue(restricted_session, invalidation.owner_paths("aaa"), NOW)
-    restricted_session.commit()
-
-    assert cloudfront.client_from_environment() is None
-    with caplog.at_level(logging.INFO):
-        result = commands.run_drain(restricted_session, now=NOW)
-
-    assert result.sent == 0
-    assert result.pending == 3
-    assert "no site distribution" in caplog.text
-    assert all(r.sent_at is None and r.attempts == 0 for r in _rows(owner_session))
-    stamped = owner_session.execute(
-        sa.text("SELECT last_success_at FROM job_heartbeat WHERE job_name = :j"),
-        {"j": HUB_INVALIDATION_JOB},
-    ).scalar_one()
-    assert stamped == NOW
-
-
-def test_run_drain_sends_with_the_configured_client(
+def test_empty_claim_still_records_heartbeat(
     owner_session: Session, restricted_session: Session
 ) -> None:
-    """The cron command drains through the client it is given.
+    """Nothing to send is the normal case, and the job still registers fresh.
 
     :param owner_session: An arranging session
     :param restricted_session: The application role's session
     :return: None
     """
+    offered = commands.claim(restricted_session, now=NOW)
+
+    assert offered.ids == []
+    assert offered.paths == []
+    assert json.loads(offered.to_json())["paths"] == []
+    assert _heartbeat(owner_session) == (NOW, 0, 0, 0)
+
+
+def test_fail_increments_attempts_and_keeps_row(
+    owner_session: Session,
+    restricted_session: Session,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failed send leaves every row unsent, counted, logged and offered again.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :param caplog: The log capture
+    :return: None
+    """
     invalidation.enqueue(restricted_session, invalidation.owner_paths("aaa"), NOW)
     restricted_session.commit()
-    recorder = _Recorder()
+    offered = commands.claim(restricted_session, now=NOW)
 
-    result = commands.run_drain(restricted_session, now=NOW, client=recorder)
+    with caplog.at_level(logging.WARNING):
+        assert commands.fail(restricted_session, offered.ids) == 3
 
-    assert (result.sent, result.pending, result.failed) == (3, 0, 0)
-    assert len(recorder.calls) == 1
-
-
-def test_takedown_route_drains_after_commit(
-    api_client: TestClient,
-    owner_session: Session,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A takedown request drains its own rows once its transaction committed.
-
-    :param api_client: The application under test
-    :param owner_session: An arranging session
-    :param monkeypatch: The patcher
-    :return: None
-    """
-    lens, _ = _tutor(owner_session)
-    recorder = _Recorder()
-    monkeypatch.setattr(cloudfront, "client_from_environment", lambda: recorder)
-
-    response = api_client.post(
-        "/v1/hub/listing/unpublish", headers=bearer(owner_session, lens.account_id)
-    )
-
-    assert response.status_code == 200
-    assert len(recorder.calls) == 1
-    assert set(recorder.calls[0][0]) == {
-        *invalidation.owner_paths("rahim-sir"),
-        SITEMAP,
-    }
-    assert all(r.sent_at is not None for r in _rows(owner_session))
-
-
-def test_a_failing_drain_never_reaches_the_response(
-    api_client: TestClient,
-    owner_session: Session,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """CloudFront failing after commit leaves the takedown done and counted.
-
-    :param api_client: The application under test
-    :param owner_session: An arranging session
-    :param monkeypatch: The patcher
-    :return: None
-    """
-    lens, _ = _tutor(owner_session)
-    monkeypatch.setattr(
-        cloudfront, "client_from_environment", lambda: _Recorder(fail=True)
-    )
-
-    response = api_client.post(
-        "/v1/hub/listing/unpublish", headers=bearer(owner_session, lens.account_id)
-    )
-
-    assert response.status_code == 200
+    assert "invalidation failed" in caplog.text
     rows = _rows(owner_session)
-    assert rows
     assert all(r.sent_at is None and r.attempts == 1 for r in rows)
+    retried = commands.claim(restricted_session, now=NOW)
+    assert retried.ids == offered.ids
+    assert _heartbeat(owner_session) == (NOW, 3, 0, 3)
 
 
-def test_a_request_that_enqueued_nothing_does_not_drain(
-    api_client: TestClient,
+def test_ack_refuses_a_malformed_invalidation_id(
+    restricted_session: Session,
+) -> None:
+    """Only a CloudFront-shaped id is stored.
+
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    with pytest.raises(ValueError, match="invalidation id"):
+        commands.ack(restricted_session, [1], "not an id", NOW)
+
+
+@pytest.mark.parametrize("text", ["", "a,b", "0", "-1", "1,,x"])
+def test_ids_must_be_positive_integers(text: str) -> None:
+    """``--ids`` takes positive integers, comma-separated, and nothing else.
+
+    :param text: A malformed argument
+    :return: None
+    """
+    with pytest.raises(argparse.ArgumentTypeError):
+        commands.parse_ids(text)
+
+
+def test_command_line_claims_acks_and_fails(
     owner_session: Session,
+    restricted_session: Session,
+    restricted_engine: Engine,
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """An ordinary request never builds a client or touches the outbox.
+    """The verbs the host script runs, through their entry point.
 
-    :param api_client: The application under test
+    ``claim`` prints exactly one JSON line and nothing else on stdout.
+
     :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :param restricted_engine: The application role's engine
     :param monkeypatch: The patcher
+    :param capsys: The output capture
     :return: None
     """
-    lens, _ = _tutor(owner_session)
+    monkeypatch.setattr(commands, "build_engine", lambda: restricted_engine)
+    invalidation.enqueue(restricted_session, invalidation.owner_paths("aaa"), NOW)
+    invalidation.enqueue(restricted_session, invalidation.owner_paths("bbb"), NOW)
+    restricted_session.commit()
 
-    def _refuse() -> None:
-        raise AssertionError("an ordinary request built an invalidation client")
+    assert commands.main(["claim", "--limit", "3"]) == 0
+    out = capsys.readouterr().out
+    assert out.count("\n") == 1
+    first = json.loads(out)
+    assert set(first) == {"caller_reference", "ids", "paths"}
+    assert len(first["ids"]) == 3
 
-    monkeypatch.setattr(cloudfront, "client_from_environment", _refuse)
+    ids = ",".join(str(i) for i in first["ids"])
+    assert commands.main(["ack", "--ids", ids, "--aws-id", "I2J0EXAMPLE"]) == 0
+    assert commands.main(["claim"]) == 0
+    rest = json.loads(capsys.readouterr().out)
+    rest_ids = ",".join(str(i) for i in rest["ids"])
+    assert commands.main(["fail", "--ids", rest_ids]) == 0
+    assert commands.main(["ack", "--ids", rest_ids, "--aws-id", "bad id"]) == 2
+    assert capsys.readouterr().out == ""
 
-    response = api_client.get(
-        "/v1/hub/listing", headers=bearer(owner_session, lens.account_id)
-    )
-
-    assert response.status_code == 200
-
-
-def test_cloudfront_client_sends_one_batch_to_the_distribution() -> None:
-    """The boto3 client sends the paths as one batch to the named distribution.
-
-    :return: None
-    """
-    sdk = boto3.client(
-        "cloudfront",
-        region_name="us-east-1",
-        aws_access_key_id="test",
-        aws_secret_access_key="test",  # noqa: S106 - a stub, never sent
-    )
-    paths = invalidation.owner_paths("aaa")
-    with Stubber(sdk) as stub:
-        stub.add_response(
-            "create_invalidation",
-            {
-                "Location": "https://cloudfront.amazonaws.com/x",
-                "Invalidation": {
-                    "Id": "I2J0EXAMPLE",
-                    "Status": "InProgress",
-                    "CreateTime": NOW,
-                    "InvalidationBatch": {
-                        "Paths": {"Quantity": 2, "Items": paths},
-                        "CallerReference": "ref",
-                    },
-                },
-            },
-            {
-                "DistributionId": "E123EXAMPLE",
-                "InvalidationBatch": {
-                    "Paths": {"Quantity": 2, "Items": paths},
-                    "CallerReference": "ref",
-                },
-            },
-        )
-        client = cloudfront.CloudFrontInvalidationClient("E123EXAMPLE", sdk)
-
-        assert client.create_invalidation(paths, "ref") == "I2J0EXAMPLE"
-        stub.assert_no_pending_responses()
-
-
-def test_client_from_environment_reads_the_distribution(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A configured distribution yields a client; a blank one yields none.
-
-    :param monkeypatch: The patcher
-    :return: None
-    """
-    monkeypatch.setenv(cloudfront.DISTRIBUTION_ID_ENV, "  ")
-    assert cloudfront.client_from_environment() is None
-
-    monkeypatch.setenv(cloudfront.DISTRIBUTION_ID_ENV, "E123EXAMPLE")
-    assert isinstance(
-        cloudfront.client_from_environment(), cloudfront.CloudFrontInvalidationClient
-    )
+    rows = _rows(owner_session)
+    assert sum(r.aws_id == "I2J0EXAMPLE" for r in rows) == 3
+    assert sum(r.sent_at is None and r.attempts == 1 for r in rows) == 3

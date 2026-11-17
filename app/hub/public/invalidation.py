@@ -1,20 +1,19 @@
-"""The CloudFront invalidation outbox: which paths a takedown evicts, and sending them.
+"""The CloudFront invalidation outbox: which paths a takedown evicts.
 
 Public owner and batch pages are cached at the edge for up to ten minutes. A
 takedown -- a suspension, an unpublish, a retired batch, a withdrawn name
-consent, a solo owner's account deletion, a slug change -- changes rows the
-pages are read from, and without an invalidation the edge goes on serving
-the page until its TTL ends.
+consent or an ended membership, a solo owner's account deletion, a slug
+change -- changes rows the pages are read from, and without an invalidation
+the edge goes on serving the page until its TTL ends.
 
 **Enqueued in the takedown's own transaction.** :func:`enqueue` adds rows to
 the caller's transaction and commits nothing, so a takedown that rolls back
 leaves no row and one that commits cannot lose its row [Review Focus 2].
 
-**Drained after commit, best-effort, with a cron backstop.** :func:`drain`
-sends every unsent row in one ``CreateInvalidation`` batch and stamps it; a
-failure counts an attempt and leaves the row for the next drain. The request
-that enqueued drains once its transaction has committed (``app.main``), and
-``app.hub.public.commands`` drains every ten minutes.
+**Sent by the host, never by the container** [R8, OPS-4]. No process in the
+application container calls AWS. A host cron runs
+``app.hub.public.commands claim`` inside the running container, sends what it
+prints with the host's own AWS CLI, and reports back with ``ack`` or ``fail``.
 
 **No caller writes a path by hand.** CloudFront accepts ``*`` only as a
 path's last character, so the paths come from :func:`owner_paths` and
@@ -29,11 +28,8 @@ ORM model: this package may not import ``app.db.models``.
 from __future__ import annotations
 
 import datetime as dt
-import hashlib
-import logging
-import uuid
 from collections.abc import Sequence
-from typing import Final, Protocol
+from typing import Final
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
@@ -42,18 +38,12 @@ from app.hub.public.messages import LOCALES
 
 __all__ = [
     "MAX_PATH",
-    "PENDING_INFO_KEY",
+    "OUTBOX",
     "SITEMAP_PATH",
-    "InvalidationClient",
     "batch_paths",
-    "drain",
     "enqueue",
-    "has_pending",
     "owner_paths",
-    "unsent_count",
 ]
-
-log = logging.getLogger(__name__)
 
 #: The sitemap, which every takedown changes.
 SITEMAP_PATH: Final[str] = "/hub/sitemap.xml"
@@ -61,11 +51,8 @@ SITEMAP_PATH: Final[str] = "/hub/sitemap.xml"
 #: The ``path`` column's width.
 MAX_PATH: Final[int] = 300
 
-#: Set on ``Session.info`` by :func:`enqueue`, so the request scope knows
-#: this request has rows to drain once it commits.
-PENDING_INFO_KEY: Final[str] = "hub_cdn_invalidation_pending"
-
-_OUTBOX: Final = sa.table(
+#: The outbox table, for this package's own reads and writes.
+OUTBOX: Final = sa.table(
     "cdn_invalidation",
     sa.column("id"),
     sa.column("path"),
@@ -74,20 +61,6 @@ _OUTBOX: Final = sa.table(
     sa.column("aws_id"),
     sa.column("attempts"),
 )
-
-
-class InvalidationClient(Protocol):
-    """Whatever sends one invalidation batch to the site's distribution."""
-
-    def create_invalidation(self, paths: list[str], caller_reference: str) -> str:
-        """Ask the edge to evict paths.
-
-        :param paths: The paths, each valid for CloudFront
-        :param caller_reference: The batch's idempotency key: the same key
-            with the same paths is the same invalidation
-        :return: The invalidation's id
-        """
-        ...
 
 
 def owner_paths(slug: str) -> list[str]:
@@ -141,92 +114,6 @@ def enqueue(session: Session, paths: Sequence[str], now: dt.datetime) -> None:
     for path in wanted:
         _require_valid(path)
     session.execute(
-        sa.insert(_OUTBOX),
-        [{"id": uuid.uuid4(), "path": path, "requested_at": now} for path in wanted],
+        sa.insert(OUTBOX),
+        [{"path": path, "requested_at": now} for path in wanted],
     )
-    session.info[PENDING_INFO_KEY] = True
-
-
-def has_pending(session: Session) -> bool:
-    """Say whether this session enqueued anything.
-
-    :param session: The session
-    :return: True once :func:`enqueue` has run in it
-    """
-    return bool(session.info.get(PENDING_INFO_KEY))
-
-
-def unsent_count(session: Session) -> int:
-    """Count the rows still waiting to be sent.
-
-    :param session: The session
-    :return: The count
-    """
-    count = session.execute(
-        sa.select(sa.func.count())
-        .select_from(_OUTBOX)
-        .where(_OUTBOX.c.sent_at.is_(None))
-    ).scalar_one()
-    return int(count)
-
-
-def _caller_reference(ids: Sequence[uuid.UUID]) -> str:
-    """Derive a batch's idempotency key from its rows.
-
-    The same rows retried give the same key, so a request CloudFront
-    accepted but whose answer was lost is not created twice.
-
-    :param ids: The batch's row ids
-    :return: A hex digest
-    """
-    joined = ",".join(sorted(str(i) for i in ids))
-    return hashlib.sha256(joined.encode("ascii")).hexdigest()[:32]
-
-
-def drain(
-    session: Session, client: InvalidationClient, now: dt.datetime, limit: int = 50
-) -> int:
-    """Send up to ``limit`` unsent rows in one batch and stamp them.
-
-    The rows are locked ``SKIP LOCKED``, so the request's drain and the
-    cron's never send the same row twice. On failure each row's ``attempts``
-    grows and the row stays for the next drain; the failure is logged by
-    class and row count, never raised. Commits either way.
-
-    :param session: A session with no open work of its own
-    :param client: Where the batch is sent
-    :param now: The timestamp stamped on sent rows
-    :param limit: The most rows one batch carries
-    :return: How many rows were sent
-    """
-    rows = session.execute(
-        sa.select(_OUTBOX.c.id, _OUTBOX.c.path)
-        .where(_OUTBOX.c.sent_at.is_(None))
-        .order_by(_OUTBOX.c.requested_at, _OUTBOX.c.id)
-        .limit(limit)
-        .with_for_update(skip_locked=True)
-    ).all()
-    if not rows:
-        session.commit()
-        return 0
-    ids = [row.id for row in rows]
-    paths = list(dict.fromkeys(str(row.path) for row in rows))
-    selected = _OUTBOX.c.id.in_(ids)
-    try:
-        aws_id = client.create_invalidation(paths, _caller_reference(ids))
-    except Exception as error:  # noqa: BLE001  best-effort by rule: the row is the retry
-        session.execute(
-            sa.update(_OUTBOX).where(selected).values(attempts=_OUTBOX.c.attempts + 1)
-        )
-        session.commit()
-        # Counts and the error's class only; the paths stay in the table.
-        log.warning(
-            "cdn invalidation failed; rows kept for the next drain",
-            extra={"rows": len(rows), "error": type(error).__name__},
-        )
-        return 0
-    session.execute(
-        sa.update(_OUTBOX).where(selected).values(sent_at=now, aws_id=aws_id)
-    )
-    session.commit()
-    return len(rows)

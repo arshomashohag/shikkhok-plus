@@ -364,6 +364,17 @@ _PUBLISHED_SOLO_SLUGS: Final = sa.text(
     "AND l.status = 'published' AND l.slug IS NOT NULL ORDER BY l.slug"
 )
 
+#: The public slugs of the centres that name this account's member on
+#: their pages, read before the memberships end so those pages can be
+#: evicted: the same exposure as a member withdrawing consent.
+_NAMING_CENTRE_SLUGS: Final = sa.text(
+    "SELECT DISTINCT l.slug FROM owner_member m "
+    "JOIN owner_listing l ON l.owner_id = m.owner_id "
+    "WHERE m.account_id = :account_id AND m.revoked_at IS NULL "
+    "AND m.decision = 'accepted' AND m.public_name_consent_at IS NOT NULL "
+    "AND l.status = 'published' AND l.slug IS NOT NULL ORDER BY l.slug"
+)
+
 #: The live memberships whose future classes a deletion frees first.
 _LIVE_MEMBERSHIPS: Final = sa.text(
     "SELECT id FROM owner_member WHERE account_id = :account_id AND revoked_at IS NULL"
@@ -519,6 +530,12 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
     # A teacher's batches stay with their students [BR1.6 amended].
     # Retired before the account row goes, in the same transaction.
     session.execute(_RETIRE_OWNED_BATCHES, {"account_id": account_id})
+    # Centres naming this member on their public pages are evicted with
+    # the memberships' end, in this transaction.
+    for (slug,) in session.execute(_NAMING_CENTRE_SLUGS, {"account_id": account_id}):
+        invalidation.enqueue(
+            session, invalidation.owner_paths(slug), dt.datetime.now(tz=dt.UTC)
+        )
     for (member_id,) in session.execute(_LIVE_MEMBERSHIPS, {"account_id": account_id}):
         unassign_member(session, member_id=member_id)
     session.execute(_END_MEMBERSHIPS, {"account_id": account_id})

@@ -438,12 +438,13 @@ def _plant(
             shared | {"cid": row_id.hex},
         )
     elif table == "cdn_invalidation":
+        # The id is an identity the database assigns, so the planted row
+        # is found again by a path derived from the planted id.
         session.execute(
             sa.text(
-                "INSERT INTO cdn_invalidation (id, path, requested_at) "
-                "VALUES (:id, '/hub/sitemap.xml', :at)"
+                "INSERT INTO cdn_invalidation (path, requested_at) VALUES (:path, :at)"
             ),
-            shared,
+            {"path": _outbox_path_of(row_id), "at": at},
         )
     else:  # pragma: no cover - guarded by the assertion below
         raise AssertionError(
@@ -465,6 +466,15 @@ def _plant(
         "requested_at",
     }, f"{table} is planted at an age column this helper does not set"
     return row_id
+
+
+def _outbox_path_of(row_id: uuid.UUID) -> str:
+    """Derive a planted outbox row's path from its planted id.
+
+    :param row_id: The id the planting helper returned
+    :return: The ``path`` the outbox row was given
+    """
+    return f"/hub/en/t/{row_id.hex}"
 
 
 def _hold_digest_of(row_id: uuid.UUID) -> str:
@@ -612,6 +622,14 @@ def _exists(session: Session, table: str, row_id: uuid.UUID) -> bool:
             session.execute(
                 sa.text("SELECT 1 FROM username_hold WHERE key_digest = :d"),
                 {"d": _hold_digest_of(row_id)},
+            ).first()
+            is not None
+        )
+    if table == "cdn_invalidation":
+        return (
+            session.execute(
+                sa.text("SELECT 1 FROM cdn_invalidation WHERE path = :p"),
+                {"p": _outbox_path_of(row_id)},
             ).first()
             is not None
         )

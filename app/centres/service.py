@@ -33,6 +33,7 @@ from app.authz.lenses import TeacherLens
 from app.db.advisory import contact_key, lock_keys
 from app.db.models import Account, Owner, OwnerMember
 from app.errors import AuthorizationError, ConflictError, ValidationError
+from app.hub.listings.evict import evict_named_member
 from app.teaching.unassign import unassign_member
 
 __all__ = [
@@ -416,8 +417,16 @@ def revoke_member(
             raise ConflictError(
                 code="LAST_MANAGER", message_key="centre.member.last_manager"
             )
-    member.revoked_at = _now(now)
+    ended = _now(now)
+    member.revoked_at = ended
     unassign_member(session, member_id=member.id)
+    # A revoked member stops being named on the centre's public pages.
+    evict_named_member(
+        session,
+        centre.id,
+        member.decision == "accepted" and member.public_name_consent_at is not None,
+        ended,
+    )
     session.commit()
 
 
