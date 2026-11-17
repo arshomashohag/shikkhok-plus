@@ -279,6 +279,12 @@ SESSION_GENERATION_JOB = "session_generation"
 #: write the checker.
 RETENTION_PURGE_JOB = "retention_purge"
 
+#: H2's daily refresh of the stored hub badge, ``owner_listing.runs_classes``
+#: [0040]. The public views cannot count accepted seats, so a badge that
+#: stopped refreshing would go on claiming classes an owner no longer runs;
+#: registering it here is what makes the freshness check expect it.
+HUB_BADGE_JOB = "hub_badge_refresh"
+
 #: Every job the host is expected to run [audit C-01]. The freshness check
 #: reports each of these even when it has no heartbeat row: enumerating
 #: rows alone protected only jobs that had already run once, and the
@@ -286,7 +292,7 @@ RETENTION_PURGE_JOB = "retention_purge"
 #: run, so it never had a row and never alerted. A job added later joins
 #: this set or the freshness check does not know to expect it.
 EXPECTED_JOBS: frozenset[str] = frozenset(
-    {FEE_GENERATION_JOB, SESSION_GENERATION_JOB, RETENTION_PURGE_JOB}
+    {FEE_GENERATION_JOB, SESSION_GENERATION_JOB, RETENTION_PURGE_JOB, HUB_BADGE_JOB}
 )
 
 #: A session's three states [FR3.3]. ``cancelled`` forbids attendance
@@ -383,6 +389,8 @@ __all__ = [
     "FEE_GENERATION_JOB",
     "HELP_AUTHOR_VALUES",
     "HELP_TICKET_STATUS_VALUES",
+    "HUB_BADGE_JOB",
+    "HUB_TAGS_TEXT_FUNCTION",
     "LEDGER_KIND_VALUES",
     "MEMBER_ROLE_VALUES",
     "OWNER_KIND_VALUES",
@@ -3654,6 +3662,10 @@ class OwnerListing(Base):
     :ivar slug: The public path segment, unique, NULL while a draft
     :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
     :ivar public_name: The name shown publicly
+    :ivar public_name_latin: The owner's own Latin spelling of that name
+    :ivar runs_classes: The stored badge [0040]; the public views cannot
+        read ``enrollment`` to compute it, so the application sets it from
+        ``app.hub.listings.badge`` on save, on publish and daily
     :ivar search_text: The indexed text, computed by the database
     """
 
@@ -3669,6 +3681,7 @@ class OwnerListing(Base):
         _HUB_LISTING_STATUS, nullable=False, server_default=text("'draft'")
     )
     public_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    public_name_latin: Mapped[str | None] = mapped_column(String(120), nullable=True)
     headline_en: Mapped[str | None] = mapped_column(Text, nullable=True)
     headline_bn: Mapped[str | None] = mapped_column(Text, nullable=True)
     bio_en: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -3711,11 +3724,16 @@ class OwnerListing(Base):
     suspension_reason_code: Mapped[str | None] = mapped_column(
         String(40), nullable=True
     )
+    runs_classes: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     search_text: Mapped[str | None] = mapped_column(
         TSVECTOR,
         Computed(
             "to_tsvector('simple', coalesce(public_name, '') || ' ' || "
-            "coalesce(headline_en, '') || ' ' || coalesce(headline_bn, ''))",
+            "coalesce(public_name_latin, '') || ' ' || "
+            "coalesce(headline_en, '') || ' ' || coalesce(headline_bn, '') || "
+            "' ' || coalesce(qualifications, ''))",
             persisted=True,
         ),
     )
@@ -3749,6 +3767,19 @@ class OwnerListing(Base):
     )
 
 
+#: The function ``batch_listing.search_text`` calls [0040]. A generated
+#: column must be immutable and ``array_to_string`` is only ``STABLE``
+#: (generic over element types, some rendered per ``DateStyle``); for
+#: ``varchar[]`` it depends on nothing, so this wrapper is ``IMMUTABLE``
+#: truthfully. ``0040`` creates it; a schema built from these models with
+#: ``create_all`` must run this first, as the schema-parity gate does.
+HUB_TAGS_TEXT_FUNCTION = (
+    "CREATE FUNCTION hub_tags_text(tags varchar[]) RETURNS text "
+    "LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE "
+    "AS $$ SELECT array_to_string(tags, ' ') $$"
+)
+
+
 class BatchListing(Base):
     """What an owner chooses to publish about one batch [0036].
 
@@ -3763,6 +3794,7 @@ class BatchListing(Base):
         teacher's own ``batch.name`` is never shown publicly
     :ivar show_fee: Whether the fee is shown publicly
     :ivar show_schedule: Whether the weekly timetable is shown publicly
+    :ivar search_text: The indexed text, computed by the database [0040]
     """
 
     __tablename__ = "batch_listing"
@@ -3801,6 +3833,15 @@ class BatchListing(Base):
     show_schedule: Mapped[bool] = mapped_column(Boolean, nullable=False)
     published_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    search_text: Mapped[str | None] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "to_tsvector('simple', coalesce(public_title, '') || ' ' || "
+            "coalesce(description_en, '') || ' ' || coalesce(description_bn, '') "
+            "|| ' ' || hub_tags_text(subject_tags))",
+            persisted=True,
+        ),
     )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
@@ -3844,6 +3885,7 @@ class BatchListing(Base):
         ),
         Index("ix_batch_listing_owner_id", "owner_id"),
         Index("ix_batch_listing_status", "status"),
+        Index("ix_batch_listing_search_text", "search_text", postgresql_using="gin"),
     )
 
 

@@ -7448,7 +7448,7 @@
         "type": "object"
       },
       "OwnerListingResponse": {
-        "description": "The owner's listing, with what publishing still needs.\n\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment, or None while a draft\n:ivar public_name: The name shown publicly\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly\n:ivar consent_version: The consent text the owner last agreed to\n:ivar published_at: When it was last published\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met\n:ivar runs_classes: Whether the owner earns the Runs classes badge\n:ivar consent_version_current: The consent text version to agree to now\n:ivar is_centre: Whether the owner is a coaching centre, the only kind\n    that may show a street address",
+        "description": "The owner's listing, with what publishing still needs.\n\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment, or None while a draft\n:ivar public_name: The name shown publicly\n:ivar public_name_latin: The owner's Latin spelling of the name\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly\n:ivar consent_version: The consent text the owner last agreed to\n:ivar published_at: When it was last published\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met\n:ivar runs_classes: Whether the owner earns the Runs classes badge\n:ivar consent_version_current: The consent text version to agree to now\n:ivar is_centre: Whether the owner is a coaching centre, the only kind\n    that may show a street address",
         "properties": {
           "bio_bn": {
             "anyOf": [
@@ -7545,6 +7545,17 @@
           "public_name": {
             "title": "Public Name",
             "type": "string"
+          },
+          "public_name_latin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Name Latin"
           },
           "publishable": {
             "title": "Publishable",
@@ -7645,6 +7656,7 @@
           "is_centre",
           "public_contact_phone",
           "public_name",
+          "public_name_latin",
           "publishable",
           "published_at",
           "qualifications",
@@ -7660,7 +7672,7 @@
       },
       "OwnerListingUpdateRequest": {
         "additionalProperties": false,
-        "description": "Edit the owner's listing; an omitted field is left alone.\n\nAn empty string clears a nullable text field.\n\n:ivar slug: The public path segment\n:ivar public_name: The name shown publicly\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code; must lie in the district\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly",
+        "description": "Edit the owner's listing; an omitted field is left alone.\n\nAn empty string clears a nullable text field.\n\n:ivar slug: The public path segment\n:ivar public_name: The name shown publicly\n:ivar public_name_latin: The owner's own Latin spelling of the name,\n    so a search typed in English finds a Bangla name\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code; must lie in the district\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly",
         "properties": {
           "bio_bn": {
             "anyOf": [
@@ -7745,6 +7757,18 @@
               }
             ],
             "title": "Public Name"
+          },
+          "public_name_latin": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Name Latin"
           },
           "qualifications": {
             "anyOf": [

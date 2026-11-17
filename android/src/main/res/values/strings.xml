@@ -1984,6 +1984,8 @@
     <string name="hub_check_subjects">At least one subject on the batch</string>
     <string name="hub_check_mode">How it is taught</string>
     <string name="hub_field_public_name">Public name</string>
+    <string name="hub_field_public_name_latin">Name in English letters (optional)</string>
+    <string name="hub_public_name_latin_help">How your name is spelled in English letters, so people searching in English find you.</string>
     <string name="hub_field_slug">Web address</string>
     <string name="hub_slug_help">3 to 60 lowercase English letters, digits or hyphens.</string>
     <string name="hub_slug_check">Check availability</string>

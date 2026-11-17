@@ -402,6 +402,15 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
             disabled={suspended}
             onChange={(v) => set({ publicName: v })}
           />
+          <Field
+            id="hub-name-latin"
+            label={t('web_hub_field_public_name_latin')}
+            value={draft.publicNameLatin}
+            maxLength={120}
+            disabled={suspended}
+            help={t('web_hub_public_name_latin_help')}
+            onChange={(v) => set({ publicNameLatin: v })}
+          />
           <div className="field">
             <label htmlFor="hub-slug">{t('web_hub_field_slug')}</label>
             <input

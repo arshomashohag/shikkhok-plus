@@ -77,6 +77,9 @@ const val TAG_HUB_AGREE: String = "hub_agree"
 /** The consent sheet's confirm button. */
 const val TAG_HUB_CONFIRM_PUBLISH: String = "hub_confirm_publish"
 
+/** The optional Latin spelling of the public name. */
+const val TAG_HUB_NAME_LATIN: String = "hub_name_latin"
+
 /** The street address field, shown to centres only. */
 const val TAG_HUB_STREET: String = "hub_street"
 
@@ -222,6 +225,14 @@ private fun ListingFields(state: HubListingState, readOnly: Boolean, actions: Hu
         label = stringResource(R.string.hub_field_public_name),
         enabled = enabled,
         singleLine = false,
+    )
+    ShikkhokTextField(
+        value = draft.publicNameLatin,
+        onValueChange = { v -> actions.onEdit { it.copy(publicNameLatin = v.take(HubLimits.PUBLIC_NAME)) } },
+        label = stringResource(R.string.hub_field_public_name_latin),
+        help = stringResource(R.string.hub_public_name_latin_help),
+        enabled = enabled,
+        fieldModifier = Modifier.testTag(TAG_HUB_NAME_LATIN),
     )
     ShikkhokTextField(
         value = draft.slug,

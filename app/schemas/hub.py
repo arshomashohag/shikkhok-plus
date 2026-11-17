@@ -86,6 +86,8 @@ class OwnerListingUpdateRequest(BaseModel):
 
     :ivar slug: The public path segment
     :ivar public_name: The name shown publicly
+    :ivar public_name_latin: The owner's own Latin spelling of the name,
+        so a search typed in English finds a Bangla name
     :ivar headline_en: The English headline
     :ivar headline_bn: The Bangla headline
     :ivar bio_en: The English biography
@@ -102,6 +104,7 @@ class OwnerListingUpdateRequest(BaseModel):
 
     slug: str | None = Field(default=None, max_length=60)
     public_name: str | None = Field(default=None, max_length=120)
+    public_name_latin: str | None = Field(default=None, max_length=120)
     headline_en: str | None = Field(default=None, max_length=140)
     headline_bn: str | None = Field(default=None, max_length=140)
     bio_en: str | None = Field(default=None, max_length=4000)
@@ -120,6 +123,7 @@ class OwnerListingResponse(BaseModel):
     :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
     :ivar slug: The public path segment, or None while a draft
     :ivar public_name: The name shown publicly
+    :ivar public_name_latin: The owner's Latin spelling of the name
     :ivar headline_en: The English headline
     :ivar headline_bn: The Bangla headline
     :ivar bio_en: The English biography
@@ -143,6 +147,7 @@ class OwnerListingResponse(BaseModel):
     status: ListingStatus
     slug: str | None
     public_name: str
+    public_name_latin: str | None
     headline_en: str | None
     headline_bn: str | None
     bio_en: str | None

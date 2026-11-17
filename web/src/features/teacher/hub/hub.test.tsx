@@ -31,6 +31,7 @@ const listing = (over: Record<string, unknown> = {}) => ({
   status: 'draft',
   slug: 'sumi-apa',
   public_name: 'Sumi Akter',
+  public_name_latin: null,
   headline_en: 'Maths and science',
   headline_bn: null,
   bio_en: 'Ten years of teaching.',
@@ -157,6 +158,25 @@ describe('HubListing', () => {
     await userEvent.type(headline, 'Changed')
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(body).toEqual({ headline_en: 'Changed' }))
+  })
+
+  it('edits the optional Latin name and sends only it', async () => {
+    let body: unknown = null
+    serve(listing({ public_name: 'সুমি আক্তার' }), (_url, init) => {
+      if (init.method !== 'PUT') return undefined
+      body = JSON.parse(init.body as string)
+      return json(200, listing({ public_name: 'সুমি আক্তার', public_name_latin: 'Sumi Akter' }))
+    })
+    renderScreen(<HubListing />)
+    const latin = await screen.findByLabelText('Name in English letters (optional)')
+    expect(latin).toHaveValue('')
+    expect(latin).toHaveAttribute('maxLength', '120')
+    await userEvent.type(latin, ' Sumi Akter ')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(body).toEqual({ public_name_latin: 'Sumi Akter' }))
+    await waitFor(() =>
+      expect(screen.getByLabelText('Name in English letters (optional)')).toHaveValue('Sumi Akter'),
+    )
   })
 
   it('area pickers go division, district, upazila from /v1/hub/areas', async () => {

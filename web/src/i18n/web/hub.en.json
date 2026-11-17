@@ -26,6 +26,8 @@
   "web_hub_check_subjects": "At least one subject on the batch",
   "web_hub_check_mode": "How it is taught",
   "web_hub_field_public_name": "Public name",
+  "web_hub_field_public_name_latin": "Name in English letters (optional)",
+  "web_hub_public_name_latin_help": "How your name is spelled in English letters, so people searching in English find you.",
   "web_hub_field_slug": "Web address",
   "web_hub_slug_help": "3 to 60 lowercase English letters, digits or hyphens.",
   "web_hub_slug_check": "Check availability",

@@ -391,6 +391,20 @@ class HubListingViewModelTest {
     }
 
     @Test
+    fun the_latin_name_is_sent_trimmed_only_when_it_changed() {
+        val saved = owner().copy(publicNameLatin = "Rahima")
+        val draft = draftOf(saved)
+        assertEquals("Rahima", draft.publicNameLatin)
+        assertNull(updateBody(draft.copy(publicNameLatin = " Rahima "), saved))
+
+        val body = assertNotNull(updateBody(draft.copy(publicNameLatin = " Rahima Akter "), saved))
+        assertEquals("Rahima Akter", body.publicNameLatin)
+        assertNull(body.publicName)
+        val cleared = assertNotNull(updateBody(draft.copy(publicNameLatin = ""), saved))
+        assertEquals("", cleared.publicNameLatin)
+    }
+
+    @Test
     fun the_servers_fallback_label_is_shown_in_the_readers_language() {
         assertEquals(
             "Rahima, সেন্টারের শিক্ষকবৃন্দ",

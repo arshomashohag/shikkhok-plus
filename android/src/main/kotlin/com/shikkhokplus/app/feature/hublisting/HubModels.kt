@@ -24,6 +24,7 @@ data class HubChecklistItem(
  * @property status `draft`, `published`, `hidden` or `suspended`
  * @property slug The public path segment, or null while a draft
  * @property publicName The name shown publicly
+ * @property publicNameLatin The owner's Latin spelling of the name, or null
  * @property headlineEn The English headline
  * @property headlineBn The Bangla headline
  * @property bioEn The English biography
@@ -47,6 +48,7 @@ data class OwnerListingResponse(
     @SerialName("status") val status: String,
     @SerialName("slug") val slug: String? = null,
     @SerialName("public_name") val publicName: String,
+    @SerialName("public_name_latin") val publicNameLatin: String? = null,
     @SerialName("headline_en") val headlineEn: String? = null,
     @SerialName("headline_bn") val headlineBn: String? = null,
     @SerialName("bio_en") val bioEn: String? = null,
@@ -72,6 +74,7 @@ data class OwnerListingResponse(
  *
  * @property slug The public path segment
  * @property publicName The name shown publicly
+ * @property publicNameLatin The owner's Latin spelling of the name
  * @property headlineEn The English headline
  * @property headlineBn The Bangla headline
  * @property bioEn The English biography
@@ -87,6 +90,7 @@ data class OwnerListingResponse(
 data class OwnerListingUpdateRequest(
     @SerialName("slug") val slug: String? = null,
     @SerialName("public_name") val publicName: String? = null,
+    @SerialName("public_name_latin") val publicNameLatin: String? = null,
     @SerialName("headline_en") val headlineEn: String? = null,
     @SerialName("headline_bn") val headlineBn: String? = null,
     @SerialName("bio_en") val bioEn: String? = null,
@@ -377,6 +381,7 @@ fun teacherLine(names: List<String>, centreFaculty: String): String =
  * What the owner has typed, as strings so an input never holds null.
  *
  * @property publicName The name shown publicly
+ * @property publicNameLatin The owner's Latin spelling of the name
  * @property slug The public path segment
  * @property headlineEn The English headline
  * @property headlineBn The Bangla headline
@@ -391,6 +396,7 @@ fun teacherLine(names: List<String>, centreFaculty: String): String =
  */
 data class HubDraft(
     val publicName: String = "",
+    val publicNameLatin: String = "",
     val slug: String = "",
     val headlineEn: String = "",
     val headlineBn: String = "",
@@ -413,6 +419,7 @@ data class HubDraft(
 fun draftOf(l: OwnerListingResponse): HubDraft =
     HubDraft(
         publicName = l.publicName,
+        publicNameLatin = l.publicNameLatin.orEmpty(),
         slug = l.slug.orEmpty(),
         headlineEn = l.headlineEn.orEmpty(),
         headlineBn = l.headlineBn.orEmpty(),
@@ -444,6 +451,7 @@ fun updateBody(draft: HubDraft, saved: OwnerListingResponse): OwnerListingUpdate
     val body =
         OwnerListingUpdateRequest(
             publicName = draft.publicName.trim().takeIf { it != was.publicName },
+            publicNameLatin = draft.publicNameLatin.trim().takeIf { it != was.publicNameLatin },
             slug = draft.slug.trim().takeIf { it != was.slug },
             headlineEn = draft.headlineEn.takeIf { it != was.headlineEn },
             headlineBn = draft.headlineBn.takeIf { it != was.headlineBn },

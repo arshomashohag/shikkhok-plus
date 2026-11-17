@@ -385,6 +385,41 @@ def test_update_none_leaves_fields_unchanged(
     assert after.bio_en == "More"
 
 
+def test_public_name_latin_is_stored_cleared_and_phone_scanned(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """The Latin name is optional free text: set, cleared, never a number.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    owner.get_or_draft(restricted_session, lens)
+
+    named = owner.update(
+        restricted_session, lens, OwnerListingUpdate(public_name_latin="Rahim Sir")
+    )
+    assert named.public_name_latin == "Rahim Sir"
+    kept = owner.update(restricted_session, lens, OwnerListingUpdate(bio_en="Hi"))
+    assert kept.public_name_latin == "Rahim Sir"
+
+    with pytest.raises(ValidationError) as raised:
+        owner.update(
+            restricted_session,
+            lens,
+            OwnerListingUpdate(public_name_latin="Rahim 01711234567"),
+        )
+    assert raised.value.code == "HUB_TEXT_CONTAINS_CONTACT"
+    assert raised.value.details == {"field": "public_name_latin"}
+    restricted_session.rollback()
+
+    cleared = owner.update(
+        restricted_session, lens, OwnerListingUpdate(public_name_latin="")
+    )
+    assert cleared.public_name_latin is None
+
+
 def test_checklist_reports_each_key() -> None:
     """The checklist has six keys in a fixed order and gates publishing.
 

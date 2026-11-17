@@ -49,7 +49,8 @@ class HubModelsSerializationTest {
         val decoded =
             ApiClient.json.decodeFromString<OwnerListingResponse>(
                 """
-                {"status":"draft","slug":null,"public_name":"Rahima","headline_en":null,
+                {"status":"draft","slug":null,"public_name":"রহিমা","public_name_latin":"Rahima",
+                 "headline_en":null,
                  "headline_bn":null,"bio_en":null,"bio_bn":null,"qualifications":null,
                  "teaching_mode":["online"],"district_code":null,"upazila_code":null,
                  "street_address":null,"public_contact_phone":null,"consent_version":null,
@@ -59,6 +60,7 @@ class HubModelsSerializationTest {
                 """.trimIndent(),
             )
 
+        assertEquals("Rahima", decoded.publicNameLatin)
         assertEquals(listOf(HubChecklistItem("slug", false)), decoded.checklist)
         assertTrue(decoded.runsClasses && decoded.isCentre)
         assertEquals("2026-11-14", decoded.consentVersionCurrent)
@@ -72,6 +74,13 @@ class HubModelsSerializationTest {
                 OwnerListingUpdateRequest(headlineEn = ""),
             )
         assertEquals("""{"headline_en":""}""", body)
+        assertEquals(
+            """{"public_name_latin":"Rahima"}""",
+            ApiClient.json.encodeToString(
+                OwnerListingUpdateRequest.serializer(),
+                OwnerListingUpdateRequest(publicNameLatin = "Rahima"),
+            ),
+        )
         assertEquals(
             """{"consent":true}""",
             ApiClient.json.encodeToString(ConsentRequest.serializer(), ConsentRequest(true)),

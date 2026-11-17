@@ -19,6 +19,7 @@ from app.accounts.phone import canonical_phone
 from app.authz.lenses import TeacherLens
 from app.db.models import OwnerListing
 from app.errors import ConflictError, ValidationError
+from app.hub.listings.badge import runs_classes
 from app.hub.listings.checklist import owner_checklist
 from app.hub.listings.consent import HUB_CONSENT_VERSION
 from app.hub.listings.shared import (
@@ -28,6 +29,7 @@ from app.hub.listings.shared import (
     refuse_suspended,
     require_slug_shape,
 )
+from app.local_time import bangladesh_today
 
 __all__ = [
     "OwnerListingUpdate",
@@ -41,6 +43,7 @@ __all__ = [
 #: The owner's own free-text columns, which may not carry a phone number.
 _FREE_TEXT: Final = (
     "public_name",
+    "public_name_latin",
     "headline_en",
     "headline_bn",
     "bio_en",
@@ -69,6 +72,7 @@ class OwnerListingUpdate:
 
     :ivar slug: The public path segment
     :ivar public_name: The name shown publicly
+    :ivar public_name_latin: The owner's Latin spelling of the name
     :ivar headline_en: The English headline
     :ivar headline_bn: The Bangla headline
     :ivar bio_en: The English biography
@@ -83,6 +87,7 @@ class OwnerListingUpdate:
 
     slug: str | None = None
     public_name: str | None = None
+    public_name_latin: str | None = None
     headline_en: str | None = None
     headline_bn: str | None = None
     bio_en: str | None = None
@@ -233,7 +238,10 @@ def _next_area(
 def update(
     session: Session, lens: TeacherLens, changes: OwnerListingUpdate
 ) -> OwnerListing:
-    """Apply an owner's edits to their listing.
+    """Apply an owner's edits to their listing, and store the badge anew.
+
+    The stored badge is what the public views show, so every save
+    recomputes it from :func:`~app.hub.listings.badge.runs_classes`.
 
     :param session: The session
     :param lens: The owner's lens
@@ -288,6 +296,9 @@ def update(
     if listing.status != "draft":
         _require_complete(listing)
     flush_slug_unique(session, "uq_owner_listing_slug")
+    # After the guarded flush, so the badge's read cannot autoflush a slug
+    # collision past the translation above.
+    listing.runs_classes = runs_classes(session, lens.owner_id, bangladesh_today())
     session.commit()
     return listing
 
@@ -314,7 +325,7 @@ def _require_complete(listing: OwnerListing) -> None:
 def publish(
     session: Session, lens: TeacherLens, consent_version: str, now: dt.datetime
 ) -> OwnerListing:
-    """Make the owner's listing public, recording their consent.
+    """Make the owner's listing public, recording consent and the badge.
 
     :param session: The session
     :param lens: The owner's lens
@@ -339,6 +350,7 @@ def publish(
     listing.consent_by_account_id = lens.account_id
     listing.published_at = now
     listing.updated_at = now
+    listing.runs_classes = runs_classes(session, lens.owner_id, bangladesh_today(now))
     session.commit()
     return listing
 

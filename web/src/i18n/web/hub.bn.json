@@ -26,6 +26,8 @@
   "web_hub_check_subjects": "ব্যাচে অন্তত একটি বিষয়",
   "web_hub_check_mode": "কীভাবে পড়ানো হয়",
   "web_hub_field_public_name": "পাবলিক নাম",
+  "web_hub_field_public_name_latin": "ইংরেজি অক্ষরে নাম (ঐচ্ছিক)",
+  "web_hub_public_name_latin_help": "ইংরেজি অক্ষরে আপনার নামের বানান, যাতে ইংরেজিতে খুঁজলেও আপনাকে পাওয়া যায়।",
   "web_hub_field_slug": "ওয়েব ঠিকানা",
   "web_hub_slug_help": "৩ থেকে ৬০টি ইংরেজি ছোট হাতের অক্ষর, সংখ্যা বা হাইফেন।",
   "web_hub_slug_check": "ঠিকানাটি খালি আছে কি না দেখুন",

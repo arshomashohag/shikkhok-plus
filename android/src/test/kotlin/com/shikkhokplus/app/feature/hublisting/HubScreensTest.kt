@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextReplacement
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.feature.hublisting.ui.BatchListingsActions
 import com.shikkhokplus.app.feature.hublisting.ui.BatchListingsScreen
@@ -24,6 +25,7 @@ import com.shikkhokplus.app.feature.hublisting.ui.TAG_BATCH_PUBLISH
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_AGREE
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_BADGE
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_CONFIRM_PUBLISH
+import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_NAME_LATIN
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_PUBLISH
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_RETRY
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_SAVE
@@ -136,6 +138,22 @@ class HubScreensTest {
         compose.setContent { HubListingScreen(listingState(owner()), HubListingActions()) }
         compose.onNodeWithTag(TAG_HUB_STREET).assertDoesNotExist()
         compose.onNodeWithTag(TAG_HUB_BADGE).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the optional latin name field shows the draft and edits it`() {
+        var draft by mutableStateOf(HubDraft(publicName = "রহিমা", publicNameLatin = "Rahima"))
+        compose.setContent {
+            HubListingScreen(
+                listingState(owner(), draft = draft),
+                HubListingActions(onEdit = { edit -> draft = edit(draft) }),
+            )
+        }
+
+        compose.onNodeWithTag(TAG_HUB_NAME_LATIN).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Rahima").assertExists()
+        compose.onNodeWithTag(TAG_HUB_NAME_LATIN).performTextReplacement("Rahima Akter")
+        assertEquals("Rahima Akter", draft.publicNameLatin)
     }
 
     @Test

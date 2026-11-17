@@ -128,6 +128,7 @@ def _owner_response(
             "status": listing.status,
             "slug": listing.slug,
             "public_name": listing.public_name,
+            "public_name_latin": listing.public_name_latin,
             "headline_en": listing.headline_en,
             "headline_bn": listing.headline_bn,
             "bio_en": listing.bio_en,

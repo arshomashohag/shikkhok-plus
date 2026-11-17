@@ -60,11 +60,12 @@ VERSIONS: Final[pathlib.Path] = (
 #: vocabulary, and ``0036`` -- the hub's listings, reports and moderation
 #: -- once more, and ``0037`` -- contacts recorded and invited by email --
 #: again, and ``0038`` -- usernames and the hold ledger -- once more, and
-#: ``0039`` -- city corporations and metropolitan thanas -- again.
-EXPECTED_REVISIONS: Final[int] = 39
+#: ``0039`` -- city corporations and metropolitan thanas -- again, and
+#: ``0040`` -- the public hub's views and search columns -- once more.
+EXPECTED_REVISIONS: Final[int] = 40
 
-#: The head ``0039`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0039"
+#: The head ``0040`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0040"
 
 
 def _revision_files() -> list[pathlib.Path]:

@@ -203,8 +203,9 @@ def test_the_entry_point_names_the_stale_job_in_the_alert(
     # The hardcoded `job_name: FEE_GENERATION_JOB` in the alert was the
     # second half of the finding: a stale session job that named the
     # fee job would send whoever read the alert to the wrong place.
-    _stamp(owner_session, job_name=FEE_GENERATION_JOB, when=FRESH)
-    _stamp(owner_session, job_name=RETENTION_PURGE_JOB, when=FRESH)
+    # Every other expected job is fresh, so the one alert is the stale one.
+    for job_name in EXPECTED_JOBS - {SESSION_GENERATION_JOB}:
+        _stamp(owner_session, job_name=job_name, when=FRESH)
     _stamp(owner_session, job_name=SESSION_GENERATION_JOB, when=STALE)
 
     with caplog.at_level(logging.CRITICAL):

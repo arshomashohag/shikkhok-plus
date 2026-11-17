@@ -100,6 +100,7 @@ const KNOWN_CHECKS: ReadonlySet<string> = new Set([
 /** What the owner has typed, as strings so an input never holds null. */
 export interface Draft {
   publicName: string
+  publicNameLatin: string
   slug: string
   headlineEn: string
   headlineBn: string
@@ -116,6 +117,7 @@ export interface Draft {
 export function draftOf(l: Listing): Draft {
   return {
     publicName: l.public_name,
+    publicNameLatin: l.public_name_latin ?? '',
     slug: l.slug ?? '',
     headlineEn: l.headline_en ?? '',
     headlineBn: l.headline_bn ?? '',
@@ -148,6 +150,8 @@ export function updateBody(draft: Draft, l: Listing): Schemas['OwnerListingUpdat
   const was = draftOf(l)
   const body: Schemas['OwnerListingUpdateRequest'] = {}
   if (draft.publicName.trim() !== was.publicName) body.public_name = draft.publicName.trim()
+  if (draft.publicNameLatin.trim() !== was.publicNameLatin)
+    body.public_name_latin = draft.publicNameLatin.trim()
   if (draft.slug.trim() !== was.slug) body.slug = draft.slug.trim()
   if (draft.headlineEn !== was.headlineEn) body.headline_en = draft.headlineEn
   if (draft.headlineBn !== was.headlineBn) body.headline_bn = draft.headlineBn

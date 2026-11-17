@@ -1917,6 +1917,8 @@
     <string name="hub_check_subjects">ব্যাচে অন্তত একটি বিষয়</string>
     <string name="hub_check_mode">কীভাবে পড়ানো হয়</string>
     <string name="hub_field_public_name">পাবলিক নাম</string>
+    <string name="hub_field_public_name_latin">ইংরেজি অক্ষরে নাম (ঐচ্ছিক)</string>
+    <string name="hub_public_name_latin_help">ইংরেজি অক্ষরে আপনার নামের বানান, যাতে ইংরেজিতে খুঁজলেও আপনাকে পাওয়া যায়।</string>
     <string name="hub_field_slug">ওয়েব ঠিকানা</string>
     <string name="hub_slug_help">3 থেকে 60টি ইংরেজি ছোট হাতের অক্ষর, সংখ্যা বা হাইফেন।</string>
     <string name="hub_slug_check">ঠিকানাটি খালি আছে কি না দেখুন</string>

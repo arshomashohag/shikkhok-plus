@@ -9159,6 +9159,7 @@ export interface components {
      *     :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
      *     :ivar slug: The public path segment, or None while a draft
      *     :ivar public_name: The name shown publicly
+     *     :ivar public_name_latin: The owner's Latin spelling of the name
      *     :ivar headline_en: The English headline
      *     :ivar headline_bn: The Bangla headline
      *     :ivar bio_en: The English biography
@@ -9201,6 +9202,8 @@ export interface components {
       public_contact_phone: string | null
       /** Public Name */
       public_name: string
+      /** Public Name Latin */
+      public_name_latin: string | null
       /** Publishable */
       publishable: boolean
       /** Published At */
@@ -9231,6 +9234,8 @@ export interface components {
      *
      *     :ivar slug: The public path segment
      *     :ivar public_name: The name shown publicly
+     *     :ivar public_name_latin: The owner's own Latin spelling of the name,
+     *         so a search typed in English finds a Bangla name
      *     :ivar headline_en: The English headline
      *     :ivar headline_bn: The Bangla headline
      *     :ivar bio_en: The English biography
@@ -9257,6 +9262,8 @@ export interface components {
       public_contact_phone?: string | null
       /** Public Name */
       public_name?: string | null
+      /** Public Name Latin */
+      public_name_latin?: string | null
       /** Qualifications */
       qualifications?: string | null
       /** Slug */

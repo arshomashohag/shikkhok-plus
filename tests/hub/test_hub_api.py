@@ -132,6 +132,29 @@ def test_put_listing_saves_the_edits(
     assert done["area"] is False
 
 
+def test_put_listing_round_trips_the_latin_name(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """``public_name_latin`` is optional, at most 120 characters, and echoed."""
+    account, _, _ = _solo(owner_session)
+    headers = bearer(owner_session, account)
+
+    assert (
+        api_client.get("/v1/hub/listing", headers=headers).json()["public_name_latin"]
+        is None
+    )
+    saved = api_client.put(
+        "/v1/hub/listing", json={"public_name_latin": "Rahim Sir"}, headers=headers
+    )
+    too_long = api_client.put(
+        "/v1/hub/listing", json={"public_name_latin": "a" * 121}, headers=headers
+    )
+
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["public_name_latin"] == "Rahim Sir"
+    assert too_long.status_code == 422
+
+
 def test_publish_and_unpublish_round_trip(
     api_client: TestClient, owner_session: Session
 ) -> None:
