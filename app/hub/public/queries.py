@@ -17,6 +17,7 @@ the money module's own constructor, so no decimal is handled here.
 from __future__ import annotations
 
 import math
+import re
 import uuid
 from collections.abc import Mapping, Sequence
 from typing import Any, Final
@@ -44,7 +45,9 @@ from app.hub.public.views import (
 from app.money import Money
 
 __all__ = [
+    "AREA_CODE",
     "CLASS_LEVELS",
+    "MAX_SUBJECT_LENGTH",
     "PAGE_SIZE",
     "batch_page",
     "owner_page",
@@ -68,6 +71,18 @@ CLASS_LEVELS: Final[tuple[str, ...]] = (
     "a_level",
     "other",
 )
+
+#: An area code's shape: two capitals and two to ten digits. A division or
+#: district (``BD3026``), an upazila or city corporation (``BD30262500``),
+#: a metropolitan thana (``MT3026250003``). A district or upazila filter is
+#: uppercased and must match in full, so a value that is not a code never
+#: reaches the query or the page's echo; ``tests/hub/test_public_queries.py``
+#: holds it against every seeded code.
+AREA_CODE: Final[re.Pattern[str]] = re.compile(r"[A-Z]{2}[0-9]{2,10}")
+
+#: The longest subject a filter reads: the listing editor's tag limit, so
+#: a longer one could match no tag and is ignored rather than echoed.
+MAX_SUBJECT_LENGTH: Final[int] = 40
 
 #: An owner page's columns, with the owner's district and finer area.
 _OWNER_SELECT: Final[str] = (
@@ -293,6 +308,31 @@ def _clean(value: str | None) -> str | None:
     return value.strip() or None
 
 
+def _area_code(value: str | None) -> str | None:
+    """Read an area filter as a code, whatever case the reader sent.
+
+    :param value: The value as given
+    :return: The uppercased code, or None when blank or not code-shaped
+    """
+    cleaned = _clean(value)
+    if cleaned is None:
+        return None
+    code = cleaned.upper()
+    return code if AREA_CODE.fullmatch(code) else None
+
+
+def _subject(value: str | None) -> str | None:
+    """Read a subject filter, ignoring one no tag could equal.
+
+    :param value: The value as given
+    :return: The stripped subject, or None when blank or too long
+    """
+    cleaned = _clean(value)
+    if cleaned is None or len(cleaned) > MAX_SUBJECT_LENGTH:
+        return None
+    return cleaned
+
+
 def search(
     session: Session,
     *,
@@ -312,7 +352,10 @@ def search(
     ``upazila`` matches the owner's finer area, and a city corporation code
     also matches every metropolitan thana within it. ``subject`` (any
     case) and ``level`` must both hold for one and the same published
-    batch; a ``level`` outside :data:`CLASS_LEVELS` is ignored.
+    batch; a ``level`` outside :data:`CLASS_LEVELS` is ignored. Area codes
+    are read in any case, and a ``district`` or ``upazila`` that is not
+    shaped like one (:data:`AREA_CODE`), or a ``subject`` longer than
+    :data:`MAX_SUBJECT_LENGTH`, is ignored too.
 
     Ranked by each term's ``ts_rank`` against the owner and its best
     batch, summed; then newest published; then slug. A page past the end
@@ -332,9 +375,9 @@ def search(
     del locale
     as_hub_reader(session)
     filters = HubSearchFilters(
-        district=_clean(district),
-        upazila=_clean(upazila),
-        subject=_clean(subject),
+        district=_area_code(district),
+        upazila=_area_code(upazila),
+        subject=_subject(subject),
         level=level if level in CLASS_LEVELS else None,
     )
     number = max(1, page)

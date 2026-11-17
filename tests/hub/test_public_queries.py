@@ -8,9 +8,15 @@ grants are the only thing these tests exercise.
 
 from __future__ import annotations
 
+import csv
 import datetime as dt
+import json
+import pathlib
+import shutil
+import subprocess
 import uuid
 from typing import Final
+from urllib.parse import unquote
 
 import pytest
 import sqlalchemy as sa
@@ -34,6 +40,14 @@ SAVAR: Final[str] = "BD30260072"
 #: Chattogram district and one of its upazilas.
 CHATTOGRAM: Final[str] = "BD2015"
 SITAKUNDA: Final[str] = "BD20150086"
+
+#: The repository root, for the seed files and the edge function.
+ROOT: Final[pathlib.Path] = pathlib.Path(__file__).resolve().parents[2]
+
+#: The site distribution's viewer-request function on ``/hub/*``.
+HUB_QUERY_JS: Final[pathlib.Path] = (
+    ROOT / "infra" / "modules" / "site" / "functions" / "hub-query.js"
+)
 
 #: A fixed base for ``published_at``, so ordering is deterministic.
 BASE: Final[dt.datetime] = dt.datetime(2026, 11, 1, 9, 0, tzinfo=dt.UTC)
@@ -671,3 +685,147 @@ def test_site_url_defaults_to_localhost(monkeypatch: pytest.MonkeyPatch) -> None
     """
     monkeypatch.delenv(SITE_URL_ENV, raising=False)
     assert site_url() == "http://localhost"
+
+
+def test_area_code_shape_covers_every_seeded_code() -> None:
+    """Every code in both seed files passes the origin's shape check.
+
+    A code the check refused would be a filter that silently matches
+    everything, so the check is held against the real vocabulary.
+
+    :return: None
+    """
+    data = ROOT / "app" / "hub" / "listings" / "data"
+    codes = []
+    for name in ("bd_area.csv", "bd_city_area.csv"):
+        with (data / name).open(encoding="utf-8", newline="") as handle:
+            codes.extend(row["code"] for row in csv.DictReader(handle))
+    assert len(codes) == 567 + 30
+    assert [code for code in codes if not queries.AREA_CODE.fullmatch(code)] == []
+
+
+def _filtered(page: object) -> tuple[str | None, str | None, str | None]:
+    """Read the district, upazila and subject a search echoed.
+
+    :param page: A search page
+    :return: The three filters as applied
+    """
+    filters = page.filters  # type: ignore[attr-defined]
+    return filters.district, filters.upazila, filters.subject
+
+
+def test_area_filters_ignore_case_and_drop_junk(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A lowercased code matches; a value that is not a code is ignored.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    _tutor(owner_session, "t-mirpur", district=DHAKA, upazila=MIRPUR)
+    _tutor(owner_session, "t-ctg", district=CHATTOGRAM, upazila=SITAKUNDA)
+
+    assert _search(restricted_session, district=DHAKA.lower()) == ["t-mirpur"]
+    assert _search(restricted_session, upazila=f" {MIRPUR.lower()} ") == ["t-mirpur"]
+    assert _search(restricted_session, upazila=DNCC.lower()) == ["t-mirpur"]
+
+    for junk in (
+        "dhaka",
+        "BD",
+        "BD3026'; --",
+        "B" * 300,
+        "BD\u09e9\u09e6\u09e8\u09ec",
+        "BD30\n26",
+    ):
+        page = queries.search(
+            restricted_session,
+            locale="en",
+            q=None,
+            district=junk,
+            upazila=junk,
+            subject=None,
+            level=None,
+            page=1,
+        )
+        restricted_session.rollback()
+        assert _filtered(page) == (None, None, None), junk
+        assert page.total == 2, junk
+
+
+def test_subject_longer_than_a_tag_is_ignored(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A subject past the tag limit cannot match a tag, so it is not echoed.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    owner_id, batch_id = _tutor(owner_session, "t-physics")
+    _batch_listing(owner_session, batch_id, owner_id, subject_tags=("physics",))
+
+    page = queries.search(
+        restricted_session,
+        locale="en",
+        q=None,
+        district=None,
+        upazila=None,
+        subject="x" * 41,
+        level=None,
+        page=1,
+    )
+    restricted_session.rollback()
+    assert page.filters.subject is None
+    assert _search(restricted_session, subject="p" * 40) == []
+
+
+def _through_the_edge(**query: str) -> dict[str, str]:
+    """Run the site distribution's ``hub-query.js`` on a query, as written.
+
+    :param query: Query keys and their raw (percent-encoded) values
+    :return: Each forwarded key's decoded value
+    """
+    node = shutil.which("node")
+    assert node, "node is required to run the edge function against the origin"
+    script = (
+        "const fs = require('fs');"
+        "const handler = new Function("
+        "fs.readFileSync(process.argv[1], 'utf8') + '\\nreturn handler;')();"
+        "const qs = {};"
+        "for (const [k, v] of Object.entries(JSON.parse(process.argv[2])))"
+        " qs[k] = { value: v };"
+        "const r = handler({ request: { method: 'GET', uri: '/hub/en',"
+        " querystring: qs, headers: {} } });"
+        "const out = {};"
+        "for (const [k, v] of Object.entries(r.querystring)) out[k] = v.value;"
+        "process.stdout.write(JSON.stringify(out));"
+    )
+    result = subprocess.run(  # noqa: S603 -- a fixed script on a repository file
+        [node, "-e", script, str(HUB_QUERY_JS), json.dumps(query)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return {key: unquote(value) for key, value in json.loads(result.stdout).items()}
+
+
+def test_area_filters_match_through_the_edge_function(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """What the edge forwards for an area filter finds the listing.
+
+    The cross-layer case the two halves' own tests missed: the edge
+    lowercased area codes and the origin compared them exactly, so every
+    area filter found nothing through CloudFront.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    _tutor(owner_session, "t-mirpur", district=DHAKA, upazila=MIRPUR)
+    _tutor(owner_session, "t-ctg", district=CHATTOGRAM, upazila=SITAKUNDA)
+
+    for raw in ({"district": DHAKA}, {"upazila": MIRPUR}, {"upazila": DNCC}):
+        forwarded = _through_the_edge(**raw)
+        assert _search(restricted_session, **forwarded) == ["t-mirpur"], raw

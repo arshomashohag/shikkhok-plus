@@ -65,19 +65,21 @@ describe('hub-query: normalisation', () => {
     assert.equal(r.querystring.page.value, '2');
   });
 
-  it('lowercases district, upazila, subject and level', () => {
-    const r = handler(
-      event('/hub/en', {
-        district: one('DHAKA'),
-        upazila: one('Mirpur'),
-        subject: one('PhYsics'),
-        level: one('SSC'),
-      }),
-    );
-    assert.equal(r.querystring.district.value, 'dhaka');
-    assert.equal(r.querystring.upazila.value, 'mirpur');
+  it('lowercases subject and level', () => {
+    const r = handler(event('/hub/en', { subject: one('PhYsics'), level: one('SSC') }));
     assert.equal(r.querystring.subject.value, 'physics');
     assert.equal(r.querystring.level.value, 'ssc');
+  });
+
+  // Area codes are uppercase (BD3026, BD30262500, MT3026250003) and the
+  // origin compares them exactly, so lowercasing them here made every
+  // area filter match nothing through CloudFront.
+  it('leaves district and upazila codes as sent', () => {
+    const r = handler(
+      event('/hub/en', { district: one('BD3026'), upazila: one('MT3026250003') }),
+    );
+    assert.equal(r.querystring.district.value, 'BD3026');
+    assert.equal(r.querystring.upazila.value, 'MT3026250003');
   });
 
   it('does not lowercase q', () => {
@@ -136,6 +138,11 @@ describe('hub-query: percent-encoded input', () => {
     const r = handler(event('/hub', { q: one(`${enc(bangla)}+physics`), level: one('SSC') }));
     assert.equal(r.statusCode, 301);
     assert.equal(r.headers.location.value, `/hub/en?q=${enc(bangla + ' physics')}&level=ssc`);
+  });
+
+  it('keeps an area code uppercase across the redirect', () => {
+    const r = handler(event('/hub', { district: one('BD3026') }));
+    assert.equal(r.headers.location.value, '/hub/en?district=BD3026');
   });
 
   it('forwards decoded-then-reencoded values', () => {

@@ -8,7 +8,9 @@
 //
 //   * a key outside q, district, upazila, subject, level, page -> 400
 //   * a repeated key keeps its FIRST value
-//   * district, upazila, subject, level are lowercased
+//   * subject and level are lowercased; district and upazila are not,
+//     because they are uppercase area codes (BD3026, MT3026250003) the
+//     origin matches exactly
 //   * q is truncated to 200 characters
 //   * /hub and /hub/ -> 301 /hub/en (query string kept)
 //
@@ -25,7 +27,7 @@
 // when it repeats. Tested by hub-query.test.mjs beside it
 // (`make infra-functions`).
 var ALLOWED = ['q', 'district', 'upazila', 'subject', 'level', 'page'];
-var LOWERCASED = ['district', 'upazila', 'subject', 'level'];
+var LOWERCASED = ['subject', 'level'];
 var Q_MAX = 200;
 
 function handler(event) {
