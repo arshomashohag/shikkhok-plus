@@ -162,8 +162,8 @@ invalidates `/*`. `site/README.md` has the details, and the first deploy
 needs `bootstrap/` re-applied (see `bootstrap/README.md`).
 
 **The one exception is `/hub/*`, the public hub**, which this
-distribution forwards to the API host: credential-less, GET-only, with
-the query-string allowlist enforced at the edge
+distribution forwards to the API host: credential-less, GET and HEAD
+only, with the query-string allowlist enforced at the edge
 (`modules/site/functions/hub-query.js`) and the API's own
 `Cache-Control` and CSP honoured. The API's distribution answers `/hub*`
 404 (`modules/cdn/functions/hub-block.js`). After every deploy the
@@ -174,6 +174,27 @@ container: a cron entry runs `/usr/local/bin/shikkhokplus-hub-invalidate`
 every two minutes with the instance role, which may call
 `cloudfront:CreateInvalidation` on this distribution only. Its id
 reaches the boot script from `module.site.distribution_arn`.
+
+**What a takedown does not evict.** An owner's takedown invalidates
+`/hub/{locale}/t/{owner}*` in both locales, which covers its batch pages
+and any query string on them; a single batch's takedown invalidates that
+batch's exact path in both locales; every takedown also invalidates the
+sitemap (`app/hub/public/invalidation.py`). Two kinds of cached page
+outlive a takedown and expire only by their TTL:
+
+- **search and landing pages** (`/hub/en`, `/hub/bn?q=…&district=…`): a
+  result list naming a taken-down owner stays cached for up to **300
+  seconds** (`s-maxage=300`). Its link to the owner's page, which was
+  evicted, already gets the 404.
+- **query-string variants of a batch page taken down on its own**
+  (`/hub/en/t/owner/batch?page=2`, any allowed key): the exact path is
+  evicted, but each variant is its own cache entry and stays for up to
+  **600 seconds** (`s-maxage=600`).
+
+So moderation should promise "gone from the hub within ten minutes", not
+"immediately". Evicting search pages would mean invalidating `/hub/*` on
+every takedown, emptying the whole hub's cache each time; the TTLs are the
+bound instead.
 
 ## Scheduled jobs reach a host only by replacement
 
