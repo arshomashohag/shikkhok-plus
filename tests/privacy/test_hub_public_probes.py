@@ -17,6 +17,7 @@ from tests.conftest import bearer
 from tests.privacy.canary import (
     LOCALES,
     CanaryWorld,
+    canary_leaks,
     seed_canaries,
     walk_cacheable_routes,
 )
@@ -59,6 +60,13 @@ def test_draft_canary_never_public(
     """
     world, bodies = _walk(owner_session, api_client)
 
+    # Positive controls: search and sitemap list the seeded listings, so an
+    # empty list cannot make the absence checks below pass.
+    for locale in LOCALES:
+        assert world.owner_slug in bodies[f"/hub/{locale}"]
+        assert world.centre_slug in bodies[f"/hub/{locale}"]
+    assert world.owner_slug in bodies["/hub/sitemap.xml"]
+    assert world.centre_slug in bodies["/hub/sitemap.xml"]
     assert _everywhere(bodies, world.draft_name) == []
     assert _everywhere(bodies, world.draft_slug) == []
     for locale in LOCALES:
@@ -142,5 +150,9 @@ def test_preview_route_carries_no_other_owner_canary(
         )
         assert response.status_code == 200, response.text
         assert "Canary Tutor" in response.text
+        assert "Canary public title" in response.text
         body = response.text.lower()
         assert [s for s in world.other_owner_strings if s.lower() in body] == []
+        # The owner's OWN student, guardian and private batch data too:
+        # nothing a student or guardian writes reaches the teacher's page.
+        assert canary_leaks({f"preview/{locale}": response.text}, world) == []
