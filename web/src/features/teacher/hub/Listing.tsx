@@ -46,6 +46,7 @@ function AreaSelect({
   options,
   disabled,
   onChange,
+  blank,
 }: {
   id: string
   label: string
@@ -53,13 +54,15 @@ function AreaSelect({
   options: Area[]
   disabled: boolean
   onChange: (code: string) => void
+  /** What the empty choice says; "Choose…" unless given. */
+  blank?: string
 }) {
   const { t, lang } = useT()
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
       <select id={id} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{t('web_hub_area_choose')}</option>
+        <option value="">{blank ?? t('web_hub_area_choose')}</option>
         {options.map((a) => (
           <option key={a.code} value={a.code}>
             {lang === 'bn' ? a.name_bn : a.name_en}
@@ -70,7 +73,20 @@ function AreaSelect({
   )
 }
 
-/** Division → district → upazila, each level read from the server's area list. */
+/** A city corporation: the one area whose children are offered as a third, optional level. */
+const CITY = 'city_corporation'
+
+/** The city corporation whose thanas are offered, with those thanas. */
+interface City {
+  code: string
+  thanas: Area[]
+}
+
+/**
+ * Division → district → upazila or city corporation → optional thana, each
+ * level read from the server's area list. A thana is stored in place of
+ * its city corporation; leaving it blank stores the city corporation.
+ */
 function AreaPickers({
   draft,
   readOnly,
@@ -85,6 +101,7 @@ function AreaPickers({
   const [division, setDivision] = useState<string | null>(null)
   const [districts, setDistricts] = useState<Area[]>([])
   const [upazilas, setUpazilas] = useState<Area[]>([])
+  const [city, setCity] = useState<City | null>(null)
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
 
@@ -134,6 +151,38 @@ function AreaPickers({
     return () => ctl.abort()
   }, [draft.districtCode, attempt])
 
+  // Whether the stored code is already explained by the city shown.
+  const settled =
+    city !== null &&
+    (city.code === draft.upazilaCode || city.thanas.some((a) => a.code === draft.upazilaCode))
+
+  useEffect(() => {
+    const code = draft.upazilaCode
+    if (settled) return
+    const direct = upazilas.find((a) => a.code === code)
+    if (!code || (direct && direct.kind !== CITY)) {
+      setCity(null)
+      return
+    }
+    // A city corporation chosen directly, or a saved thana: read the thanas
+    // of the district's city corporations until one holds the code.
+    const cities = direct ? [direct] : upazilas.filter((a) => a.kind === CITY)
+    if (cities.length === 0) return
+    const ctl = new AbortController()
+    Promise.all(cities.map((c) => listHubAreas(c.code, ctl.signal)))
+      .then((lists) => {
+        setFailed(false)
+        const i = direct ? 0 : lists.findIndex((l) => l.some((a) => a.code === code))
+        const hit = cities[i]
+        const thanas = lists[i]
+        setCity(hit && thanas ? { code: hit.code, thanas } : null)
+      })
+      .catch((e: unknown) => {
+        if (!(e instanceof DOMException && e.name === 'AbortError')) setFailed(true)
+      })
+    return () => ctl.abort()
+  }, [draft.upazilaCode, upazilas, settled, attempt])
+
   return (
     <>
       {failed ? (
@@ -161,11 +210,22 @@ function AreaPickers({
       <AreaSelect
         id="hub-upazila"
         label={t('web_hub_field_upazila')}
-        value={draft.upazilaCode}
+        value={city ? city.code : draft.upazilaCode}
         options={upazilas}
         disabled={readOnly || !draft.districtCode}
         onChange={(code) => set({ upazilaCode: code })}
       />
+      {city ? (
+        <AreaSelect
+          id="hub-thana"
+          label={t('web_hub_field_thana')}
+          value={draft.upazilaCode === city.code ? '' : draft.upazilaCode}
+          options={city.thanas}
+          disabled={readOnly}
+          blank={t('web_hub_thana_whole_city')}
+          onChange={(code) => set({ upazilaCode: code || city.code })}
+        />
+      ) : null}
     </>
   )
 }

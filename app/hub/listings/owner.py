@@ -161,12 +161,15 @@ def slug_available(session: Session, slug: str, lens: TeacherLens) -> bool:
 def _check_area(session: Session, district: str | None, upazila: str | None) -> None:
     """Check the area codes name real, nested areas.
 
-    ``upazila`` is either an upazila whose parent is the district or a
-    metropolitan thana whose city corporation's parent is the district.
+    ``upazila`` is an upazila or a city corporation whose parent is the
+    district, or a metropolitan thana whose city corporation's parent is
+    the district. A city corporation stands for the whole city when the
+    owner's thana is not in the vocabulary; it is never a district.
 
     :param session: The session
     :param district: The district code, if any
-    :param upazila: The upazila or metropolitan thana code, if any
+    :param upazila: The upazila, city corporation or metropolitan thana
+        code, if any
     :raises ValidationError: An area is unknown or not nested
     """
     if district is None and upazila is None:
@@ -189,7 +192,10 @@ def _check_area(session: Session, district: str | None, upazila: str | None) -> 
     if upazila is not None:
         found = rows.get(upazila)
         nested = found is not None and (
-            (found.kind == "upazila" and found.parent_code == district)
+            (
+                found.kind in ("upazila", "city_corporation")
+                and found.parent_code == district
+            )
             or (found.kind == "metro_thana" and found.grandparent_code == district)
         )
         bad = bad or district is None or not nested

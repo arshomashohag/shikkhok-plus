@@ -93,7 +93,8 @@ private const val NOTICE_MILLIS: Long = 3_000
  * @property onToggleMode Ticks or unticks a teaching mode
  * @property onPickDivision Chooses a division
  * @property onPickDistrict Chooses a district
- * @property onPickUpazila Chooses an upazila
+ * @property onPickUpazila Chooses an upazila or a city corporation
+ * @property onPickThana Chooses a thana of the city corporation, or empty for the whole city
  * @property onRetryAreas Reads the area lists again
  * @property onSave Sends what changed
  * @property onCheckSlug Asks whether the web address is free
@@ -114,6 +115,7 @@ data class HubListingActions(
     val onPickDivision: (String) -> Unit = {},
     val onPickDistrict: (String) -> Unit = {},
     val onPickUpazila: (String) -> Unit = {},
+    val onPickThana: (String) -> Unit = {},
     val onRetryAreas: () -> Unit = {},
     val onSave: () -> Unit = {},
     val onCheckSlug: () -> Unit = {},
@@ -356,11 +358,21 @@ private fun AreaPickers(state: HubListingState, enabled: Boolean, actions: HubLi
     )
     AreaDropdown(
         label = stringResource(R.string.hub_field_upazila),
-        value = state.draft.upazilaCode,
+        value = areas.cityCode.ifEmpty { state.draft.upazilaCode },
         options = areas.upazilas,
         enabled = enabled && state.draft.districtCode.isNotEmpty(),
         onPick = actions.onPickUpazila,
     )
+    if (areas.cityCode.isNotEmpty()) {
+        AreaDropdown(
+            label = stringResource(R.string.hub_field_thana),
+            value = state.draft.upazilaCode.takeIf { it != areas.cityCode }.orEmpty(),
+            options = areas.thanas,
+            enabled = enabled,
+            onPick = actions.onPickThana,
+            none = stringResource(R.string.hub_thana_whole_city),
+        )
+    }
 }
 
 @Composable

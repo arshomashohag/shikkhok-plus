@@ -96,10 +96,34 @@ def test_listing_accepts_metro_thana_under_its_district(
     assert (listing.district_code, listing.upazila_code) == (DHAKA, MIRPUR)
 
 
+def test_listing_accepts_city_corporation_under_its_district(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """Dhaka with Dhaka North is valid: a thana is optional below a city.
+
+    An owner whose thana is not in the vocabulary stops at the city
+    corporation, which then sits in the upazila slot.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    owner.get_or_draft(restricted_session, lens)
+
+    listing = owner.update(
+        restricted_session,
+        lens,
+        OwnerListingUpdate(district_code=DHAKA, upazila_code=DNCC),
+    )
+
+    assert (listing.district_code, listing.upazila_code) == (DHAKA, DNCC)
+
+
 @pytest.mark.parametrize(
     ("district", "upazila"),
-    [(CHATTOGRAM, MIRPUR), (DHAKA, DNCC), (DNCC, MIRPUR)],
-    ids=["thana-elsewhere", "city-corporation-as-upazila", "city-as-district"],
+    [(CHATTOGRAM, MIRPUR), (CHATTOGRAM, DNCC), (DNCC, MIRPUR)],
+    ids=["thana-elsewhere", "city-corporation-elsewhere", "city-as-district"],
 )
 def test_listing_rejects_metro_thana_from_another_district(
     owner_session: Session,
@@ -107,7 +131,7 @@ def test_listing_rejects_metro_thana_from_another_district(
     district: str,
     upazila: str,
 ) -> None:
-    """A thana outside the district, or a city corporation in either slot, fails.
+    """A thana or city outside the district, or a city as the district, fails.
 
     :param owner_session: An arranging session
     :param restricted_session: The application role's session

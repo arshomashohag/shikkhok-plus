@@ -2000,7 +2000,9 @@
     <string name="hub_mode_online">Online</string>
     <string name="hub_field_division">Division</string>
     <string name="hub_field_district">District</string>
-    <string name="hub_field_upazila">Upazila</string>
+    <string name="hub_field_upazila">Upazila or city corporation</string>
+    <string name="hub_field_thana">Thana (optional)</string>
+    <string name="hub_thana_whole_city">Whole city corporation</string>
     <string name="hub_area_choose">Choose…</string>
     <string name="hub_field_street">Street address</string>
     <string name="hub_field_phone">Public phone number</string>

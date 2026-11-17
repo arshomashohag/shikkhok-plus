@@ -178,8 +178,70 @@ describe('HubListing', () => {
     await screen.findByRole('option', { name: 'Dhaka' })
     await userEvent.selectOptions(screen.getByLabelText('District'), 'BD2019')
     await screen.findByRole('option', { name: 'Savar' })
-    await userEvent.selectOptions(screen.getByLabelText('Upazila'), 'BD20190040')
-    expect(screen.getByLabelText('Upazila')).toHaveValue('BD20190040')
+    await userEvent.selectOptions(
+      screen.getByLabelText('Upazila or city corporation'),
+      'BD20190040',
+    )
+    expect(screen.getByLabelText('Upazila or city corporation')).toHaveValue('BD20190040')
+    expect(screen.queryByLabelText('Thana (optional)')).toBeNull()
+  })
+
+  it('a city corporation opens an optional thana picker, and a saved thana reopens under its city', async () => {
+    const area = (code: string, kind: string, en: string) => ({
+      code,
+      kind,
+      name_en: en,
+      name_bn: en,
+    })
+    const tree: Record<string, unknown[]> = {
+      '': [area('BD30', 'division', 'Dhaka Division')],
+      BD30: [area('BD3026', 'district', 'Dhaka')],
+      BD3026: [
+        area('BD30260072', 'upazila', 'Savar'),
+        area('BD30262500', 'city_corporation', 'Dhaka North City Corporation'),
+      ],
+      BD30262500: [
+        area('MT3026250003', 'metro_thana', 'Mirpur'),
+        area('MT3026250006', 'metro_thana', 'Uttara'),
+      ],
+    }
+    const puts: unknown[] = []
+    serve(listing({ district_code: 'BD3026', upazila_code: 'MT3026250003' }), (url, init) => {
+      if (init.method === 'PUT') {
+        const sent = JSON.parse(init.body as string) as { upazila_code: string }
+        puts.push(sent)
+        return json(200, listing({ district_code: 'BD3026', upazila_code: sent.upazila_code }))
+      }
+      if (!url.includes('/v1/hub/areas')) return undefined
+      const parent = new URL(url, 'http://test').searchParams.get('parent') ?? ''
+      return json(200, tree[parent] ?? [])
+    })
+    renderScreen(<HubListing />)
+
+    // The saved thana's city corporation is found and both are shown chosen.
+    const thana = await screen.findByLabelText('Thana (optional)')
+    await waitFor(() => expect(thana).toHaveValue('MT3026250003'))
+    expect(screen.getByLabelText('Upazila or city corporation')).toHaveValue('BD30262500')
+
+    // Leaving the thana blank keeps the city corporation.
+    await userEvent.selectOptions(thana, '')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(puts).toEqual([{ district_code: 'BD3026', upazila_code: 'BD30262500' }]),
+    )
+
+    // Choosing a thana stores the thana.
+    await userEvent.selectOptions(screen.getByLabelText('Thana (optional)'), 'MT3026250006')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(puts).toHaveLength(2))
+    expect(puts[1]).toEqual({ district_code: 'BD3026', upazila_code: 'MT3026250006' })
+
+    // An upazila closes the thana picker again.
+    await userEvent.selectOptions(
+      screen.getByLabelText('Upazila or city corporation'),
+      'BD30260072',
+    )
+    expect(screen.queryByLabelText('Thana (optional)')).toBeNull()
   })
 })
 

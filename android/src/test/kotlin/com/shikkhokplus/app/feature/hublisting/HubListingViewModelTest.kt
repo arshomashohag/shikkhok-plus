@@ -322,6 +322,44 @@ class HubListingViewModelTest {
     }
 
     @Test
+    fun a_city_corporation_offers_its_thanas_and_a_saved_thana_reopens_under_its_city() = runTest(dispatcher) {
+        val fake = FakeHubApi()
+        fake.listing = AuthResult.Ok(owner(districtCode = "BD2020", upazilaCode = "MT2020500001"))
+        val vm = model(fake)
+        vm.load()
+        advanceUntilIdle()
+
+        // The saved thana's city corporation is found and both are shown chosen.
+        assertEquals("BD20205000", vm.state.value.areas.cityCode)
+        assertEquals(listOf("MT2020500001", "MT2020500002"), vm.state.value.areas.thanas.map { it.code })
+        assertEquals("MT2020500001", vm.state.value.draft.upazilaCode)
+
+        // Leaving the thana blank keeps the city corporation.
+        vm.pickThana("")
+        assertEquals("BD20205000", vm.state.value.draft.upazilaCode)
+        vm.pickThana("MT2020500002")
+        assertEquals("MT2020500002", vm.state.value.draft.upazilaCode)
+        vm.save()
+        advanceUntilIdle()
+        assertEquals("MT2020500002", fake.saved.single().upazilaCode, "the thana is stored in the upazila slot")
+
+        // An upazila closes the thana level; a city corporation opens it.
+        vm.pickUpazila("BD202001")
+        assertEquals("", vm.state.value.areas.cityCode)
+        assertTrue(vm.state.value.areas.thanas.isEmpty())
+        vm.pickUpazila("BD20205000")
+        advanceUntilIdle()
+        assertEquals("BD20205000", vm.state.value.areas.cityCode)
+        assertEquals("BD20205000", vm.state.value.draft.upazilaCode)
+        assertEquals(2, vm.state.value.areas.thanas.size)
+
+        // A new district starts the area below it again.
+        vm.pickDistrict("BD2019")
+        assertEquals("", vm.state.value.areas.cityCode)
+        assertTrue(vm.state.value.areas.thanas.isEmpty())
+    }
+
+    @Test
     fun an_area_load_failure_shows_an_error_with_retry_not_an_empty_list() = runTest(dispatcher) {
         val fake = FakeHubApi()
         fake.areasFail = true
