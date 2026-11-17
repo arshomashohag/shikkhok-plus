@@ -1883,8 +1883,8 @@
     <string name="hub_address_centre_only">শুধু কোচিং সেন্টার রাস্তার ঠিকানা দেখাতে পারে।</string>
     <string name="hub_batch_flags_required">এই তালিকা সংরক্ষণের আগে ফি এবং সময়সূচি জনসাধারণের জন্য দেখানো হবে কি না জানান।</string>
     <string name="hub_write_ceiling">আজ আপনি তালিকায় অনেকবার পরিবর্তন করেছেন। কাল আবার চেষ্টা করুন।</string>
-    <string name="hub_report_target_not_found">এই তালিকাটি রিপোর্ট করা যাবে না।</string>
-    <string name="hub_report_already_filed">আপনি ইতিমধ্যে এই তালিকাটি রিপোর্ট করেছেন।</string>
+    <string name="hub_report_target_not_found">এই তালিকাটি আর রিপোর্ট করা যাবে না।</string>
+    <string name="hub_report_already_filed">আপনি এটি আগেই রিপোর্ট করেছেন।</string>
     <string name="hub_report_ceiling">আজ আপনি অনেকগুলো রিপোর্ট পাঠিয়েছেন। কাল আবার চেষ্টা করুন।</string>
     <string name="hub_report_already_decided">এই রিপোর্টের সিদ্ধান্ত আগেই নেওয়া হয়েছে।</string>
     <string name="hub_admin_target_not_found">কিছু করার নেই: এমন কোনো রিপোর্ট বা তালিকা নেই।</string>
@@ -2035,4 +2035,23 @@
     <string name="hub_feedback_not_sure">নিশ্চিত নই</string>
     <string name="hub_feedback_thanks">ধন্যবাদ। আপনি যেকোনো সময় এখানে উত্তর বদলাতে পারেন।</string>
     <string name="hub_feedback_failed">আপনার উত্তর সংরক্ষণ হয়নি।</string>
+    <string name="hub_report_title">এই পেজটি রিপোর্ট করুন</string>
+    <string name="hub_report_target_owner">একজন শিক্ষক বা কোচিং সেন্টারের পাবলিক পেজ</string>
+    <string name="hub_report_target_batch">একটি ব্যাচের পাবলিক পেজ</string>
+    <string name="hub_report_reason_question">এতে কী সমস্যা আছে?</string>
+    <string name="hub_report_reason_personal_info">এতে ব্যক্তিগত তথ্য দেখানো হয়েছে</string>
+    <string name="hub_report_reason_child_safety">এটি কোনো শিশুকে ঝুঁকিতে ফেলে</string>
+    <string name="hub_report_reason_abusive">এটি আপত্তিকর বা অপমানজনক</string>
+    <string name="hub_report_reason_fake">এটি ভুয়া</string>
+    <string name="hub_report_reason_misleading">এটি বিভ্রান্তিকর</string>
+    <string name="hub_report_reason_other">অন্য কিছু</string>
+    <string name="hub_report_note_label">আর কিছু জানাতে চাইলে লিখুন (ঐচ্ছিক)</string>
+    <string name="hub_report_note_help">এখানে কোনো ফোন নম্বর লিখবেন না।</string>
+    <string name="hub_report_note_count">%1$s/%2$s</string>
+    <string name="hub_report_send">রিপোর্ট পাঠান</string>
+    <string name="hub_report_sending">পাঠানো হচ্ছে…</string>
+    <string name="hub_report_sent">ধন্যবাদ। আমরা পেজটি দেখে নেব। ততক্ষণ পেজে কিছুই বদলাবে না।</string>
+    <string name="hub_report_failed">আপনার রিপোর্ট পাঠানো হয়নি।</string>
+    <string name="hub_report_link_invalid">এই লিংকটি সঠিক নয়।</string>
+    <string name="hub_report_link_invalid_body">পেজ থেকে রিপোর্টের লিংকটি আবার খুলুন।</string>
 </resources>

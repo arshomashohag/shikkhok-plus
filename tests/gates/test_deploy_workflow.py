@@ -22,6 +22,8 @@ shipped, or a control whose absence would be silent:
 
 from __future__ import annotations
 
+import fnmatch
+import json
 import os
 import pathlib
 import re
@@ -644,3 +646,292 @@ def test_the_site_upload_ships_the_hub_stylesheet_immutable(
         "--content-type text/css; charset=utf-8 "
         "--cache-control public, max-age=31536000, immutable"
     ]
+
+
+# ---------------------------------------------------------------------------
+# Android App Links [H2 task 9]. The "Report this page" link on a hub page
+# opens /ui/hub-report on the web-app host, and the app's intent filter
+# claims that path with autoVerify. Android verifies the claim by fetching
+# /.well-known/assetlinks.json from the same host -- which is the API's
+# distribution, so the file lives at the web bucket's root, beside ui/.
+# Each link below is exercised for real only by a deploy against AWS and a
+# phone, so each is asserted here.
+# ---------------------------------------------------------------------------
+
+CDN_MAIN = ROOT / "infra" / "modules" / "cdn" / "main.tf"
+CDN_WEB = ROOT / "infra" / "modules" / "cdn" / "web.tf"
+DEPLOY_ROLE = ROOT / "infra" / "bootstrap" / "deploy_role.tf"
+
+#: The one path Android fetches to verify an App Link.
+_ASSETLINKS = "/.well-known/assetlinks.json"
+
+#: A well-formed SHA-256 certificate fingerprint, as keytool prints it.
+_FINGERPRINT = ":".join(["AB"] * 31 + ["0F"])
+
+#: A stand-in ``aws``: answers the SSM read and keeps what ``s3 cp`` sends.
+_FAKE_AWS_SSM = """#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "$AWS_LOG"
+if [ "$1 $2" = "ssm get-parameter" ]; then
+  [ "$PARAM_STATE" = "missing" ] && { echo "ParameterNotFound" >&2; exit 254; }
+  printf '%s\\n' "$PARAM_VALUE"
+fi
+if [ "$1 $2" = "s3 cp" ]; then
+  cp "$3" "$CAPTURE"
+fi
+"""
+
+
+def _web_step(name: str) -> dict[str, object]:
+    """Return one named step of the web job.
+
+    :param name: The step's name
+    :return: The step
+    """
+    named = [s for s in _steps("web") if s.get("name") == name]
+    assert len(named) == 1, name
+    return named[0]
+
+
+def _run_assetlinks_step(
+    tmp_path: pathlib.Path, value: str, state: str = "set"
+) -> tuple[subprocess.CompletedProcess[str], list[str], pathlib.Path]:
+    """Run the app-links step as Actions runs it, against a fake AWS.
+
+    :param tmp_path: A scratch directory
+    :param value: What SSM holds for ``android-cert-sha256``
+    :param state: ``set``, or ``missing`` for a parameter that does not exist
+    :return: The finished process, each ``aws`` call, and the uploaded file
+    """
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake = bin_dir / "aws"
+    fake.write_text(_FAKE_AWS_SSM)
+    fake.chmod(0o755)
+    log = tmp_path / "aws.log"
+    log.write_text("")
+    capture = tmp_path / "uploaded.json"
+    finished = subprocess.run(  # noqa: S603 -- a fixed interpreter and our own script
+        [  # noqa: S607 -- bash from PATH, as the runner finds it
+            "bash",
+            "--noprofile",
+            "--norc",
+            "-eo",
+            "pipefail",
+            "-c",
+            str(_web_step("Publish the Android app-links file")["run"]),
+        ],
+        cwd=tmp_path,
+        env={
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "BUCKET": "web-bucket",
+            "ENVIRONMENT": "staging",
+            "RUNNER_TEMP": str(tmp_path),
+            "AWS_LOG": str(log),
+            "CAPTURE": str(capture),
+            "PARAM_VALUE": value,
+            "PARAM_STATE": state,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    return finished, log.read_text().splitlines(), capture
+
+
+def test_deploy_writes_assetlinks_with_package_and_fingerprint(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The uploaded file names the app's package and the SSM fingerprint.
+
+    :param tmp_path: A scratch directory
+    :return: None
+    """
+    finished, calls, uploaded = _run_assetlinks_step(tmp_path, _FINGERPRINT.lower())
+
+    assert finished.returncode == 0, finished.stdout + finished.stderr
+    reads = [c for c in calls if c.startswith("ssm get-parameter")]
+    assert reads == [
+        "ssm get-parameter --name /shikkhokplus/shikkhokplus-staging/"
+        "android-cert-sha256 --query Parameter.Value --output text"
+    ]
+    assert json.loads(uploaded.read_text()) == [
+        {
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "com.shikkhokplus.app",
+                "sha256_cert_fingerprints": [_FINGERPRINT],
+            },
+        }
+    ]
+    uploads = [c for c in calls if c.startswith("s3 cp ")]
+    assert len(uploads) == 1
+    assert uploads[0].endswith(
+        "s3://web-bucket/.well-known/assetlinks.json --only-show-errors "
+        "--content-type application/json --cache-control max-age=3600"
+    )
+
+
+def test_deploy_lists_every_fingerprint_the_parameter_holds(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Play's app-signing key and the upload key can both be listed.
+
+    :param tmp_path: A scratch directory
+    :return: None
+    """
+    other = ":".join(["12"] * 32)
+    finished, _, uploaded = _run_assetlinks_step(tmp_path, f"{_FINGERPRINT}, {other}")
+
+    assert finished.returncode == 0, finished.stdout + finished.stderr
+    target = json.loads(uploaded.read_text())[0]["target"]
+    assert target["sha256_cert_fingerprints"] == [_FINGERPRINT, other]
+
+
+@pytest.mark.parametrize(
+    ("value", "state"),
+    [
+        ("", "missing"),
+        ("", "set"),
+        ("None", "set"),
+        ("AB:CD", "set"),
+        (f"{_FINGERPRINT},", "set"),
+        (_FINGERPRINT.replace("AB", "XY", 1), "set"),
+    ],
+    ids=["unset", "empty", "none", "short", "trailing-comma", "not-hex"],
+)
+def test_deploy_refuses_assetlinks_without_a_fingerprint(
+    tmp_path: pathlib.Path, value: str, state: str
+) -> None:
+    """An unset or malformed parameter fails the step and uploads nothing.
+
+    A file naming no valid fingerprint would publish, verify nothing, and
+    leave every report link opening the browser with nothing reporting why.
+
+    :param tmp_path: A scratch directory
+    :param value: What SSM holds
+    :param state: Whether the parameter exists
+    :return: None
+    """
+    finished, calls, uploaded = _run_assetlinks_step(tmp_path, value, state)
+
+    assert finished.returncode != 0
+    assert "::error::" in finished.stdout + finished.stderr
+    assert not [c for c in calls if c.startswith("s3 ")]
+    assert not uploaded.exists()
+
+
+def test_the_web_deploy_publishes_assetlinks_and_invalidates_it() -> None:
+    """The file is written after the target is resolved and is invalidated.
+
+    :return: None
+    """
+    names = [s.get("name") for s in _steps("web")]
+    publish = names.index("Publish the Android app-links file")
+
+    assert names.index("Resolve where it goes") < publish < names.index("Invalidate")
+    step = _web_step("Publish the Android app-links file")
+    assert step["env"] == {"BUCKET": "${{ steps.target.outputs.bucket }}"}
+    assert f'"{_ASSETLINKS}"' in str(_web_step("Invalidate")["run"])
+
+
+def _behaviours(text: str) -> list[dict[str, object]]:
+    """Read each ordered behaviour of the API distribution, in order.
+
+    A ``dynamic`` block contributes one behaviour per ``for_each`` value.
+
+    :param text: ``infra/modules/cdn/main.tf``
+    :return: Per behaviour: its path, origin, methods, cache policy and
+        whether a viewer function is attached
+    """
+    start = text.index('resource "aws_cloudfront_distribution" "api"')
+    body = text[start:]
+    found: list[dict[str, object]] = []
+    for match in re.finditer(
+        r'(dynamic "ordered_cache_behavior"|ordered_cache_behavior) \{', body
+    ):
+        depth, end = 0, match.end() - 1
+        for end in range(match.end() - 1, len(body)):
+            depth += {"{": 1, "}": -1}.get(body[end], 0)
+            if depth == 0:
+                break
+        block = _without_comments(body[match.start() : end])
+        if match.group(1).startswith("dynamic"):
+            each = re.search(r"for_each\s*=\s*\[([^\]]*)\]", block)
+            assert each is not None
+            paths = re.findall(r'"([^"]+)"', each.group(1))
+        else:
+            paths = re.findall(r'path_pattern\s*=\s*"([^"]+)"', block)
+        methods = re.search(r"allowed_methods\s*=\s*\[([^\]]*)\]", block)
+        assert methods is not None
+        policy = re.search(r"cache_policy_id\s*=\s*(\S+)", block)
+        assert policy is not None
+        origin = re.search(r'target_origin_id\s*=\s*"([^"]+)"', block)
+        assert origin is not None
+        found += [
+            {
+                "path": path,
+                "origin": origin.group(1),
+                "methods": re.findall(r'"([A-Z]+)"', methods.group(1)),
+                "policy": policy.group(1),
+                "function": "function_association" in block,
+            }
+            for path in paths
+        ]
+    return found
+
+
+def test_cdn_routes_assetlinks_to_web_origin() -> None:
+    """Exactly the file's path goes to the bucket, ahead of any wider match.
+
+    CloudFront takes the first behaviour whose pattern matches, so no
+    earlier pattern may also match the path, or that one would answer.
+
+    :return: None
+    """
+    behaviours = _behaviours(CDN_MAIN.read_text())
+    paths = [b["path"] for b in behaviours]
+    # Guards the parse: a walk finding nothing would pass vacuously.
+    assert {"/v1/admin*", "/hub*", "/ui", "/ui/*"} <= set(paths), paths
+
+    ours = [b for b in behaviours if b["path"] == _ASSETLINKS]
+    assert ours == [
+        {
+            "path": _ASSETLINKS,
+            "origin": "shikkhokplus-web",
+            "methods": ["GET", "HEAD"],
+            "policy": "data.aws_cloudfront_cache_policy.optimized.id",
+            "function": False,
+        }
+    ]
+    earlier = paths[: paths.index(_ASSETLINKS)]
+    assert not [p for p in earlier if fnmatch.fnmatchcase(_ASSETLINKS, str(p))]
+
+
+def test_the_web_bucket_lets_cloudfront_read_assetlinks() -> None:
+    """The bucket policy admits the distribution to the file, not the root.
+
+    :return: None
+    """
+    text = CDN_WEB.read_text()
+    statement = text[text.index('Sid       = "CloudFrontReadsTheWebClient"') :]
+    statement = statement[: statement.index("},\n      {")]
+
+    assert f'"${{aws_s3_bucket.web.arn}}{_ASSETLINKS}"' in statement
+    assert '"${aws_s3_bucket.web.arn}/*"' not in statement
+
+
+def test_the_deploy_role_may_publish_assetlinks() -> None:
+    """The role reads the fingerprint and writes exactly the one file.
+
+    :return: None
+    """
+    text = DEPLOY_ROLE.read_text()
+    urls = text[text.index('Sid    = "PublicUrl"') :]
+    urls = urls[: urls.index("Sid", 1)]
+    objects = text[text.index('Sid    = "WebBucketObjects"') :]
+    objects = objects[: objects.index("Sid", 1)]
+
+    assert '"android-cert-sha256"' in urls
+    assert f'"arn:aws:s3:::shikkhokplus-${{each.key}}-web-*{_ASSETLINKS}"' in objects

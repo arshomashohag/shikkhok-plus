@@ -1289,6 +1289,56 @@ jobs:
           aws s3 sync assets "$dest/assets" --exclude "*.map" --only-show-errors --delete \
             --cache-control "public, max-age=31536000, immutable"
 
+      # **Android App Links verify against THIS host** [H2 task 9]. The
+      # "Report this page" link on a hub page opens /ui/hub-report here,
+      # the app's intent filter claims that path with autoVerify, and
+      # Android checks the claim by fetching /.well-known/assetlinks.json
+      # from the same host. So the file is written at the web bucket's
+      # root, beside ui/, and the distribution routes exactly that path to
+      # the bucket (infra/modules/cdn/main.tf). The marketing site is a
+      # different host and never holds it.
+      #
+      # The fingerprint is the SSM parameter android-cert-sha256 (see
+      # web/README.md): one or more SHA-256 certificate fingerprints,
+      # comma-separated -- Play's app-signing key, and the upload key for
+      # an APK installed directly. **Unset or malformed fails the deploy**:
+      # a file naming no valid fingerprint would publish, verify nothing,
+      # and leave every report link opening the browser with nothing
+      # reporting why.
+      - name: Publish the Android app-links file
+        env:
+          BUCKET: ${{ steps.target.outputs.bucket }}
+        run: |
+          set -euo pipefail
+          name="/shikkhokplus/shikkhokplus-${ENVIRONMENT}/android-cert-sha256"
+          if ! raw=$(aws ssm get-parameter --name "$name" --query 'Parameter.Value' --output text); then
+            echo "::error::Cannot read $name from SSM; the Android app links cannot be verified."
+            echo "Set it to the app's SHA-256 certificate fingerprint(s) (web/README.md)."
+            exit 1
+          fi
+          raw=$(printf '%s' "$raw" | tr -d '[:space:]')
+          if [ -z "$raw" ] || [ "$raw" = "None" ]; then
+            echo "::error::$name is empty; set it to the app's SHA-256 certificate fingerprint(s)."
+            exit 1
+          fi
+          re='^([0-9A-F]{2}:){31}[0-9A-F]{2}$'
+          listed=""
+          # One comma appended: read drops a single trailing empty field,
+          # so an input ending in a comma keeps its empty entry and fails.
+          IFS=',' read -r -a fingerprints <<< "$(printf '%s' "$raw" | tr 'a-f' 'A-F'),"
+          for fp in "${fingerprints[@]}"; do
+            if ! [[ $fp =~ $re ]]; then
+              echo "::error::$name holds '$fp', which is not a SHA-256 fingerprint (32 hex pairs, colon-separated)."
+              exit 1
+            fi
+            listed="${listed:+$listed,}\"$fp\""
+          done
+          file="$RUNNER_TEMP/assetlinks.json"
+          printf '[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"com.shikkhokplus.app","sha256_cert_fingerprints":[%s]}}]\n' \
+            "$listed" > "$file"
+          aws s3 cp "$file" "s3://$BUCKET/.well-known/assetlinks.json" --only-show-errors \
+            --content-type application/json --cache-control "max-age=3600"
+
       # Entry files are no-cache already; the invalidation makes every edge
       # drop its copy now rather than at its next revalidation, so the
       # smoke below sees this release and not the last one.
@@ -1297,7 +1347,7 @@ jobs:
           DISTRIBUTION: ${{ steps.target.outputs.distribution }}
         run: |
           id=$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" \
-            --paths "/ui" "/ui/*" --query 'Invalidation.Id' --output text)
+            --paths "/ui" "/ui/*" "/.well-known/assetlinks.json" --query 'Invalidation.Id' --output text)
           echo "Waiting for invalidation $id..."
           aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION" --id "$id"
 

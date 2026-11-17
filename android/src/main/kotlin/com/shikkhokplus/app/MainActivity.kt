@@ -80,6 +80,8 @@ import com.shikkhokplus.app.navigation.ShikkhokNavHost
 import com.shikkhokplus.app.navigation.FailedRecheckEffect
 import com.shikkhokplus.app.navigation.RootRoute
 import com.shikkhokplus.app.navigation.rootRouteFor
+import com.shikkhokplus.app.navigation.HubReportLinkEffect
+import com.shikkhokplus.app.feature.hublisting.report.ReportLink
 import com.shikkhokplus.app.feature.account.ui.ChooseUsernameGate
 import com.shikkhokplus.app.feature.account.ChooseUsernameViewModel
 import com.shikkhokplus.app.core.network.HttpAccountRepository
@@ -107,6 +109,14 @@ import com.shikkhokplus.app.core.network.HttpAccountRepository
 class MainActivity : ComponentActivity() {
     private var openInbox by mutableStateOf(false)
 
+    /**
+     * A hub page's "Report this page" App Link waiting to be opened, or
+     * null. **Kept in the saved state**, unlike the inbox flag: a
+     * signed-out reader signs in first, typing a code, and a rotation in
+     * the middle of that must not lose where they were going.
+     */
+    private var pendingReport by mutableStateOf<ReportLink?>(null)
+
     override fun onStart() {
         super.onStart()
         AppForeground.visible = true
@@ -121,6 +131,16 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         if (UnreadNotifier.wantsInbox(intent)) openInbox = true
+        ReportLink.from(intent.data, BuildConfig.APP_LINK_HOST)?.let { pendingReport = it }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        pendingReport?.let {
+            outState.putString(STATE_REPORT_KIND, it.kind)
+            outState.putString(STATE_REPORT_ID, it.id)
+            outState.putBoolean(STATE_REPORT, true)
+        }
     }
 
     // **The chosen language, before Android 13** [C-39]. From 13 on the
@@ -134,6 +154,19 @@ class MainActivity : ComponentActivity() {
         // A fresh install opens in Bangla, once; see LanguageChoice.
         AppLanguage.applyFirstLaunchDefault(this)
         openInbox = UnreadNotifier.opensInboxOnCreate(intent, savedInstanceState)
+        // A fresh launch reads the link; a recreated activity restores the
+        // one still waiting, or none if it was already opened.
+        pendingReport =
+            if (savedInstanceState == null) {
+                ReportLink.from(intent?.data, BuildConfig.APP_LINK_HOST)
+            } else if (savedInstanceState.getBoolean(STATE_REPORT)) {
+                ReportLink(
+                    savedInstanceState.getString(STATE_REPORT_KIND),
+                    savedInstanceState.getString(STATE_REPORT_ID),
+                )
+            } else {
+                null
+            }
         // This phone's own preferences (Settings): theme, text size and
         // the tray notifications. Read before the first frame so the app
         // opens in the theme the person chose rather than flashing to it.
@@ -165,6 +198,8 @@ class MainActivity : ComponentActivity() {
                                     UnreadNotifier.consume(intent)
                                     openInbox = false
                                 },
+                                pendingReport = pendingReport,
+                                onReportOpened = { pendingReport = null },
                                 settings = settings,
                             )
                         }
@@ -177,6 +212,11 @@ class MainActivity : ComponentActivity() {
     private companion object {
         /** The preferences file Settings are kept in. */
         const val SETTINGS_FILE = "settings"
+
+        /** Saved-state keys for a report link still waiting. */
+        const val STATE_REPORT = "hub_report_pending"
+        const val STATE_REPORT_KIND = "hub_report_kind"
+        const val STATE_REPORT_ID = "hub_report_id"
     }
 }
 
@@ -216,7 +256,13 @@ private const val MFA_OFFER_FILE = "mfa_offer"
  * graph.
  */
 @Composable
-private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: SettingsHolder) {
+private fun AppRoot(
+    openInbox: Boolean,
+    onInboxOpened: () -> Unit,
+    pendingReport: ReportLink?,
+    onReportOpened: () -> Unit,
+    settings: SettingsHolder,
+) {
     val context = LocalContext.current
     val tokens = remember { EncryptedTokenStore.create(context) }
     // **Which workspace the teacher screens act on**, kept between
@@ -474,6 +520,9 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
             }
 
             OpenInboxEffect(navController, openInbox && signedIn, onInboxOpened)
+
+            // A hub page's report link, once someone is signed in to report as.
+            HubReportLinkEffect(navController, signedIn, pendingReport, onReportOpened)
 
             // The one-time two-step offer [0028], for a signed-in account
             // the server recommends it for. Asked once per account here.

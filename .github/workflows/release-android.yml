@@ -114,6 +114,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           API_BASE_URL: ${{ vars.ANDROID_API_BASE_URL }}
+          APP_LINK_HOST: ${{ vars.ANDROID_APP_LINK_HOST }}
         run: |
           missing=()
           [ -n "$KEYSTORE" ]       || missing+=("secret ANDROID_KEYSTORE_BASE64")
@@ -149,8 +150,17 @@ jobs:
           # Echoing it means the one chance to notice is in the log,
           # before the AAB exists.
           echo "Backend: $API_BASE_URL"
+          # The hub's "Report this page" App Link claims this host. Unset,
+          # the build claims the backend's host, which serves /ui/ too --
+          # but the hub pages link to the web app's own hostname, so their
+          # links would open the browser rather than the app.
+          if [ -z "$APP_LINK_HOST" ]; then
+            echo "::warning::ANDROID_APP_LINK_HOST is unset; report links on hub pages will not open the app."
+          fi
+          echo "App link host: ${APP_LINK_HOST:-(the backend's host)}"
           {
             echo "| backend | \`$API_BASE_URL\` |"
+            echo "| app link host | \`${APP_LINK_HOST:-(the backend's host)}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # **The release gate for Android dependency CVEs, BLOCKING**
@@ -251,6 +261,7 @@ jobs:
             -PversionName="${{ steps.version.outputs.name }}" \
             -PversionCode="${{ steps.version.outputs.code }}" \
             -PapiBaseUrl="${{ vars.ANDROID_API_BASE_URL }}" \
+            -PappLinkHost="${{ vars.ANDROID_APP_LINK_HOST }}" \
             -PsupportPhone="${{ vars.SUPPORT_PHONE }}"
 
       - name: Remove the keystore

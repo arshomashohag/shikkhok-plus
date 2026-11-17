@@ -198,13 +198,15 @@ resource "aws_iam_role_policy" "deploy" {
             "admin-edge-secret",
             "ses-smtp-username", "ses-smtp-password",
             "email-from", "ses-configuration-set", "ses-smtp-host",
+            "android-cert-sha256",
           ] :
           "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/shikkhokplus-${each.key}/${name}"
         ]
       },
       {
         # **The web client upload**: this environment's web bucket, under
-        # ui/ only. List is bucket-level, for `aws s3 sync` to compare;
+        # ui/, plus the Android app-links file at its root and nothing else
+        # there. List is bucket-level, for `aws s3 sync` to compare;
         # Delete is for removing files the new build no longer has.
         Sid      = "WebBucketList"
         Effect   = "Allow"
@@ -219,7 +221,10 @@ resource "aws_iam_role_policy" "deploy" {
           "s3:PutObject",
           "s3:DeleteObject",
         ]
-        Resource = "arn:aws:s3:::shikkhokplus-${each.key}-web-*/ui/*"
+        Resource = [
+          "arn:aws:s3:::shikkhokplus-${each.key}-web-*/ui/*",
+          "arn:aws:s3:::shikkhokplus-${each.key}-web-*/.well-known/assetlinks.json",
+        ]
       },
       {
         # **The public site upload** (modules/site): this environment's

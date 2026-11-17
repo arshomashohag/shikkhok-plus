@@ -748,6 +748,33 @@ sealed interface Destination {
         fun of(ownerId: String, day: Int): String = "hub/feedback/$ownerId/$day"
     }
 
+    /**
+     * Reporting a public hub page, opened from the page's "Report this
+     * page" App Link (`MainActivity`, [HubReportLinkEffect]). The query
+     * values travel as the link carried them, unchecked: the screen
+     * refuses a malformed one in words rather than the app ignoring it.
+     */
+    data object HubReport : Destination {
+        override val route: String = "hub/report?kind={kind}&id={id}"
+
+        /** The kind argument's name. */
+        const val ARG_KIND: String = "kind"
+
+        /** The id argument's name. */
+        const val ARG_ID: String = "id"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param kind The link's `kind` value, if any
+         * @param id The link's `id` value, if any
+         * @return The route to navigate to
+         */
+        fun of(kind: String?, id: String?): String =
+            "hub/report?kind=${java.net.URLEncoder.encode(kind.orEmpty(), "UTF-8")}" +
+                "&id=${java.net.URLEncoder.encode(id.orEmpty(), "UTF-8")}"
+    }
+
     /** Adding a payment method (P2, P3). */
     data object AddPaymentMethod : Destination {
         override val route: String = "payment-methods/new?kind={kind}"

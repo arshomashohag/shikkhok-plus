@@ -7,8 +7,9 @@
  * Before any lens, and before any route, an account the server says has
  * no username sees only the choose-username gate [FR5.2].
  */
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router'
+import { lazyScreen } from './core/lazy'
 import { useT } from './i18n/i18n'
 import { useSession, type Lens } from './session/session'
 import { AppShell } from './shell/AppShell'
@@ -48,6 +49,7 @@ import { accountRoutes } from './features/account/area'
 import { helpRoutes } from './features/help'
 import { securityRoutes } from './features/account/security'
 import { seatPattern, type Reader } from './features/family/reader'
+import { forgetReturn, peekReturn, rememberReturn } from './session/returnPath'
 
 /** Seat routes the family areas own, mounted once per reader. */
 const FAMILY_ROUTES = [...batchRoutes, ...payRoutes]
@@ -63,6 +65,32 @@ const AREA_ROUTES = [
   ...centreRoutes,
   ...hubRoutes,
 ]
+
+/**
+ * Reporting a public hub page, opened from the page's "Report this page"
+ * link; any lens may report. A separate chunk: most sessions never open it.
+ */
+const HUB_REPORT = lazyScreen(() => import('./features/common/HubReport'), 'HubReport')
+
+/** Signed out on a report link: remember it, then sign in [H2 task 9]. */
+function SignInThenReport() {
+  const { pathname, search } = useLocation()
+  const [here] = useState(`${pathname}${search}`)
+  useEffect(() => rememberReturn(here), [here])
+  return <Navigate to="/signin" replace />
+}
+
+/**
+ * Where an address the routes do not know lands: home, unless a report
+ * link was remembered before sign-in, in which case there. Read without
+ * consuming during render (StrictMode renders twice) and forgotten once
+ * the landing has happened.
+ */
+function Landing({ home }: { home: string }) {
+  const [to] = useState(() => peekReturn() ?? home)
+  useEffect(forgetReturn, [])
+  return <Navigate to={to} replace />
+}
 
 function Only({
   lens,
@@ -100,6 +128,7 @@ function AppRoutes() {
         <Route path="/signin" element={<SignIn />} />
         <Route path="/signin/code" element={<PasswordCode />} />
         <Route path="/signup" element={<SignUp />} />
+        <Route path="/hub-report" element={<SignInThenReport />} />
         <Route path="*" element={<Navigate to="/signin" replace />} />
       </Routes>
     )
@@ -285,10 +314,12 @@ function AppRoutes() {
         {[...accountRoutes, ...securityRoutes, ...helpRoutes].map((r) => (
           <Route key={r.path} path={r.path} element={r.element} />
         ))}
+        <Route path="/hub-report" element={HUB_REPORT} />
         <Route path="/invitations" element={<Invitations />} />
         <Route path="/more" element={<More />} />
         <Route path="/settings" element={<Settings />} />
-        <Route path="*" element={<Navigate to={homeFor(lens)} replace />} />
+        {/* After sign-in the address is /signin or /signup: this lands it. */}
+        <Route path="*" element={<Landing home={homeFor(lens)} />} />
       </Route>
     </Routes>
   )

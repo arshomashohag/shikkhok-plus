@@ -425,6 +425,10 @@ export const answerHubFeedback = (
     workspace: ownerId,
   })
 
+/** Report a public hub page; nothing about the page changes [H2]. */
+export const fileHubReport = (body: Schemas['HubReportRequest']) =>
+  request<undefined>('POST', '/v1/hub/reports', { body })
+
 function enc(segment: string): string {
   return encodeURIComponent(segment)
 }

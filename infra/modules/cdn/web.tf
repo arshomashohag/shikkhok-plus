@@ -77,12 +77,17 @@ resource "aws_s3_bucket_policy" "web" {
     Version = "2012-10-17"
     Statement = [
       {
-        # Read only, only the UI prefix, only this distribution.
+        # Read only, only the UI prefix and the Android app-links file
+        # (deploy.yml writes it at the root; main.tf routes exactly that
+        # path here), only this distribution.
         Sid       = "CloudFrontReadsTheWebClient"
         Effect    = "Allow"
         Principal = { Service = "cloudfront.amazonaws.com" }
         Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.web.arn}/${local.web_prefix}/*"
+        Resource = [
+          "${aws_s3_bucket.web.arn}/${local.web_prefix}/*",
+          "${aws_s3_bucket.web.arn}/.well-known/assetlinks.json",
+        ]
         Condition = {
           StringEquals = { "AWS:SourceArn" = aws_cloudfront_distribution.api.arn }
         }

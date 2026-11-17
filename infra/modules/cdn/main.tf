@@ -233,6 +233,27 @@ resource "aws_cloudfront_distribution" "api" {
     }
   }
 
+  # **/.well-known/assetlinks.json goes to the bucket**, where the web
+  # deploy writes it at the root, beside ui/. Android verifies the app's
+  # claim on /ui/hub-report (the hub's "Report this page" link) by fetching
+  # exactly this path from the same host, so it must answer here, as JSON,
+  # with no redirect. Exactly the one file: nothing else under
+  # /.well-known reaches the bucket, and the bucket policy admits only this
+  # key besides ui/*. No earlier pattern matches it (/v1/admin*, /hub*), so
+  # it is not shadowed. No viewer function: the SPA router would rewrite it.
+  ordered_cache_behavior {
+    path_pattern           = "/.well-known/assetlinks.json"
+    target_origin_id       = "shikkhokplus-web"
+    viewer_protocol_policy = "redirect-to-https"
+
+    allowed_methods = ["GET", "HEAD"]
+    cached_methods  = ["GET", "HEAD"]
+
+    # The object carries max-age=3600, and the deploy invalidates it.
+    cache_policy_id = data.aws_cloudfront_cache_policy.optimized.id
+    compress        = true
+  }
+
   # **/ui and /ui/* go to the bucket; everything else stays the API.**
   # Listed before the default, and CloudFront takes the first match, so
   # no API route can be shadowed unless it starts with /ui -- and none

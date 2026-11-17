@@ -1950,8 +1950,8 @@
     <string name="hub_address_centre_only">Only coaching centres can show a street address.</string>
     <string name="hub_batch_flags_required">Say whether to show the fee and the schedule publicly before saving this listing.</string>
     <string name="hub_write_ceiling">You have changed your listing a lot today. Try again tomorrow.</string>
-    <string name="hub_report_target_not_found">That listing cannot be reported.</string>
-    <string name="hub_report_already_filed">You have already reported this listing.</string>
+    <string name="hub_report_target_not_found">This listing can no longer be reported.</string>
+    <string name="hub_report_already_filed">You\'ve already reported this.</string>
     <string name="hub_report_ceiling">You have sent a lot of reports today. Try again tomorrow.</string>
     <string name="hub_report_already_decided">This report has already been decided.</string>
     <string name="hub_admin_target_not_found">Nothing to act on: no such report or listing.</string>
@@ -2102,4 +2102,26 @@
     <string name="hub_feedback_not_sure">Not sure</string>
     <string name="hub_feedback_thanks">Thank you. You can change your answer here at any time.</string>
     <string name="hub_feedback_failed">Your answer was not saved.</string>
+    <!-- Reporting a public hub page, opened from its "Report this page"
+         link (an App Link to /ui/hub-report). The reasons are the server's
+         closed vocabulary, app/moderation/vocab.py. -->
+    <string name="hub_report_title">Report this page</string>
+    <string name="hub_report_target_owner">A teacher\'s or coaching centre\'s public page</string>
+    <string name="hub_report_target_batch">A batch\'s public page</string>
+    <string name="hub_report_reason_question">What is wrong with it?</string>
+    <string name="hub_report_reason_personal_info">It shows personal information</string>
+    <string name="hub_report_reason_child_safety">It puts a child at risk</string>
+    <string name="hub_report_reason_abusive">It is abusive or offensive</string>
+    <string name="hub_report_reason_fake">It is fake</string>
+    <string name="hub_report_reason_misleading">It is misleading</string>
+    <string name="hub_report_reason_other">Something else</string>
+    <string name="hub_report_note_label">Anything we should know (optional)</string>
+    <string name="hub_report_note_help">Do not write a phone number here.</string>
+    <string name="hub_report_note_count">%1$s/%2$s</string>
+    <string name="hub_report_send">Send report</string>
+    <string name="hub_report_sending">Sending…</string>
+    <string name="hub_report_sent">Thank you. We will look at this page. Nothing on it changes until we do.</string>
+    <string name="hub_report_failed">Your report was not sent.</string>
+    <string name="hub_report_link_invalid">This link isn\'t valid.</string>
+    <string name="hub_report_link_invalid_body">Open the report link from the page again.</string>
 </resources>
