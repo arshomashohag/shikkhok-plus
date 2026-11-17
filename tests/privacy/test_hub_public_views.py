@@ -306,6 +306,31 @@ def test_batch_under_unpublished_owner_is_invisible_everywhere(
     assert after == {"owners": set(), "batches": set(), "names": set()}
 
 
+@pytest.mark.parametrize("status", ["draft", "hidden", "suspended"])
+def test_unpublished_batch_listing_absent_under_published_owner(
+    owner_session: Session, restricted_session: Session, status: str
+) -> None:
+    """A batch listing that is not itself published is in no batch view.
+
+    The owner is published and a consented member teaches the batch, so
+    the batch listing's own status is the only thing keeping it out.
+
+    :param owner_session: An arranging session
+    :param restricted_session: A session as the application role
+    :param status: A batch listing status that is not public
+    :return: None
+    """
+    centre = centre_with_manager(owner_session)
+    member, _ = add_member(owner_session, centre.owner_id, consented=True)
+    assign_slot(owner_session, centre.batch_id, member)
+    _owner_listing(owner_session, centre.owner_id, slug="udoy-coaching")
+    _batch_listing(owner_session, centre.batch_id, centre.owner_id, status=status)
+
+    seen = _visible(restricted_session)
+
+    assert seen == {"owners": {str(centre.owner_id)}, "batches": set(), "names": set()}
+
+
 def test_inactive_batch_absent(
     owner_session: Session, restricted_session: Session
 ) -> None:
