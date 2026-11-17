@@ -17,7 +17,7 @@ from app.contract.privacy import (
     STAFF_PRIVATE_FIELDS,
     public_field_leaks,
 )
-from app.hub.public import registry
+from app.hub.public import registry, views
 from app.hub.public.registry import register_view, registered_views
 from app.main import create_app
 from tests.contract.fixtures.public_leak_app import (
@@ -63,6 +63,22 @@ def test_public_forbidden_set_is_the_spec_union() -> None:
             "self_name",
         }
     )
+
+
+def test_public_view_models_are_registered() -> None:
+    """Every top-level hub page model is walked by the gate.
+
+    Imported here rather than reached through the app, so the walk below
+    covers the models even before a route renders them.
+    """
+    assert {
+        views.HubOwnerCard,
+        views.HubBatchCard,
+        views.HubOwnerPage,
+        views.HubBatchPage,
+        views.HubSearchPage,
+        views.HubSitemap,
+    } <= set(registered_views())
 
 
 def test_real_app_has_no_public_leaks() -> None:
