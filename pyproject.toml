@@ -46,6 +46,11 @@ api = [
     # one autoescaping environment with StrictUndefined, so an unescaped
     # value or a misspelt variable is a failure rather than a blank.
     "jinja2==3.1.6",
+    # CloudFront invalidations for the public hub (app/hub/public/
+    # cloudfront.py): a takedown evicts the cached owner and batch pages.
+    # The only AWS call the application makes itself; it is imported by
+    # the request-scope drain and the cron command, never by a page.
+    "boto3==1.44.4",
 ]
 dev = [
     "pytest==9.2.0",

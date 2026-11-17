@@ -1,4 +1,12 @@
-"""A centre member's own consent to be named on the centre's public page."""
+"""A centre member's own consent to be named on the centre's public page.
+
+**Withdrawing evicts the centre's whole prefix** [Review Focus 5]. The name
+appears on every batch page the member teaches and on the centre's own page,
+whose batch cards carry the same names, so the owner prefix -- which covers
+the owner page and every batch page under it -- is enqueued rather than each
+batch path alone. Agreeing takes nothing down and evicts nothing: the name
+appears when the cached page expires.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +17,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import CentreMemberLens
+from app.hub.listings.evict import evict_owner
 
 __all__ = ["list_own_memberships", "set_public_name_consent"]
 
@@ -24,13 +33,29 @@ def set_public_name_consent(
     :param session: The session
     :param lens: The caller's lens on their own membership
     :param consent: True to agree, False to withdraw
-    :param now: The moment of agreement
+    :param now: The moment of agreement, or of the withdrawal
     :return: None
     """
+    held = session.execute(
+        sa.text(
+            "SELECT public_name_consent_at IS NOT NULL FROM owner_member "
+            "WHERE id = :id FOR UPDATE"
+        ),
+        {"id": lens.member_id},
+    ).scalar_one()
     session.execute(
         sa.text("UPDATE owner_member SET public_name_consent_at = :at WHERE id = :id"),
         {"at": now if consent else None, "id": lens.member_id},
     )
+    if held and not consent:
+        live = session.execute(
+            sa.text(
+                "SELECT slug FROM owner_listing "
+                "WHERE owner_id = :o AND status = 'published'"
+            ),
+            {"o": lens.owner_id},
+        ).scalar_one_or_none()
+        evict_owner(session, live, now)
     session.commit()
 
 

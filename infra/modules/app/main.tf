@@ -606,3 +606,24 @@ resource "aws_iam_role_policy" "self_registration" {
     ]
   })
 }
+
+# **Evicting taken-down hub pages from the site's edge cache** [0041].
+# One action on one distribution: a host able to invalidate every
+# distribution in the account could empty the web client's cache too.
+# CreateInvalidation supports no condition keys worth adding, so the
+# resource is the whole scope. Absent when no distribution is passed.
+resource "aws_iam_role_policy" "site_invalidation" {
+  count = var.site_distribution_arn == null ? 0 : 1
+
+  name = "site-invalidation"
+  role = aws_iam_role.instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["cloudfront:CreateInvalidation"]
+      Resource = var.site_distribution_arn
+    }]
+  })
+}

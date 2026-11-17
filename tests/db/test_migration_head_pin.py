@@ -61,11 +61,12 @@ VERSIONS: Final[pathlib.Path] = (
 #: -- once more, and ``0037`` -- contacts recorded and invited by email --
 #: again, and ``0038`` -- usernames and the hold ledger -- once more, and
 #: ``0039`` -- city corporations and metropolitan thanas -- again, and
-#: ``0040`` -- the public hub's views and search columns -- once more.
-EXPECTED_REVISIONS: Final[int] = 40
+#: ``0040`` -- the public hub's views and search columns -- once more, and
+#: ``0041`` -- the CloudFront invalidation outbox -- again.
+EXPECTED_REVISIONS: Final[int] = 41
 
-#: The head ``0040`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0040"
+#: The head ``0041`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0041"
 
 
 def _revision_files() -> list[pathlib.Path]:

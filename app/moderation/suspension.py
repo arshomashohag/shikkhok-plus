@@ -5,6 +5,9 @@ owner listing ``suspended``, hides every published batch listing of that owner
 so nothing of theirs stays public, tells the people who run the listing, and
 logs a closed-vocabulary event.
 
+**Suspending evicts the owner's pages from the edge** in the same transaction,
+so a cached page cannot outlive the suspension by its TTL [Review Focus 2].
+
 **Lifting it never republishes.** The owner listing returns to ``hidden`` and
 its batch listings stay hidden: the owner chooses to publish again, because a
 listing that was removed for cause should not reappear on an administrator's
@@ -28,6 +31,7 @@ from app.db.models import (
     OwnerMember,
 )
 from app.errors import ValidationError
+from app.hub.listings.evict import evict_owner
 from app.moderation.reports import admin_not_found
 from app.moderation.vocab import REASONS
 from app.notifications.inbox import HUB_LISTING_SUSPENDED, deliver
@@ -117,6 +121,7 @@ def set(
             )
             .values(status="hidden", updated_at=now)
         )
+        evict_owner(session, listing.slug, now)
         owner = session.get_one(Owner, owner_id)
         deliver(
             session,

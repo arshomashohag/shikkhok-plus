@@ -158,6 +158,10 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
         "A record that moderation acted on a hub listing or report; it holds "
         "no free text and names nobody"
     ),
+    "cdn_invalidation": (
+        "Addresses of public hub pages we asked our web cache to forget after "
+        "a page was taken down; they name nobody"
+    ),
     "staging_sms_outbox": "Test-only message records, never used in production",
     "owner": "The link between a class and the teacher who runs it",
     "batch": "A class a teacher runs",

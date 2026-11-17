@@ -710,6 +710,16 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "goes when that reader deletes their account."
         ),
     ),
+    "cdn_invalidation": TableGovernance(
+        disposition=Disposition.NOT_PERSONAL,
+        retention=RetentionClass.DAYS_7,
+        basis=(
+            "Paths on the public site that a takedown asked the edge cache "
+            "to forget, built only from public page addresses, with when "
+            "they were asked for and sent. About no person, and useless once "
+            "sent: the cache keeps a page for ten minutes at most."
+        ),
+    ),
     "hub_moderation_event": TableGovernance(
         disposition=Disposition.NOT_PERSONAL,
         retention=RetentionClass.MONTHS_12,

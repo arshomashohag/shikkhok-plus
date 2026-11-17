@@ -203,6 +203,7 @@ These records are about how the service itself is running, not about any person.
 |---|---|
 | A coaching centre's names for the places its classes meet | no time limit |
 | A record that moderation acted on a hub listing or report; it holds no free text and names nobody | 12 months |
+| Addresses of public hub pages we asked our web cache to forget after a page was taken down; they name nobody | 7 days |
 | Counters that limit sign-in attempts | 48 hours |
 | The fixed list of Bangladesh divisions, districts, upazilas, city corporations and metropolitan thanas | no time limit |
 | When our scheduled jobs last ran; it names nobody | no time limit |
@@ -213,7 +214,7 @@ These records are about how the service itself is running, not about any person.
 
 **A coaching centre's public listing stays with the centre.** If you are a manager of a coaching centre and delete your account, what the centre published on the public hub -- its own page and its class pages -- is kept, because it belongs to the centre and not to you, and the centre's other managers may still run it. Your own account is removed as described above. A solo teacher's public listing is not kept: it is deleted with their account.
 
-<!-- governance manifest digest: 1774adc3adaa29413116f16609462cbe4719dee00ab480232b5f48ec8160e1c9
+<!-- governance manifest digest: 7027a87e259f03e24c58b91df648971d551d15cbbee2164f8b4163394892f7ea
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

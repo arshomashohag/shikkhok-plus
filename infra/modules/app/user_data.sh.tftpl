@@ -682,6 +682,7 @@ install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-fee-generati
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-session-generation.log
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-retention-purge.log
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-badge-refresh.log
+install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-invalidation.log
 cat > /etc/cron.d/shikkhokplus-fee-generation <<'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -750,6 +751,22 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 30 2 * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.hub.listings.badge_commands refresh >> /var/log/shikkhokplus-hub-badge-refresh.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/shikkhokplus-hub-badge-refresh
+
+# **The ten-minute drain of the hub's edge-cache invalidations** [0041].
+# Every takedown enqueues the paths to evict in its own transaction and
+# the request drains them after commit, best-effort; this entry is the
+# backstop for a drain that failed or never ran, so a taken-down page
+# leaves the edge within ten minutes whatever happened to the request.
+# Not every minute: each run starts a container on a 2 GB host.
+echo "Installing the hub-invalidation-drain cron entry..." \
+  >> /var/log/shikkhokplus-provision.log
+cat > /etc/cron.d/shikkhokplus-hub-invalidation <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# min hour dom mon dow user command
+*/10 * * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.hub.public.commands drain >> /var/log/shikkhokplus-hub-invalidation.log 2>&1
+CRON
+chmod 0644 /etc/cron.d/shikkhokplus-hub-invalidation
 
 # **The freshness check is NOT a second cron entry** [§ 1.4].
 #

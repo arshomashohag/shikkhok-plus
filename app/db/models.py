@@ -59,6 +59,7 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     Numeric,
+    SmallInteger,
     String,
     Text,
     Time,
@@ -285,6 +286,13 @@ RETENTION_PURGE_JOB = "retention_purge"
 #: registering it here is what makes the freshness check expect it.
 HUB_BADGE_JOB = "hub_badge_refresh"
 
+#: H2's drain of the CloudFront invalidation outbox, ``cdn_invalidation``
+#: [0041]. Every takedown enqueues its paths in its own transaction and the
+#: request drains them after commit; this ten-minute job is the backstop for
+#: a drain that failed or never ran, so a job that stopped would leave taken
+#: down pages served from the edge cache past their TTL's promise.
+HUB_INVALIDATION_JOB = "hub_cdn_invalidation"
+
 #: Every job the host is expected to run [audit C-01]. The freshness check
 #: reports each of these even when it has no heartbeat row: enumerating
 #: rows alone protected only jobs that had already run once, and the
@@ -292,7 +300,13 @@ HUB_BADGE_JOB = "hub_badge_refresh"
 #: run, so it never had a row and never alerted. A job added later joins
 #: this set or the freshness check does not know to expect it.
 EXPECTED_JOBS: frozenset[str] = frozenset(
-    {FEE_GENERATION_JOB, SESSION_GENERATION_JOB, RETENTION_PURGE_JOB, HUB_BADGE_JOB}
+    {
+        FEE_GENERATION_JOB,
+        SESSION_GENERATION_JOB,
+        RETENTION_PURGE_JOB,
+        HUB_BADGE_JOB,
+        HUB_INVALIDATION_JOB,
+    }
 )
 
 #: A session's three states [FR3.3]. ``cancelled`` forbids attendance
@@ -390,6 +404,7 @@ __all__ = [
     "HELP_AUTHOR_VALUES",
     "HELP_TICKET_STATUS_VALUES",
     "HUB_BADGE_JOB",
+    "HUB_INVALIDATION_JOB",
     "HUB_SEARCH_NORM_FUNCTION",
     "HUB_TAGS_TEXT_FUNCTION",
     "LEDGER_KIND_VALUES",
@@ -4009,4 +4024,48 @@ class HubModerationEvent(Base):
         ),
         Index("ix_hub_moderation_event_at", "at"),
         Index("ix_hub_moderation_event_target", "target_kind", "target_id"),
+    )
+
+
+class CdnInvalidation(Base):
+    """One edge-cache path a takedown asked CloudFront to evict [0041].
+
+    Written in the takedown's own transaction, so a rolled-back takedown
+    leaves no row and a committed one cannot lose its row; sent after
+    commit by :func:`app.hub.public.invalidation.drain`. A path holds only
+    public slugs, never a name or an id.
+
+    :ivar id: Surrogate key
+    :ivar path: The CloudFront path, ``*`` allowed only as its last character
+    :ivar requested_at: When the takedown enqueued it
+    :ivar sent_at: When CloudFront accepted it; NULL while unsent
+    :ivar aws_id: CloudFront's invalidation id, once sent
+    :ivar attempts: Failed sends so far
+    """
+
+    __tablename__ = "cdn_invalidation"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    path: Mapped[str] = mapped_column(String(300), nullable=False)
+    requested_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    sent_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    aws_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    attempts: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, server_default=text("0")
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "left(path, 1) = '/' AND strpos(left(path, -1), '*') = 0",
+            name=conv("ck_cdn_invalidation_path"),
+        ),
+        Index(
+            "ix_cdn_invalidation_unsent",
+            "requested_at",
+            postgresql_where=text("sent_at IS NULL"),
+        ),
     )

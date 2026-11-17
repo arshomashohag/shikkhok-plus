@@ -13,21 +13,29 @@ depends on being atomic.
 **The middleware commits only a successful response** and rolls back
 every 4xx and 5xx, whether the error escaped as an exception or was
 already rendered by the taxonomy handler [PA-ARCH-1].
+
+**A request that enqueued edge-cache invalidations drains them after it
+commits**, once the response has been sent and in a session of its own
+(:func:`app.hub.public.cloudfront.drain_after_commit`). Nothing it does can
+reach the response; the ten-minute cron drain is the backstop.
 """
 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from functools import partial
 from typing import Any
 
 from fastapi import FastAPI, Request, Response
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from starlette.background import BackgroundTask, BackgroundTasks
 from starlette.concurrency import run_in_threadpool
 
 from app.config import check_startup_configuration
 from app.db.session import build_engine
 from app.errors import register_error_handler
+from app.hub.public import cloudfront, invalidation
 from app.logging_setup import configure_logging
 from app.request_scope import (
     CORRELATION_HEADER,
@@ -225,6 +233,8 @@ def _register_request_scope(app: FastAPI) -> None:
                         raise
                     rendered.headers[CORRELATION_HEADER] = correlation
                     return rendered
+                if invalidation.has_pending(session):
+                    _drain_after_response(response, _session_factory_for(app))
             else:
                 await run_in_threadpool(session.rollback)
             return response
@@ -240,6 +250,23 @@ def _register_request_scope(app: FastAPI) -> None:
             # request transaction, and commit or rollback discards it
             # wherever they run.
             await run_in_threadpool(session.close)
+
+
+def _drain_after_response(response: Response, factory: sessionmaker[Session]) -> None:
+    """Run the invalidation drain once the response has been sent.
+
+    Chained after any background work the response already carries, so
+    neither replaces the other.
+
+    :param response: The committed request's response
+    :param factory: The application's session factory
+    :return: None
+    """
+    drain = BackgroundTask(partial(cloudfront.drain_after_commit, factory))
+    if response.background is None:
+        response.background = drain
+    else:
+        response.background = BackgroundTasks([response.background, drain])
 
 
 def _session_factory_for(app: FastAPI) -> sessionmaker[Session]:

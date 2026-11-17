@@ -22,6 +22,7 @@ from app.errors import ConflictError, ValidationError
 from app.hub.listings.badge import runs_classes
 from app.hub.listings.checklist import owner_checklist
 from app.hub.listings.consent import HUB_CONSENT_VERSION
+from app.hub.listings.evict import evict_owner
 from app.hub.listings.shared import (
     SLUG,
     flush_slug_unique,
@@ -243,6 +244,10 @@ def update(
     The stored badge is what the public views show, so every save
     recomputes it from :func:`~app.hub.listings.badge.runs_classes`.
 
+    A published listing whose slug changes has its old pages evicted from
+    the edge in the same transaction: the old path now 404s, and the cache
+    would otherwise serve it until its TTL ends.
+
     :param session: The session
     :param lens: The owner's lens
     :param changes: The edits; ``None`` fields are left alone
@@ -253,6 +258,7 @@ def update(
     """
     listing = _load(session, lens)
     refuse_suspended(listing)
+    old_slug = listing.slug if listing.status == "published" else None
 
     refuse_phone_in((n, getattr(changes, n)) for n in (*_FREE_TEXT, "slug"))
 
@@ -297,7 +303,9 @@ def update(
         _require_complete(listing)
     flush_slug_unique(session, "uq_owner_listing_slug")
     # After the guarded flush, so the badge's read cannot autoflush a slug
-    # collision past the translation above.
+    # collision past the translation above; the eviction likewise.
+    if old_slug is not None and listing.slug != old_slug:
+        evict_owner(session, old_slug, listing.updated_at)
     listing.runs_classes = runs_classes(session, lens.owner_id, bangladesh_today())
     session.commit()
     return listing
@@ -356,7 +364,7 @@ def publish(
 
 
 def unpublish(session: Session, lens: TeacherLens, now: dt.datetime) -> OwnerListing:
-    """Hide a published listing; a draft stays a draft.
+    """Hide a published listing, evicting its pages; a draft stays a draft.
 
     :param session: The session
     :param lens: The owner's lens
@@ -369,5 +377,6 @@ def unpublish(session: Session, lens: TeacherLens, now: dt.datetime) -> OwnerLis
     if listing.status == "published":
         listing.status = "hidden"
         listing.updated_at = now
+        evict_owner(session, listing.slug, now)
         session.commit()
     return listing

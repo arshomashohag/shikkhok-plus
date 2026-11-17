@@ -66,6 +66,7 @@ from app.accounts.identifier import Channel, Identifier
 from app.accounts.usernames import place_hold
 from app.db.advisory import account_key, contact_key, lock_keys, username_key
 from app.governance.dispositions import DISPOSITIONS, Disposition
+from app.hub.public import invalidation
 from app.students.service import block_relinking
 from app.teaching.unassign import unassign_member
 
@@ -279,6 +280,14 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
         column="reporter_account_id",
         note="A complaint the account filed; nobody else has a claim on it.",
     ),
+    "cdn_invalidation": _Target(
+        scope=Scope.NOT_PERSONAL,
+        column=None,
+        note=(
+            "Edge-cache paths built from public slugs, sent and purged within "
+            "seven days. A deletion enqueues rows here rather than removing any."
+        ),
+    ),
     "hub_moderation_event": _Target(
         scope=Scope.NOT_PERSONAL,
         column=None,
@@ -346,6 +355,14 @@ _END_MEMBERSHIPS: Final = sa.text(
     "WHERE account_id = :account_id AND revoked_at IS NULL"
 )
 
+
+#: The slugs of the solo owners' listings that are public right now, read
+#: before the listings go so their pages can be evicted from the edge.
+_PUBLISHED_SOLO_SLUGS: Final = sa.text(
+    "SELECT l.slug FROM owner_listing l JOIN owner o ON o.id = l.owner_id "
+    "WHERE o.account_id = :account_id AND o.kind = 'teacher' "
+    "AND l.status = 'published' AND l.slug IS NOT NULL ORDER BY l.slug"
+)
 
 #: The live memberships whose future classes a deletion frees first.
 _LIVE_MEMBERSHIPS: Final = sa.text(
@@ -528,6 +545,12 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
         )
 
     # A solo teacher's publication. `owner` stays, so nothing cascades.
+    # Its cached pages are evicted in this transaction, so they go with
+    # the deletion or not at all.
+    for (slug,) in session.execute(_PUBLISHED_SOLO_SLUGS, {"account_id": account_id}):
+        invalidation.enqueue(
+            session, invalidation.owner_paths(slug), dt.datetime.now(tz=dt.UTC)
+        )
     for table, target in sorted(HARD_DELETE_SCOPES.items()):
         if target.scope is Scope.SOLO_OWNER:
             rows_deleted[table] = _delete_solo_owner_rows(

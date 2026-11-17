@@ -242,6 +242,10 @@ module "app" {
   permissions_boundary_arn = local.permissions_boundary_arn
   alarm_topic_arn          = aws_sns_topic.alerts.arn
 
+  # The one distribution this host may invalidate: a hub takedown evicts
+  # its cached pages [0041]. The rehearsal host below gets none.
+  site_distribution_arn = module.site.distribution_arn
+
   name_prefix    = local.name_prefix
   vpc_id         = module.network.vpc_id
   subnet_ids     = module.network.public_subnet_ids

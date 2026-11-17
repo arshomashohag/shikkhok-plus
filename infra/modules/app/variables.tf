@@ -150,3 +150,14 @@ variable "log_retention_days" {
   type        = number
   default     = 30
 }
+
+variable "site_distribution_arn" {
+  description = <<-EOT
+    The public site's CloudFront distribution, the one resource this
+    host's role may invalidate: a hub takedown evicts its cached pages
+    [0041]. Null grants nothing -- the rehearsal host has no site, and
+    must not evict the real one's pages.
+  EOT
+  type        = string
+  default     = null
+}

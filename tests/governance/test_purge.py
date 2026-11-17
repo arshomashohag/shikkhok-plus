@@ -279,9 +279,10 @@ def test_every_finite_retention_class_has_a_window(
     )
     # 9 since 0031 added `pending_signup`, a signup draft kept 48 hours;
     # 10 since 0036 added `hub_moderation_event`, kept twelve months;
-    # 11 since 0038 added `username_hold`, kept until its own expiry.
-    assert len(finite) == 11, (
-        f"the manifest now carries {len(finite)} finite windows, not 11."
+    # 11 since 0038 added `username_hold`, kept until its own expiry;
+    # 12 since 0041 added `cdn_invalidation`, kept seven days.
+    assert len(finite) == 12, (
+        f"the manifest now carries {len(finite)} finite windows, not 12."
     )
 
 
@@ -436,6 +437,14 @@ def _plant(
             ),
             shared | {"cid": row_id.hex},
         )
+    elif table == "cdn_invalidation":
+        session.execute(
+            sa.text(
+                "INSERT INTO cdn_invalidation (id, path, requested_at) "
+                "VALUES (:id, '/hub/sitemap.xml', :at)"
+            ),
+            shared,
+        )
     else:  # pragma: no cover - guarded by the assertion below
         raise AssertionError(
             f"{table} is purgeable but this file has no way to plant a "
@@ -453,6 +462,7 @@ def _plant(
         "created_at",
         "held_until",
         "at",
+        "requested_at",
     }, f"{table} is planted at an age column this helper does not set"
     return row_id
 
