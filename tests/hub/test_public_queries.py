@@ -322,6 +322,69 @@ def test_search_normalises_bangla_input(
         _search(restricted_session, q=q)
 
 
+def test_search_matches_bangla_digits_typed_either_way(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """A listing written with Bangla digits is found by Bangla or Latin digits.
+
+    The stored text is normalised as the query is, so the digit set the
+    owner typed and the one the reader types need not agree.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    owner_id, batch_id = _tutor(owner_session, "bangla-digits")
+    _batch_listing(
+        owner_session,
+        batch_id,
+        owner_id,
+        title="ক্লাস \u09e7\u09e6 গণিত",
+        subject_tags=("গণিত",),
+    )
+    _tutor(owner_session, "other-tutor", headline_en="Chemistry")
+
+    for q in ("ক্লাস \u09e7\u09e6", "ক্লাস 10", "\u09e7\u09e6", "10"):
+        assert _search(restricted_session, q=q) == ["bangla-digits"], q
+
+
+def test_search_matches_precomposed_and_decomposed_bangla(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """ড় and য় match whether the owner or the reader typed them precomposed.
+
+    U+09DC (ড়) and U+09DF (য়) are NFC composition exclusions: NFC splits
+    each into a base letter and a nukta. Both sides are normalised, so all
+    four pairings match.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    precomposed_read = "প\u09dcাই"  # পড়াই with U+09DC
+    decomposed_read = "প\u09a1\u09bcাই"  # the same word, base plus nukta
+    precomposed_dhaka = "ঢাকা\u09df"  # ঢাকায় with U+09DF
+    decomposed_dhaka = "ঢাকা\u09af\u09bc"
+    _tutor(
+        owner_session,
+        "typed-precomposed",
+        headline_bn=f"{precomposed_dhaka} {precomposed_read}",
+    )
+    owner_id, batch_id = _tutor(owner_session, "typed-decomposed", headline_bn=None)
+    _batch_listing(
+        owner_session,
+        batch_id,
+        owner_id,
+        title=f"{decomposed_dhaka} {decomposed_read}",
+    )
+
+    for q in (precomposed_read, decomposed_read, precomposed_dhaka, decomposed_dhaka):
+        assert set(_search(restricted_session, q=q)) == {
+            "typed-precomposed",
+            "typed-decomposed",
+        }, ascii(q)
+
+
 def test_search_filters_district_city_corporation_and_level(
     owner_session: Session, restricted_session: Session
 ) -> None:

@@ -16,7 +16,8 @@ from alembic import command
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from app.db.models import HUB_TAGS_TEXT_FUNCTION
+from app.db.models import HUB_SEARCH_NORM_FUNCTION, HUB_TAGS_TEXT_FUNCTION
+from app.hub.public.normalise import query_terms
 from tests.batches.conftest import make_teacher
 from tests.db.migration_support import _alembic_config, stage_at
 
@@ -147,22 +148,48 @@ def test_batch_search_text_has_a_gin_index(owner_session: Session) -> None:
     }
 
 
-def test_tags_function_matches_the_models_and_is_immutable(
-    owner_session: Session,
+@pytest.mark.parametrize(
+    ("name", "definition"),
+    [
+        ("hub_tags_text", HUB_TAGS_TEXT_FUNCTION),
+        ("hub_search_norm", HUB_SEARCH_NORM_FUNCTION),
+    ],
+)
+def test_search_functions_match_the_models_and_are_immutable(
+    owner_session: Session, name: str, definition: str
 ) -> None:
-    """The migrated wrapper is the one the models describe, and immutable.
+    """Each migrated function is the one the models describe, and immutable.
+
+    :param owner_session: An arranging session
+    :param name: The function
+    :param definition: The models' ``CREATE FUNCTION`` for it
+    :return: None
+    """
+    row = owner_session.execute(
+        sa.text("SELECT prosrc, provolatile FROM pg_proc WHERE proname = :n"),
+        {"n": name},
+    ).one()
+
+    assert row.provolatile == "i"
+    assert "AS $$" + row.prosrc + "$$" in definition
+
+
+def test_search_norm_matches_the_query_normaliser(owner_session: Session) -> None:
+    """The stored-side normaliser agrees with ``query_terms`` term for term.
 
     :param owner_session: An arranging session
     :return: None
     """
-    row = owner_session.execute(
+    typed = "\u200bক্লাস \u09e7\u09e6 প\u09dcাই ঢাকা\u09df মিরপুর\u200d Physics e\u0301"
+    stored = owner_session.execute(
         sa.text(
-            "SELECT prosrc, provolatile FROM pg_proc WHERE proname = 'hub_tags_text'"
-        )
-    ).one()
+            "SELECT array_agg(lexeme ORDER BY lexeme) FROM "
+            "unnest(to_tsvector('simple', hub_search_norm(:t)))"
+        ),
+        {"t": typed},
+    ).scalar_one()
 
-    assert row.provolatile == "i"
-    assert "AS $$" + row.prosrc + "$$" in HUB_TAGS_TEXT_FUNCTION
+    assert stored == sorted(query_terms(typed))
 
 
 @pytest.fixture

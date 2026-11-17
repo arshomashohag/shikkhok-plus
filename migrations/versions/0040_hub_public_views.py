@@ -62,12 +62,30 @@ OLD_OWNER_SEARCH: Final[str] = (
     "coalesce(headline_en, '') || ' ' || coalesce(headline_bn, ''))"
 )
 
+#: The text normaliser both vectors apply, as the query side does.
+NORM_FUNCTION: Final[str] = "hub_search_norm"
+
+#: Its definition: strip zero-width characters, NFC, Bangla digits to Latin.
+#: The same steps, in the same order, as
+#: ``app.hub.public.normalise.query_terms`` applies to a query, so a word
+#: indexed here and the same word typed into the search box agree whatever
+#: digit set or composition either side used. Escapes, not literal
+#: characters, so the invisible ones stay visible in review.
+NORM_DEFINITION: Final[str] = (
+    f"CREATE FUNCTION {NORM_FUNCTION}(t text) RETURNS text "
+    "LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE "
+    "AS $$ SELECT translate(normalize(translate(t, "
+    "E'\\u200B\\u200C\\u200D\\uFEFF', ''), NFC), "
+    "E'\\u09E6\\u09E7\\u09E8\\u09E9\\u09EA\\u09EB\\u09EC\\u09ED\\u09EE"
+    "\\u09EF', '0123456789') $$"
+)
+
 #: The owner vector: both names, both headlines and the qualifications.
 OWNER_SEARCH: Final[str] = (
-    "to_tsvector('simple', coalesce(public_name, '') || ' ' || "
+    f"to_tsvector('simple', {NORM_FUNCTION}(coalesce(public_name, '') || ' ' || "
     "coalesce(public_name_latin, '') || ' ' || "
     "coalesce(headline_en, '') || ' ' || coalesce(headline_bn, '') || ' ' || "
-    "coalesce(qualifications, ''))"
+    "coalesce(qualifications, '')))"
 )
 
 #: ``array_to_string`` for ``varchar[]`` only, so it may be immutable.
@@ -75,9 +93,9 @@ TAGS_FUNCTION: Final[str] = "hub_tags_text"
 
 #: The batch vector: the public title, both descriptions and the tags.
 BATCH_SEARCH: Final[str] = (
-    "to_tsvector('simple', coalesce(public_title, '') || ' ' || "
+    f"to_tsvector('simple', {NORM_FUNCTION}(coalesce(public_title, '') || ' ' || "
     "coalesce(description_en, '') || ' ' || coalesce(description_bn, '') || "
-    f"' ' || {TAGS_FUNCTION}(subject_tags))"
+    f"' ' || {TAGS_FUNCTION}(subject_tags)))"
 )
 
 #: Each view's body, in creation order.
@@ -159,6 +177,7 @@ def upgrade() -> None:
             server_default=sa.text("false"),
         ),
     )
+    op.execute(sa.text(NORM_DEFINITION))
     _replace_owner_search(OWNER_SEARCH)
     op.execute(
         sa.text(
@@ -245,5 +264,6 @@ def downgrade() -> None:
     op.drop_column("batch_listing", "search_text")
     op.execute(sa.text(f"DROP FUNCTION {TAGS_FUNCTION}(varchar[])"))
     _replace_owner_search(OLD_OWNER_SEARCH)
+    op.execute(sa.text(f"DROP FUNCTION {NORM_FUNCTION}(text)"))
     op.drop_column("owner_listing", "runs_classes")
     op.drop_column("owner_listing", "public_name_latin")

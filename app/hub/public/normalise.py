@@ -7,6 +7,12 @@ letters, combining marks and digits, so it can be handed to
 ``to_tsquery`` as a prefix without any character the query syntax reads
 as an operator -- which is what keeps a stray ``&``, ``'`` or ``:`` from
 becoming a database error and a 500 [Review Focus 3].
+
+The stored side is normalised the same way: both listing search vectors
+pass their text through ``hub_search_norm`` (``0040``), which strips the
+same zero-width characters, applies NFC and maps Bangla digits, in this
+order. Change one and the other must follow;
+``tests/db/test_migration_0040.py`` compares them.
 """
 
 from __future__ import annotations

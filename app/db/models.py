@@ -390,6 +390,7 @@ __all__ = [
     "HELP_AUTHOR_VALUES",
     "HELP_TICKET_STATUS_VALUES",
     "HUB_BADGE_JOB",
+    "HUB_SEARCH_NORM_FUNCTION",
     "HUB_TAGS_TEXT_FUNCTION",
     "LEDGER_KIND_VALUES",
     "MEMBER_ROLE_VALUES",
@@ -3730,10 +3731,10 @@ class OwnerListing(Base):
     search_text: Mapped[str | None] = mapped_column(
         TSVECTOR,
         Computed(
-            "to_tsvector('simple', coalesce(public_name, '') || ' ' || "
-            "coalesce(public_name_latin, '') || ' ' || "
+            "to_tsvector('simple', hub_search_norm(coalesce(public_name, '') "
+            "|| ' ' || coalesce(public_name_latin, '') || ' ' || "
             "coalesce(headline_en, '') || ' ' || coalesce(headline_bn, '') || "
-            "' ' || coalesce(qualifications, ''))",
+            "' ' || coalesce(qualifications, '')))",
             persisted=True,
         ),
     )
@@ -3777,6 +3778,21 @@ HUB_TAGS_TEXT_FUNCTION = (
     "CREATE FUNCTION hub_tags_text(tags varchar[]) RETURNS text "
     "LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE "
     "AS $$ SELECT array_to_string(tags, ' ') $$"
+)
+
+
+#: The normaliser both listing search vectors apply [0040]: strip zero-width
+#: characters, NFC, Bangla digits to Latin -- the steps
+#: ``app.hub.public.normalise.query_terms`` applies to a query, in the same
+#: order, so stored and typed text agree whatever digit set or composition
+#: either side used. ``0040`` creates it; ``create_all`` needs it first.
+HUB_SEARCH_NORM_FUNCTION = (
+    "CREATE FUNCTION hub_search_norm(t text) RETURNS text "
+    "LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE "
+    "AS $$ SELECT translate(normalize(translate(t, "
+    "E'\\u200B\\u200C\\u200D\\uFEFF', ''), NFC), "
+    "E'\\u09E6\\u09E7\\u09E8\\u09E9\\u09EA\\u09EB\\u09EC\\u09ED\\u09EE"
+    "\\u09EF', '0123456789') $$"
 )
 
 
@@ -3837,9 +3853,9 @@ class BatchListing(Base):
     search_text: Mapped[str | None] = mapped_column(
         TSVECTOR,
         Computed(
-            "to_tsvector('simple', coalesce(public_title, '') || ' ' || "
-            "coalesce(description_en, '') || ' ' || coalesce(description_bn, '') "
-            "|| ' ' || hub_tags_text(subject_tags))",
+            "to_tsvector('simple', hub_search_norm(coalesce(public_title, '') "
+            "|| ' ' || coalesce(description_en, '') || ' ' || "
+            "coalesce(description_bn, '') || ' ' || hub_tags_text(subject_tags)))",
             persisted=True,
         ),
     )

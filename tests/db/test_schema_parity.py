@@ -54,7 +54,7 @@ from sqlalchemy.engine import Engine
 
 from app.db import models as _models  # noqa: F401  registers the tables
 from app.db.base import NAMING_CONVENTION, Base
-from app.db.models import HUB_TAGS_TEXT_FUNCTION
+from app.db.models import HUB_SEARCH_NORM_FUNCTION, HUB_TAGS_TEXT_FUNCTION
 from app.db.schema_compare import COMPARE_OPTIONS
 from tests.db.migration_support import stage_at
 
@@ -126,8 +126,8 @@ def _built_from(postgres_url: str, metadata: sa.MetaData) -> Iterator[Engine]:
 
     The models declare every enum ``create_type=False``, because the
     migrations own the types' lifecycle; so each is created here first,
-    from the labels the models spell. Likewise ``hub_tags_text``, which a
-    generated column calls and ``0040`` creates.
+    from the labels the models spell. Likewise ``hub_tags_text`` and
+    ``hub_search_norm``, which generated columns call and ``0040`` creates.
 
     :param postgres_url: The owner connection URL of the container
     :param metadata: The metadata to build
@@ -150,7 +150,8 @@ def _built_from(postgres_url: str, metadata: sa.MetaData) -> Iterator[Engine]:
             }
             for enum in enums.values():
                 enum.create(connection, checkfirst=False)
-            # A function a generated column calls; the migration owns it.
+            # Functions generated columns call; the migration owns them.
+            connection.execute(sa.text(HUB_SEARCH_NORM_FUNCTION))
             connection.execute(sa.text(HUB_TAGS_TEXT_FUNCTION))
             metadata.create_all(connection)
         yield engine
