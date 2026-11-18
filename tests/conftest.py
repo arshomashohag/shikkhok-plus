@@ -323,3 +323,20 @@ def bearer(session: Session, account_id: uuid.UUID) -> dict[str, str]:
     """
     pair = issue_pair(session, account_id=account_id, correlation_id=uuid.uuid4())
     return {"Authorization": f"Bearer {pair.access_token}"}
+
+
+@pytest.fixture
+def reviews_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Switch hub reviews on for one test.
+
+    Reviews are off by default, so every test exercising a gated route
+    asks for this. Defined here, not per directory, because the gated
+    routes are reached from ``tests/hub``, ``tests/governance``,
+    ``tests/admin`` and ``tests/moderation`` alike.
+
+    :param monkeypatch: Restores the environment after the test
+    :return: None
+    """
+    from app.hub.public.settings import HUB_REVIEWS_ENV
+
+    monkeypatch.setenv(HUB_REVIEWS_ENV, "on")

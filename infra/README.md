@@ -390,6 +390,27 @@ on that one role. Without it the infrastructure job stops at
    stop answering. The deploy smoke only proves that unapproved paths are
    refused.
 
+## Switching reviews on
+
+Hub reviews are **off** until someone turns them on, in every
+environment. The switch is the SSM parameter
+`/shikkhokplus/shikkhokplus-<env>/hub-reviews`, a plain `String` holding
+exactly `on` or `off`. Terraform creates it `off` and ignores its value
+afterwards, so an apply never changes it.
+
+1. Re-apply `bootstrap/` once so the deploy role may read `hub-reviews`.
+   Without it the release stops at "Cannot read the hub reviews switch",
+   having changed nothing.
+2. `aws ssm put-parameter --name /shikkhokplus/shikkhokplus-<env>/hub-reviews --type String --value on --overwrite`
+3. Run the deploy. The release validates the value (`on` or `off`, nothing
+   else), writes `SHIKKHOKPLUS_HUB_REVIEWS` into the runtime env, and the
+   application reads it at each call.
+
+To switch off, write `off` and deploy again. Switching off hides every
+review surface but never blocks a deletion.
+
+The full pre-switch checklist is completed by the last H4 task.
+
 ## Reading the outputs
 
 The apply job writes `api_url`, `app_static_ip` and

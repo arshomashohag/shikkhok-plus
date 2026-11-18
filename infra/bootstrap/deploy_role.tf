@@ -222,6 +222,7 @@ resource "aws_iam_role_policy" "deploy" {
             "email-from", "ses-configuration-set", "ses-smtp-host",
             "android-cert-sha256",
             "media-bucket", "media-bucket-domain",
+            "hub-reviews",
           ] :
           "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/shikkhokplus-${each.key}/${name}"
         ]

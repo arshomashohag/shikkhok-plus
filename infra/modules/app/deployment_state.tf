@@ -147,3 +147,20 @@ resource "aws_s3_object" "compose" {
 
   content_type = "text/yaml"
 }
+
+# **The hub reviews switch.** `on` or `off`, read by the deploy workflow and
+# written into the runtime env. Terraform creates it `off` and then ignores its
+# value forever, so an apply can never switch reviews on or off: an operator
+# changes it deliberately (`aws ssm put-parameter --overwrite`) and the next
+# deploy carries it to the host. See infra/README.md "Switching reviews on".
+resource "aws_ssm_parameter" "hub_reviews" {
+  name  = "/shikkhokplus/${var.name_prefix}/hub-reviews"
+  type  = "String"
+  value = "off"
+
+  description = "Hub reviews switch: on or off. Read by the deploy, never set by an apply."
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}

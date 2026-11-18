@@ -1110,6 +1110,18 @@ jobs:
             exit 1
           fi
           MEDIA_REGION="${BASH_REMATCH[1]}"
+          # **The hub reviews switch** (infra/modules/app), on web-url's
+          # terms: it is exactly `on` or `off`. Anything else, or an
+          # unreadable parameter, STOPS the release rather than guessing a
+          # value for a feature that publishes children's reviews.
+          HUB_REVIEWS=$(ses_param hub-reviews) || true
+          if ! [[ "$HUB_REVIEWS" =~ ^(on|off)$ ]]; then
+            echo "::error::Cannot read the hub reviews switch from SSM as hub-reviews: on or off (got '${HUB_REVIEWS}')."
+            echo "Either the infrastructure job has not applied infra/modules/app,"
+            echo "or the deploy role predates it: re-apply infra/bootstrap once,"
+            echo "from a laptop. Nothing has been recorded or rolled."
+            exit 1
+          fi
           echo "media_origin=https://${MEDIA_DOMAIN}" >> "$GITHUB_OUTPUT"
           if ! [[ "$DAILY_EMAIL" =~ ^[0-9]+$ ]]; then
             echo "::error::Variable SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL must be a whole number."
@@ -1189,6 +1201,8 @@ jobs:
             # minutes (infra/modules/app/user_data.sh.tftpl).
             echo "SHIKKHOKPLUS_MEDIA_BUCKET=${MEDIA_BUCKET}"
             echo "AWS_REGION=${MEDIA_REGION}"
+            # The reviews switch, validated above.
+            echo "SHIKKHOKPLUS_HUB_REVIEWS=${HUB_REVIEWS}"
           } > runtime.env
 
           aws ssm put-parameter \

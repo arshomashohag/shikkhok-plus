@@ -151,6 +151,7 @@
   "hub.report_ceiling": "hub_report_ceiling",
   "hub.report_reason_invalid": "hub_report_reason_invalid",
   "hub.report_target_not_found": "hub_report_target_not_found",
+  "hub.review.off": "hub_review_off",
   "hub.slug_invalid": "hub_slug_invalid",
   "hub.slug_taken": "hub_slug_taken",
   "hub.text_contains_contact": "hub_text_contains_contact",

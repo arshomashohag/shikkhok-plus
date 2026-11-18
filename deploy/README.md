@@ -109,6 +109,7 @@ GitHub environment's secrets and variables.
 | `SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL` | variable, default `1000` | the daily send ceiling; the same variable prices email in the plan's budget guard |
 | `SHIKKHOKPLUS_SITE_URL` | SSM `site-url` | the public site's origin: the code email's website link, and the public hub's canonical, `hreflang` and sitemap links. Unreadable, the release warns and writes it empty; the hub smoke then fails on the canonical link |
 | `SHIKKHOKPLUS_WEB_APP_URL` | SSM `web-url`, less its `/ui/` | the web app's origin: every public hub page's report link opens `{origin}/ui/hub-report`. The release stops before writing anything if it is unreadable or not `https://<host>/ui/` |
+| `SHIKKHOKPLUS_HUB_REVIEWS` | SSM `hub-reviews` (Terraform creates it `off`, never changes it) | the hub reviews switch, `on` or `off`; anything else is off in the application, and the release stops before writing anything if the parameter is unreadable or neither word |
 | `SHIKKHOKPLUS_DATABASE_URL` | SSM `database-url`, by the boot script | the `shikkhok_app` role |
 | `SHIKKHOKPLUS_MIGRATION_DATABASE_URL`, `SHIKKHOKPLUS_APP_DB_PASSWORD` | SSM, by the boot script | `migrate` service only, never written to `.env` |
 | `API_IMAGE` | the image tag in SSM | a commit SHA, never `latest` |

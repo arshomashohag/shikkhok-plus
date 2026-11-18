@@ -134,6 +134,7 @@
     "hub.report_ceiling",
     "hub.report_reason_invalid",
     "hub.report_target_not_found",
+    "hub.review.off",
     "hub.slug_invalid",
     "hub.slug_taken",
     "hub.text_contains_contact",

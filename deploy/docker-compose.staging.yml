@@ -82,6 +82,9 @@ x-app-environment: &app-environment
   # public hub's canonical, hreflang and sitemap links. Empty leaves the
   # email link out; it never stops a code being sent.
   SHIKKHOKPLUS_SITE_URL: ${SHIKKHOKPLUS_SITE_URL:-}
+  # The hub reviews switch, written by the deploy from SSM `hub-reviews`.
+  # Off unless exactly "on"; the application reads it at each call.
+  SHIKKHOKPLUS_HUB_REVIEWS: ${SHIKKHOKPLUS_HUB_REVIEWS:-off}
   # The web app's origin: each public hub page's "Report this page" link
   # opens {origin}/ui/hub-report. The deploy refuses to record a release
   # without it.

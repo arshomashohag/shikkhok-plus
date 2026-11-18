@@ -1350,6 +1350,7 @@ _RECORD_PARAMS = {
     "media-bucket-domain": (
         "shikkhokplus-staging-media-123456789012.s3.us-east-1.amazonaws.com"
     ),
+    "hub-reviews": "off",
 }
 
 
@@ -1680,3 +1681,23 @@ def test_the_sanitiser_ships_after_infrastructure_and_before_release() -> None:
     assert build < credentials < ship
     assert "AWS_DEPLOY_ROLE_ARN" in str(steps[credentials]["with"])
     assert not steps[ship].get("continue-on-error")
+
+
+@pytest.mark.parametrize("value", ["on", "off"])
+def test_deploy_writes_the_reviews_switch(tmp_path: pathlib.Path, value: str) -> None:
+    finished, _, runtime = _run_record_step(tmp_path, **{"hub-reviews": value})
+
+    assert finished.returncode == 0, finished.stdout + finished.stderr
+    assert runtime["SHIKKHOKPLUS_HUB_REVIEWS"] == value
+
+
+@pytest.mark.parametrize("value", ["ON", "true", "1", "", "yes", "on off", None])
+def test_deploy_validates_switch_value_and_writes_it(
+    tmp_path: pathlib.Path, value: str | None
+) -> None:
+    finished, log, runtime = _run_record_step(tmp_path, **{"hub-reviews": value})
+
+    assert finished.returncode != 0
+    assert "Nothing has been recorded or rolled" in finished.stdout
+    assert runtime == {}
+    assert not any("put-parameter" in line for line in log)

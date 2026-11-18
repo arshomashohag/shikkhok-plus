@@ -1950,6 +1950,7 @@
     <string name="hub_address_centre_only">Only coaching centres can show a street address.</string>
     <string name="hub_batch_flags_required">Say whether to show the fee and the schedule publicly before saving this listing.</string>
     <string name="hub_write_ceiling">You have changed your listing a lot today. Try again tomorrow.</string>
+    <string name="hub_review_off">Reviews are not available right now.</string>
     <string name="hub_report_target_not_found">This listing can no longer be reported.</string>
     <string name="hub_report_already_filed">You\'ve already reported this.</string>
     <string name="hub_report_ceiling">You have sent a lot of reports today. Try again tomorrow.</string>

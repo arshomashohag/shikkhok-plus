@@ -83,6 +83,7 @@ object MessageKeys {
         "hub.address_centre_only" to R.string.hub_address_centre_only,
         "hub.write_ceiling" to R.string.hub_write_ceiling,
         "hub.report_target_not_found" to R.string.hub_report_target_not_found,
+        "hub.review.off" to R.string.hub_review_off,
         "hub.report_already_filed" to R.string.hub_report_already_filed,
         "hub.report_ceiling" to R.string.hub_report_ceiling,
         "hub.report_already_decided" to R.string.hub_report_already_decided,

@@ -1883,6 +1883,7 @@
     <string name="hub_address_centre_only">শুধু কোচিং সেন্টার রাস্তার ঠিকানা দেখাতে পারে।</string>
     <string name="hub_batch_flags_required">এই তালিকা সংরক্ষণের আগে ফি এবং সময়সূচি জনসাধারণের জন্য দেখানো হবে কি না জানান।</string>
     <string name="hub_write_ceiling">আজ আপনি তালিকায় অনেকবার পরিবর্তন করেছেন। কাল আবার চেষ্টা করুন।</string>
+    <string name="hub_review_off">রিভিউ এখন পাওয়া যাচ্ছে না।</string>
     <string name="hub_report_target_not_found">এই তালিকাটি আর রিপোর্ট করা যাবে না।</string>
     <string name="hub_report_already_filed">আপনি এটি আগেই রিপোর্ট করেছেন।</string>
     <string name="hub_report_ceiling">আজ আপনি অনেকগুলো রিপোর্ট পাঠিয়েছেন। কাল আবার চেষ্টা করুন।</string>
