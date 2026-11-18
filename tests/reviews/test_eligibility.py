@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.reviews.eligibility import Assessment, assess, reviewable
 from tests.batches.conftest import enroll
+from tests.hub.support import add_member, assign_slot
 from tests.reviews.support import (
     account,
     add_review,
@@ -27,6 +28,7 @@ from tests.reviews.support import (
     guardian_seat,
     hold_classes,
     public_batch,
+    public_centre_batch,
     second_batch,
 )
 
@@ -329,6 +331,123 @@ def test_invisible_batch_is_not_member(
     assert assess(restricted_session, guardian, batch.batch_id, TODAY) is None
 
 
+# --- Nobody who runs the batch reviews it [T3-c] ---------------------------
+
+
+@pytest.mark.parametrize("runner", ["solo-owner", "centre-manager"])
+def test_owner_or_manager_of_the_batch_is_not_member(
+    owner_session: Session, restricted_session: Session, runner: str
+) -> None:
+    """A teacher seating their own child, however eligible, is no reviewer.
+
+    The owner controls ``joined_on`` and marks the attendance, so without
+    this a teacher is a "verified guardian" of their own batch on day one.
+    """
+    if runner == "solo-owner":
+        batch = public_batch(owner_session)
+    else:
+        batch = public_centre_batch(owner_session)
+    _seat(owner_session, batch.batch_id, batch.teacher_account_id)
+
+    assert (
+        assess(restricted_session, batch.teacher_account_id, batch.batch_id, TODAY)
+        is None
+    )
+
+
+@pytest.mark.parametrize("assigned_by", ["weekly-slot", "one-class"])
+def test_class_teacher_of_the_batch_is_not_member(
+    owner_session: Session, restricted_session: Session, assigned_by: str
+) -> None:
+    batch = public_centre_batch(owner_session)
+    member_id, teacher = add_member(owner_session, batch.owner_id)
+    if assigned_by == "weekly-slot":
+        assign_slot(owner_session, batch.batch_id, member_id)
+    else:
+        (klass,) = hold_classes(owner_session, batch.batch_id, 1)
+        owner_session.execute(
+            sa.text("UPDATE session SET teacher_member_id = :m WHERE id = :s"),
+            {"m": member_id, "s": klass},
+        )
+        owner_session.commit()
+    _seat(owner_session, batch.batch_id, teacher)
+
+    assert assess(restricted_session, teacher, batch.batch_id, TODAY) is None
+
+
+@pytest.mark.parametrize(
+    ("member", "assigned"),
+    [
+        ({"role": "manager", "revoked": True}, None),
+        ({"role": "manager", "decision": "declined"}, None),
+        ({"role": "teacher", "revoked": True}, "slot-here"),
+        ({"role": "teacher", "decision": "declined"}, "slot-here"),
+        ({"role": "teacher"}, "slot-elsewhere"),
+        ({"role": "teacher"}, "class-elsewhere"),
+        ({"role": "teacher"}, "colleague-here"),
+    ],
+    ids=[
+        "revoked-manager",
+        "declined-manager",
+        "revoked-teacher",
+        "declined-teacher",
+        "slot-in-another-batch",
+        "class-in-another-batch",
+        "colleague-assigned-here",
+    ],
+)
+def test_former_or_unassigned_staff_may_review(
+    owner_session: Session,
+    restricted_session: Session,
+    member: dict[str, object],
+    assigned: str | None,
+) -> None:
+    """Only those running THIS batch now are excluded, as managing_accounts.
+
+    A former or declined manager or teacher, a teacher of another batch of
+    the centre, and a member whose colleague teaches this batch all review
+    like any other guardian.
+    """
+    batch = public_centre_batch(owner_session)
+    member_id, guardian = add_member(owner_session, batch.owner_id, **member)
+    other = second_batch(owner_session, batch.owner_id, title="Class 10 Maths")
+    if assigned == "slot-here":
+        assign_slot(owner_session, batch.batch_id, member_id)
+    elif assigned == "slot-elsewhere":
+        assign_slot(owner_session, other, member_id)
+    elif assigned == "class-elsewhere":
+        (klass,) = hold_classes(owner_session, other, 1)
+        owner_session.execute(
+            sa.text("UPDATE session SET teacher_member_id = :m WHERE id = :s"),
+            {"m": member_id, "s": klass},
+        )
+        owner_session.commit()
+    elif assigned == "colleague-here":
+        colleague, _ = add_member(owner_session, batch.owner_id, name="Salma Apa")
+        assign_slot(owner_session, batch.batch_id, colleague)
+    _seat(owner_session, batch.batch_id, guardian)
+
+    assert _assess(restricted_session, guardian, batch.batch_id).standing == (
+        "eligible"
+    )
+
+
+def test_staff_who_wrote_a_review_keeps_only_an_author_lens(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """Becoming a manager leaves an earlier review deletable, never writable."""
+    batch = public_centre_batch(owner_session)
+    guardian = account(owner_session)
+    seat = _seat(owner_session, batch.batch_id, guardian)
+    review = add_review(owner_session, batch.batch_id, guardian, enrollment_id=seat)
+    add_member(owner_session, batch.owner_id, role="manager", account_id=guardian)
+
+    found = _assess(restricted_session, guardian, batch.batch_id)
+
+    assert found.standing == "author_only"
+    assert found.review_id == review
+
+
 # --- Several seats, and authors --------------------------------------------
 
 
@@ -382,6 +501,67 @@ def test_closed_sibling_does_not_mask_a_live_one(
 
     assert found.standing == "not_yet"
     assert found.enrollment_id == newer
+    assert found.eligible_from == joined + _days(30)
+
+
+def test_waiting_siblings_prefer_the_seat_waiting_only_on_tenure(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """T3-d: a seat lacking only tenure has a real date; it is shown.
+
+    The earliest seat has tenure but too few classes, and would answer
+    "needs attendance" with no date while a sibling opens on a known day.
+    """
+    batch = public_batch(owner_session)
+    guardian = account(owner_session)
+    _seat(
+        owner_session,
+        batch.batch_id,
+        guardian,
+        joined_on=TODAY - _days(100),
+        attended=2,
+    )
+    # Dated too, but waiting on attendance as well: not a real day.
+    _seat(
+        owner_session,
+        batch.batch_id,
+        guardian,
+        joined_on=TODAY - _days(20),
+        attended=1,
+    )
+    joined = TODAY - _days(10)
+    waiting = _seat(
+        owner_session, batch.batch_id, guardian, joined_on=joined, attended=5
+    )
+
+    found = _assess(restricted_session, guardian, batch.batch_id)
+
+    assert found.standing == "not_yet"
+    assert found.enrollment_id == waiting
+    assert found.waiting_on == "tenure"
+    assert found.eligible_from == joined + _days(30)
+
+
+def test_waiting_siblings_never_hide_a_known_date(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """T3-d: a dated seat beats an earlier undated one."""
+    batch = public_batch(owner_session)
+    guardian = account(owner_session)
+    _seat(
+        owner_session,
+        batch.batch_id,
+        guardian,
+        joined_on=TODAY - _days(100),
+        attended=2,
+    )
+    joined = TODAY - _days(20)
+    dated = _seat(owner_session, batch.batch_id, guardian, joined_on=joined, attended=1)
+
+    found = _assess(restricted_session, guardian, batch.batch_id)
+
+    assert found.enrollment_id == dated
+    assert found.waiting_on == "attendance"
     assert found.eligible_from == joined + _days(30)
 
 

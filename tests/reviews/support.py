@@ -32,6 +32,7 @@ from app.db.models import (
 from app.db.models import Session as ClassSession
 from app.money import Money
 from tests.batches.conftest import enroll, make_teacher
+from tests.hub.support import centre_with_manager
 
 __all__ = [
     "PublicBatch",
@@ -41,6 +42,7 @@ __all__ = [
     "guardian_seat",
     "hold_classes",
     "public_batch",
+    "public_centre_batch",
     "second_batch",
 ]
 
@@ -154,6 +156,36 @@ def public_batch(
         )
         session.commit()
     return PublicBatch(teacher.owner_id, teacher.account_id, teacher.batch_id)
+
+
+def public_centre_batch(
+    session: Session, *, title: str = "Class 9 Maths"
+) -> PublicBatch:
+    """Arrange a coaching centre's batch with both listings published.
+
+    ``teacher_account_id`` is the centre's manager; a centre owner row
+    names no account.
+
+    :param session: An arranging session
+    :param title: The batch listing's public title
+    :return: The ids
+    """
+    centre = centre_with_manager(session)
+    session.add(
+        OwnerListing(
+            owner_id=centre.owner_id,
+            slug=f"s-{uuid.uuid4().hex[:12]}",
+            status="published",
+            public_name="Udoy Coaching",
+            headline_en="Coaching for SSC",
+            published_at=dt.datetime.now(tz=dt.UTC),
+        )
+    )
+    session.commit()
+    _list_batch(
+        session, centre.owner_id, centre.batch_id, title=title, status="published"
+    )
+    return PublicBatch(centre.owner_id, centre.manager_account_id, centre.batch_id)
 
 
 def second_batch(

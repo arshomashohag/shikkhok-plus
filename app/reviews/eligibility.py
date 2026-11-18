@@ -26,7 +26,12 @@ Conditions 4-6 apply to a member, and decide the **standing**:
 batch is assessed once. The seat standing for them is the eligible one with
 the earliest join date; when none is eligible, a seat still inside the
 recency window comes before a closed one, so a long-gone child does not
-close the batch for a newer sibling; then the earliest join date.
+close the batch for a newer sibling; among waiting seats, the one with the
+earliest known ``eligible_from`` is shown, so a known date is never hidden;
+then the earliest join date.
+
+**Nobody who runs the batch reviews it** [T3-c]: its owner, its managers
+and its assigned teachers are refused as non-members, revealing nothing.
 
 **An author keeps a standing after losing membership** (Call 7): a batch
 the account reviewed but is no longer a member of comes back as
@@ -69,9 +74,20 @@ WaitingOn = Literal["tenure", "attendance"]
 #: runs it; the cast lets PostgreSQL type a NULL parameter.
 #:
 #: ``seat`` applies membership (conditions 1-3) as joins and filters, so a
-#: seat failing one never reaches the rest. ``judged`` computes 4-6 per
-#: seat. ``evidence`` keeps one seat per batch. The final ``UNION ALL``
-#: adds the batches the account reviewed without being a member.
+#: seat failing one never reaches the rest. It also refuses membership to
+#: anyone who runs the batch [T3-c]: the owner's own account, the accepted,
+#: unrevoked managers (``managing_accounts``'s set) and any live member
+#: assigned to teach it, by weekly slot or by a single class. They set
+#: ``joined_on`` and mark attendance, so they could otherwise be "verified
+#: guardians" of their own batch on day one.
+#:
+#: ``judged`` computes 4-6 per seat. ``evidence`` keeps one seat per batch:
+#: eligible first; then one still inside the recency window; then, among
+#: waiting seats, one lacking only tenure, whose ``eligible_from`` is a real
+#: day; then one lacking tenure at all, so a known date is never hidden
+#: behind an undated seat [T3-d]; then the earliest join. The final
+#: ``UNION ALL`` adds the batches the account reviewed without being a
+#: member.
 #:
 #: The tenure date is ``created_at`` read in Bangladesh when ``joined_on``
 #: is unset: a seat created at 20:00 UTC was created the next day there.
@@ -96,6 +112,28 @@ ELIGIBILITY_QUERY = sa.text(
           AND e.guardian_relink_blocked_at IS NULL
           AND (CAST(:batch_id AS uuid) IS NULL
                OR e.batch_id = CAST(:batch_id AS uuid))
+          AND NOT EXISTS (
+              SELECT 1 FROM owner o
+              WHERE o.id = b.owner_id AND o.account_id = :account_id)
+          AND NOT EXISTS (
+              SELECT 1 FROM owner_member m
+              WHERE m.owner_id = b.owner_id
+                AND m.account_id = :account_id
+                AND m.decision = 'accepted'
+                AND m.revoked_at IS NULL
+                AND m.role = 'manager')
+          AND NOT EXISTS (
+              SELECT 1 FROM owner_member m
+              WHERE m.owner_id = b.owner_id
+                AND m.account_id = :account_id
+                AND m.decision = 'accepted'
+                AND m.revoked_at IS NULL
+                AND (EXISTS (SELECT 1 FROM schedule_slot ss
+                             WHERE ss.batch_id = e.batch_id
+                               AND ss.teacher_member_id = m.id)
+                     OR EXISTS (SELECT 1 FROM session s
+                                WHERE s.batch_id = e.batch_id
+                                  AND s.teacher_member_id = m.id)))
     ),
     judged AS (
         SELECT seat.*,
@@ -118,6 +156,8 @@ ELIGIBILITY_QUERY = sa.text(
         ORDER BY batch_id,
                  (tenure_ok AND attendance_ok AND recent) DESC,
                  recent DESC,
+                 attendance_ok DESC,
+                 tenure_ok,
                  joined,
                  enrollment_id
     )

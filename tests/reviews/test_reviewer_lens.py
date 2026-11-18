@@ -129,3 +129,20 @@ def test_reviewer_lens_is_discoverable_by_the_route_gate() -> None:
 
     assert returned is ReviewerLens
     assert issubclass(ReviewerLens, Lens)
+
+
+def test_reviewer_lens_refuses_the_batch_owner_as_a_stranger(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """T3-c: an owner seating their own child learns nothing from the refusal."""
+    batch = public_batch(owner_session)
+    _member(owner_session, batch.batch_id, batch.teacher_account_id)
+    stranger = account(owner_session)
+
+    with pytest.raises(AuthorizationError) as owner:
+        reviewer_lens(batch.batch_id, restricted_session, batch.teacher_account_id)
+    with pytest.raises(AuthorizationError) as other:
+        reviewer_lens(batch.batch_id, restricted_session, stranger)
+
+    assert to_response(owner.value).status_code == 403
+    assert to_response(owner.value).body == to_response(other.value).body

@@ -1134,6 +1134,24 @@ criterion = "A draft or hidden batch listing, a suspended or draft owner listing
 rule = "spec §6"
 
 [[test]]
+id = "test_owner_or_manager_of_the_batch_is_not_member"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A solo owner or an accepted, unrevoked centre manager seating their own eligible child in the batch assesses to None"
+rule = "spec §6, ruling T3-c"
+
+[[test]]
+id = "test_class_teacher_of_the_batch_is_not_member"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A live centre member assigned to the batch by weekly slot or by one class assesses to None for their own eligible child"
+rule = "spec §6, ruling T3-c"
+
+[[test]]
+id = "test_former_or_unassigned_staff_may_review"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Revoked or declined managers and teachers, teachers of another batch, and a colleague of this batch's teacher are eligible like any guardian"
+rule = "spec §6, ruling T3-c"
+
+[[test]]
 id = "test_siblings_one_eligible_grants_with_that_enrollment"
 file = "tests/reviews/test_eligibility.py"
 criterion = "Of three sibling seats, the evidence is the earliest-joined ELIGIBLE seat, not the earlier ineligible one, and tenure is measured from it"
@@ -1144,6 +1162,18 @@ id = "test_closed_sibling_does_not_mask_a_live_one"
 file = "tests/reviews/test_eligibility.py"
 criterion = "A sibling seat closed by recency does not close a batch where a newer sibling is not_yet"
 rule = "spec §6"
+
+[[test]]
+id = "test_waiting_siblings_prefer_the_seat_waiting_only_on_tenure"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Among waiting siblings, the seat lacking only tenure stands, with waiting_on tenure and its eligible_from, over earlier undated or attendance-short seats"
+rule = "spec §6, ruling T3-d"
+
+[[test]]
+id = "test_waiting_siblings_never_hide_a_known_date"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A sibling with an eligible_from stands over an earlier sibling with tenure but too few classes, so the date is shown"
+rule = "spec §6, ruling T3-d"
 
 [[test]]
 id = "test_author_keeps_lens_after_losing_membership"
