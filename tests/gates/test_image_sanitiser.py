@@ -69,6 +69,33 @@ def test_the_function_is_arm64_python_with_bounded_concurrency() -> None:
     assert "providers" not in root_call
 
 
+def test_an_upload_gets_one_attempt_and_events_expire() -> None:
+    # [R7b] Lambda retries a failed asynchronous invocation twice by
+    # default, so a hostile upload that times out or exhausts memory would
+    # hold one of the two slots three times over. One attempt, and a
+    # throttled event older than five minutes is dropped; `complete`
+    # settles an upload with no result [R7c].
+    config = _block(
+        _lambda_tf(),
+        r'resource\s+"aws_lambda_function_event_invoke_config"\s+"sanitiser"',
+    )
+    assert re.search(
+        r"function_name\s*=\s*aws_lambda_function\.sanitiser\.function_name", config
+    )
+    assert re.search(r"maximum_retry_attempts\s*=\s*0\n", config)
+    assert re.search(r"maximum_event_age_in_seconds\s*=\s*300\n", config)
+    # Not routed anywhere that would need a grant the role lacks.
+    assert "destination_config" not in config
+
+    # The plan role can read the setting back on every refresh.
+    plan = _statements(
+        _block(BOOTSTRAP.read_text(), r'resource\s+"aws_iam_role_policy"\s+"plan"')
+    )
+    assert "lambda:GetFunctionEventInvokeConfig" in _list(
+        plan["ReadOurFunctions"], "Action"
+    )
+
+
 def test_terraform_creates_the_placeholder_and_never_touches_code_again() -> None:
     function = _function()
 
@@ -270,6 +297,7 @@ def test_the_infrastructure_role_and_boundary_already_cover_it() -> None:
     for action in (
         "lambda:CreateFunction",
         "lambda:PutFunctionConcurrency",
+        "lambda:PutFunctionEventInvokeConfig",
         "lambda:AddPermission",
     ):
         assert covered("SeederFunction", function_arn, action), action

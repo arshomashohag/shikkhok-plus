@@ -9,17 +9,24 @@ bucket (infra/modules/media/lambda.tf). For each ``quarantine/{media_id}``:
    image is refused before any decoder sees it;
 3. decode it under ``MAX_IMAGE_PIXELS = 40_000_000``, with Pillow's
    ``DecompressionBombWarning`` raised as an error, opening only the
-   declared format's decoder;
+   declared format's decoder (a JPEG with an MPF segment opens as "MPO";
+   its first frame is used) and, for a JPEG, at the smallest scale that
+   still gives the widest variant its pixels;
 4. apply the EXIF orientation, keep the first frame, convert to RGB (RGBA
    when it has alpha) and drop every metadata field;
 5. write ``staged/{media_id}/{w}.webp`` for each target width, never
-   upscaled, then ``result.json``; and only then
+   upscaled and each resized from the next larger, then ``result.json``;
+   and only then
 6. delete the quarantine object.
 
 Anything that fails to decode writes ``{"ok": false, "reason":
 "unreadable"}`` and nothing else, and the upload is deleted all the same.
 A failure to READ or WRITE storage is not an unreadable image: it is
-raised, so Lambda retries the event, and the upload stays where it is.
+raised, so the invocation fails and is logged, and the upload stays where
+it is. The function is not retried (lambda.tf, R7b); an upload left with
+no result.json -- a storage fault, a timeout, an out-of-memory kill -- is
+settled by the API's ``complete`` as unreadable once it is 20 minutes old
+[R7c].
 
 **No original byte is ever published** [R6]. Every variant is an
 encoder's output from decoded pixels; no EXIF, ICC profile or XMP is passed
@@ -41,6 +48,7 @@ import importlib
 import io
 import json
 import logging
+import math
 import re
 import urllib.parse
 import warnings
@@ -48,7 +56,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from PIL import Image, ImageOps
+from PIL import ExifTags, Image, ImageOps
 
 #: The decoder's pixel ceiling. Pillow raises over twice this and warns
 #: over it; the warning is raised as an error below, so this is the cap.
@@ -74,6 +82,20 @@ FORMATS: dict[str, str] = {
     "image/png": "PNG",
     "image/webp": "WEBP",
 }
+
+#: What Pillow may report a decoded upload of each declared format as. A
+#: JPEG carrying an MPF (APP2) segment -- multi-lens phones and many
+#: cameras write one -- opens as "MPO", Pillow's JPEG subclass, even when
+#: only the JPEG decoder is asked for. Its first frame is that JPEG [R7a].
+DECODED_AS: dict[str, frozenset[str]] = {
+    "JPEG": frozenset({"JPEG", "MPO"}),
+    "PNG": frozenset({"PNG"}),
+    "WEBP": frozenset({"WEBP"}),
+}
+
+#: EXIF orientations that turn the stored image a quarter turn, so its
+#: stored width is the height a person sees.
+QUARTER_TURNS = frozenset({5, 6, 7, 8})
 
 UNREADABLE: dict[str, object] = {"ok": False, "reason": "unreadable"}
 
@@ -231,6 +253,62 @@ def _encode(image: Image.Image) -> bytes:
     return buffer.getvalue()
 
 
+def _oriented_size(image: Image.Image) -> tuple[int, int]:
+    """Return the size a person sees once EXIF orientation is applied.
+
+    :param image: The opened, not yet loaded, image
+    :return: (width, height) after orientation
+    """
+    width, height = image.size
+    orientation = image.getexif().get(ExifTags.Base.Orientation)
+    return (height, width) if orientation in QUARTER_TURNS else (width, height)
+
+
+def _draft(image: Image.Image, oriented: tuple[int, int]) -> None:
+    """Let libjpeg decode at the smallest scale the widest variant allows.
+
+    JPEG can decode at 1/2, 1/4 or 1/8 scale for a fraction of the work and
+    memory. The request keeps the oriented width at least the widest
+    variant's (and the aspect ratio), so no variant is ever drawn from
+    fewer pixels than it has. A no-op for anything that is not a JPEG, or
+    is too small to reduce.
+
+    :param image: The opened, not yet loaded, image
+    :param oriented: Its size after orientation
+    """
+    widest = WIDTHS[-1]
+    stored_width, stored_height = image.size
+    turned = oriented != image.size
+    if turned:  # the stored height is what must stay at least `widest`
+        request = (math.ceil(widest * stored_width / stored_height), widest)
+    else:
+        request = (widest, math.ceil(widest * stored_height / stored_width))
+    # None keeps the stored mode: a CMYK or greyscale JPEG converts below.
+    image.draft(None, request)
+
+
+def _variants(pixels: Image.Image, source: tuple[int, int]) -> tuple[Variant, ...]:
+    """Encode the variant set, each width resized from the next larger one.
+
+    Largest first, so only the widest is resampled from the full decode
+    and each smaller one from a 1600- or 960-pixel image: the work per
+    upload is bounded by the widest variant, not by the source.
+
+    :param pixels: The decoded, oriented, converted image
+    :param source: The upload's own oriented size, which names the widths
+    :return: The variants, smallest first
+    """
+    source_width, source_height = source
+    current = pixels
+    encoded: list[Variant] = []
+    for name, target in reversed(list(_target_widths(source_width))):
+        size = (target, max(1, round(source_height * target / source_width)))
+        if current.size != size:
+            current = current.resize(size, Image.Resampling.LANCZOS)
+        encoded.append(Variant(name, _encode(current)))
+    return tuple(reversed(encoded))
+
+
 def sanitise(data: bytes, declared_type: str | None) -> Sanitised:
     """Decode an upload and re-encode it as the variant set.
 
@@ -245,24 +323,16 @@ def sanitise(data: bytes, declared_type: str | None) -> Sanitised:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(io.BytesIO(data), formats=[declared_format]) as opened:
-                if opened.format != declared_format:
+                if opened.format not in DECODED_AS[declared_format]:
                     raise Unreadable(f"decoded as {opened.format}")
+                source = _oriented_size(opened)
+                _draft(opened, source)
                 opened.load()  # the first frame: open() positions there
                 oriented = ImageOps.exif_transpose(opened)
                 mode = "RGBA" if _has_alpha(oriented) else "RGB"
                 pixels = oriented.convert(mode)
         pixels.info.clear()  # nothing of the original's metadata survives
-        width, height = pixels.size
-        variants = []
-        for name, target in _target_widths(width):
-            if target == width:
-                resized = pixels
-            else:
-                resized = pixels.resize(
-                    (target, max(1, round(height * target / width))),
-                    Image.Resampling.LANCZOS,
-                )
-            variants.append(Variant(name, _encode(resized)))
+        variants = _variants(pixels, source)
     except Unreadable:
         raise
     # **Deliberately broad.** These bytes are hostile by assumption, and
@@ -274,7 +344,7 @@ def sanitise(data: bytes, declared_type: str | None) -> Sanitised:
     # transient is swallowed.
     except Exception as exc:
         raise Unreadable(f"{type(exc).__name__}: {exc}") from exc
-    return Sanitised(width, height, tuple(variants))
+    return Sanitised(source[0], source[1], variants)
 
 
 # ---------------------------------------------------------------------------

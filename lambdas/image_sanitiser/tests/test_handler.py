@@ -323,6 +323,71 @@ def test_unreadable_result_is_json_too(s3: FakeS3) -> None:
     assert s3.staged()["result.json"].content_type == "application/json"
 
 
+@pytest.mark.parametrize(
+    ("stored", "orientation", "decoded", "shown", "widest"),
+    [
+        # 4000 x 2000: libjpeg decodes at 1/2, still 2000 wide.
+        ((4000, 2000), None, (2000, 1000), (4000, 2000), (1600, 800)),
+        # Stored 6400 x 3200, shown turned (orientation 6): the shown width
+        # is the stored height, which the draft keeps at exactly 1600.
+        ((6400, 3200), 6, (1600, 3200), (3200, 6400), (1600, 3200)),
+    ],
+    ids=["landscape", "quarter-turn"],
+)
+def test_a_large_jpeg_is_decoded_at_the_scale_the_variants_need(
+    s3: FakeS3,
+    monkeypatch: pytest.MonkeyPatch,
+    stored: tuple[int, int],
+    orientation: int | None,
+    decoded: tuple[int, int],
+    shown: tuple[int, int],
+    widest: tuple[int, int],
+) -> None:
+    # [R7b] Less work per upload: a reduced JPEG decode, never below what
+    # the 1600 variant needs, and the source's own size still reported.
+    seen: list[tuple[int, int]] = []
+    original = sanitiser._variants
+
+    def spy(
+        pixels: Image.Image, source: tuple[int, int]
+    ) -> tuple[sanitiser.Variant, ...]:
+        seen.append(pixels.size)
+        return original(pixels, source)
+
+    monkeypatch.setattr(sanitiser, "_variants", spy)
+    exif = Image.Exif()
+    if orientation is not None:
+        exif[ExifTags.Base.Orientation] = orientation
+    s3.upload(_jpeg(stored, exif=exif), "image/jpeg")
+
+    _run()
+
+    assert seen == [decoded]
+    result = s3.result()
+    assert (result["width"], result["height"]) == shown
+    assert result["widths"] == [320, 960, 1600]
+    assert _open(s3.staged()["1600.webp"]).size == widest
+
+
+def test_each_variant_is_resized_from_the_next_larger(
+    s3: FakeS3, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # [R7b] Largest first: only the 1600 is drawn from the full decode.
+    sources: list[tuple[int, int]] = []
+    resize = Image.Image.resize
+
+    def spy(self: Image.Image, size: tuple[int, int], *args: object) -> Image.Image:
+        sources.append(self.size)
+        return resize(self, size, *args)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Image.Image, "resize", spy)
+    s3.upload(_png((2000, 1000)), "image/png")
+
+    _run()
+
+    assert sources == [(2000, 1000), (1600, 800), (960, 480)]
+
+
 def test_exif_orientation_is_applied(s3: FakeS3) -> None:
     # Orientation 6: the camera was turned; the stored pixels are 800 x 400
     # and the picture a person saw is 400 x 800.
@@ -462,12 +527,12 @@ _TAIL_MARKERS = (
 )
 
 
-def _motion_photo() -> bytes:
-    """Build a JPEG shaped like a phone's motion photo or an MPO.
+def _jpeg_then_jpeg_then_video() -> bytes:
+    """Build a JPEG followed by a second JPEG and an MP4-shaped trailer.
 
-    The primary image, then a second JPEG after its end (as an MPO stores
-    its other pictures), then an MP4-shaped trailer (as a motion photo
-    stores its video).
+    The trailer shape of a phone's motion photo: data after the primary
+    image's end. It carries NO MPF segment, so Pillow opens it as a plain
+    JPEG; a real MPO is ``test_mpo_upload_uses_its_first_frame``.
     """
     second = _saved(
         Image.new("RGB", (400, 300), (0, 0, 255)),
@@ -489,9 +554,9 @@ def _motion_photo() -> bytes:
         (_jpeg((400, 300)) + _PAGE, "image/jpeg"),
         (_png((400, 300)) + _PAGE, "image/png"),
         (_webp((400, 300)) + _PAGE, "image/webp"),
-        (_motion_photo(), "image/jpeg"),
+        (_jpeg_then_jpeg_then_video(), "image/jpeg"),
     ],
-    ids=["jpeg-html-polyglot", "png-tail", "webp-tail", "motion-photo"],
+    ids=["jpeg-html-polyglot", "png-tail", "webp-tail", "jpeg-jpeg-video"],
 )
 def test_trailing_data_is_accepted_and_never_written(
     s3: FakeS3, body: bytes, declared: str
@@ -515,6 +580,41 @@ def test_trailing_data_is_accepted_and_never_written(
         red, _green, blue = _pixel(_open(written["320.webp"]).convert("RGB"), (5, 5))
         assert red > 150 and blue < 100
     assert QUARANTINE not in s3.objects
+
+
+def test_mpo_upload_uses_its_first_frame(s3: FakeS3) -> None:
+    # [R7a] A JPEG with an MPF APP2 segment -- what multi-lens phones and
+    # some cameras write -- is opened by Pillow as format "MPO" even when
+    # only the JPEG decoder is asked for. It is a JPEG upload and must be
+    # accepted, decoded from its first frame only.
+    first = Image.new("RGB", (400, 300), (220, 20, 20))
+    second = Image.new("RGB", (400, 300), (0, 0, 255))
+    body = _saved(first, "MPO", save_all=True, append_images=[second])
+    opened = Image.open(io.BytesIO(body))
+    assert opened.format == "MPO" and getattr(opened, "n_frames", 1) == 2
+    second_start = body.find(b"\xff\xd8\xff", 3)
+    assert second_start > 0
+    second_frame = body[second_start:]
+    s3.upload(body, "image/jpeg")
+
+    _run()
+
+    assert s3.result() == {
+        "ok": True,
+        "width": 400,
+        "height": 300,
+        "widths": [320, 960],
+    }
+    written = s3.staged()
+    for name in ("320.webp", "960.webp"):
+        out = _open(written[name])
+        assert getattr(out, "n_frames", 1) == 1, name
+        red, _green, blue = _pixel(out.convert("RGB"), (5, 5))
+        assert red > 150 and blue < 100, name  # the first frame's colour
+    # No run of the second frame's encoded bytes reaches any object.
+    for name, obj in written.items():
+        for offset in range(0, len(second_frame) - 32, 97):
+            assert second_frame[offset : offset + 32] not in obj.body, (name, offset)
 
 
 def test_decompression_bomb_is_unreadable(s3: FakeS3) -> None:
@@ -653,8 +753,9 @@ def test_missing_object_is_skipped(
 def test_a_storage_failure_is_raised_not_reported_unreadable(
     s3: FakeS3, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # A failed write is Lambda's to retry. Recording it as `unreadable`
-    # would reject a good photo for a transient fault.
+    # A failed write is a failed invocation, logged, never an
+    # `unreadable` verdict: that would reject a good photo for a
+    # transient fault. The upload is left in place.
     s3.upload(_jpeg((400, 300)), "image/jpeg")
 
     def refuse(**_kwargs: object) -> dict[str, object]:

@@ -107,14 +107,16 @@ resource "aws_lambda_function" "sanitiser" {
   filename      = "${path.module}/placeholder/image-sanitiser.zip"
 
   # A 40-megapixel RGBA decode is 160 MB before the resize copies; 1 GB
-  # holds it with room, and buys the CPU share a 1600 px WebP at method 6
-  # needs to finish well inside 30 seconds.
+  # holds it with room, and Lambda's CPU share grows with memory. The
+  # handler bounds the rest of the work: a JPEG is decoded at the smallest
+  # scale the 1600 variant allows, and each smaller variant is resized
+  # from the next larger rather than from the full decode.
   memory_size = 1024
   timeout     = 30
 
   # At most two decodes at once: a burst of uploads queues (S3 invokes
-  # asynchronously, and Lambda retries a throttled event for hours) rather
-  # than scaling a decoder of hostile input without bound.
+  # asynchronously, and a throttled event waits, up to the event age
+  # below) rather than scaling a decoder of hostile input without bound.
   reserved_concurrent_executions = 2
 
   logging_config {
@@ -131,6 +133,20 @@ resource "aws_lambda_function" "sanitiser" {
     aws_iam_role_policy.sanitiser,
     aws_cloudwatch_log_group.sanitiser,
   ]
+}
+
+# **One attempt per upload, and no event older than five minutes** [R7b].
+# Lambda retries a failed asynchronous invocation twice by default, so an
+# upload built to time out or exhaust memory would hold one of the two
+# slots three times over (about 90 seconds) and delay every honest upload
+# behind it. A failure is logged and not retried: the upload keeps no
+# result.json, and the API's `complete` settles a photo with no result
+# after 20 minutes as unreadable [R7c]. A throttled event older than five
+# minutes is dropped on the same terms.
+resource "aws_lambda_function_event_invoke_config" "sanitiser" {
+  function_name                = aws_lambda_function.sanitiser.function_name
+  maximum_retry_attempts       = 0
+  maximum_event_age_in_seconds = 300
 }
 
 # S3 may invoke the function, for this bucket in this account only.

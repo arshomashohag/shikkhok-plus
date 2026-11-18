@@ -1414,6 +1414,8 @@ resource "aws_iam_role_policy" "plan" {
           "lambda:GetFunctionConfiguration",
           "lambda:GetFunctionCodeSigningConfig",
           "lambda:GetFunctionConcurrency",
+          # The image sanitiser's no-retry setting (modules/media/lambda.tf).
+          "lambda:GetFunctionEventInvokeConfig",
           "lambda:GetPolicy",
           "lambda:ListVersionsByFunction",
           "lambda:ListTags",

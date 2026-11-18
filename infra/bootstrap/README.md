@@ -151,8 +151,11 @@ Each deploy role gains `lambda:UpdateFunctionCode` and
 `lambda:GetFunctionConfiguration` on its own
 `shikkhokplus-<env>-image-sanitiser` function only, to upload the real
 package and wait for Lambda to report it Successful (the function has no
-environment, so its configuration holds no secret). The infrastructure
-role needs nothing new: the function, its role, its log group under
+environment, so its configuration holds no secret). Each plan role gains
+`lambda:GetFunctionEventInvokeConfig` on its own functions, to read back
+the sanitiser's no-retry setting; until then the plan job stops at that
+read. The infrastructure role needs nothing new: the function and its
+event-invoke settings, its role, its log group under
 `/shikkhokplus/shikkhokplus-<env>/` and the bucket notification are all
 inside grants the seeder and the photo bucket already added. Until the
 re-apply, the deploy's `image sanitiser` job stops at

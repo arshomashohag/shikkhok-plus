@@ -7,9 +7,10 @@ deploy workflow uploads the real package (`make lambda-image`) after the
 infrastructure job and before the release. Terraform ignores the code from
 then on (lambda.tf).
 
-It fails rather than succeeding quietly: an upload arriving in the gap is
-then retried by Lambda, by when the real code is normally in place, instead
-of being accepted with no result.json ever written.
+It fails rather than succeeding quietly, so an upload arriving in the gap
+is a logged, failed invocation (the function is not retried, lambda.tf)
+rather than an apparent success. That upload gets no result.json, and the
+API's `complete` settles it as unreadable after 20 minutes [R7c].
 """
 
 
