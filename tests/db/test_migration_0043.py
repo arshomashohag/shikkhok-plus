@@ -481,3 +481,71 @@ def test_media_dispositions() -> None:
     assert HARD_DELETE_SCOPES["listing_media"].scope is Scope.SOLO_OWNER
     assert HARD_DELETE_SCOPES["listing_media"].column == "owner_id"
     assert HARD_DELETE_SCOPES["media_object_task"].scope is Scope.NOT_PERSONAL
+
+
+def test_dimensions_hold_a_wide_image_inside_the_pixel_cap(
+    owner_session: Session,
+) -> None:
+    """A 40000 x 1000 image is 40M pixels, inside the decode cap, and fits.
+
+    SMALLINT would overflow at 32767 and turn a valid upload's ``complete``
+    into a server error.
+
+    :param owner_session: An arranging session
+    :return: None
+    """
+    teacher = make_teacher(owner_session)
+    media_id = _media(owner_session, teacher.owner_id)
+    owner_session.execute(
+        sa.text("UPDATE listing_media SET width = 40000, height = 1000 WHERE id = :m"),
+        {"m": media_id},
+    )
+    owner_session.commit()
+
+    stored = owner_session.execute(
+        sa.text("SELECT width, height FROM listing_media WHERE id = :m"),
+        {"m": media_id},
+    ).one()
+    assert tuple(stored) == (40000, 1000)
+
+
+def test_media_batch_must_belong_to_its_owner(owner_session: Session) -> None:
+    """A photo cannot sit on another owner's batch, by insert or by update.
+
+    An owner-level photo (``batch_id`` NULL) needs no batch at all.
+
+    :param owner_session: An arranging session
+    :return: None
+    """
+    one = make_teacher(owner_session)
+    two = make_teacher(owner_session)
+    own_level = _media(owner_session, one.owner_id)
+    on_own_batch = _media(owner_session, one.owner_id, batch_id=one.batch_id)
+    owner_session.commit()
+
+    with pytest.raises(sa.exc.DBAPIError, match="does not match"):
+        _media(owner_session, one.owner_id, batch_id=two.batch_id)
+    owner_session.rollback()
+
+    for column, value, media_id in (
+        ("batch_id", two.batch_id, on_own_batch),
+        ("batch_id", two.batch_id, own_level),
+        ("owner_id", two.owner_id, on_own_batch),
+    ):
+        with pytest.raises(sa.exc.DBAPIError, match="does not match"):
+            owner_session.execute(
+                sa.text(
+                    f"UPDATE listing_media SET {column} = :v "  # noqa: S608
+                    "WHERE id = :m"
+                ),
+                {"v": value, "m": media_id},
+            )
+        owner_session.rollback()
+
+    # Moving an owner-level photo to another owner keeps no batch, so it
+    # is allowed; the guard concerns batches only.
+    owner_session.execute(
+        sa.text("UPDATE listing_media SET owner_id = :o WHERE id = :m"),
+        {"o": two.owner_id, "m": own_level},
+    )
+    owner_session.commit()

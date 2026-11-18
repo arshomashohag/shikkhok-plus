@@ -38,6 +38,11 @@ a row whose batch belongs to another owner shows on neither page. It is
 ``security_barrier`` and granted to the hub reader only, as ``0040``'s
 views are; the reader is granted nothing on either table.
 
+**A batch photo's batch must be its owner's**, held by a trigger in the
+style of ``0036``'s ``batch_listing`` guard, on insert and on any update
+of ``batch_id`` or ``owner_id``. ``width`` and ``height`` are INTEGER: the
+decoder admits 40M pixels, which a 40000 x 1000 image is.
+
 The application role may read, write and delete both tables.
 """
 
@@ -78,6 +83,9 @@ PREFIX_CHECK: Final[str] = (
     f"prefix ~ '^(quarantine/{_UUID}|(staged|archive)/{_UUID}/"
     "|public/[0-9a-f]{32}/)$'"
 )
+
+#: The batch-owner guard's function, as ``0036``'s guards for batch_listing.
+OWNER_FUNCTION: Final[str] = "hub_listing_media_owner_matches"
 
 #: The public view's body.
 VIEW: Final[str] = """
@@ -127,8 +135,10 @@ def upgrade() -> None:
         sa.Column("content_type", sa.String(16), nullable=False),
         sa.Column("byte_size", sa.Integer(), nullable=False),
         sa.Column("public_key", sa.CHAR(32), nullable=True),
-        sa.Column("width", sa.SmallInteger(), nullable=True),
-        sa.Column("height", sa.SmallInteger(), nullable=True),
+        # INTEGER, not SMALLINT: the decoder admits 40M pixels, so a
+        # 40000 x 1000 image is valid and its width exceeds 32767.
+        sa.Column("width", sa.Integer(), nullable=True),
+        sa.Column("height", sa.Integer(), nullable=True),
         sa.Column("widths", postgresql.ARRAY(sa.SmallInteger()), nullable=True),
         sa.Column("alt_en", sa.String(200), nullable=True),
         sa.Column("alt_bn", sa.String(200), nullable=True),
@@ -205,6 +215,32 @@ def upgrade() -> None:
         postgresql_where=sa.text("done_at IS NULL"),
     )
 
+    # A batch photo's batch must be its owner's, as ``0036`` holds for
+    # ``batch_listing``: quotas, the solo-owner deletion scope and the
+    # upload service all key on ``owner_id``, so a row on another owner's
+    # batch would be counted and deleted under the wrong owner.
+    op.execute(
+        sa.text(
+            f"CREATE FUNCTION {OWNER_FUNCTION}() RETURNS trigger "  # noqa: S608
+            "LANGUAGE plpgsql AS $$ "
+            "BEGIN "
+            "  IF NEW.batch_id IS NOT NULL AND NEW.owner_id IS DISTINCT FROM "
+            "     (SELECT owner_id FROM batch WHERE id = NEW.batch_id) THEN "
+            "    RAISE EXCEPTION 'media owner does not match the batch owner' "
+            "      USING ERRCODE = 'check_violation'; "
+            "  END IF; "
+            "  RETURN NEW; "
+            "END $$"
+        )
+    )
+    op.execute(
+        sa.text(
+            "CREATE TRIGGER trg_listing_media_owner_matches "
+            "BEFORE INSERT OR UPDATE OF batch_id, owner_id ON listing_media "
+            f"FOR EACH ROW EXECUTE FUNCTION {OWNER_FUNCTION}()"
+        )
+    )
+
     for table in ("listing_media", "media_object_task"):
         op.execute(
             sa.text(f"GRANT SELECT, INSERT, UPDATE, DELETE ON {table} TO {APP_ROLE}")
@@ -241,4 +277,5 @@ def downgrade() -> None:
     op.execute(sa.text("DROP VIEW hub_public_media"))
     op.drop_table("media_object_task")
     op.drop_table("listing_media")
+    op.execute(sa.text(f"DROP FUNCTION {OWNER_FUNCTION}()"))
     postgresql.ENUM(name="media_status").drop(bind)

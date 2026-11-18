@@ -288,9 +288,11 @@ def test_batch_media_hidden_when_batch_belongs_to_another_owner(
 ) -> None:
     """A photo whose batch is someone else's is never shown on either page.
 
-    Nothing in the table ties ``batch_id`` to ``owner_id``; the upload
-    service checks it. Should a row ever disagree, the view shows it under
-    neither owner rather than putting one owner's photo on another's page.
+    A trigger refuses such a row (``tests/db/test_migration_0043.py``), so
+    it is arranged here with the trigger disabled, inside one transaction,
+    to show the view is a second line rather than relying on the first:
+    should a row ever disagree, it shows under neither owner rather than
+    putting one owner's photo on another's page.
 
     :param owner_session: An arranging session
     :param restricted_session: A session as the application role
@@ -298,7 +300,25 @@ def test_batch_media_hidden_when_batch_belongs_to_another_owner(
     """
     mine, _ = _live_tutor(owner_session, "mine")
     _, theirs = _live_tutor(owner_session, "theirs")
-    _media(owner_session, mine, batch_id=theirs)
+    owner_session.execute(
+        sa.text(
+            "ALTER TABLE listing_media DISABLE TRIGGER trg_listing_media_owner_matches"
+        )
+    )
+    owner_session.execute(
+        sa.text(
+            "INSERT INTO listing_media (id, owner_id, batch_id, status, "
+            "content_type, byte_size, public_key) VALUES (gen_random_uuid(), "
+            ":o, :b, 'approved', 'image/png', 10, :key)"
+        ),
+        {"o": mine, "b": theirs, "key": uuid.uuid4().hex},
+    )
+    owner_session.execute(
+        sa.text(
+            "ALTER TABLE listing_media ENABLE TRIGGER trg_listing_media_owner_matches"
+        )
+    )
+    owner_session.commit()
 
     assert _seen(restricted_session) == set()
 

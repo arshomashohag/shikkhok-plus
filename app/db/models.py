@@ -4173,7 +4173,9 @@ class ListingMedia(Base):
     """One photo an owner uploaded for their page or one batch's [0043].
 
     Public only through ``hub_public_media``, and only while ``approved``
-    under a visible owner and, for a batch photo, a visible batch.
+    under a visible owner and, for a batch photo, a visible batch. A batch
+    photo's batch must be its owner's: a trigger refuses any other, on
+    insert and on update of either column [0043].
 
     :ivar id: Surrogate key; also names the photo's quarantine, staged and
         archive objects
@@ -4215,8 +4217,8 @@ class ListingMedia(Base):
     content_type: Mapped[str] = mapped_column(String(16), nullable=False)
     byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
     public_key: Mapped[str | None] = mapped_column(CHAR(32), nullable=True)
-    width: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
-    height: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
     widths: Mapped[list[int] | None] = mapped_column(ARRAY(SmallInteger), nullable=True)
     alt_en: Mapped[str | None] = mapped_column(String(200), nullable=True)
     alt_bn: Mapped[str | None] = mapped_column(String(200), nullable=True)
