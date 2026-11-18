@@ -4223,12 +4223,16 @@ class ListingMedia(Base):
     id: Mapped[uuid.UUID] = _uuid_column()
     owner_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True),
-        ForeignKey("owner.id", ondelete="CASCADE", name=conv("fk_listing_media_owner")),
+        ForeignKey(
+            "owner.id", ondelete="RESTRICT", name=conv("fk_listing_media_owner")
+        ),
         nullable=False,
     )
     batch_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True),
-        ForeignKey("batch.id", ondelete="CASCADE", name=conv("fk_listing_media_batch")),
+        ForeignKey(
+            "batch.id", ondelete="RESTRICT", name=conv("fk_listing_media_batch")
+        ),
         nullable=True,
     )
     status: Mapped[str] = mapped_column(

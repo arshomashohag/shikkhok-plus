@@ -405,8 +405,16 @@ def test_upload_shape_is_constrained(
         )
 
 
-def test_media_goes_with_its_owner_and_its_batch(owner_session: Session) -> None:
-    """Both foreign keys cascade.
+def test_an_owner_or_batch_holding_photos_cannot_be_hard_deleted(
+    owner_session: Session,
+) -> None:
+    """Both foreign keys RESTRICT [Task 8 M1].
+
+    A cascade would delete the rows and orphan every object they name --
+    ``quarantine/``, ``staged/``, ``archive/`` and ``public/{key}/`` -- because
+    only the rows say which prefixes are a photo's. No path hard-deletes an
+    owner or a batch today; a future one fails loudly here instead of
+    leaving photos of children in the bucket.
 
     :param owner_session: An arranging session
     :return: None
@@ -416,24 +424,29 @@ def test_media_goes_with_its_owner_and_its_batch(owner_session: Session) -> None
     on_batch = _media(owner_session, teacher.owner_id, batch_id=teacher.batch_id)
     owner_session.commit()
 
-    owner_session.execute(
-        sa.text("DELETE FROM batch WHERE id = :b"), {"b": teacher.batch_id}
-    )
-    owner_session.commit()
-    left = set(owner_session.execute(sa.text("SELECT id FROM listing_media")).scalars())
-    assert on_batch not in left
-    assert len(left) == 1
-
-    owner_session.execute(
-        sa.text("DELETE FROM owner WHERE id = :o"), {"o": teacher.owner_id}
-    )
-    owner_session.commit()
+    for table, key in (("batch", teacher.batch_id), ("owner", teacher.owner_id)):
+        with pytest.raises(IntegrityError, match=f"fk_listing_media_{table}"):
+            owner_session.execute(
+                sa.text(f"DELETE FROM {table} WHERE id = :k"),  # noqa: S608
+                {"k": key},
+            )
+        owner_session.rollback()
     assert (
         owner_session.execute(
             sa.text("SELECT count(*) FROM listing_media")
         ).scalar_one()
-        == 0
+        == 2
     )
+
+    # Once the photos are gone (as account deletion removes them), the
+    # batch can go.
+    owner_session.execute(
+        sa.text("DELETE FROM listing_media WHERE id = :m"), {"m": on_batch}
+    )
+    owner_session.execute(
+        sa.text("DELETE FROM batch WHERE id = :b"), {"b": teacher.batch_id}
+    )
+    owner_session.commit()
 
 
 def _task(session: Session, prefix: str, op: str = "delete") -> None:

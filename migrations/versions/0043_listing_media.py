@@ -45,6 +45,13 @@ a row whose batch belongs to another owner shows on neither page. It is
 ``security_barrier`` and granted to the hub reader only, as ``0040``'s
 views are; the reader is granted nothing on either table.
 
+**Neither an owner nor a batch holding photos can be hard-deleted.** Both
+foreign keys are ``ON DELETE RESTRICT``: a cascade would delete the rows,
+and only the rows say which bucket prefixes are a photo's, so every object
+they named would be orphaned. Account deletion removes a solo owner's rows
+itself, after enqueueing their prefixes; no path hard-deletes an owner or a
+batch, and a future one fails here rather than leaving photos behind.
+
 **A batch photo's batch must be its owner's**, held by a trigger in the
 style of ``0036``'s ``batch_listing`` guard, on insert and on any update
 of ``batch_id`` or ``owner_id``. ``width`` and ``height`` are INTEGER: the
@@ -129,7 +136,7 @@ def upgrade() -> None:
             "owner_id",
             PgUUID(as_uuid=True),
             sa.ForeignKey(
-                "owner.id", ondelete="CASCADE", name=conv("fk_listing_media_owner")
+                "owner.id", ondelete="RESTRICT", name=conv("fk_listing_media_owner")
             ),
             nullable=False,
         ),
@@ -137,7 +144,7 @@ def upgrade() -> None:
             "batch_id",
             PgUUID(as_uuid=True),
             sa.ForeignKey(
-                "batch.id", ondelete="CASCADE", name=conv("fk_listing_media_batch")
+                "batch.id", ondelete="RESTRICT", name=conv("fk_listing_media_batch")
             ),
             nullable=True,
         ),
