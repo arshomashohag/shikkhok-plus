@@ -4208,6 +4208,8 @@ class ListingMedia(Base):
     :ivar width: The decoded image's width in pixels
     :ivar height: The decoded image's height in pixels
     :ivar widths: The variant names written, a subset of 320, 960 and 1600
+    :ivar variant_etags: Each staged variant's ETag in ``widths`` order, read
+        at completion; the first approval copies only while they still hold
     :ivar alt_en: English alt text
     :ivar alt_bn: Bangla alt text
     :ivar position: Its place in its gallery; unique among approved photos
@@ -4244,6 +4246,7 @@ class ListingMedia(Base):
     width: Mapped[int | None] = mapped_column(Integer, nullable=True)
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
     widths: Mapped[list[int] | None] = mapped_column(ARRAY(SmallInteger), nullable=True)
+    variant_etags: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
     alt_en: Mapped[str | None] = mapped_column(String(200), nullable=True)
     alt_bn: Mapped[str | None] = mapped_column(String(200), nullable=True)
     position: Mapped[int] = mapped_column(
@@ -4269,6 +4272,10 @@ class ListingMedia(Base):
         CheckConstraint(
             "public_key IS NULL OR public_key ~ '^[0-9a-f]{32}$'",
             name=conv("ck_listing_media_public_key"),
+        ),
+        CheckConstraint(
+            "variant_etags IS NULL OR cardinality(variant_etags) = cardinality(widths)",
+            name=conv("ck_listing_media_variant_etags"),
         ),
         CheckConstraint(
             "content_type IN ('image/jpeg', 'image/png', 'image/webp')",

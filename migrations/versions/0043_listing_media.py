@@ -19,6 +19,12 @@ restore after a hold mints a fresh key, so no cached URL comes back. An
 approved photo also carries its width, height and at least one variant
 width, which the public page's ``<img>`` is built from.
 
+**``variant_etags`` pins what was completed** [I1]. A presigned POST can be
+posted to again until it expires, and the sanitiser re-stages whatever
+lands. ``complete`` records each staged variant's ETag, in ``widths``
+order, and the first approval copies ``staged/`` with ``CopySourceIfMatch``
+on them: a variant that changed is refused, never published.
+
 **``archived_at`` says the variants have an ``archive/`` copy.** The first
 approval writes it; from then on ``staged/`` may have expired, so any
 later approval copies from ``archive/{id}/`` instead. It is recorded rather
@@ -162,6 +168,11 @@ def upgrade() -> None:
         sa.Column("width", sa.Integer(), nullable=True),
         sa.Column("height", sa.Integer(), nullable=True),
         sa.Column("widths", postgresql.ARRAY(sa.SmallInteger()), nullable=True),
+        # Each staged variant's ETag, in ``widths`` order, read when the photo
+        # is completed. The first approval copies ``staged/`` only while each
+        # variant still has it, so a file posted again with the same form
+        # after completion is never published unreviewed [I1].
+        sa.Column("variant_etags", postgresql.ARRAY(sa.Text()), nullable=True),
         sa.Column("alt_en", sa.String(200), nullable=True),
         sa.Column("alt_bn", sa.String(200), nullable=True),
         sa.Column(
@@ -191,6 +202,11 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "public_key IS NULL OR public_key ~ '^[0-9a-f]{32}$'",
             name=conv("ck_listing_media_public_key"),
+        ),
+        sa.CheckConstraint(
+            "variant_etags IS NULL "
+            "OR cardinality(variant_etags) = cardinality(widths)",
+            name=conv("ck_listing_media_variant_etags"),
         ),
         sa.CheckConstraint(
             "content_type IN ('image/jpeg', 'image/png', 'image/webp')",

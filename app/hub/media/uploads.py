@@ -25,6 +25,12 @@ in-flight uploads whose window has closed -- nothing can land for them any
 more -- and enqueues their quarantine and staged objects for deletion, as a
 withdrawal does. A ``complete`` for one then finds nothing.
 
+**Completion pins what it read** [I1]. The presigned POST can be posted to
+again until it expires, and the sanitiser re-stages whatever lands, so
+``complete`` records each staged variant's ETag. The first approval copies
+``staged/`` only while every variant still has its recorded ETag. A result
+whose variant is missing -- being written again -- is not uploaded yet.
+
 **No result after twenty minutes is unreadable** [R7c]. The Lambda never
 retries, so a timeout or an out-of-memory kill writes nothing, and the API
 is the only party that can give the photo an end. Twenty minutes is the
@@ -299,13 +305,25 @@ def complete(
         )
     if not result.ok:
         raise _reject_unreadable(session, media, now, spend)
+    widths = list(result.widths)
+    pins = store.staged_etags(media.id, widths)
+    if pins is None:
+        # A variant is missing: the sanitiser is writing this upload again,
+        # or -- past the deadline, when nothing can write it -- never will.
+        if now - media.created_at > RESULT_DEADLINE:
+            raise _reject_unreadable(session, media, now, spend)
+        session.rollback()
+        raise ConflictError(
+            code="MEDIA_NOT_UPLOADED", message_key="hub.media.not_uploaded"
+        )
 
     if spend is not None:
         spend()
     media.status = "pending_review"
     media.width = result.width
     media.height = result.height
-    media.widths = list(result.widths)
+    media.widths = widths
+    media.variant_etags = [pins[w] for w in widths]
     media.alt_en, media.alt_bn = texts
     session.commit()
     return media

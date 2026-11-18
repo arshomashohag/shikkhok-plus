@@ -8,9 +8,11 @@ an approval copied or a drain deleted. It never touches the network.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import time
 import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from app.errors import TransientError
@@ -18,6 +20,7 @@ from app.hub.media.storage import (
     PREVIEW_TTL,
     UPLOAD_TTL,
     SanitiseResult,
+    SourceChanged,
     UploadTicket,
     parse_result,
     quarantine_key,
@@ -40,6 +43,14 @@ class Stored:
 
     body: bytes
     content_type: str
+
+    @property
+    def etag(self) -> str:
+        """The object's ETag as S3 reports it for a single-part PUT.
+
+        :return: The quoted MD5 of the body
+        """
+        return f'"{hashlib.md5(self.body, usedforsecurity=False).hexdigest()}"'
 
 
 @dataclass
@@ -70,10 +81,41 @@ class FakeMediaStore:
         widths = payload.get("widths")
         if payload.get("ok") is True and isinstance(widths, list):
             for width in widths:
-                self.objects[f"{prefix}{width}.webp"] = Stored(b"RIFF", "image/webp")
+                self.objects[f"{prefix}{width}.webp"] = Stored(
+                    f"RIFF{width}".encode(), "image/webp"
+                )
         self.objects[f"{prefix}result.json"] = Stored(
             json.dumps(payload).encode(), "application/json"
         )
+
+    def restage(self, media_id: uuid.UUID, width: int, body: bytes) -> None:
+        """Overwrite one staged variant, as a second post to the form would.
+
+        :param media_id: The photo
+        :param width: The variant
+        :param body: Its new bytes
+        :return: None
+        """
+        self.objects[f"{staged_prefix(media_id)}{width}.webp"] = Stored(
+            body, "image/webp"
+        )
+
+    def staged_etags(
+        self, media_id: uuid.UUID, widths: Sequence[int]
+    ) -> dict[int, str] | None:
+        """Read each staged variant's ETag.
+
+        :param media_id: The photo
+        :param widths: The variants
+        :return: ``{width: etag}``, or None when one is missing
+        """
+        found: dict[int, str] = {}
+        for width in widths:
+            stored = self.objects.get(f"{staged_prefix(media_id)}{width}.webp")
+            if stored is None:
+                return None
+            found[width] = stored.etag
+        return found
 
     def presign_upload(self, media_id: uuid.UUID, content_type: str) -> UploadTicket:
         """Sign an upload, recording it.
@@ -106,15 +148,22 @@ class FakeMediaStore:
         return None if stored is None else parse_result(stored.body)
 
     def copy_variants(
-        self, src_prefix: str, dst_prefix: str, widths: list[int]
+        self,
+        src_prefix: str,
+        dst_prefix: str,
+        widths: list[int],
+        *,
+        if_match: Mapping[int, str] | None = None,
     ) -> None:
         """Copy each variant, keeping its content type as CopyObject does.
 
         :param src_prefix: The source folder
         :param dst_prefix: The destination folder
         :param widths: The variants to copy
+        :param if_match: Each width's pinned ETag, or None
         :return: None
         :raises TransientError: A source object is missing
+        :raises SourceChanged: A pinned source's ETag differs
         """
         for width in widths:
             source = self.objects.get(f"{src_prefix}{width}.webp")
@@ -123,6 +172,8 @@ class FakeMediaStore:
                     code="SERVICE_UNAVAILABLE",
                     message_key="error.temporarily_unavailable",
                 )
+            if if_match is not None and if_match[width] != source.etag:
+                raise SourceChanged(f"{src_prefix}{width}.webp")
             self.objects[f"{dst_prefix}{width}.webp"] = source
 
     def delete_prefix(self, prefix: str) -> None:

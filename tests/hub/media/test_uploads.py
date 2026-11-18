@@ -867,3 +867,96 @@ def test_the_first_upload_takes_position_zero(
         ).scalar_one()
         == 0
     )
+
+
+# ---------------------------------------------------------------------------
+# [I1] Completion pins the staged variants it read.
+# ---------------------------------------------------------------------------
+
+
+def _etags(session: Session, media_id: uuid.UUID) -> list[str] | None:
+    session.rollback()
+    value = session.execute(
+        sa.text("SELECT variant_etags FROM listing_media WHERE id = :m"),
+        {"m": media_id},
+    ).scalar_one()
+    return None if value is None else list(value)
+
+
+def test_complete_records_each_staged_variants_etag(
+    restricted_session: Session,
+    owner_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+) -> None:
+    """In ``widths`` order, as the bucket reports them at completion."""
+    media_id = _init(restricted_session, store, tutor).media_id
+    store.put_result(media_id, OK)
+    expected = store.staged_etags(media_id, [320, 960, 1600])
+    assert expected is not None
+
+    uploads.complete(
+        restricted_session,
+        store,
+        tutor.lens,
+        media_id,
+        alt_en="Our classroom",
+        alt_bn="আমাদের শ্রেণিকক্ষ",
+        now=NOW + dt.timedelta(minutes=2),
+    )
+
+    assert _etags(owner_session, media_id) == [expected[w] for w in (320, 960, 1600)]
+
+
+def test_complete_with_a_variant_missing_is_not_uploaded_yet(
+    restricted_session: Session,
+    owner_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+) -> None:
+    """A result whose variant is gone (being written again) changes nothing."""
+    media_id = _init(restricted_session, store, tutor).media_id
+    store.put_result(media_id, OK)
+    del store.objects[f"staged/{media_id}/960.webp"]
+
+    with pytest.raises(ConflictError) as early:
+        uploads.complete(
+            restricted_session,
+            store,
+            tutor.lens,
+            media_id,
+            alt_en="Our classroom",
+            alt_bn="আমাদের শ্রেণিকক্ষ",
+            now=NOW + dt.timedelta(minutes=2),
+        )
+
+    assert early.value.code == "MEDIA_NOT_UPLOADED"
+    assert _status(owner_session, media_id).status == "awaiting_upload"
+    assert _etags(owner_session, media_id) is None
+
+
+def test_a_variant_still_missing_past_the_deadline_is_unreadable(
+    restricted_session: Session,
+    owner_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+) -> None:
+    """Nothing can write it any more, so the photo is given its end."""
+    media_id = _init(restricted_session, store, tutor).media_id
+    store.put_result(media_id, OK)
+    del store.objects[f"staged/{media_id}/960.webp"]
+
+    with pytest.raises(ValidationError) as refused:
+        uploads.complete(
+            restricted_session,
+            store,
+            tutor.lens,
+            media_id,
+            alt_en="Our classroom",
+            alt_bn="আমাদের শ্রেণিকক্ষ",
+            now=NOW + UPLOAD_WINDOW + dt.timedelta(seconds=1),
+        )
+
+    assert refused.value.code == "MEDIA_UNREADABLE"
+    row = _status(owner_session, media_id)
+    assert (row.status, row.rejection_code) == ("rejected", "unreadable")

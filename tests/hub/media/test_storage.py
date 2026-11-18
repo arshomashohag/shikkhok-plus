@@ -22,7 +22,12 @@ from botocore.response import StreamingBody
 from botocore.stub import Stubber
 
 from app.errors import TransientError
-from app.hub.media.storage import S3MediaStore, SanitiseResult, parse_result
+from app.hub.media.storage import (
+    S3MediaStore,
+    SanitiseResult,
+    SourceChanged,
+    parse_result,
+)
 
 BUCKET: Final[str] = "shikkhokplus-staging-media-123456789012"
 HOST: Final[str] = f"https://{BUCKET}.s3.ap-south-1.amazonaws.com/"
@@ -238,6 +243,110 @@ def test_copy_variants_keeps_the_objects_content_type(store: S3MediaStore) -> No
     ):
         with pytest.raises(ValueError):
             store.copy_variants(src, dst, widths)
+
+
+def test_a_pinned_copy_names_the_etag_and_refuses_a_changed_source(
+    store: S3MediaStore,
+) -> None:
+    """[I1] ``CopySourceIfMatch`` per variant; a 412 is :class:`SourceChanged`.
+
+    Anything else S3 says is still a transient error.
+    """
+    media_id = uuid.uuid4()
+    pins = {320: '"etag-320"', 960: '"etag-960"'}
+    copy = {
+        "Bucket": BUCKET,
+        "Key": f"archive/{media_id}/320.webp",
+        "CopySource": {"Bucket": BUCKET, "Key": f"staged/{media_id}/320.webp"},
+        "MetadataDirective": "COPY",
+        "CopySourceIfMatch": '"etag-320"',
+    }
+    with Stubber(store._client()) as stub:
+        for width in (320, 960):
+            stub.add_response(
+                "copy_object",
+                {"CopyObjectResult": {}},
+                {
+                    **copy,
+                    "Key": f"archive/{media_id}/{width}.webp",
+                    "CopySource": {
+                        "Bucket": BUCKET,
+                        "Key": f"staged/{media_id}/{width}.webp",
+                    },
+                    "CopySourceIfMatch": pins[width],
+                },
+            )
+        store.copy_variants(
+            f"staged/{media_id}/", f"archive/{media_id}/", [320, 960], if_match=pins
+        )
+        stub.add_client_error(
+            "copy_object",
+            service_error_code="PreconditionFailed",
+            http_status_code=412,
+            expected_params=copy,
+        )
+        with pytest.raises(SourceChanged):
+            store.copy_variants(
+                f"staged/{media_id}/", f"archive/{media_id}/", [320], if_match=pins
+            )
+        stub.add_client_error(
+            "copy_object", service_error_code="SlowDown", expected_params=copy
+        )
+        with pytest.raises(TransientError):
+            store.copy_variants(
+                f"staged/{media_id}/", f"archive/{media_id}/", [320], if_match=pins
+            )
+        stub.assert_no_pending_responses()
+
+    # A pin that does not name every width copied is a caller's bug.
+    with pytest.raises(ValueError, match="pin"):
+        store.copy_variants(
+            f"staged/{media_id}/", f"archive/{media_id}/", [1600], if_match=pins
+        )
+
+
+def test_staged_etags_reads_each_variant_or_reports_one_missing(
+    store: S3MediaStore,
+) -> None:
+    media_id = uuid.uuid4()
+    with Stubber(store._client()) as stub:
+        for width in (320, 960):
+            stub.add_response(
+                "head_object",
+                {"ETag": f'"etag-{width}"'},
+                {"Bucket": BUCKET, "Key": f"staged/{media_id}/{width}.webp"},
+            )
+        assert store.staged_etags(media_id, [320, 960]) == {
+            320: '"etag-320"',
+            960: '"etag-960"',
+        }
+        stub.add_response(
+            "head_object",
+            {"ETag": '"etag-320"'},
+            {"Bucket": BUCKET, "Key": f"staged/{media_id}/320.webp"},
+        )
+        stub.add_client_error(
+            "head_object",
+            service_error_code="404",
+            http_status_code=404,
+            expected_params={
+                "Bucket": BUCKET,
+                "Key": f"staged/{media_id}/960.webp",
+            },
+        )
+        assert store.staged_etags(media_id, [320, 960]) is None
+        stub.add_client_error(
+            "head_object",
+            service_error_code="500",
+            http_status_code=500,
+            expected_params={
+                "Bucket": BUCKET,
+                "Key": f"staged/{media_id}/320.webp",
+            },
+        )
+        with pytest.raises(TransientError):
+            store.staged_etags(media_id, [320])
+        stub.assert_no_pending_responses()
 
 
 def test_delete_prefix_lists_then_deletes(store: S3MediaStore) -> None:

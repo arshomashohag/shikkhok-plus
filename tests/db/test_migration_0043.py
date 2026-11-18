@@ -609,3 +609,26 @@ def test_media_batch_must_belong_to_its_owner(owner_session: Session) -> None:
         {"o": two.owner_id, "m": own_level},
     )
     owner_session.commit()
+
+
+def test_variant_etags_name_one_etag_per_width(owner_session: Session) -> None:
+    """[I1] The pins line up with ``widths``: one ETag per variant written.
+
+    :param owner_session: An arranging session
+    :return: None
+    """
+    teacher = make_teacher(owner_session)
+    media_id = _media(owner_session, teacher.owner_id, dimensions=True)
+    owner_session.commit()
+
+    owner_session.execute(
+        sa.text("UPDATE listing_media SET variant_etags = :e WHERE id = :m"),
+        {"e": ['"a"', '"b"'], "m": media_id},
+    )
+    owner_session.commit()
+    with pytest.raises(IntegrityError, match="ck_listing_media_variant_etags"):
+        owner_session.execute(
+            sa.text("UPDATE listing_media SET variant_etags = :e WHERE id = :m"),
+            {"e": ['"a"'], "m": media_id},
+        )
+    owner_session.rollback()

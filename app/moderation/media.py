@@ -17,16 +17,24 @@ enqueued for deletion, so a partial public copy cannot linger; so is the
 key of a copy that succeeded when the commit recording it then fails
 (:func:`commit_releasing`).
 
-**Nothing is approved while its upload can still change** [I1]. A
-presigned POST is not single-use: until it expires the owner can post
-another file with the same form, and the sanitiser re-stages whatever
-lands. So until ``created_at + UPLOAD_WINDOW`` -- the ten-minute signature,
-at most five minutes in the sanitiser's event queue, its thirty seconds and
-a margin, all pinned by ``tests/gates/test_image_sanitiser.py`` -- a photo
-is left out of the queue and an approval is refused. After it, nothing can
-write ``staged/{id}/`` again, so what the administrator previewed is what
-the approval copies. A rejection is never refused; inside the window it
-also deletes, once the window closes, whatever lands after it.
+**The first approval copies exactly what was completed** [I1]. ``complete``
+records each staged variant's ETag; the first approval copies ``staged/``
+to ``archive/`` with ``CopySourceIfMatch`` on them, then ``public/`` from that
+archive. A variant that changed -- the form posted to again -- or a photo
+with no pins is refused as ``MEDIA_UNREADABLE``: rejected with code
+``unreadable``, every object it could have (the fresh key's ``public/``
+prefix and a partial archive included) enqueued for deletion, and a
+``media_rejected`` event recorded.
+
+**And not before its upload window closes** [I1]. Until ``created_at +
+UPLOAD_WINDOW`` -- the ten-minute signature, at most five minutes in the
+sanitiser's event queue, its thirty seconds and a margin, all pinned by
+``tests/gates/test_image_sanitiser.py`` -- a photo is left out of the queue
+and an approval is refused. The window narrows the chance of a re-staged
+variant but cannot close it: S3's event delivery and a POST started before
+its signature expired are not bounded. The pins above are what close it. A
+rejection is not held back by the window; inside it, it also deletes, once
+the window closes, whatever lands after it.
 
 **Rejection deletes everything the photo has**: the quarantined original
 (which may not have expired yet), the staged variants and the archive. A
@@ -82,6 +90,7 @@ from app.hub.media.objects import UPLOAD_WINDOW
 from app.hub.media.quota import lock_owner
 from app.hub.media.storage import (
     MediaStore,
+    SourceChanged,
     archive_prefix,
     public_prefix,
     quarantine_key,
@@ -110,6 +119,10 @@ __all__ = [
     "settled",
     "waiting",
 ]
+
+#: The rejection code for a photo whose staged bytes are not what was
+#: completed [I1], as an upload the sanitiser could not read is coded.
+UNREADABLE: Final[str] = "unreadable"
 
 #: The statuses an administrator decides: waiting for review, or held.
 DECIDABLE: Final[tuple[str, ...]] = ("pending_review", "held")
@@ -403,21 +416,33 @@ def _publish(
     :return: The fresh key, whose ``public/{key}/`` now holds the variants
     :raises TransientError: A copy failed; the transaction is rolled back,
         and the fresh key's prefix enqueued for deletion and committed
+    :raises SourceChanged: The first approval found a staged variant no
+        longer the one completed, or no pins to check it by [I1]; the
+        transaction is rolled back, and the fresh key's prefix and the
+        archive are enqueued for deletion in a new, uncommitted one
     """
     widths = sorted(media.widths or [])
     key = secrets.token_hex(16)
     archived = media.archived_at is not None
-    source = archive_prefix(media.id) if archived else staged_prefix(media.id)
     try:
         if not archived:
+            # The first approval reads staged/ once, pinned to what was
+            # completed; public/ is then copied from that archive.
             store.copy_variants(
-                staged_prefix(media.id), archive_prefix(media.id), widths
+                staged_prefix(media.id),
+                archive_prefix(media.id),
+                widths,
+                if_match=_pins(media, widths),
             )
-        store.copy_variants(source, public_prefix(key), widths)
+        store.copy_variants(archive_prefix(media.id), public_prefix(key), widths)
     except TransientError:
         session.rollback()
         objects.enqueue(session, [public_prefix(key)], now)
         session.commit()
+        raise
+    except SourceChanged:
+        session.rollback()
+        objects.enqueue(session, [public_prefix(key), archive_prefix(media.id)], now)
         raise
     media.position = _free_position(session, media)
     media.status = "approved"
@@ -425,6 +450,74 @@ def _publish(
     if not archived:
         media.archived_at = now
     return key
+
+
+def _pins(media: ListingMedia, widths: list[int]) -> dict[int, str]:
+    """Read the ETags ``complete`` recorded, by width.
+
+    :param media: The photo
+    :param widths: Its variant widths, sorted
+    :return: ``{width: etag}``
+    :raises SourceChanged: None were recorded, or not one per width:
+        nothing says what was completed, so nothing can be copied as it
+    """
+    etags = list(media.variant_etags or [])
+    order = list(media.widths or [])
+    if not etags or len(etags) != len(order) or sorted(order) != widths:
+        raise SourceChanged(staged_prefix(media.id))
+    return dict(zip(order, etags, strict=True))
+
+
+def _unreadable() -> ValidationError:
+    """Build the refusal for a photo whose staged bytes changed [I1].
+
+    :return: The error
+    """
+    return ValidationError(code="MEDIA_UNREADABLE", message_key="hub.media.unreadable")
+
+
+def _reject_changed(
+    session: Session,
+    lens: PlatformAdminLens,
+    media_id: uuid.UUID,
+    now: dt.datetime,
+    correlation_id: str,
+) -> ValidationError:
+    """Reject, as unreadable, a photo whose staged variants changed, and commit.
+
+    Runs after :func:`_publish` rolled the approval back, in the transaction
+    holding its enqueued deletes: the owner and the photo are locked again,
+    and a photo still waiting is rejected with ``unreadable``, everything it
+    has enqueued for deletion and a ``media_rejected`` event recorded.
+
+    :param session: The session, the approval rolled back
+    :param lens: The administrator's lens
+    :param media_id: The photo
+    :param now: The moment of the decision
+    :param correlation_id: The request that caused it
+    :return: The refusal for the caller to raise
+    """
+    owner_id = session.scalar(
+        sa.select(ListingMedia.owner_id).where(ListingMedia.id == media_id)
+    )
+    if owner_id is not None:
+        lock_owner(session, owner_id)
+        media = _locked(session, media_id)
+        if media is not None and media.status in DECIDABLE:
+            _remove(session, media, UNREADABLE, now)
+            media.decided_at = now
+            session.add(
+                _event(
+                    media_id,
+                    "media_rejected",
+                    actor=lens.account_id,
+                    code=UNREADABLE,
+                    correlation_id=correlation_id,
+                    now=now,
+                )
+            )
+    session.commit()
+    return _unreadable()
 
 
 def commit_releasing(session: Session, key: str | None, now: dt.datetime) -> None:
@@ -560,7 +653,12 @@ def decide(
             session.rollback()
             raise _report_open()
         event = "media_restored" if media.status == "held" else "media_approved"
-        key = _publish(session, store, media, now)
+        try:
+            key = _publish(session, store, media, now)
+        except SourceChanged:
+            raise _reject_changed(
+                session, lens, media_id, now, correlation_id
+            ) from None
     else:
         event = "media_rejected"
         key = None

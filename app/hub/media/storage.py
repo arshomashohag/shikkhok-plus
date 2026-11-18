@@ -51,7 +51,7 @@ import os
 import re
 import threading
 import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final, Protocol, TypeVar
 
@@ -72,6 +72,7 @@ __all__ = [
     "MediaStore",
     "S3MediaStore",
     "SanitiseResult",
+    "SourceChanged",
     "UploadTicket",
     "archive_prefix",
     "parse_result",
@@ -128,6 +129,15 @@ _PREVIEW_KEY: Final = re.compile(rf"(?:staged|archive)/{_UUID}/(?:320|960|1600)\
 _REGION: Final = re.compile(r"[a-z]{2}(?:-[a-z]+)+-[0-9]")
 
 _T = TypeVar("_T")
+
+
+class SourceChanged(Exception):
+    """A pinned copy found its source changed since its ETag was recorded.
+
+    Raised by ``copy_variants(..., if_match=...)`` when S3 answers 412
+    ``PreconditionFailed`` [I1]: the staged variant is no longer the one
+    read when the photo was completed, so it is not what was reviewed.
+    """
 
 
 def quarantine_key(media_id: uuid.UUID) -> str:
@@ -281,15 +291,34 @@ class MediaStore(Protocol):
         """
         ...
 
+    def staged_etags(
+        self, media_id: uuid.UUID, widths: Sequence[int]
+    ) -> dict[int, str] | None:
+        """Read the ETag of each staged variant.
+
+        :param media_id: The photo
+        :param widths: The variant widths
+        :return: ``{width: etag}``, or None when a variant is missing
+        """
+        ...
+
     def copy_variants(
-        self, src_prefix: str, dst_prefix: str, widths: list[int]
+        self,
+        src_prefix: str,
+        dst_prefix: str,
+        widths: list[int],
+        *,
+        if_match: Mapping[int, str] | None = None,
     ) -> None:
         """Copy each ``{w}.webp`` from one photo folder to another.
 
         :param src_prefix: The source folder
         :param dst_prefix: The destination folder
         :param widths: The variant widths
+        :param if_match: Each width's recorded ETag; the copy happens only
+            while the source still has it
         :return: None
+        :raises SourceChanged: A pinned source no longer has its ETag
         """
         ...
 
@@ -542,20 +571,68 @@ class S3MediaStore:
             raise _unavailable() from error
         return parse_result(body)
 
+    def staged_etags(
+        self, media_id: uuid.UUID, widths: Sequence[int]
+    ) -> dict[int, str] | None:
+        """Read the ETag of each staged variant, one HEAD per width.
+
+        Recorded when a photo is completed, so an approval copies exactly
+        those bytes [I1].
+
+        :param media_id: The photo
+        :param widths: The variant widths
+        :return: ``{width: etag}``, or None when a variant is missing (the
+            sanitiser may be writing it again)
+        :raises ValueError: A width outside :data:`VARIANT_WIDTHS`
+        :raises TransientError: S3 failed or refused
+        """
+        if not set(widths) <= set(VARIANT_WIDTHS):
+            raise ValueError(f"not variant widths: {widths!r}")
+        bucket = self._require_bucket()
+        client = self._client()
+        found: dict[int, str] = {}
+        for width in widths:
+            key = f"{staged_prefix(media_id)}{width}.webp"
+            try:
+                head = client.head_object(Bucket=bucket, Key=key)
+            except ClientError as error:
+                code = _error_code(error)
+                if code in ("404", "NoSuchKey", "NotFound"):
+                    return None
+                log.warning("media variant unreadable", extra={"code": code})
+                raise _unavailable() from error
+            except BotoCoreError as error:
+                log.warning(
+                    "media bucket unreachable", extra={"error": type(error).__name__}
+                )
+                raise _unavailable() from error
+            found[width] = str(head["ETag"])
+        return found
+
     def copy_variants(
-        self, src_prefix: str, dst_prefix: str, widths: list[int]
+        self,
+        src_prefix: str,
+        dst_prefix: str,
+        widths: list[int],
+        *,
+        if_match: Mapping[int, str] | None = None,
     ) -> None:
         """Copy each ``{w}.webp`` between two photo folders.
 
         ``MetadataDirective=COPY`` keeps the source's ``Content-Type:
         image/webp``, which is what ``/m/*`` serves: its response headers
-        policy sets no type of its own [Task 2 ruling].
+        policy sets no type of its own [Task 2 ruling]. With ``if_match``
+        each copy carries ``CopySourceIfMatch``, so S3 copies the source
+        only while it is the object whose ETag was recorded [I1].
 
         :param src_prefix: The source folder
         :param dst_prefix: The destination folder
         :param widths: The variant widths
+        :param if_match: Each width's recorded ETag, or None for no pin
         :return: None
-        :raises ValueError: A folder or a width outside the layout
+        :raises ValueError: A folder or a width outside the layout, or a pin
+            missing for a width
+        :raises SourceChanged: S3 answered 412: a pinned source changed
         :raises TransientError: S3 failed
         """
         if not (
@@ -565,17 +642,33 @@ class S3MediaStore:
             raise ValueError("variants are copied between photo folders only")
         if not set(widths) <= set(VARIANT_WIDTHS):
             raise ValueError(f"not variant widths: {widths!r}")
+        if if_match is not None and not set(widths) <= if_match.keys():
+            raise ValueError(f"no pin for every width: {widths!r}")
         bucket = self._require_bucket()
         client = self._client()
         for width in widths:
             name = f"{width}.webp"
-            self._call(
-                client.copy_object,
-                Bucket=bucket,
-                Key=f"{dst_prefix}{name}",
-                CopySource={"Bucket": bucket, "Key": f"{src_prefix}{name}"},
-                MetadataDirective="COPY",
-            )
+            params: dict[str, object] = {
+                "Bucket": bucket,
+                "Key": f"{dst_prefix}{name}",
+                "CopySource": {"Bucket": bucket, "Key": f"{src_prefix}{name}"},
+                "MetadataDirective": "COPY",
+            }
+            if if_match is not None:
+                params["CopySourceIfMatch"] = if_match[width]
+            try:
+                client.copy_object(**params)
+            except ClientError as error:
+                code = _error_code(error)
+                if code in ("PreconditionFailed", "412"):
+                    raise SourceChanged(f"{src_prefix}{name}") from error
+                log.warning("media bucket call failed", extra={"code": code})
+                raise _unavailable() from error
+            except BotoCoreError as error:
+                log.warning(
+                    "media bucket unreachable", extra={"error": type(error).__name__}
+                )
+                raise _unavailable() from error
 
     def delete_prefix(self, prefix: str) -> None:
         """Delete every object under one photo's prefix.

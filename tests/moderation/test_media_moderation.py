@@ -111,6 +111,14 @@ def _pending(
     )
     session.commit()
     store.put_result(media_id, OK)
+    # What `complete` records: each staged variant's ETag [I1].
+    pins = store.staged_etags(media_id, WIDTHS)
+    assert pins is not None
+    session.execute(
+        sa.text("UPDATE listing_media SET variant_etags = :e WHERE id = :m"),
+        {"e": [pins[w] for w in WIDTHS], "m": media_id},
+    )
+    session.commit()
     return media_id
 
 
@@ -824,7 +832,10 @@ def test_admin_preview_carries_no_account_fields(
         owner_session, served, teacher.owner_id, batch_id=teacher.batch_id
     )
     owner_session.execute(
-        sa.text("UPDATE listing_media SET widths = :ws WHERE id = :m"),
+        sa.text(
+            "UPDATE listing_media SET widths = :ws, "
+            "variant_etags = variant_etags[1:2] WHERE id = :m"
+        ),
         {"ws": [320, 960], "m": media_id},
     )
     # The teacher's private label, which nothing administrative may read.
@@ -1627,3 +1638,108 @@ def test_a_restore_whose_commit_fails_deletes_its_public_copy(
         ).scalar_one()
         == "open"
     )
+
+
+# ---------------------------------------------------------------------------
+# [I1] The first approval copies exactly what was completed.
+# ---------------------------------------------------------------------------
+
+
+def test_matching_pins_approve_and_the_public_copy_is_the_completed_bytes(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+) -> None:
+    media_id = _pending(owner_session, store, tutor.lens.owner_id)
+    staged = {w: store.objects[f"staged/{media_id}/{w}.webp"] for w in WIDTHS}
+
+    key = _approve(restricted_session, store, admin, media_id)
+
+    for width in WIDTHS:
+        assert store.objects[f"public/{key}/{width}.webp"] == staged[width]
+        assert store.objects[f"archive/{media_id}/{width}.webp"] == staged[width]
+
+
+@pytest.mark.parametrize("width", WIDTHS)
+def test_a_variant_staged_again_after_completion_is_never_published(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+    width: int,
+) -> None:
+    """A second post to the same form re-staged one variant: refused, removed.
+
+    The approval is refused as unreadable, the photo is rejected with that
+    code, nothing is public, every object it could have -- including any
+    archive copy made before the changed variant was reached -- is
+    enqueued for deletion, and the rejection is a moderation event.
+    """
+    media_id = _pending(owner_session, store, tutor.lens.owner_id)
+    store.restage(media_id, width, b"RIFF not what was reviewed")
+
+    with pytest.raises(ValidationError) as refused:
+        media.decide(
+            restricted_session,
+            store,
+            admin,
+            media_id,
+            approve=True,
+            code=None,
+            now=NOW,
+        )
+
+    assert refused.value.code == "MEDIA_UNREADABLE"
+    row = _row(owner_session, media_id)
+    assert (row.status, row.public_key, row.rejection_code, row.decided_at) == (
+        "rejected",
+        None,
+        "unreadable",
+        NOW,
+    )
+    assert not any(k.startswith("public/") for k in store.objects)
+    left = set(tasks(owner_session))
+    assert {
+        f"quarantine/{media_id}",
+        f"staged/{media_id}/",
+        f"archive/{media_id}/",
+    } <= left
+    (public,) = [p for p in left if p.startswith("public/")]
+    assert len(public) == len("public/") + 32 + 1
+    assert _events(owner_session) == [
+        ("media_rejected", "media", "unreadable", admin.account_id)
+    ]
+
+
+def test_an_unarchived_photo_without_pins_is_never_published(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+) -> None:
+    """Nothing recorded what was completed, so nothing can show it unchanged."""
+    media_id = _pending(owner_session, store, tutor.lens.owner_id)
+    owner_session.execute(
+        sa.text("UPDATE listing_media SET variant_etags = NULL WHERE id = :m"),
+        {"m": media_id},
+    )
+    owner_session.commit()
+
+    with pytest.raises(ValidationError) as refused:
+        media.decide(
+            restricted_session,
+            store,
+            admin,
+            media_id,
+            approve=True,
+            code=None,
+            now=NOW,
+        )
+
+    assert refused.value.code == "MEDIA_UNREADABLE"
+    assert _row(owner_session, media_id).status == "rejected"
+    assert not any(k.startswith(("public/", "archive/")) for k in store.objects)

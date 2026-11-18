@@ -182,6 +182,14 @@ def _pending(
     )
     session.commit()
     store.put_result(media_id, OK)
+    # What `complete` records: each staged variant's ETag [I1].
+    pins = store.staged_etags(media_id, WIDTHS)
+    assert pins is not None
+    session.execute(
+        sa.text("UPDATE listing_media SET variant_etags = :e WHERE id = :m"),
+        {"e": [pins[w] for w in WIDTHS], "m": media_id},
+    )
+    session.commit()
     return media_id
 
 
@@ -326,10 +334,10 @@ def test_deletion_waiting_on_an_approval_queues_its_public_copy(
     copying = threading.Event()
     copy = store.copy_variants
 
-    def held_copy(source: str, target: str, widths: object) -> None:
+    def held_copy(source: str, target: str, widths: object, **pin: object) -> None:
         copying.set()
         _wait_for_a_waiter(owner_engine)
-        copy(source, target, widths)  # type: ignore[arg-type]
+        copy(source, target, widths, **pin)  # type: ignore[arg-type]
 
     store.copy_variants = held_copy  # type: ignore[method-assign]
 
