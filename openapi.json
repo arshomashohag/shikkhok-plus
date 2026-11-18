@@ -24177,7 +24177,7 @@
     },
     "/v1/hub/media": {
       "get": {
-        "description": "List one gallery: the owner's own, or one batch's.\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param store: The bucket\n:param batch_id: The batch; omit for the owner's own gallery\n:return: The photos in gallery order, withdrawn ones excluded",
+        "description": "List one gallery: the owner's own, or one batch's.\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param store: The bucket\n:param batch_id: The batch; omit for the owner's own gallery\n:return: The photos in gallery order; withdrawn ones, and uploads\n    abandoned past their window, excluded",
         "operationId": "list_photos_v1_hub_media_get",
         "parameters": [
           {

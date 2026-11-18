@@ -29,6 +29,7 @@ from app.auth.ceilings import HUB_MEDIA_OWNER_DAILY
 from app.batches.service import BatchNotFound
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.hub.media import quota, uploads
+from app.hub.media.objects import UPLOAD_WINDOW
 from app.hub.media.storage import S3MediaStore, UploadTicket
 from tests.hub.media.fakes import FakeMediaStore
 from tests.hub.media.support import NOW, Owner, arrange, media_row, tasks
@@ -642,3 +643,164 @@ def test_complete_refuses_another_owners_photo(
         assert refused.value.code == "MEDIA_NOT_FOUND"
         assert refused.value.status == 404
     assert _status(owner_session, media_id).status == "awaiting_upload"
+
+
+# ---------------------------------------------------------------------------
+# [I3] An abandoned upload gives its slot back once its window has closed.
+# ---------------------------------------------------------------------------
+
+#: An upload signed so long ago that nothing can still land for it.
+ABANDONED: Final[dt.datetime] = NOW - UPLOAD_WINDOW
+
+#: An upload signed a second too recently for that.
+FRESH: Final[dt.datetime] = ABANDONED + dt.timedelta(seconds=1)
+
+
+@pytest.mark.parametrize("batch", [False, True], ids=["owner", "batch"])
+def test_init_withdraws_abandoned_uploads_and_takes_their_slot(
+    restricted_session: Session,
+    owner_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    batch: bool,
+) -> None:
+    """A full gallery of abandoned uploads accepts one more; they are withdrawn.
+
+    Every in-flight row of the owner's past the window goes, in either
+    gallery, with its quarantine and staged objects enqueued; another
+    owner's abandoned upload is not this owner's to withdraw.
+    """
+    limit = quota.BATCH_LIMIT if batch else quota.OWNER_LIMIT
+    batch_id = tutor.batch_id if batch else None
+    abandoned = [
+        media_row(
+            owner_session,
+            tutor.lens.owner_id,
+            status=("awaiting_upload", "processing")[i % 2],
+            batch_id=batch_id,
+            created_at=ABANDONED,
+            position=i,
+        )
+        for i in range(limit)
+    ]
+    elsewhere = media_row(
+        owner_session,
+        tutor.lens.owner_id,
+        status="awaiting_upload",
+        batch_id=tutor.batch_id if not batch else None,
+        created_at=ABANDONED,
+    )
+    stranger = arrange(owner_session)
+    theirs = media_row(
+        owner_session,
+        stranger.lens.owner_id,
+        status="awaiting_upload",
+        created_at=ABANDONED,
+    )
+
+    ticket = _init(restricted_session, store, tutor, batch=batch)
+
+    for media_id in [*abandoned, elsewhere]:
+        assert _status(owner_session, media_id).status == "withdrawn"
+    assert _status(owner_session, theirs).status == "awaiting_upload"
+    assert _status(owner_session, ticket.media_id).status == "awaiting_upload"
+    assert sorted(tasks(owner_session)) == sorted(
+        prefix
+        for media_id in [*abandoned, elsewhere]
+        for prefix in (f"quarantine/{media_id}", f"staged/{media_id}/")
+    )
+    # A completion for a withdrawn upload finds nothing.
+    store.put_result(abandoned[0], OK)
+    with pytest.raises(AuthorizationError) as refused:
+        uploads.complete(
+            restricted_session,
+            store,
+            tutor.lens,
+            abandoned[0],
+            alt_en="A classroom",
+            alt_bn="একটি শ্রেণিকক্ষ",
+            now=NOW,
+        )
+    assert refused.value.code == "MEDIA_NOT_FOUND"
+
+
+def test_a_fresh_upload_still_holds_its_slot(
+    restricted_session: Session,
+    owner_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+) -> None:
+    """Inside its window an upload may still land, so it counts and stays."""
+    fresh = media_row(
+        owner_session,
+        tutor.lens.owner_id,
+        status="awaiting_upload",
+        created_at=FRESH,
+    )
+    for i in range(1, quota.OWNER_LIMIT):
+        media_row(owner_session, tutor.lens.owner_id, position=i)
+
+    with pytest.raises(ConflictError) as refused:
+        _init(restricted_session, store, tutor)
+
+    assert refused.value.code == "MEDIA_LIMIT_REACHED"
+    assert _status(owner_session, fresh).status == "awaiting_upload"
+    assert tasks(owner_session) == []
+
+
+def test_concurrent_inits_withdraw_an_abandoned_upload_once(
+    restricted_engine: Engine,
+    owner_session: Session,
+    tutor: Owner,
+) -> None:
+    """Two inits race for the one slot an abandoned upload frees.
+
+    The sweep runs under the owner lock, so the second init sees the first's
+    withdrawal and its new row: exactly one wins, and the abandoned upload is
+    withdrawn and enqueued exactly once.
+    """
+    stale = media_row(
+        owner_session,
+        tutor.lens.owner_id,
+        status="awaiting_upload",
+        created_at=ABANDONED,
+    )
+    for i in range(1, quota.OWNER_LIMIT):
+        media_row(owner_session, tutor.lens.owner_id, position=i)
+
+    slow = FakeMediaStore(delay=0.5)
+    factory = sessionmaker(bind=restricted_engine, expire_on_commit=False)
+    barrier = threading.Barrier(2)
+    won: list[uuid.UUID] = []
+    refused: list[str] = []
+    other: list[BaseException] = []
+    lock = threading.Lock()
+
+    def attempt() -> None:
+        session = factory()
+        try:
+            barrier.wait(timeout=30)
+            ticket = _init(session, slow, tutor)
+            with lock:
+                won.append(ticket.media_id)
+        except ConflictError as error:
+            with lock:
+                refused.append(error.code)
+        except BaseException as error:  # noqa: BLE001  recorded, then asserted
+            with lock:
+                other.append(error)
+        finally:
+            session.close()
+
+    threads = [threading.Thread(target=attempt) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=60)
+
+    assert other == []
+    assert len(won) == 1
+    assert refused == ["MEDIA_LIMIT_REACHED"]
+    assert _status(owner_session, stale).status == "withdrawn"
+    assert sorted(tasks(owner_session)) == [f"quarantine/{stale}", f"staged/{stale}/"]
+    assert quota.counted(owner_session, tutor.lens.owner_id, None) == quota.OWNER_LIMIT

@@ -243,9 +243,11 @@ def list_photos(
     :param session: The request-scoped session
     :param store: The bucket
     :param batch_id: The batch; omit for the owner's own gallery
-    :return: The photos in gallery order, withdrawn ones excluded
+    :return: The photos in gallery order; withdrawn ones, and uploads
+        abandoned past their window, excluded
     """
-    return [_response(store, m) for m in library.list_media(session, lens, batch_id)]
+    listed = library.list_media(session, lens, batch_id, dt.datetime.now(tz=dt.UTC))
+    return [_response(store, m) for m in listed]
 
 
 @router.put("/order", response_model=list[MediaResponse], responses=_ERRORS)

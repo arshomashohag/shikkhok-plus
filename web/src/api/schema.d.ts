@@ -3159,7 +3159,8 @@ export interface paths {
      *     :param session: The request-scoped session
      *     :param store: The bucket
      *     :param batch_id: The batch; omit for the owner's own gallery
-     *     :return: The photos in gallery order, withdrawn ones excluded
+     *     :return: The photos in gallery order; withdrawn ones, and uploads
+     *         abandoned past their window, excluded
      */
     get: operations['list_photos_v1_hub_media_get']
     put?: never

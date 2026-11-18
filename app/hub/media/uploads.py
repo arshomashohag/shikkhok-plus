@@ -15,6 +15,15 @@ its size and variant widths -- what an approved photo must have
 (``ck_listing_media_approved_dimensions``) -- and both alt texts, which are
 required, at most 200 characters and phone-scanned like every public text.
 
+**An abandoned upload gives its slot back** [I3]. An upload whose POST
+failed, whose app was closed, or whose retry asked for a fresh form is
+left ``awaiting_upload`` and would hold a quota slot for ever, since
+nothing would call ``complete`` for it again. :func:`init_upload`, under
+the owner lock and before it counts, withdraws every one of the owner's
+in-flight uploads whose window has closed -- nothing can land for them any
+more -- and enqueues their quarantine and staged objects for deletion, as a
+withdrawal does. A ``complete`` for one then finds nothing.
+
 **No result after twenty minutes is unreadable** [R7c]. The Lambda never
 retries, so a timeout or an out-of-memory kill writes nothing, and the API
 is the only party that can give the photo an end. Twenty minutes is the
@@ -28,6 +37,7 @@ import uuid
 from collections.abc import Callable
 from typing import Final
 
+import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.auth.ceilings import CeilingChecker
@@ -80,7 +90,9 @@ def init_upload(
     :raises ValidationError: The type or size is not allowed
     :raises BatchNotFound: The batch is absent or another owner's
     :raises AuthorizationError: ``NO_TEACHER_LENS``: the owner's account was
-        deleted while this waited for the owner row [R13]; nothing written
+        deleted while this waited for the owner row [R13]; nothing written.
+        Before counting, the owner's abandoned uploads are withdrawn [I3];
+        a refusal rolls that back with everything else
     :raises ConflictError: The gallery is full, or today's 30 uploads are
         spent; nothing is counted or written
     :raises TransientError: The bucket cannot be signed for right now;
@@ -99,6 +111,7 @@ def init_upload(
         session.rollback()
         raise quota.owner_departed()
     try:
+        _withdraw_abandoned(session, lens.owner_id, now)
         quota.require_room(session, lens.owner_id, batch_id)
         CeilingChecker(session).consume_hub_media(lens.owner_id, now)
         media = ListingMedia(
@@ -119,6 +132,48 @@ def init_upload(
         raise
     session.commit()
     return ticket
+
+
+def _withdraw_abandoned(
+    session: Session, owner_id: uuid.UUID, now: dt.datetime
+) -> None:
+    """Withdraw the owner's uploads that can no longer land [I3].
+
+    Every in-flight row of the owner's, in any gallery, signed at least
+    :data:`~app.hub.media.objects.UPLOAD_WINDOW` ago. Call with the owner
+    row locked: the photo rows are locked after it, the order every photo
+    write takes [R13]. Commits nothing.
+
+    :param session: The upload's session
+    :param owner_id: The owner, locked
+    :param now: The moment of the upload
+    :return: None
+    """
+    abandoned = list(
+        session.scalars(
+            sa.select(ListingMedia)
+            .where(
+                ListingMedia.owner_id == owner_id,
+                ListingMedia.status.in_(objects.IN_FLIGHT),
+                ListingMedia.created_at <= now - objects.UPLOAD_WINDOW,
+            )
+            .order_by(ListingMedia.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    )
+    for media in abandoned:
+        media.status = "withdrawn"
+    objects.enqueue(
+        session,
+        [
+            prefix
+            for media in abandoned
+            for prefix in (quarantine_key(media.id), staged_prefix(media.id))
+        ],
+        now,
+    )
+    session.flush()
 
 
 def _reject_unreadable(

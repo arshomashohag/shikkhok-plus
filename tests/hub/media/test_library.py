@@ -19,6 +19,7 @@ from app.batches.service import BatchNotFound
 from app.errors import AuthorizationError, ValidationError
 from app.hub.media import commands as media_commands
 from app.hub.media import library
+from app.hub.media.objects import UPLOAD_WINDOW
 from app.hub.public import commands
 from tests.hub.media.fakes import FakeMediaStore
 from tests.hub.media.support import (
@@ -74,13 +75,41 @@ def test_list_media_shows_one_gallery_without_withdrawn(
     stranger = arrange(owner_session)
     media_row(owner_session, stranger.lens.owner_id)
 
-    owner_gallery = library.list_media(restricted_session, tutor.lens, None)
-    batch_gallery = library.list_media(restricted_session, tutor.lens, tutor.batch_id)
+    owner_gallery = library.list_media(restricted_session, tutor.lens, None, NOW)
+    batch_gallery = library.list_media(
+        restricted_session, tutor.lens, tutor.batch_id, NOW
+    )
 
     assert [m.id for m in owner_gallery] == [first, second]
     assert [m.id for m in batch_gallery] == [in_batch]
     with pytest.raises(BatchNotFound):
-        library.list_media(restricted_session, tutor.lens, stranger.batch_id)
+        library.list_media(restricted_session, tutor.lens, stranger.batch_id, NOW)
+
+
+@pytest.mark.parametrize("status", ["awaiting_upload", "processing"])
+def test_list_media_leaves_out_an_abandoned_upload(
+    restricted_session: Session, owner_session: Session, tutor: Owner, status: str
+) -> None:
+    """[I3] Past its window an upload holds no slot, so the list omits it.
+
+    The next upload withdraws it; until then the list -- and the count a
+    client shows from it -- already matches what the server will count.
+    """
+    owner_id = tutor.lens.owner_id
+    fresh = media_row(
+        owner_session,
+        owner_id,
+        status=status,
+        created_at=NOW - UPLOAD_WINDOW + dt.timedelta(seconds=1),
+    )
+    media_row(owner_session, owner_id, status=status, created_at=NOW - UPLOAD_WINDOW)
+    old_review = media_row(
+        owner_session, owner_id, created_at=NOW - dt.timedelta(days=3), position=1
+    )
+
+    listed = library.list_media(restricted_session, tutor.lens, None, NOW)
+
+    assert [m.id for m in listed] == [fresh, old_review]
 
 
 def test_alt_edit_on_approved_returns_to_review_and_unpublishes(

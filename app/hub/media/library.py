@@ -85,22 +85,43 @@ def _ordered(
 
 
 def list_media(
-    session: Session, lens: TeacherLens, batch_id: uuid.UUID | None
+    session: Session, lens: TeacherLens, batch_id: uuid.UUID | None, now: dt.datetime
 ) -> list[ListingMedia]:
     """List one of the owner's galleries, every status but withdrawn.
 
-    Uploads still in flight are listed too, so an abandoned one -- which
-    holds a quota slot -- can be seen and withdrawn.
+    Uploads still in flight are listed too, so one that holds a quota slot
+    can be seen and withdrawn -- until its upload window closes. Then
+    nothing can land for it, the next upload withdraws it and takes its
+    slot [I3], and the list already leaves it out, so a client counting
+    the list counts what the server will.
 
     :param session: The session
     :param lens: The owner's lens
     :param batch_id: The batch, or None for the owner's own gallery
+    :param now: The present moment
     :return: The photos, in gallery order
     :raises BatchNotFound: The batch is absent or another owner's
     """
     if batch_id is not None:
         _owned_batch(session, lens=lens, batch_id=batch_id)
-    return _ordered(session, lens.owner_id, batch_id)
+    return [
+        media
+        for media in _ordered(session, lens.owner_id, batch_id)
+        if not _abandoned(media, now)
+    ]
+
+
+def _abandoned(media: ListingMedia, now: dt.datetime) -> bool:
+    """Say whether an upload is in flight with its window closed.
+
+    :param media: The photo
+    :param now: The present moment
+    :return: True for an upload nothing can land for any more
+    """
+    return (
+        media.status in objects.IN_FLIGHT
+        and media.created_at <= now - objects.UPLOAD_WINDOW
+    )
 
 
 def _page_paths(session: Session, media: ListingMedia) -> list[str]:
