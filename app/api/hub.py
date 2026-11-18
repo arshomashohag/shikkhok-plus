@@ -14,10 +14,11 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from typing import Annotated, Final
+from typing import Annotated, Final, Literal
 
 import sqlalchemy as sa
 from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -26,10 +27,11 @@ from app.api.deps import (
     get_session,
     teacher_lens,
 )
+from app.api.html import HUB_PAGE_CSP, html_response
 from app.auth.ceilings import CeilingChecker
 from app.authz.lenses import CentreMemberLens, TeacherLens
 from app.db.models import OwnerListing
-from app.hub.areas import list_areas
+from app.hub import areas, feedback
 from app.hub.listings import batches, owner
 from app.hub.listings.badge import runs_classes
 from app.hub.listings.batches import BatchListingUpdate, BatchListingView
@@ -45,6 +47,8 @@ from app.hub.listings.member_consent import (
 )
 from app.hub.listings.names import teacher_names
 from app.hub.listings.owner import OwnerListingUpdate
+from app.hub.listings.preview import owner_page as preview_owner_page
+from app.hub.public import render
 from app.local_time import bangladesh_today
 from app.moderation import reports
 from app.money.wire import to_wire
@@ -56,6 +60,7 @@ from app.schemas.hub import (
     CentreMembershipResponse,
     ChecklistItemWire,
     ConsentRequest,
+    HubFeedbackRequest,
     OwnerListingResponse,
     OwnerListingUpdateRequest,
     PublishRequest,
@@ -128,6 +133,7 @@ def _owner_response(
             "status": listing.status,
             "slug": listing.slug,
             "public_name": listing.public_name,
+            "public_name_latin": listing.public_name_latin,
             "headline_en": listing.headline_en,
             "headline_bn": listing.headline_bn,
             "bio_en": listing.bio_en,
@@ -258,6 +264,42 @@ def put_listing(
     return _owner_response(session, lens, listing)
 
 
+@router.get(
+    "/hub/listing/preview",
+    response_class=HTMLResponse,
+    responses={
+        **_AUTH_ERRORS,
+        200: {
+            "description": "The owner's page as it would read, drafts included",
+            "content": {"text/html": {"schema": {"type": "string"}}},
+        },
+    },
+)
+def preview_listing(
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    session: Annotated[Session, Depends(get_session)],
+    locale: Annotated[Literal["en", "bn"], Query()] = "en",
+) -> HTMLResponse:
+    """Show the owner their own public page before it is public.
+
+    Built from the owner's own rows by a separate, owner-scoped builder,
+    into the same registered page model and through the same template as
+    the public page, with a banner saying it is not public. Never cached:
+    it is one owner's unpublished draft.
+
+    :param lens: The owner's lens; the page is always this owner's
+    :param session: The request-scoped session
+    :param locale: ``en`` or ``bn``
+    :return: The page
+    """
+    view = preview_owner_page(session, lens, locale)
+    return html_response(
+        render.page(view, "owner.html", locale, preview=True),
+        csp=HUB_PAGE_CSP,
+        cache_control="no-store",
+    )
+
+
 @router.post(
     "/hub/listing/publish",
     response_model=OwnerListingResponse,
@@ -334,12 +376,7 @@ def hub_areas(
     :return: The areas; empty for an unknown parent
     """
     del lens
-    return [
-        AreaOption.model_validate(
-            {"code": a.code, "kind": a.kind, "name_en": a.name_en, "name_bn": a.name_bn}
-        )
-        for a in list_areas(session, parent)
-    ]
+    return areas.children(session, parent)
 
 
 @router.get(
@@ -481,6 +518,33 @@ def file_report(
         str(getattr(request.state, "correlation_id", "unknown"))[:64],
     )
     return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.post(
+    "/hub/feedback",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    responses=_WRITE_ERRORS,
+)
+def answer_feedback(
+    body: HubFeedbackRequest,
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    """Answer "Did the hub bring you a student?"; answering again overwrites.
+
+    The question answered is the workspace's own: a centre manager names the
+    centre with ``X-Workspace-Id``, as the inbox item's ``source_id`` gives
+    it. A day this owner was never asked is refused with
+    ``HUB_FEEDBACK_NOT_ASKED`` (409).
+
+    :param body: The day of the question and the answer
+    :param lens: The answering manager's lens on the owner
+    :param session: The request-scoped session
+    :return: An empty 204
+    """
+    feedback.answer(session, lens, body.day, body.answer, dt.datetime.now(tz=dt.UTC))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(

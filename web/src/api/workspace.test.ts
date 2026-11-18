@@ -1,6 +1,7 @@
 /** The workspace header: a remembered choice among what the server offers. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { request } from './client'
+import { answerHubFeedback } from './endpoints'
 import { clearTokens, saveTokens } from './tokens'
 import { currentWorkspace, reconcileWorkspace, storeWorkspace, WORKSPACE_HEADER } from './workspace'
 
@@ -21,6 +22,17 @@ describe('the workspace header', () => {
     vi.stubGlobal('fetch', fetchMock)
     await request('GET', '/v1/batches')
     expect(headersOf(fetchMock)[WORKSPACE_HEADER]).toBe('centre-1')
+  })
+
+  it('names the workspace a request asks for in place of the stored one', async () => {
+    saveTokens({ access_token: 'A1', refresh_token: 'R1', expires_in: 900 })
+    storeWorkspace('solo-1')
+    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    // The demand question is the centre's, whichever workspace is open.
+    await answerHubFeedback('centre-1', 90, 'not_yet')
+    expect(headersOf(fetchMock)[WORKSPACE_HEADER]).toBe('centre-1')
+    expect(currentWorkspace()).toBe('solo-1')
   })
 
   it('is left off with nothing chosen, and on an anonymous call', async () => {

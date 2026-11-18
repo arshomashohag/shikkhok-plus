@@ -199,5 +199,6 @@ internal fun InboxTarget.route(): String =
             Destination.FeeHistory.of(enrollmentId, (if (guardian) FeeReader.GUARDIAN else FeeReader.STUDENT).name)
         InboxTarget.Verify -> Destination.Verify.route
         InboxTarget.HubListing -> Destination.HubListing.route
+        is InboxTarget.HubFeedback -> Destination.HubFeedback.of(ownerId, day)
         is InboxTarget.Payment -> Destination.PaymentReview.of(submissionId)
     }

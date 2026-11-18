@@ -78,6 +78,7 @@ object MessageKeys {
         "hub.batch_flags_required" to R.string.hub_batch_flags_required,
         "hub.batch_inactive" to R.string.hub_batch_inactive,
         "hub.owner_not_published" to R.string.hub_owner_not_published,
+        "hub.feedback_not_asked" to R.string.hub_feedback_not_asked,
         "hub.batch_value_invalid" to R.string.hub_batch_value_invalid,
         "hub.address_centre_only" to R.string.hub_address_centre_only,
         "hub.write_ceiling" to R.string.hub_write_ceiling,

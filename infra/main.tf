@@ -242,6 +242,10 @@ module "app" {
   permissions_boundary_arn = local.permissions_boundary_arn
   alarm_topic_arn          = aws_sns_topic.alerts.arn
 
+  # The one distribution this host may invalidate: a hub takedown evicts
+  # its cached pages [0041]. The rehearsal host below gets none.
+  site_distribution_arn = module.site.distribution_arn
+
   name_prefix    = local.name_prefix
   vpc_id         = module.network.vpc_id
   subnet_ids     = module.network.public_subnet_ids
@@ -360,6 +364,11 @@ module "site" {
   name_prefix = local.name_prefix
   domain_name = local.project_domain
   zone_id     = aws_route53_zone.project.zone_id
+
+  # The /hub/* behaviour reaches the API's public hub pages at the same
+  # origin the API distribution uses, with the same origin secret.
+  api_origin_fqdn = module.cdn.origin_fqdn
+  origin_secret   = module.app.origin_secret
 }
 
 # **Where deploy.yml puts the site, on the same terms as the web client**

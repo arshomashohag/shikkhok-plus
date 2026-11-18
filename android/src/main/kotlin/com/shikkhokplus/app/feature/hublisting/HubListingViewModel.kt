@@ -15,6 +15,9 @@ internal const val HUB_OFFLINE_KEY: String = "error.network.unreachable"
 /** The refusal that means the consent terms changed since the listing was read. */
 internal const val HUB_CONSENT_OUTDATED_KEY: String = "hub.consent_outdated"
 
+/** The area kind whose children are offered as a third, optional level. */
+internal const val AREA_CITY_CORPORATION: String = "city_corporation"
+
 /**
  * A failed call, as the screen shows it.
  *
@@ -116,9 +119,11 @@ enum class HubNotice {
  *
  * @property divisions Every division
  * @property districts The districts of [divisionCode]
- * @property upazilas The upazilas of the chosen district
+ * @property upazilas The upazilas, then the city corporations, of the chosen district
  * @property divisionCode The chosen division, or empty
  * @property failed Whether the last area read failed; shown with Retry, never as an empty list
+ * @property cityCode The city corporation whose thanas are offered, or empty
+ * @property thanas The thanas of [cityCode]
  */
 data class AreasState(
     val divisions: List<AreaOption> = emptyList(),
@@ -126,6 +131,8 @@ data class AreasState(
     val upazilas: List<AreaOption> = emptyList(),
     val divisionCode: String = "",
     val failed: Boolean = false,
+    val cityCode: String = "",
+    val thanas: List<AreaOption> = emptyList(),
 )
 
 /**
@@ -178,6 +185,13 @@ data class HubListingState(
 
     /** Whether the street address is asked for: the server's `is_centre`. */
     val showStreet: Boolean get() = saved?.isCentre == true
+
+    /**
+     * The slug "View public page" opens, offered only while the server says
+     * the listing is published and has one; null otherwise.
+     */
+    val publicSlug: String?
+        get() = editing?.takeIf { it.status == ListingStatus.PUBLISHED }?.listing?.slug?.ifBlank { null }
 }
 
 /** The write a Retry repeats. */
@@ -338,7 +352,14 @@ class HubListingViewModel(
         _state.update {
             it.copy(
                 draft = it.draft.copy(districtCode = "", upazilaCode = ""),
-                areas = it.areas.copy(divisionCode = code, districts = emptyList(), upazilas = emptyList()),
+                areas =
+                    it.areas.copy(
+                        divisionCode = code,
+                        districts = emptyList(),
+                        upazilas = emptyList(),
+                        cityCode = "",
+                        thanas = emptyList(),
+                    ),
             )
         }
         if (code.isNotEmpty()) {
@@ -358,7 +379,7 @@ class HubListingViewModel(
         _state.update {
             it.copy(
                 draft = it.draft.copy(districtCode = code, upazilaCode = ""),
-                areas = it.areas.copy(upazilas = emptyList()),
+                areas = it.areas.copy(upazilas = emptyList(), cityCode = "", thanas = emptyList()),
             )
         }
         if (code.isNotEmpty()) {
@@ -369,11 +390,41 @@ class HubListingViewModel(
     }
 
     /**
-     * Choose an upazila.
+     * Choose an upazila or a city corporation; a city corporation offers its thanas.
      *
-     * @param code The upazila's code
+     * @param code The upazila's or city corporation's code
      */
-    fun pickUpazila(code: String) = edit { it.copy(upazilaCode = code) }
+    fun pickUpazila(code: String) {
+        if (_state.value.body !is HubListingUiState.Editing) return
+        val city = _state.value.areas.upazilas.any { it.code == code && it.kind == AREA_CITY_CORPORATION }
+        _state.update {
+            it.copy(
+                draft = it.draft.copy(upazilaCode = code),
+                areas = it.areas.copy(cityCode = if (city) code else "", thanas = emptyList()),
+            )
+        }
+        if (city) {
+            viewModelScope.launch {
+                readAreas(code)?.let { list ->
+                    // Dropped if another area was picked while this read was in flight.
+                    _state.update {
+                        if (it.areas.cityCode == code) it.copy(areas = it.areas.copy(thanas = list)) else it
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Choose a thana of the chosen city corporation; empty keeps the city corporation.
+     *
+     * @param code The thana's code, or empty for the whole city corporation
+     */
+    fun pickThana(code: String) {
+        val city = _state.value.areas.cityCode
+        if (city.isEmpty()) return
+        edit { it.copy(upazilaCode = code.ifEmpty { city }) }
+    }
 
     /** Read the area lists again after a failure. */
     fun retryAreas() {
@@ -430,10 +481,42 @@ class HubListingViewModel(
                 _state.value.areas.divisionCode.ifEmpty { divisionOf(draft.districtCode, divisions.map { it.code }) }
             val districts = if (division.isEmpty()) emptyList() else readAreas(division).orEmpty()
             val upazilas = if (draft.districtCode.isEmpty()) emptyList() else readAreas(draft.districtCode).orEmpty()
+            val (city, thanas) = cityOf(draft.upazilaCode, upazilas)
             _state.update {
-                it.copy(areas = AreasState(divisions, districts, upazilas, division, it.areas.failed))
+                it.copy(areas = AreasState(divisions, districts, upazilas, division, it.areas.failed, city, thanas))
             }
         }
+    }
+
+    /**
+     * The city corporation a saved code sits in, with its thanas.
+     *
+     * The code is either a city corporation in [upazilas], or a thana of
+     * one of them; the thanas of the district's city corporations are read
+     * until one holds it.
+     *
+     * @param code The saved upazila-slot code
+     * @param upazilas The district's upazilas and city corporations
+     * @return The city corporation's code and its thanas, or empty for neither
+     */
+    private suspend fun cityOf(code: String, upazilas: List<AreaOption>): Pair<String, List<AreaOption>> {
+        val direct = upazilas.firstOrNull { it.code == code }
+        val cities =
+            when {
+                code.isEmpty() -> emptyList()
+                direct == null -> upazilas.filter { it.kind == AREA_CITY_CORPORATION }
+                direct.kind == AREA_CITY_CORPORATION -> listOf(direct)
+                else -> emptyList()
+            }
+        var found = "" to emptyList<AreaOption>()
+        val pending = cities.iterator()
+        while (found.first.isEmpty() && pending.hasNext()) {
+            val city = pending.next()
+            // A failed read is already marked; the person retries from the banner.
+            val thanas = readAreas(city.code) ?: break
+            if (city == direct || thanas.any { it.code == code }) found = city.code to thanas
+        }
+        return found
     }
 
     /** One level of the area list, or null after marking the read failed. */

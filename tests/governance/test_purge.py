@@ -247,10 +247,11 @@ def test_no_life_of_account_table_appears_in_the_window_map(
     # tables and which app each account uses; 35 since 0028 added the
     # authenticator factor and its recovery codes; 36 since 0035 added
     # the fixed Bangladesh area vocabulary; 39 since 0036 added the hub's
-    # two listing tables and its reports.
-    assert len(life_of_account) == 39, (
+    # two listing tables and its reports; 40 since 0042 added the hub's
+    # demand-question answers.
+    assert len(life_of_account) == 40, (
         f"the manifest now marks {len(life_of_account)} tables "
-        "LIFE_OF_ACCOUNT, not 39. If that is deliberate, this count is "
+        "LIFE_OF_ACCOUNT, not 40. If that is deliberate, this count is "
         "the claim that needs updating with it."
     )
 
@@ -279,9 +280,10 @@ def test_every_finite_retention_class_has_a_window(
     )
     # 9 since 0031 added `pending_signup`, a signup draft kept 48 hours;
     # 10 since 0036 added `hub_moderation_event`, kept twelve months;
-    # 11 since 0038 added `username_hold`, kept until its own expiry.
-    assert len(finite) == 11, (
-        f"the manifest now carries {len(finite)} finite windows, not 11."
+    # 11 since 0038 added `username_hold`, kept until its own expiry;
+    # 12 since 0041 added `cdn_invalidation`, kept seven days.
+    assert len(finite) == 12, (
+        f"the manifest now carries {len(finite)} finite windows, not 12."
     )
 
 
@@ -436,6 +438,15 @@ def _plant(
             ),
             shared | {"cid": row_id.hex},
         )
+    elif table == "cdn_invalidation":
+        # The id is an identity the database assigns, so the planted row
+        # is found again by a path derived from the planted id.
+        session.execute(
+            sa.text(
+                "INSERT INTO cdn_invalidation (path, requested_at) VALUES (:path, :at)"
+            ),
+            {"path": _outbox_path_of(row_id), "at": at},
+        )
     else:  # pragma: no cover - guarded by the assertion below
         raise AssertionError(
             f"{table} is purgeable but this file has no way to plant a "
@@ -453,8 +464,18 @@ def _plant(
         "created_at",
         "held_until",
         "at",
+        "requested_at",
     }, f"{table} is planted at an age column this helper does not set"
     return row_id
+
+
+def _outbox_path_of(row_id: uuid.UUID) -> str:
+    """Derive a planted outbox row's path from its planted id.
+
+    :param row_id: The id the planting helper returned
+    :return: The ``path`` the outbox row was given
+    """
+    return f"/hub/en/t/{row_id.hex}"
 
 
 def _hold_digest_of(row_id: uuid.UUID) -> str:
@@ -602,6 +623,14 @@ def _exists(session: Session, table: str, row_id: uuid.UUID) -> bool:
             session.execute(
                 sa.text("SELECT 1 FROM username_hold WHERE key_digest = :d"),
                 {"d": _hold_digest_of(row_id)},
+            ).first()
+            is not None
+        )
+    if table == "cdn_invalidation":
+        return (
+            session.execute(
+                sa.text("SELECT 1 FROM cdn_invalidation WHERE path = :p"),
+                {"p": _outbox_path_of(row_id)},
             ).first()
             is not None
         )

@@ -1195,7 +1195,7 @@
         "type": "object"
       },
       "AreaOption": {
-        "description": "One division, district or upazila.\n\n:ivar code: The BBS geocode\n:ivar kind: ``division``, ``district`` or ``upazila``\n:ivar name_en: The English name\n:ivar name_bn: The Bangla name",
+        "description": "One area: a division, district, upazila, city corporation or thana.\n\n:ivar code: The BBS geocode, or ``MT...`` for a metropolitan thana\n:ivar kind: ``division``, ``district``, ``upazila``,\n    ``city_corporation`` or ``metro_thana``\n:ivar name_en: The English name\n:ivar name_bn: The Bangla name",
         "properties": {
           "code": {
             "title": "Code",
@@ -1203,8 +1203,10 @@
           },
           "kind": {
             "enum": [
+              "city_corporation",
               "district",
               "division",
+              "metro_thana",
               "upazila"
             ],
             "title": "Kind",
@@ -5616,6 +5618,35 @@
         "title": "HistoryLineResponse",
         "type": "object"
       },
+      "HubFeedbackRequest": {
+        "additionalProperties": false,
+        "description": "An owner's answer to \"Did the hub bring you a student?\" [0042].\n\n:ivar day: Which question: the one asked at day 60 or day 90 after the\n    first publish, as the inbox item's ``preview`` names it\n:ivar answer: ``yes``, ``not_yet`` or ``not_sure``",
+        "properties": {
+          "answer": {
+            "enum": [
+              "not_sure",
+              "not_yet",
+              "yes"
+            ],
+            "title": "Answer",
+            "type": "string"
+          },
+          "day": {
+            "enum": [
+              60,
+              90
+            ],
+            "title": "Day",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "answer",
+          "day"
+        ],
+        "title": "HubFeedbackRequest",
+        "type": "object"
+      },
       "HubReportRequest": {
         "additionalProperties": false,
         "description": "A reader's report about one hub target.\n\n:ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,\n    ``review`` or ``reply``\n:ivar target_id: The target's id: an owner id for an owner listing, a\n    batch id for a batch listing\n:ivar reason: A closed reason\n:ivar note: An optional note; it may not carry a phone number",
@@ -7045,6 +7076,7 @@
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
+              "hub_feedback_question",
               "hub_listing_suspended",
               "marks_available",
               "notice",
@@ -7158,7 +7190,7 @@
       },
       "NotificationResponse": {
         "additionalProperties": false,
-        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any\n:ivar class_date: For a class change, the day the class is now on, or\n    was on if cancelled\n:ivar class_time: For a class change, its start time that day\n:ivar moved_from_date: For a reschedule, the day it was moved from\n:ivar moved_from_time: For a reschedule, the start time it was moved from",
+        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any; for a\n    ``hub_feedback_question``, the question's day, ``60`` or ``90``,\n    which the answer sends back\n:ivar class_date: For a class change, the day the class is now on, or\n    was on if cancelled\n:ivar class_time: For a class change, its start time that day\n:ivar moved_from_date: For a reschedule, the day it was moved from\n:ivar moved_from_time: For a reschedule, the start time it was moved from",
         "properties": {
           "amount": {
             "anyOf": [
@@ -7234,6 +7266,7 @@
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
+              "hub_feedback_question",
               "hub_listing_suspended",
               "marks_available",
               "notice",
@@ -7446,7 +7479,7 @@
         "type": "object"
       },
       "OwnerListingResponse": {
-        "description": "The owner's listing, with what publishing still needs.\n\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment, or None while a draft\n:ivar public_name: The name shown publicly\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly\n:ivar consent_version: The consent text the owner last agreed to\n:ivar published_at: When it was last published\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met\n:ivar runs_classes: Whether the owner earns the Runs classes badge\n:ivar consent_version_current: The consent text version to agree to now\n:ivar is_centre: Whether the owner is a coaching centre, the only kind\n    that may show a street address",
+        "description": "The owner's listing, with what publishing still needs.\n\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment, or None while a draft\n:ivar public_name: The name shown publicly\n:ivar public_name_latin: The owner's Latin spelling of the name\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly\n:ivar consent_version: The consent text the owner last agreed to\n:ivar published_at: When it was last published\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met\n:ivar runs_classes: Whether the owner earns the Runs classes badge\n:ivar consent_version_current: The consent text version to agree to now\n:ivar is_centre: Whether the owner is a coaching centre, the only kind\n    that may show a street address",
         "properties": {
           "bio_bn": {
             "anyOf": [
@@ -7543,6 +7576,17 @@
           "public_name": {
             "title": "Public Name",
             "type": "string"
+          },
+          "public_name_latin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Name Latin"
           },
           "publishable": {
             "title": "Publishable",
@@ -7643,6 +7687,7 @@
           "is_centre",
           "public_contact_phone",
           "public_name",
+          "public_name_latin",
           "publishable",
           "published_at",
           "qualifications",
@@ -7658,7 +7703,7 @@
       },
       "OwnerListingUpdateRequest": {
         "additionalProperties": false,
-        "description": "Edit the owner's listing; an omitted field is left alone.\n\nAn empty string clears a nullable text field.\n\n:ivar slug: The public path segment\n:ivar public_name: The name shown publicly\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code; must lie in the district\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly",
+        "description": "Edit the owner's listing; an omitted field is left alone.\n\nAn empty string clears a nullable text field.\n\n:ivar slug: The public path segment\n:ivar public_name: The name shown publicly\n:ivar public_name_latin: The owner's own Latin spelling of the name,\n    so a search typed in English finds a Bangla name\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code; must lie in the district\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly",
         "properties": {
           "bio_bn": {
             "anyOf": [
@@ -7743,6 +7788,18 @@
               }
             ],
             "title": "Public Name"
+          },
+          "public_name_latin": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Name Latin"
           },
           "qualifications": {
             "anyOf": [
@@ -13086,6 +13143,382 @@
         "summary": "Health",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/hub/sitemap.xml": {
+      "get": {
+        "description": "Serve every public owner and batch page, in both locales.\n\n:param request: The incoming request\n:param allowed: Whether this read was within the ceiling\n:return: The sitemap, or the 429 page",
+        "operationId": "hub_sitemap_hub_sitemap_xml_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The sitemap"
+          },
+          "429": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Too many reads from this network this minute"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Sitemap",
+        "tags": [
+          "hub-public"
+        ]
+      }
+    },
+    "/hub/{locale}": {
+      "get": {
+        "description": "Serve the landing page, or a page of search results.\n\n:param locale: ``en`` or ``bn``\n:param request: The incoming request, whose six keys are read\n:param allowed: Whether this read was within the ceiling\n:return: The page, the 404 page, or the 429 page",
+        "operationId": "hub_search_hub__locale__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "locale",
+            "required": true,
+            "schema": {
+              "title": "Locale",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "district",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "upazila",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "level",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The page"
+          },
+          "404": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Not public: the same page for every such path"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "429": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Too many reads from this network this minute"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Search",
+        "tags": [
+          "hub-public"
+        ]
+      }
+    },
+    "/hub/{locale}/t/{owner_slug}": {
+      "get": {
+        "description": "Serve a published owner's page.\n\n:param locale: ``en`` or ``bn``\n:param owner_slug: The owner's slug\n:param request: The incoming request\n:param allowed: Whether this read was within the ceiling\n:return: The page, the 404 page, or the 429 page",
+        "operationId": "hub_owner_hub__locale__t__owner_slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "locale",
+            "required": true,
+            "schema": {
+              "title": "Locale",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "owner_slug",
+            "required": true,
+            "schema": {
+              "title": "Owner Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The page"
+          },
+          "404": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Not public: the same page for every such path"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "429": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Too many reads from this network this minute"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Owner",
+        "tags": [
+          "hub-public"
+        ]
+      }
+    },
+    "/hub/{locale}/t/{owner_slug}/{batch_slug}": {
+      "get": {
+        "description": "Serve a published batch's page under its published owner.\n\n:param locale: ``en`` or ``bn``\n:param owner_slug: The owner's slug\n:param batch_slug: The batch's slug\n:param request: The incoming request\n:param allowed: Whether this read was within the ceiling\n:return: The page, the 404 page, or the 429 page",
+        "operationId": "hub_batch_hub__locale__t__owner_slug___batch_slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "locale",
+            "required": true,
+            "schema": {
+              "title": "Locale",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "owner_slug",
+            "required": true,
+            "schema": {
+              "title": "Owner Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_slug",
+            "required": true,
+            "schema": {
+              "title": "Batch Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The page"
+          },
+          "404": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Not public: the same page for every such path"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "429": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Too many reads from this network this minute"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Batch",
+        "tags": [
+          "hub-public"
         ]
       }
     },
@@ -22562,6 +22995,111 @@
         ]
       }
     },
+    "/v1/hub/feedback": {
+      "post": {
+        "description": "Answer \"Did the hub bring you a student?\"; answering again overwrites.\n\nThe question answered is the workspace's own: a centre manager names the\ncentre with ``X-Workspace-Id``, as the inbox item's ``source_id`` gives\nit. A day this owner was never asked is refused with\n``HUB_FEEDBACK_NOT_ASKED`` (409).\n\n:param body: The day of the question and the answer\n:param lens: The answering manager's lens on the owner\n:param session: The request-scoped session\n:return: An empty 204",
+        "operationId": "answer_feedback_v1_hub_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HubFeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Answer Feedback",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
     "/v1/hub/listing": {
       "get": {
         "description": "Read the owner's listing, drafting one on the first call.\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The listing and what it still needs",
@@ -22729,6 +23267,94 @@
           }
         },
         "summary": "Put Listing",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/listing/preview": {
+      "get": {
+        "description": "Show the owner their own public page before it is public.\n\nBuilt from the owner's own rows by a separate, owner-scoped builder,\ninto the same registered page model and through the same template as\nthe public page, with a banner saying it is not public. Never cached:\nit is one owner's unpublished draft.\n\n:param lens: The owner's lens; the page is always this owner's\n:param session: The request-scoped session\n:param locale: ``en`` or ``bn``\n:return: The page",
+        "operationId": "preview_listing_v1_hub_listing_preview_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "default": "en",
+              "enum": [
+                "bn",
+                "en"
+              ],
+              "title": "Locale",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The owner's page as it would read, drafts included"
+          },
+          "401": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Preview Listing",
         "tags": [
           "hub"
         ]

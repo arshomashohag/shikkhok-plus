@@ -32,6 +32,7 @@ from app.hub.listings.checklist import (
     ChecklistItem,
     batch_checklist,
 )
+from app.hub.listings.evict import evict_batch
 from app.hub.listings.hide import hide_for_inactive_batch
 from app.hub.listings.shared import (
     flush_slug_unique,
@@ -256,8 +257,10 @@ def upsert(
     """
     _owned_batch(session, lens=lens, batch_id=batch_id)
     listing = _locked(session, batch_id)
+    old_slug: str | None = None
     if listing is not None:
         refuse_suspended(listing)
+        old_slug = listing.slug if listing.status == "published" else None
     elif changes.show_fee is None or changes.show_schedule is None:
         raise ValidationError(
             code="HUB_BATCH_FLAGS_REQUIRED", message_key="hub.batch_flags_required"
@@ -307,6 +310,9 @@ def upsert(
     if listing.status != "draft":
         _require_complete(session, listing)
     flush_slug_unique(session, _UNIQUE_SLUG)
+    # A live page's old path now 404s; evict it with the rename.
+    if old_slug is not None and listing.slug != old_slug:
+        evict_batch(session, lens.owner_id, old_slug, listing.updated_at)
     session.commit()
     return listing
 
@@ -390,7 +396,7 @@ def publish(
 def unpublish(
     session: Session, lens: TeacherLens, batch_id: uuid.UUID, now: dt.datetime
 ) -> BatchListing:
-    """Hide a published batch listing; a draft stays a draft.
+    """Hide a published batch listing, evicting its page; a draft stays a draft.
 
     :param session: The session
     :param lens: The owner's lens
@@ -408,5 +414,6 @@ def unpublish(
     if listing.status == "published":
         listing.status = "hidden"
         listing.updated_at = now
+        evict_batch(session, lens.owner_id, listing.slug, now)
         session.commit()
     return listing

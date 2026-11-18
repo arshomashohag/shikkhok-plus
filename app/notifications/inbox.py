@@ -32,6 +32,7 @@ __all__ = [
     "EXAM_CANCELLED",
     "EXAM_SCHEDULED",
     "FEE_REMINDER",
+    "HUB_FEEDBACK_QUESTION",
     "HUB_LISTING_SUSPENDED",
     "INBOX_LIMIT",
     "LEGACY_KINDS",
@@ -103,6 +104,13 @@ CLASS_RESCHEDULED: Final[str] = "class_rescheduled"
 #: absent from :data:`LEGACY_KINDS`: only a client that announces it can
 #: draw it, so an older install's badge never counts it.
 HUB_LISTING_SUSPENDED: Final[str] = "hub_listing_suspended"
+
+#: "Did the hub bring you a student?", put to the people who run a listing
+#: at day 60 and day 90 after its first publish [0042]. ``source_id`` is the
+#: owner, which a centre manager's client sends back as its workspace, and
+#: ``preview`` is the question's day, ``"60"`` or ``"90"``, which the client
+#: sends back with the answer. Not legacy, for the reason above.
+HUB_FEEDBACK_QUESTION: Final[str] = "hub_feedback_question"
 
 #: The kinds every client knew before clients began announcing theirs
 #: [PO-10]. **Frozen: never add to it.** A client that does not say which

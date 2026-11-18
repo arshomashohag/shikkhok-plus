@@ -210,6 +210,50 @@ resource "aws_cloudfront_distribution" "api" {
     }
   }
 
+  # **/hub* is refused at this edge, 404, for every method.** The public
+  # hub is served from the site distribution (modules/site), behind its
+  # cache and query-string allowlist. Ahead of the default so the API host
+  # cannot be used to reach the hub pages around them. No API route starts
+  # with /hub.
+  ordered_cache_behavior {
+    path_pattern           = "/hub*"
+    target_origin_id       = "shikkhokplus-origin"
+    viewer_protocol_policy = "redirect-to-https"
+
+    allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods  = ["GET", "HEAD"]
+
+    cache_policy_id          = data.aws_cloudfront_cache_policy.disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    compress                 = true
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.hub_block.arn
+    }
+  }
+
+  # **/.well-known/assetlinks.json goes to the bucket**, where the web
+  # deploy writes it at the root, beside ui/. Android verifies the app's
+  # claim on /ui/hub-report (the hub's "Report this page" link) by fetching
+  # exactly this path from the same host, so it must answer here, as JSON,
+  # with no redirect. Exactly the one file: nothing else under
+  # /.well-known reaches the bucket, and the bucket policy admits only this
+  # key besides ui/*. No earlier pattern matches it (/v1/admin*, /hub*), so
+  # it is not shadowed. No viewer function: the SPA router would rewrite it.
+  ordered_cache_behavior {
+    path_pattern           = "/.well-known/assetlinks.json"
+    target_origin_id       = "shikkhokplus-web"
+    viewer_protocol_policy = "redirect-to-https"
+
+    allowed_methods = ["GET", "HEAD"]
+    cached_methods  = ["GET", "HEAD"]
+
+    # The object carries max-age=3600, and the deploy invalidates it.
+    cache_policy_id = data.aws_cloudfront_cache_policy.optimized.id
+    compress        = true
+  }
+
   # **/ui and /ui/* go to the bucket; everything else stays the API.**
   # Listed before the default, and CloudFront takes the first match, so
   # no API route can be shadowed unless it starts with /ui -- and none
@@ -303,6 +347,16 @@ resource "aws_cloudfront_function" "admin_block" {
   comment = "API host: the admin API is served only on the admin hostname"
   publish = true
   code    = file("${path.module}/functions/admin-block.js")
+}
+
+# Answers every /hub* request on this distribution 404. See the source;
+# tested from functions/hub-block.test.mjs.
+resource "aws_cloudfront_function" "hub_block" {
+  name    = "${var.name_prefix}-hub-block"
+  runtime = "cloudfront-js-2.0"
+  comment = "API host: the public hub is served only on the site host"
+  publish = true
+  code    = file("${path.module}/functions/hub-block.js")
 }
 
 data "aws_cloudfront_cache_policy" "disabled" {

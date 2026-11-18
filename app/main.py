@@ -28,6 +28,7 @@ from starlette.concurrency import run_in_threadpool
 from app.config import check_startup_configuration
 from app.db.session import build_engine
 from app.errors import register_error_handler
+from app.hub.public.head import HeadAsGet
 from app.logging_setup import configure_logging
 from app.request_scope import (
     CORRELATION_HEADER,
@@ -77,6 +78,9 @@ def create_app() -> FastAPI:
     # answered without opening a database session. Off unless the web
     # client is served from its own origin; see app/web_origins.py.
     register_web_origins(app)
+    # HEAD on a hub page is answered by its GET handler, bodiless; see the
+    # module for why nothing is registered for HEAD.
+    app.add_middleware(HeadAsGet)
     _register_routes(app)
     _publish_shared_components(app)
     return app
@@ -104,6 +108,7 @@ def _register_routes(app: FastAPI) -> None:
     from app.api.health import router as health_router
     from app.api.help import router as help_router
     from app.api.hub import router as hub_router
+    from app.api.hub_public import router as hub_public_router
     from app.api.marks import router as marks_router
     from app.api.me import router as me_router
     from app.api.mfa import router as mfa_router
@@ -139,6 +144,7 @@ def _register_routes(app: FastAPI) -> None:
         health_router,
         help_router,
         hub_router,
+        hub_public_router,
         marks_router,
         me_router,
         mfa_router,

@@ -115,13 +115,13 @@ def test_d5_adds_no_public_route() -> None:
     too; this is the second of the two places the number is pinned, and
     it is here so a D5 reader meets the obligation in D5's own file. It
     moved from eight to twelve with the admin and app MFA sign-in routes
-    [0028], to fourteen with password sign-in and setup [0032], and to
-    fifteen with the public username lookup [U1: BR3.5], none of which is
-    D5's.
+    [0028], to fourteen with password sign-in and setup [0032], to
+    fifteen with the public username lookup [U1: BR3.5], and to nineteen
+    with the public hub's four pages [H2], none of which is D5's.
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 15
+    assert len(PUBLIC_ROUTES) == 19
     assert ("GET", "/v1/me/dues") not in PUBLIC_ROUTES
     assert ("GET", "/v1/me/overview") not in PUBLIC_ROUTES
 
@@ -231,7 +231,8 @@ def test_d5_adds_no_migration_and_no_governance_entry() -> None:
     since ``0028`` added the two MFA tables, and 44 since ``0031`` added
     ``pending_signup``, 45 since ``0035`` added ``bd_area``, 49 since
     ``0036`` added the hub tables and 50 since ``0038`` added
-    ``username_hold``; D5 itself added none.
+    ``username_hold``, 51 since ``0041`` added ``cdn_invalidation`` and
+    52 since ``0042`` added ``hub_feedback``; D5 itself added none.
     Stated as an absence because a
     materialised rollup is the obvious optimisation and it would
     contradict BR1.4 outright.
@@ -240,9 +241,9 @@ def test_d5_adds_no_migration_and_no_governance_entry() -> None:
     """
     from app.governance.dispositions import DISPOSITIONS
 
-    assert len(DISPOSITIONS) == 50, (
+    assert len(DISPOSITIONS) == 52, (
         f"the governance manifest holds {len(DISPOSITIONS)} entries, not "
-        "50. D5 creates no table, so it adds no disposition [BR4.2]."
+        "52. D5 creates no table, so it adds no disposition [BR4.2]."
     )
 
 

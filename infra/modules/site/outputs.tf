@@ -8,6 +8,11 @@ output "distribution_id" {
   value       = aws_cloudfront_distribution.site.id
 }
 
+output "distribution_arn" {
+  description = "The distribution's ARN, the one resource the app host may invalidate."
+  value       = aws_cloudfront_distribution.site.arn
+}
+
 output "distribution_domain" {
   description = "The *.cloudfront.net hostname. Usable before DNS propagates."
   value       = aws_cloudfront_distribution.site.domain_name

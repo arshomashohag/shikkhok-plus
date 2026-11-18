@@ -1,9 +1,9 @@
 """The canary probe: a private value must not appear on any public page.
 
-The real probe walks ``PUBLIC_CACHEABLE_ROUTES``, which is empty until the
-hub's pages land, so it is vacuous today. The fixture test below proves the
-same collection and assertion functions fire on a planted leak, so a green
-probe over real routes later is not a green probe over nothing.
+The real probe walks ``PUBLIC_CACHEABLE_ROUTES`` over a seeded world of a
+solo tutor, a draft and a centre. The fixture test below proves the same
+collection and assertion functions fire on a planted leak, so a green probe
+is not a green probe over nothing.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ from sqlalchemy.orm import Session
 
 from app.contract.routes import PUBLIC_CACHEABLE_ROUTES
 from tests.privacy.canary import (
-    LOCALES,
     CanaryWorld,
     _resolve,
     canary_leaks,
@@ -41,7 +40,12 @@ def test_no_canary_on_any_cacheable_public_page(
 
     bodies = walk_cacheable_routes(api_client, world, PUBLIC_CACHEABLE_ROUTES)
 
-    assert len(bodies) == len(PUBLIC_CACHEABLE_ROUTES) * len(LOCALES)
+    # Search twice (locales); owner and batch pages 2 locales x 2 pairs
+    # each (solo and centre); the sitemap once: 2 + 4 + 4 + 1.
+    assert len(PUBLIC_CACHEABLE_ROUTES) == 4
+    assert len(bodies) == 11
+    assert f"/hub/en/t/{world.owner_slug}/{world.batch_slug}" in bodies
+    assert f"/hub/bn/t/{world.centre_slug}/{world.centre_batch_slug}" in bodies
     assert canary_leaks(bodies, world) == []
 
 
@@ -80,8 +84,8 @@ def test_unknown_placeholder_is_refused_not_skipped(owner_session: Session) -> N
     """
     world = seed_canaries(owner_session)
 
-    with pytest.raises(NotImplementedError, match="owner_slug"):
-        _resolve("/hub/{locale}/{owner_slug}", world)
+    with pytest.raises(NotImplementedError, match="review_id"):
+        _resolve("/hub/{locale}/r/{review_id}", world)
 
 
 def test_resolve_expands_both_locales(owner_session: Session) -> None:
@@ -93,6 +97,18 @@ def test_resolve_expands_both_locales(owner_session: Session) -> None:
     world: CanaryWorld = seed_canaries(owner_session)
 
     assert _resolve("/hub/{locale}", world) == ["/hub/en", "/hub/bn"]
+    assert _resolve("/hub/{locale}/t/{owner_slug}/{batch_slug}", world) == [
+        f"/hub/en/t/{world.owner_slug}/{world.batch_slug}",
+        f"/hub/en/t/{world.centre_slug}/{world.centre_batch_slug}",
+        f"/hub/bn/t/{world.owner_slug}/{world.batch_slug}",
+        f"/hub/bn/t/{world.centre_slug}/{world.centre_batch_slug}",
+    ]
+    assert _resolve("/hub/{locale}/t/{owner_slug}", world) == [
+        f"/hub/en/t/{world.owner_slug}",
+        f"/hub/en/t/{world.centre_slug}",
+        f"/hub/bn/t/{world.owner_slug}",
+        f"/hub/bn/t/{world.centre_slug}",
+    ]
 
 
 def _planted(render: str) -> FastAPI:

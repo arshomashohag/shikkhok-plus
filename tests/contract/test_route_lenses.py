@@ -61,22 +61,29 @@ def _dual_lens() -> TeacherLens | GuardianLens:
     raise NotImplementedError
 
 
-def test_public_routes_has_exactly_fifteen_entries() -> None:
-    """``PUBLIC_ROUTES`` is a fixed set of exactly fifteen.
+def test_route_count_is_19() -> None:
+    """``PUBLIC_ROUTES`` is a fixed set of exactly nineteen.
 
-    The length assertion is the control: a SIXTEENTH entry is a diff
+    The length assertion is the control: a TWENTIETH entry is a diff
     against a stated number rather than a line appended to a growing
     list. It has already done that job several times -- the staging
     outbox route broke this test on the commit that added it, and D1's
     two signup routes broke it again, and the three admin sign-in routes
     a third time, and the app sign-in's second step a fourth [0028],
-    password sign-in and setup a fifth [0032], and the public username
-    lookup a sixth [U1: BR3.5], which is exactly what an unauthenticated
-    route deserves.
+    password sign-in and setup a fifth [0032], the public username
+    lookup a sixth [U1: BR3.5], and the public hub's four cacheable pages
+    a seventh [H2], which is exactly what an unauthenticated route
+    deserves.
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 15
+    assert len(PUBLIC_ROUTES) == 19
+    assert {
+        ("GET", "/hub/{locale}"),
+        ("GET", "/hub/{locale}/t/{owner_slug}"),
+        ("GET", "/hub/{locale}/t/{owner_slug}/{batch_slug}"),
+        ("GET", "/hub/sitemap.xml"),
+    } <= PUBLIC_ROUTES
 
 
 def test_public_routes_contains_the_contracted_entries() -> None:
@@ -116,8 +123,8 @@ def test_public_routes_contains_the_contracted_entries() -> None:
     # present, and only the count catches a SEVENTH being appended. Adding a
     # public route should mean editing this number, which is a reviewable,
     # deliberate act rather than one more line in a growing list.
-    assert len(PUBLIC_ROUTES) == 15, (
-        f"PUBLIC_ROUTES holds {len(PUBLIC_ROUTES)} entries, not 15: "
+    assert len(PUBLIC_ROUTES) == 19, (
+        f"PUBLIC_ROUTES holds {len(PUBLIC_ROUTES)} entries, not 19: "
         f"{sorted(PUBLIC_ROUTES)}. A public route is reachable with no "
         f"authentication at all. If the addition is intended, change the "
         f"number here and in the docstring in the same commit."

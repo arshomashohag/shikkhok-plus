@@ -16,9 +16,20 @@ from app.api.deps import admin_gate, authenticated_account, token_subject
 from app.contract.routes import (
     PUBLIC_CACHEABLE_ROUTES,
     PUBLIC_ROUTES,
+    _api_routes,
     authenticated_cacheable_routes,
 )
 from app.main import create_app
+
+#: The public hub's four cacheable pages, verbatim from the plan.
+HUB_PAGES = frozenset(
+    {
+        ("GET", "/hub/{locale}"),
+        ("GET", "/hub/{locale}/t/{owner_slug}"),
+        ("GET", "/hub/{locale}/t/{owner_slug}/{batch_slug}"),
+        ("GET", "/hub/sitemap.xml"),
+    }
+)
 
 
 def test_cacheable_set_is_subset_of_public() -> None:
@@ -37,12 +48,24 @@ def test_cacheable_routes_are_get_only() -> None:
     assert all(method == "GET" for method, _ in PUBLIC_CACHEABLE_ROUTES)
 
 
-def test_real_app_has_no_authenticated_cacheable_route() -> None:
-    """The real application has no cacheable route behind authentication.
+def test_cacheable_routes_have_no_auth() -> None:
+    """The four hub pages are the cacheable set, and none authenticates.
+
+    Not vacuous: the set holds exactly the four, and the real application
+    registers every one of them, so the walk below checks four real routes
+    rather than passing over an empty set.
 
     :return: None
     """
-    assert authenticated_cacheable_routes(create_app()) == []
+    assert PUBLIC_CACHEABLE_ROUTES == HUB_PAGES
+    app = create_app()
+    registered = {
+        (method, route.path)
+        for route in _api_routes(app)
+        for method in route.methods or set()
+    }
+    assert HUB_PAGES <= registered
+    assert authenticated_cacheable_routes(app) == []
 
 
 def _fixture_app(dependency: Callable[..., object]) -> FastAPI:

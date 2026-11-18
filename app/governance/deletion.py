@@ -66,6 +66,7 @@ from app.accounts.identifier import Channel, Identifier
 from app.accounts.usernames import place_hold
 from app.db.advisory import account_key, contact_key, lock_keys, username_key
 from app.governance.dispositions import DISPOSITIONS, Disposition
+from app.hub.public import invalidation
 from app.students.service import block_relinking
 from app.teaching.unassign import unassign_member
 
@@ -266,6 +267,15 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
             "cascade fires; deleted by owner, and a centre's survives."
         ),
     ),
+    "hub_feedback": _Target(
+        scope=Scope.SOLO_OWNER,
+        column="owner_id",
+        note=(
+            "A solo teacher's answers to the demand question. `owner` is "
+            "retained, so no cascade fires; a centre's answers survive, and "
+            "the answering manager's id is cleared by its foreign key."
+        ),
+    ),
     "batch_listing": _Target(
         scope=Scope.SOLO_OWNER,
         column="owner_id",
@@ -279,6 +289,14 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
         column="reporter_account_id",
         note="A complaint the account filed; nobody else has a claim on it.",
     ),
+    "cdn_invalidation": _Target(
+        scope=Scope.NOT_PERSONAL,
+        column=None,
+        note=(
+            "Edge-cache paths built from public slugs, sent and purged within "
+            "seven days. A deletion enqueues rows here rather than removing any."
+        ),
+    ),
     "hub_moderation_event": _Target(
         scope=Scope.NOT_PERSONAL,
         column=None,
@@ -291,9 +309,9 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
         scope=Scope.NOT_PERSONAL,
         column=None,
         note=(
-            "A fixed list of Bangladesh's divisions, districts and "
-            "upazilas. It names no person, so a person's deletion has "
-            "nothing in it to remove."
+            "A fixed list of Bangladesh's divisions, districts, upazilas, "
+            "city corporations and metropolitan thanas. It names no person, "
+            "so a person's deletion has nothing in it to remove."
         ),
     ),
     "room": _Target(
@@ -346,6 +364,25 @@ _END_MEMBERSHIPS: Final = sa.text(
     "WHERE account_id = :account_id AND revoked_at IS NULL"
 )
 
+
+#: The slugs of the solo owners' listings that are public right now, read
+#: before the listings go so their pages can be evicted from the edge.
+_PUBLISHED_SOLO_SLUGS: Final = sa.text(
+    "SELECT l.slug FROM owner_listing l JOIN owner o ON o.id = l.owner_id "
+    "WHERE o.account_id = :account_id AND o.kind = 'teacher' "
+    "AND l.status = 'published' AND l.slug IS NOT NULL ORDER BY l.slug"
+)
+
+#: The public slugs of the centres that name this account's member on
+#: their pages, read before the memberships end so those pages can be
+#: evicted: the same exposure as a member withdrawing consent.
+_NAMING_CENTRE_SLUGS: Final = sa.text(
+    "SELECT DISTINCT l.slug FROM owner_member m "
+    "JOIN owner_listing l ON l.owner_id = m.owner_id "
+    "WHERE m.account_id = :account_id AND m.revoked_at IS NULL "
+    "AND m.decision = 'accepted' AND m.public_name_consent_at IS NOT NULL "
+    "AND l.status = 'published' AND l.slug IS NOT NULL ORDER BY l.slug"
+)
 
 #: The live memberships whose future classes a deletion frees first.
 _LIVE_MEMBERSHIPS: Final = sa.text(
@@ -502,6 +539,12 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
     # A teacher's batches stay with their students [BR1.6 amended].
     # Retired before the account row goes, in the same transaction.
     session.execute(_RETIRE_OWNED_BATCHES, {"account_id": account_id})
+    # Centres naming this member on their public pages are evicted with
+    # the memberships' end, in this transaction.
+    for (slug,) in session.execute(_NAMING_CENTRE_SLUGS, {"account_id": account_id}):
+        invalidation.enqueue(
+            session, invalidation.owner_paths(slug), dt.datetime.now(tz=dt.UTC)
+        )
     for (member_id,) in session.execute(_LIVE_MEMBERSHIPS, {"account_id": account_id}):
         unassign_member(session, member_id=member_id)
     session.execute(_END_MEMBERSHIPS, {"account_id": account_id})
@@ -528,6 +571,12 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
         )
 
     # A solo teacher's publication. `owner` stays, so nothing cascades.
+    # Its cached pages are evicted in this transaction, so they go with
+    # the deletion or not at all.
+    for (slug,) in session.execute(_PUBLISHED_SOLO_SLUGS, {"account_id": account_id}):
+        invalidation.enqueue(
+            session, invalidation.owner_paths(slug), dt.datetime.now(tz=dt.UTC)
+        )
     for table, target in sorted(HARD_DELETE_SCOPES.items()):
         if target.scope is Scope.SOLO_OWNER:
             rows_deleted[table] = _delete_solo_owner_rows(

@@ -184,6 +184,30 @@ def test_publish_records_consent_version_time_and_account(
     assert live.published_at == NOW
 
 
+def test_republishing_keeps_the_first_publish(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """``published_at`` follows each publish; ``first_published_at`` never moves.
+
+    The demand question is asked at day 60 and day 90 after the FIRST
+    publish, so an owner who hides and republishes is not asked later.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    _complete(restricted_session, lens)
+    owner.publish(restricted_session, lens, HUB_CONSENT_VERSION, NOW)
+    owner.unpublish(restricted_session, lens, NOW + dt.timedelta(days=3))
+
+    later = NOW + dt.timedelta(days=5)
+    again = owner.publish(restricted_session, lens, HUB_CONSENT_VERSION, later)
+
+    assert again.published_at == later
+    assert again.first_published_at == NOW
+
+
 def test_suspended_listing_cannot_be_published_or_edited(
     owner_session: Session, restricted_session: Session
 ) -> None:
@@ -383,6 +407,41 @@ def test_update_none_leaves_fields_unchanged(
     assert after.public_name == "Rahim Sir"
     assert after.slug == "rahim-sir"
     assert after.bio_en == "More"
+
+
+def test_public_name_latin_is_stored_cleared_and_phone_scanned(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """The Latin name is optional free text: set, cleared, never a number.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    owner.get_or_draft(restricted_session, lens)
+
+    named = owner.update(
+        restricted_session, lens, OwnerListingUpdate(public_name_latin="Rahim Sir")
+    )
+    assert named.public_name_latin == "Rahim Sir"
+    kept = owner.update(restricted_session, lens, OwnerListingUpdate(bio_en="Hi"))
+    assert kept.public_name_latin == "Rahim Sir"
+
+    with pytest.raises(ValidationError) as raised:
+        owner.update(
+            restricted_session,
+            lens,
+            OwnerListingUpdate(public_name_latin="Rahim 01711234567"),
+        )
+    assert raised.value.code == "HUB_TEXT_CONTAINS_CONTACT"
+    assert raised.value.details == {"field": "public_name_latin"}
+    restricted_session.rollback()
+
+    cleared = owner.update(
+        restricted_session, lens, OwnerListingUpdate(public_name_latin="")
+    )
+    assert cleared.public_name_latin is None
 
 
 def test_checklist_reports_each_key() -> None:

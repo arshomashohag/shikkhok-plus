@@ -55,10 +55,12 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Identity,
     Index,
     Integer,
     LargeBinary,
     Numeric,
+    SmallInteger,
     String,
     Text,
     Time,
@@ -279,6 +281,27 @@ SESSION_GENERATION_JOB = "session_generation"
 #: write the checker.
 RETENTION_PURGE_JOB = "retention_purge"
 
+#: H2's daily refresh of the stored hub badge, ``owner_listing.runs_classes``
+#: [0040]. The public views cannot count accepted seats, so a badge that
+#: stopped refreshing would go on claiming classes an owner no longer runs;
+#: registering it here is what makes the freshness check expect it.
+HUB_BADGE_JOB = "hub_badge_refresh"
+
+#: H2's sender of the CloudFront invalidation outbox, ``cdn_invalidation``
+#: [0041, R8]. Every takedown enqueues its paths in its own transaction; the
+#: host's two-minute cron claims them through ``app.hub.public.commands``.
+#: The heartbeat moves only on real progress [R8a]: a claim that finds
+#: nothing to send, or a successful ``ack`` -- never a claim that hands out
+#: rows. A sender that stopped, or whose every send fails, would leave
+#: taken-down pages served from the edge cache until their TTL ends.
+HUB_INVALIDATION_JOB = "hub_cdn_invalidation"
+
+#: H2's daily demand question [0042]: "Did the hub bring you a student?",
+#: asked at day 60 and day 90 after an owner's first publish. The day-90
+#: answers decide whether the hub continues, so a job that stopped would
+#: silently leave that decision without its evidence.
+HUB_FEEDBACK_JOB = "hub_feedback_question"
+
 #: Every job the host is expected to run [audit C-01]. The freshness check
 #: reports each of these even when it has no heartbeat row: enumerating
 #: rows alone protected only jobs that had already run once, and the
@@ -286,7 +309,14 @@ RETENTION_PURGE_JOB = "retention_purge"
 #: run, so it never had a row and never alerted. A job added later joins
 #: this set or the freshness check does not know to expect it.
 EXPECTED_JOBS: frozenset[str] = frozenset(
-    {FEE_GENERATION_JOB, SESSION_GENERATION_JOB, RETENTION_PURGE_JOB}
+    {
+        FEE_GENERATION_JOB,
+        SESSION_GENERATION_JOB,
+        RETENTION_PURGE_JOB,
+        HUB_BADGE_JOB,
+        HUB_INVALIDATION_JOB,
+        HUB_FEEDBACK_JOB,
+    }
 )
 
 #: A session's three states [FR3.3]. ``cancelled`` forbids attendance
@@ -383,6 +413,11 @@ __all__ = [
     "FEE_GENERATION_JOB",
     "HELP_AUTHOR_VALUES",
     "HELP_TICKET_STATUS_VALUES",
+    "HUB_BADGE_JOB",
+    "HUB_FEEDBACK_JOB",
+    "HUB_INVALIDATION_JOB",
+    "HUB_SEARCH_NORM_FUNCTION",
+    "HUB_TAGS_TEXT_FUNCTION",
     "LEDGER_KIND_VALUES",
     "MEMBER_ROLE_VALUES",
     "OWNER_KIND_VALUES",
@@ -3506,8 +3541,16 @@ class MfaRecoveryCode(Base):
     __table_args__ = (Index("ix_mfa_recovery_code_account", "account_id"),)
 
 
-#: The three levels of the Bangladesh area vocabulary [0035].
-BD_AREA_KIND_VALUES: tuple[str, ...] = ("division", "district", "upazila")
+#: The kinds of the Bangladesh area vocabulary: the three levels [0035],
+#: then the city corporation (in a district) and the metropolitan thana
+#: (in a city corporation) [0039], in the enum's label order.
+BD_AREA_KIND_VALUES: tuple[str, ...] = (
+    "division",
+    "district",
+    "upazila",
+    "city_corporation",
+    "metro_thana",
+)
 
 _BD_AREA_KIND = PgEnum(
     *BD_AREA_KIND_VALUES,
@@ -3517,12 +3560,15 @@ _BD_AREA_KIND = PgEnum(
 
 
 class BdArea(Base):
-    """One division, district or upazila of Bangladesh [0035].
+    """One area of Bangladesh [0035, 0039].
 
     A fixed vocabulary seeded from the BBS geocodes; it is about no person.
+    A city corporation's parent is a district and a metropolitan thana's
+    is a city corporation.
 
-    :ivar code: The BBS geocode, the key
-    :ivar kind: ``division``, ``district`` or ``upazila``
+    :ivar code: The BBS geocode, or ``MT...`` for a metropolitan thana
+    :ivar kind: ``division``, ``district``, ``upazila``,
+        ``city_corporation`` or ``metro_thana``
     :ivar parent_code: The enclosing area's code; NULL for a division
     :ivar name_en: The English name
     :ivar name_bn: The Bangla name
@@ -3643,6 +3689,14 @@ class OwnerListing(Base):
     :ivar slug: The public path segment, unique, NULL while a draft
     :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
     :ivar public_name: The name shown publicly
+    :ivar public_name_latin: The owner's own Latin spelling of that name
+    :ivar published_at: When it was last published; a republish moves it
+    :ivar first_published_at: When it was first published [0042]; set once
+        and never moved, so the demand question's day 60 and day 90 count
+        from the first publish however often the owner hides and republishes
+    :ivar runs_classes: The stored badge [0040]; the public views cannot
+        read ``enrollment`` to compute it, so the application sets it from
+        ``app.hub.listings.badge`` on save, on publish and daily
     :ivar search_text: The indexed text, computed by the database
     """
 
@@ -3658,6 +3712,7 @@ class OwnerListing(Base):
         _HUB_LISTING_STATUS, nullable=False, server_default=text("'draft'")
     )
     public_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    public_name_latin: Mapped[str | None] = mapped_column(String(120), nullable=True)
     headline_en: Mapped[str | None] = mapped_column(Text, nullable=True)
     headline_bn: Mapped[str | None] = mapped_column(Text, nullable=True)
     bio_en: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -3694,17 +3749,25 @@ class OwnerListing(Base):
     published_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    first_published_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     suspended_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     suspension_reason_code: Mapped[str | None] = mapped_column(
         String(40), nullable=True
     )
+    runs_classes: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     search_text: Mapped[str | None] = mapped_column(
         TSVECTOR,
         Computed(
-            "to_tsvector('simple', coalesce(public_name, '') || ' ' || "
-            "coalesce(headline_en, '') || ' ' || coalesce(headline_bn, ''))",
+            "to_tsvector('simple', hub_search_norm(coalesce(public_name, '') "
+            "|| ' ' || coalesce(public_name_latin, '') || ' ' || "
+            "coalesce(headline_en, '') || ' ' || coalesce(headline_bn, '') || "
+            "' ' || coalesce(qualifications, '')))",
             persisted=True,
         ),
     )
@@ -3738,6 +3801,34 @@ class OwnerListing(Base):
     )
 
 
+#: The function ``batch_listing.search_text`` calls [0040]. A generated
+#: column must be immutable and ``array_to_string`` is only ``STABLE``
+#: (generic over element types, some rendered per ``DateStyle``); for
+#: ``varchar[]`` it depends on nothing, so this wrapper is ``IMMUTABLE``
+#: truthfully. ``0040`` creates it; a schema built from these models with
+#: ``create_all`` must run this first, as the schema-parity gate does.
+HUB_TAGS_TEXT_FUNCTION = (
+    "CREATE FUNCTION hub_tags_text(tags varchar[]) RETURNS text "
+    "LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE "
+    "AS $$ SELECT array_to_string(tags, ' ') $$"
+)
+
+
+#: The normaliser both listing search vectors apply [0040]: strip zero-width
+#: characters, NFC, Bangla digits to Latin -- the steps
+#: ``app.hub.public.normalise.query_terms`` applies to a query, in the same
+#: order, so stored and typed text agree whatever digit set or composition
+#: either side used. ``0040`` creates it; ``create_all`` needs it first.
+HUB_SEARCH_NORM_FUNCTION = (
+    "CREATE FUNCTION hub_search_norm(t text) RETURNS text "
+    "LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE "
+    "AS $$ SELECT translate(normalize(translate(t, "
+    "E'\\u200B\\u200C\\u200D\\uFEFF', ''), NFC), "
+    "E'\\u09E6\\u09E7\\u09E8\\u09E9\\u09EA\\u09EB\\u09EC\\u09ED\\u09EE"
+    "\\u09EF', '0123456789') $$"
+)
+
+
 class BatchListing(Base):
     """What an owner chooses to publish about one batch [0036].
 
@@ -3752,6 +3843,7 @@ class BatchListing(Base):
         teacher's own ``batch.name`` is never shown publicly
     :ivar show_fee: Whether the fee is shown publicly
     :ivar show_schedule: Whether the weekly timetable is shown publicly
+    :ivar search_text: The indexed text, computed by the database [0040]
     """
 
     __tablename__ = "batch_listing"
@@ -3790,6 +3882,15 @@ class BatchListing(Base):
     show_schedule: Mapped[bool] = mapped_column(Boolean, nullable=False)
     published_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    search_text: Mapped[str | None] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "to_tsvector('simple', hub_search_norm(coalesce(public_title, '') "
+            "|| ' ' || coalesce(description_en, '') || ' ' || "
+            "coalesce(description_bn, '') || ' ' || hub_tags_text(subject_tags)))",
+            persisted=True,
+        ),
     )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
@@ -3833,6 +3934,7 @@ class BatchListing(Base):
         ),
         Index("ix_batch_listing_owner_id", "owner_id"),
         Index("ix_batch_listing_status", "status"),
+        Index("ix_batch_listing_search_text", "search_text", postgresql_using="gin"),
     )
 
 
@@ -3940,4 +4042,105 @@ class HubModerationEvent(Base):
         ),
         Index("ix_hub_moderation_event_at", "at"),
         Index("ix_hub_moderation_event_target", "target_kind", "target_id"),
+    )
+
+
+class CdnInvalidation(Base):
+    """One edge-cache path a takedown asked CloudFront to evict [0041].
+
+    Written in the takedown's own transaction, so a rolled-back takedown
+    leaves no row and a committed one cannot lose its row. Sent by the
+    host, never the container: ``app.hub.public.commands`` claims, acks
+    and fails rows for the host's AWS CLI [R8]. A path holds only public
+    slugs, never a name or an id.
+
+    :ivar id: Surrogate key, in insertion order; the host passes ids back
+    :ivar path: The CloudFront path, ``*`` allowed only as its last character
+    :ivar requested_at: When the takedown enqueued it
+    :ivar sent_at: When CloudFront accepted it; NULL while unsent
+    :ivar aws_id: CloudFront's invalidation id, once sent
+    :ivar attempts: Failed sends so far
+    """
+
+    __tablename__ = "cdn_invalidation"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    path: Mapped[str] = mapped_column(String(300), nullable=False)
+    requested_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    sent_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    aws_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    attempts: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, server_default=text("0")
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "left(path, 1) = '/' AND strpos(left(path, -1), '*') = 0",
+            name=conv("ck_cdn_invalidation_path"),
+        ),
+        Index(
+            "ix_cdn_invalidation_unsent",
+            "requested_at",
+            postgresql_where=text("sent_at IS NULL"),
+        ),
+    )
+
+
+class HubFeedback(Base):
+    """One demand question put to an owner, and its answer [0042].
+
+    "Did the hub bring you a student?" is asked at day 60 and day 90 after
+    the owner's first publish, once per ``(owner_id, day)``: the unique
+    constraint, not a check-then-insert, is what keeps overlapping runs of
+    the daily job from asking twice. The latest answer stands.
+
+    :ivar id: Surrogate key
+    :ivar owner_id: Whose listing the question is about
+    :ivar asked_on: The Dhaka date the job asked it
+    :ivar day: ``60`` or ``90``
+    :ivar answer: ``yes``, ``not_yet`` or ``not_sure``; NULL until answered
+    :ivar answered_at: When the latest answer was given
+    :ivar answered_by_account_id: Who gave it, cleared if their account goes
+    """
+
+    __tablename__ = "hub_feedback"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner.id", ondelete="CASCADE", name=conv("fk_hub_feedback_owner")),
+        nullable=False,
+    )
+    asked_on: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    day: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    answer: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    answered_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    answered_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_hub_feedback_answered_by_account_id"),
+        ),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("owner_id", "day", name=conv("uq_hub_feedback_owner_day")),
+        CheckConstraint("day IN (60, 90)", name=conv("ck_hub_feedback_day")),
+        CheckConstraint(
+            "answer IN ('yes', 'not_yet', 'not_sure')",
+            name=conv("ck_hub_feedback_answer"),
+        ),
+        CheckConstraint(
+            "(answer IS NULL) = (answered_at IS NULL)",
+            name=conv("ck_hub_feedback_answered"),
+        ),
+        Index("ix_hub_feedback_answered_by_account_id", "answered_by_account_id"),
     )

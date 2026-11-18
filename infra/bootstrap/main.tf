@@ -667,6 +667,18 @@ resource "aws_iam_policy" "environment_boundary" {
           StringLike = { "cloudwatch:namespace" = "Shikkhokplus/shikkhokplus-${each.key}*" }
         }
       },
+      {
+        # The app host evicts taken-down public hub pages from the site's
+        # edge cache [0041, R8]: a host process, never the container. The
+        # ceiling names every distribution because the site's is created
+        # by the main module after this boundary exists and its id carries
+        # no environment; the host's own inline policy narrows it to the
+        # one site distribution its environment passes in.
+        Sid      = "SiteInvalidation"
+        Effect   = "Allow"
+        Action   = ["cloudfront:CreateInvalidation"]
+        Resource = "arn:aws:cloudfront::${local.account_id}:distribution/*"
+      },
     ]
   })
 }

@@ -120,6 +120,7 @@ _AGE_COLUMN: Final[dict[str, str]] = {
     "refresh_token": "expires_at",
     "pending_signup": "created_at",
     "username_hold": "held_until",
+    "cdn_invalidation": "requested_at",
 }
 
 

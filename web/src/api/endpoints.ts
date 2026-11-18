@@ -7,8 +7,9 @@
  * strings here; each feature's mapper turns them into {@link Money} and
  * fails loudly on anything else.
  */
-import { request } from './client'
+import { request, requestText } from './client'
 import type { components } from './schema'
+import type { Lang } from '../core/format'
 
 export type Schemas = components['schemas']
 
@@ -382,6 +383,13 @@ export const publishHubListing = (consentVersion: string) =>
 export const unpublishHubListing = () =>
   request<Schemas['OwnerListingResponse']>('POST', '/v1/hub/listing/unpublish')
 
+/**
+ * The owner's page as it would read once published, drafts included: the
+ * server's own HTML, shown only inside a sandboxed frame (Preview.tsx).
+ */
+export const readHubPreview = (locale: Lang, signal?: AbortSignal) =>
+  requestText('GET', '/v1/hub/listing/preview', { query: { locale }, signal })
+
 export const checkHubSlug = (slug: string, signal?: AbortSignal) =>
   request<Schemas['SlugAvailability']>('GET', `/v1/hub/slugs/${enc(slug)}`, { signal })
 
@@ -409,6 +417,25 @@ export const setPublicNameConsent = (centreId: string, consent: boolean) =>
   request<undefined>('PUT', `/v1/centres/${enc(centreId)}/members/me/public-name-consent`, {
     body: { consent },
   })
+
+/**
+ * Answer "Did the hub bring you a student?"; answering again overwrites.
+ * The question is the owner's, so it is sent as that workspace whichever
+ * one is open: a centre manager answers for the centre.
+ */
+export const answerHubFeedback = (
+  ownerId: string,
+  day: Schemas['HubFeedbackRequest']['day'],
+  answer: Schemas['HubFeedbackRequest']['answer'],
+) =>
+  request<undefined>('POST', '/v1/hub/feedback', {
+    body: { day, answer },
+    workspace: ownerId,
+  })
+
+/** Report a public hub page; nothing about the page changes [H2]. */
+export const fileHubReport = (body: Schemas['HubReportRequest']) =>
+  request<undefined>('POST', '/v1/hub/reports', { body })
 
 function enc(segment: string): string {
   return encodeURIComponent(segment)

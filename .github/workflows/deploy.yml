@@ -674,6 +674,15 @@ jobs:
     # wait is bounded at 30.
     timeout-minutes: 130
     environment: ${{ inputs.environment }}
+    # The public site's origin, read below for the runtime env and handed
+    # to the web job, which builds it in (VITE_SITE_URL) before it holds
+    # any AWS credentials of its own. Empty when site-url could not be read.
+    #
+    # The API's public URL goes to the hub job, which smokes the hub pages
+    # through both distributions once this release and the site have shipped.
+    outputs:
+      site_url: ${{ steps.record.outputs.site_url }}
+      api_url: ${{ steps.smoke.outputs.api_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -970,6 +979,25 @@ jobs:
             echo "::warning::Cannot read site-url from SSM; the code email will omit the website link."
             SITE_URL=""
           fi
+          echo "site_url=${SITE_URL}" >> "$GITHUB_OUTPUT"
+
+          # **The web app's origin, for the hub's report link** [R1]. Every
+          # public hub page links "Report this page" to {origin}/ui/hub-report.
+          # web-url is the web client's address, https://<host>/ui/, and the
+          # API wants the origin that serves it. Unlike site-url this STOPS
+          # the release: without it every report link would point at
+          # http://localhost, and the web job fails on the same parameter
+          # anyway. Nothing has been recorded or rolled yet.
+          WEB_URL=""
+          WEB_URL=$(ses_param web-url) || true
+          WEB_APP_URL="${WEB_URL%/ui/}"
+          if ! [[ "$WEB_APP_URL" =~ ^https://[a-z0-9.-]+$ ]]; then
+            echo "::error::Cannot read web-url from SSM as https://<host>/ui/ (got '${WEB_URL}')."
+            echo "Either the infrastructure job has not applied infra/modules/cdn/web.tf,"
+            echo "or the deploy role predates it: re-apply infra/bootstrap once,"
+            echo "from a laptop. Nothing has been recorded or rolled."
+            exit 1
+          fi
           if ! [[ "$DAILY_EMAIL" =~ ^[0-9]+$ ]]; then
             echo "::error::Variable SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL must be a whole number."
             exit 1
@@ -1037,7 +1065,11 @@ jobs:
             echo "SHIKKHOKPLUS_EMAIL_FROM=${EMAIL_FROM}"
             echo "SHIKKHOKPLUS_SES_CONFIGURATION_SET=${SES_CONFIGURATION_SET}"
             echo "SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL=${DAILY_EMAIL}"
+            # The two origins the public hub's pages are built from: the
+            # site (canonical, hreflang and sitemap links -- and the code
+            # email's website link) and the web app (the report link).
             echo "SHIKKHOKPLUS_SITE_URL=${SITE_URL}"
+            echo "SHIKKHOKPLUS_WEB_APP_URL=${WEB_APP_URL}"
           } > runtime.env
 
           aws ssm put-parameter \
@@ -1081,6 +1113,7 @@ jobs:
             --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/api-url" \
             --query 'Parameter.Value' --output text)
           echo "Smoke: $url"
+          echo "api_url=${url}" >> "$GITHUB_OUTPUT"
           sign_in=()
           if [ "$ENVIRONMENT" = "staging" ] && [ "$STAGING_OUTBOX" = "1" ] && [ -n "$SMOKE_PHONE" ]; then
             sign_in=(--sign-in-phone "$SMOKE_PHONE")
@@ -1224,9 +1257,14 @@ jobs:
       # The same gate CI runs (generated-file drift, format, lint, types,
       # tests, build), with the build aimed at /ui/: asset URLs, the
       # manifest's scope and the service worker's scope all follow it.
+      # The public site's origin comes from the release job (site-url):
+      # the editor's "View public page" links there, and the page's CSP
+      # adds it to style-src for the hub preview's stylesheet. Empty, the
+      # build offers no such link and the preview shows unstyled.
       - name: Check and build for /ui/
         env:
           WEB_BASE: /ui/
+          VITE_SITE_URL: ${{ needs.release.outputs.site_url }}
         run: make web
 
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
@@ -1256,6 +1294,56 @@ jobs:
             echo "url=$url"
           } >> "$GITHUB_OUTPUT"
           echo "| web client | $url |" >> "$GITHUB_STEP_SUMMARY"
+
+      # **Android App Links verify against THIS host** [H2 task 9]. The
+      # "Report this page" link on a hub page opens /ui/hub-report here,
+      # the app's intent filter claims that path with autoVerify, and
+      # Android checks the claim by fetching /.well-known/assetlinks.json
+      # from the same host. So the file is written at the web bucket's
+      # root, beside ui/, and the distribution routes exactly that path to
+      # the bucket (infra/modules/cdn/main.tf). The marketing site is a
+      # different host and never holds it.
+      #
+      # The fingerprint is the SSM parameter android-cert-sha256 (see
+      # web/README.md): one or more SHA-256 certificate fingerprints,
+      # comma-separated -- Play's app-signing key, and the upload key for
+      # an APK installed directly. **Unset or malformed fails the deploy**:
+      # a file naming no valid fingerprint would publish, verify nothing,
+      # and leave every report link opening the browser with nothing
+      # reporting why.
+      #
+      # **Validated and built BEFORE Upload, copied after it.** Upload makes
+      # the new build live (index.html no-cache, old assets pruned), so a
+      # failure after it would be a red deploy whose new UI is live and
+      # never smoked. Failing here changes nothing.
+      - name: Build the Android app-links file
+        run: |
+          set -euo pipefail
+          name="/shikkhokplus/shikkhokplus-${ENVIRONMENT}/android-cert-sha256"
+          how="Create the SSM parameter $name (String: the app's SHA-256 certificate fingerprint(s), see web/README.md), and re-apply infra/bootstrap once so the deploy role may read it. Nothing was uploaded."
+          if ! raw=$(aws ssm get-parameter --name "$name" --query 'Parameter.Value' --output text); then
+            echo "::error::Cannot read $name from SSM. $how"
+            exit 1
+          fi
+          raw=$(printf '%s' "$raw" | tr -d '[:space:]')
+          if [ -z "$raw" ] || [ "$raw" = "None" ]; then
+            echo "::error::$name is empty. $how"
+            exit 1
+          fi
+          re='^([0-9A-F]{2}:){31}[0-9A-F]{2}$'
+          listed=""
+          # One comma appended: read drops a single trailing empty field,
+          # so an input ending in a comma keeps its empty entry and fails.
+          IFS=',' read -r -a fingerprints <<< "$(printf '%s' "$raw" | tr 'a-f' 'A-F'),"
+          for fp in "${fingerprints[@]}"; do
+            if ! [[ $fp =~ $re ]]; then
+              echo "::error::$name holds '$fp', which is not a SHA-256 fingerprint (32 hex pairs, colon-separated). $how"
+              exit 1
+            fi
+            listed="${listed:+$listed,}\"$fp\""
+          done
+          printf '[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"com.shikkhokplus.app","sha256_cert_fingerprints":[%s]}}]\n' \
+            "$listed" > "$RUNNER_TEMP/assetlinks.json"
 
       # **Order is what keeps open tabs working.** Hashed assets first,
       # immutable and not yet pruned, so a page that loaded the previous
@@ -1289,6 +1377,14 @@ jobs:
           aws s3 sync assets "$dest/assets" --exclude "*.map" --only-show-errors --delete \
             --cache-control "public, max-age=31536000, immutable"
 
+      # The file the step before Upload validated and built; see there.
+      - name: Publish the Android app-links file
+        env:
+          BUCKET: ${{ steps.target.outputs.bucket }}
+        run: |
+          aws s3 cp "$RUNNER_TEMP/assetlinks.json" "s3://$BUCKET/.well-known/assetlinks.json" \
+            --only-show-errors --content-type application/json --cache-control "max-age=3600"
+
       # Entry files are no-cache already; the invalidation makes every edge
       # drop its copy now rather than at its next revalidation, so the
       # smoke below sees this release and not the last one.
@@ -1297,7 +1393,7 @@ jobs:
           DISTRIBUTION: ${{ steps.target.outputs.distribution }}
         run: |
           id=$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" \
-            --paths "/ui" "/ui/*" --query 'Invalidation.Id' --output text)
+            --paths "/ui" "/ui/*" "/.well-known/assetlinks.json" --query 'Invalidation.Id' --output text)
           echo "Waiting for invalidation $id..."
           aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION" --id "$id"
 
@@ -1354,6 +1450,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: ${{ inputs.environment }}
+    # The site's URL, for the hub job's smoke.
+    outputs:
+      url: ${{ steps.target.outputs.url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1455,6 +1554,8 @@ jobs:
           put assets assets/ "*.png"  "image/png"               "$immutable"
           put assets assets/ "*.webp" "image/webp"              "$immutable"
           put assets assets/ "*.ttf"  "font/ttf"                "$immutable"
+          # The public hub pages' stylesheet, named by content like assets/.
+          put hub-assets hub-assets/ "*.css" "text/css; charset=utf-8" "$immutable"
 
           put . "" "*.ico"       "image/x-icon"                      "$page"
           put . "" "*.txt"       "text/plain; charset=utf-8"         "$page"
@@ -1477,6 +1578,14 @@ jobs:
       # edges serve this release's pages, which name only this release's
       # assets. A browser still holding a previous page (five minutes at
       # most) holds its assets too -- they were immutable.
+      #
+      # **hub-assets/ is never pruned.** That is only safe for files whose
+      # referencing pages ship in this same build. The hub stylesheet is
+      # linked by pages the API renders, which deploys in a different job,
+      # possibly at a different ref, and whose pages the edge caches for up
+      # to ten minutes. Pruning it would leave those pages unstyled. The files
+      # are a few KB, immutable and named by content, so keeping every old
+      # one costs nothing (tests/gates/test_deploy_workflow.py).
       - name: Prune old files
         env:
           BUCKET: ${{ steps.target.outputs.bucket }}
@@ -1486,6 +1595,7 @@ jobs:
           aws s3api list-objects-v2 --bucket "$BUCKET" --query 'Contents[].Key' --output text \
             | tr '\t' '\n' | while read -r key; do
                 if [ -z "$key" ] || [ "$key" = "None" ]; then continue; fi
+                if [[ "$key" == hub-assets/* ]]; then continue; fi
                 if [ ! -f "$key" ]; then
                   echo "removing $key"
                   aws s3 rm "s3://$BUCKET/$key" --only-show-errors
@@ -1735,3 +1845,43 @@ jobs:
           else
             echo "The admin host refuses this network, and the API host refuses admin routes."
           fi
+
+  # ---------------------------------------------------------------
+  # 7. The public hub: smoke, through both distributions.
+  # ---------------------------------------------------------------
+  #
+  # **After the release AND the site.** The hub's pages are rendered by
+  # the API this release shipped, served only through the site's
+  # distribution (infra/modules/site, /hub/*), and they link a stylesheet
+  # the site build uploads. Neither job's own smoke reaches them, so this
+  # one runs once both have shipped.
+  #
+  # **A 200 with the hub's own CSP comes first** [R9]. The site
+  # distribution answers an origin 404 -- and a 403 -- with the site's
+  # 404 page, so an origin-secret mismatch would read as "no such page"
+  # everywhere. Then the sitemap, an unknown query key (400 from the
+  # edge function), a teacher no listing can be (404), and the API
+  # host's own /hub/en (404 from its hub-block function). deploy/smoke.py
+  # says what each failure usually means. It needs no listing to exist.
+  #
+  # **No AWS credentials, and nothing rolled back.** The two URLs arrive
+  # as job outputs. A failure here leaves the release in place: the API's
+  # own smoke passed, and what this catches is edge wiring between two
+  # distributions, which a redeploy of the previous image would not undo.
+  hub:
+    name: public hub
+    needs: [plan, release, site]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.plan.outputs.sha }}
+
+      - name: Smoke the public hub
+        env:
+          SITE_URL: ${{ needs.site.outputs.url }}
+          API_URL: ${{ needs.release.outputs.api_url }}
+        run: |
+          python3 deploy/smoke.py "$SITE_URL" --hub --api-url "$API_URL" --attempts 18 --interval 10

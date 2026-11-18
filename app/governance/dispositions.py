@@ -676,8 +676,8 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         disposition=Disposition.NOT_PERSONAL,
         retention=RetentionClass.LIFE_OF_ACCOUNT,
         basis=(
-            "A fixed list of Bangladesh's divisions, districts and "
-            "upazilas; about no person."
+            "A fixed list of Bangladesh's divisions, districts, upazilas, "
+            "city corporations and metropolitan thanas; about no person."
         ),
     ),
     "owner_listing": TableGovernance(
@@ -688,6 +688,18 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "public hub. It goes when that teacher deletes their account. A "
             "coaching centre's listing belongs to the centre, so it stays "
             "when a manager's account is deleted."
+        ),
+    ),
+    "hub_feedback": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A publishing teacher's answers to whether the public hub brought "
+            "them a student, asked 60 and 90 days after they first published, "
+            "and which account answered. A solo teacher's answers go when "
+            "they delete their account. A coaching centre's answers belong to "
+            "the centre, so they stay when a manager's account is deleted, "
+            "and no longer say which manager answered."
         ),
     ),
     "batch_listing": TableGovernance(
@@ -708,6 +720,16 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "A complaint a reader filed about something on the public hub, "
             "with the reason they chose and an optional short note. It "
             "goes when that reader deletes their account."
+        ),
+    ),
+    "cdn_invalidation": TableGovernance(
+        disposition=Disposition.NOT_PERSONAL,
+        retention=RetentionClass.DAYS_7,
+        basis=(
+            "Paths on the public site that a takedown asked the edge cache "
+            "to forget, built only from public page addresses, with when "
+            "they were asked for and sent. About no person, and useless once "
+            "sent: the cache keeps a page for ten minutes at most."
         ),
     ),
     "hub_moderation_event": TableGovernance(

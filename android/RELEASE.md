@@ -55,8 +55,10 @@ error rather than as "the secret is wrong".
 | `ANDROID_KEY_ALIAS` | secret | `android-release` environment |
 | `ANDROID_KEY_PASSWORD` | secret | `android-release` environment |
 | `ANDROID_API_BASE_URL` | variable | `android-release` environment |
+| `ANDROID_APP_LINK_HOST` | variable (optional) | `android-release` environment |
+| `ANDROID_SITE_URL` | variable (optional) | `android-release` environment |
 
-**All five in the environment, not at repository scope.** A repository
+**All of them in the environment, not at repository scope.** A repository
 variable would work today — `vars.*` resolves environment, then
 repository, then organization — but the fallback is the problem rather
 than the convenience.
@@ -73,6 +75,22 @@ what stops a workflow edit on any branch from reading the upload key.
 
 The resolved URL is echoed in the build log and the run summary, since
 it is the only moment it can be checked before the AAB exists.
+
+`ANDROID_APP_LINK_HOST` is the web app's bare hostname, such as
+`app.shikkhokplus.<apex>`: the host whose `/ui/hub-report` links (a hub
+page's "Report this page") open the app, as an App Link verified against
+that host's `/.well-known/assetlinks.json` (published by `deploy.yml`
+from the SSM parameter `android-cert-sha256`, see `web/README.md`).
+Unset, the build claims the API base URL's host, which also serves `/ui/`
+but is not the host the hub pages link to, and the release run warns.
+
+`ANDROID_SITE_URL` is the public site's https origin, such as
+`https://shikkhokplus.<apex>` (the SSM parameter `site-url`), compiled in
+as `BuildConfig.SITE_URL`: the listing editor's "View public page" opens
+`{SITE_URL}/hub/{locale}/t/{slug}` in the browser. Unset, the release
+offers no "View public page" and the run warns; set but not https, the
+preflight fails. A debug build defaults it to the API base URL, since the
+local API serves the public pages itself (`-PsiteUrl` overrides either).
 
 The base64 value is long, and selecting it from scrollback is where a
 truncated paste comes from:

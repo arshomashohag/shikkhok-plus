@@ -66,6 +66,7 @@ TEMPLATE_VALUES: dict[str, str] = {
     "config_bucket": "shikkhokplus-production-config-123456789012",
     "lifecycle_hook_name": "shikkhokplus-production-ready",
     "log_group": "/shikkhokplus/shikkhokplus-production/app",
+    "site_distribution_id": "E2QWRUHAPOMQZL",
 }
 
 

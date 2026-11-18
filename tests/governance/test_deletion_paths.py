@@ -150,12 +150,12 @@ def test_the_public_route_count_is_unchanged_by_this_unit() -> None:
     not edited in the same commit that adds a public route. D6 left the
     count at eight; the admin and app MFA sign-in routes later moved it to
     twelve [0028], password sign-in and setup to fourteen [0032], and the
-    public username lookup to fifteen [U1: BR3.5], with no deletion route
-    among them.
+    public username lookup to fifteen [U1: BR3.5], and the public hub's
+    four pages to nineteen [H2], with no deletion route among them.
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 15
+    assert len(PUBLIC_ROUTES) == 19
     assert ("GET", "/account-deletion") in PUBLIC_ROUTES
     assert ("POST", "/account-deletion") in PUBLIC_ROUTES
 

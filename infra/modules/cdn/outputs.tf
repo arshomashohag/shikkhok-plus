@@ -13,6 +13,11 @@ output "distribution_id" {
   value       = aws_cloudfront_distribution.api.id
 }
 
+output "origin_fqdn" {
+  description = "The API origin's DNS name, which the site distribution's /hub/* behaviour also targets."
+  value       = local.origin_fqdn
+}
+
 output "web_bucket" {
   description = "Where the deploy uploads the built web client, under ui/."
   value       = aws_s3_bucket.web.id

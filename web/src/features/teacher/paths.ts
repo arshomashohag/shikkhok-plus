@@ -4,6 +4,8 @@
  * a string typed twice. An area that owns a path registers its route in
  * `<area>/index.tsx`; anyone may link to it from here.
  */
+import type { Lang } from '../../core/format'
+
 export type BatchTab = 'students' | 'classes' | 'exams' | 'notices'
 
 const id = (s: string) => encodeURIComponent(s)
@@ -92,5 +94,7 @@ export const paths = {
   // hub/ -- the public listing [0036]
   hub: () => '/more/hub',
   hubBatches: () => '/more/hub/batches',
+  hubPreview: (locale: Lang) => `/more/hub/preview?locale=${locale}`,
+  hubFeedback: (ownerId: string, day: number) => `/more/hub/feedback/${id(ownerId)}/${day}`,
   batchMonth: (batchId: string, period: string) => `/batches/${id(batchId)}/month/${id(period)}`,
 } as const

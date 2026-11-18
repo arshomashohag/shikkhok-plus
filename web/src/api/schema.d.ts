@@ -88,6 +88,108 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/hub/sitemap.xml': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Sitemap
+     * @description Serve every public owner and batch page, in both locales.
+     *
+     *     :param request: The incoming request
+     *     :param allowed: Whether this read was within the ceiling
+     *     :return: The sitemap, or the 429 page
+     */
+    get: operations['hub_sitemap_hub_sitemap_xml_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/hub/{locale}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Search
+     * @description Serve the landing page, or a page of search results.
+     *
+     *     :param locale: ``en`` or ``bn``
+     *     :param request: The incoming request, whose six keys are read
+     *     :param allowed: Whether this read was within the ceiling
+     *     :return: The page, the 404 page, or the 429 page
+     */
+    get: operations['hub_search_hub__locale__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/hub/{locale}/t/{owner_slug}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Owner
+     * @description Serve a published owner's page.
+     *
+     *     :param locale: ``en`` or ``bn``
+     *     :param owner_slug: The owner's slug
+     *     :param request: The incoming request
+     *     :param allowed: Whether this read was within the ceiling
+     *     :return: The page, the 404 page, or the 429 page
+     */
+    get: operations['hub_owner_hub__locale__t__owner_slug__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/hub/{locale}/t/{owner_slug}/{batch_slug}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Batch
+     * @description Serve a published batch's page under its published owner.
+     *
+     *     :param locale: ``en`` or ``bn``
+     *     :param owner_slug: The owner's slug
+     *     :param batch_slug: The batch's slug
+     *     :param request: The incoming request
+     *     :param allowed: Whether this read was within the ceiling
+     *     :return: The page, the 404 page, or the 429 page
+     */
+    get: operations['hub_batch_hub__locale__t__owner_slug___batch_slug__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/accounts': {
     parameters: {
       query?: never
@@ -2840,6 +2942,36 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/hub/feedback': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Answer Feedback
+     * @description Answer "Did the hub bring you a student?"; answering again overwrites.
+     *
+     *     The question answered is the workspace's own: a centre manager names the
+     *     centre with ``X-Workspace-Id``, as the inbox item's ``source_id`` gives
+     *     it. A day this owner was never asked is refused with
+     *     ``HUB_FEEDBACK_NOT_ASKED`` (409).
+     *
+     *     :param body: The day of the question and the answer
+     *     :param lens: The answering manager's lens on the owner
+     *     :param session: The request-scoped session
+     *     :return: An empty 204
+     */
+    post: operations['answer_feedback_v1_hub_feedback_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/hub/listing': {
     parameters: {
       query?: never
@@ -2870,6 +3002,36 @@ export interface paths {
      *     :raises CeilingBreach: The owner has used today's edits
      */
     put: operations['put_listing_v1_hub_listing_put']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/listing/preview': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Preview Listing
+     * @description Show the owner their own public page before it is public.
+     *
+     *     Built from the owner's own rows by a separate, owner-scoped builder,
+     *     into the same registered page model and through the same template as
+     *     the public page, with a banner saying it is not public. Never cached:
+     *     it is one owner's unpublished draft.
+     *
+     *     :param lens: The owner's lens; the page is always this owner's
+     *     :param session: The request-scoped session
+     *     :param locale: ``en`` or ``bn``
+     *     :return: The page
+     */
+    get: operations['preview_listing_v1_hub_listing_preview_get']
+    put?: never
     post?: never
     delete?: never
     options?: never
@@ -5685,10 +5847,11 @@ export interface components {
     }
     /**
      * AreaOption
-     * @description One division, district or upazila.
+     * @description One area: a division, district, upazila, city corporation or thana.
      *
-     *     :ivar code: The BBS geocode
-     *     :ivar kind: ``division``, ``district`` or ``upazila``
+     *     :ivar code: The BBS geocode, or ``MT...`` for a metropolitan thana
+     *     :ivar kind: ``division``, ``district``, ``upazila``,
+     *         ``city_corporation`` or ``metro_thana``
      *     :ivar name_en: The English name
      *     :ivar name_bn: The Bangla name
      */
@@ -5699,7 +5862,7 @@ export interface components {
        * Kind
        * @enum {string}
        */
-      kind: 'district' | 'division' | 'upazila'
+      kind: 'city_corporation' | 'district' | 'division' | 'metro_thana' | 'upazila'
       /** Name Bn */
       name_bn: string
       /** Name En */
@@ -8103,6 +8266,26 @@ export interface components {
       status: 'approved_full' | 'approved_partial' | 'pending' | 'rejected'
     }
     /**
+     * HubFeedbackRequest
+     * @description An owner's answer to "Did the hub bring you a student?" [0042].
+     *
+     *     :ivar day: Which question: the one asked at day 60 or day 90 after the
+     *         first publish, as the inbox item's ``preview`` names it
+     *     :ivar answer: ``yes``, ``not_yet`` or ``not_sure``
+     */
+    HubFeedbackRequest: {
+      /**
+       * Answer
+       * @enum {string}
+       */
+      answer: 'not_sure' | 'not_yet' | 'yes'
+      /**
+       * Day
+       * @enum {integer}
+       */
+      day: 60 | 90
+    }
+    /**
      * HubReportRequest
      * @description A reader's report about one hub target.
      *
@@ -8967,6 +9150,7 @@ export interface components {
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
+        | 'hub_feedback_question'
         | 'hub_listing_suspended'
         | 'marks_available'
         | 'notice'
@@ -9008,7 +9192,9 @@ export interface components {
      *     :ivar read: Whether the reader has opened the inbox since
      *     :ivar source_id: The record that produced it, if any
      *     :ivar child_name: Which child it is about, for a guardian's copy
-     *     :ivar preview: A short line of its content, if any
+     *     :ivar preview: A short line of its content, if any; for a
+     *         ``hub_feedback_question``, the question's day, ``60`` or ``90``,
+     *         which the answer sends back
      *     :ivar class_date: For a class change, the day the class is now on, or
      *         was on if cancelled
      *     :ivar class_time: For a class change, its start time that day
@@ -9043,6 +9229,7 @@ export interface components {
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
+        | 'hub_feedback_question'
         | 'hub_listing_suspended'
         | 'marks_available'
         | 'notice'
@@ -9158,6 +9345,7 @@ export interface components {
      *     :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
      *     :ivar slug: The public path segment, or None while a draft
      *     :ivar public_name: The name shown publicly
+     *     :ivar public_name_latin: The owner's Latin spelling of the name
      *     :ivar headline_en: The English headline
      *     :ivar headline_bn: The Bangla headline
      *     :ivar bio_en: The English biography
@@ -9200,6 +9388,8 @@ export interface components {
       public_contact_phone: string | null
       /** Public Name */
       public_name: string
+      /** Public Name Latin */
+      public_name_latin: string | null
       /** Publishable */
       publishable: boolean
       /** Published At */
@@ -9230,6 +9420,8 @@ export interface components {
      *
      *     :ivar slug: The public path segment
      *     :ivar public_name: The name shown publicly
+     *     :ivar public_name_latin: The owner's own Latin spelling of the name,
+     *         so a search typed in English finds a Bangla name
      *     :ivar headline_en: The English headline
      *     :ivar headline_bn: The Bangla headline
      *     :ivar bio_en: The English biography
@@ -9256,6 +9448,8 @@ export interface components {
       public_contact_phone?: string | null
       /** Public Name */
       public_name?: string | null
+      /** Public Name Latin */
+      public_name_latin?: string | null
       /** Qualifications */
       qualifications?: string | null
       /** Slug */
@@ -11993,6 +12187,264 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['HealthResponse']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  hub_sitemap_hub_sitemap_xml_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The sitemap */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/xml': string
+        }
+      }
+      /** @description Too many reads from this network this minute */
+      429: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  hub_search_hub__locale__get: {
+    parameters: {
+      query?: {
+        q?: string
+        district?: string
+        upazila?: string
+        subject?: string
+        level?: string
+        page?: string
+      }
+      header?: never
+      path: {
+        locale: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The page */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description Not public: the same page for every such path */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Too many reads from this network this minute */
+      429: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  hub_owner_hub__locale__t__owner_slug__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        locale: string
+        owner_slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The page */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description Not public: the same page for every such path */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Too many reads from this network this minute */
+      429: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  hub_batch_hub__locale__t__owner_slug___batch_slug__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        locale: string
+        owner_slug: string
+        batch_slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The page */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description Not public: the same page for every such path */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Too many reads from this network this minute */
+      429: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
         }
       }
       /** @description An unexpected failure; not retryable */
@@ -19420,6 +19872,100 @@ export interface operations {
       }
     }
   }
+  answer_feedback_v1_hub_feedback_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HubFeedbackRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
   get_listing_v1_hub_listing_get: {
     parameters: {
       query?: never
@@ -19541,6 +20087,73 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  preview_listing_v1_hub_listing_preview_get: {
+    parameters: {
+      query?: {
+        locale?: 'bn' | 'en'
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The owner's page as it would read, drafts included */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': string
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/html': components['schemas']['ErrorEnvelope']
         }
       }
       /** @description The request could not be parsed */

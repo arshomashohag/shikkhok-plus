@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+{% set owner = view.owner %}
+{% set batch = view.batch %}
+<p class="meta"><a href="/hub/{{ locale }}/t/{{ owner.slug }}">{{ m("batch_all_of_owner", name=owner.public_name) }}</a></p>
+<h1>{{ title(batch) }}</h1>
+<p class="meta">{{ owner.public_name }}{% if area(owner) %} · {{ area(owner) }}{% endif %}</p>
+{% if owner.runs_classes %}
+<p><span class="badge">{{ m("runs_classes") }}</span></p>
+{% endif %}
+{% if view.description %}
+<p class="prose">{{ view.description }}</p>
+{% endif %}
+{% include "_batch.html" %}
+{% if view.syllabus %}
+<h2>{{ m("batch_syllabus") }}</h2>
+<p class="prose">{{ view.syllabus }}</p>
+{% endif %}
+<p><a href="{{ meta.report_href }}">{{ m("report_page") }}</a></p>
+{% endblock %}

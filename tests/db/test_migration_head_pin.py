@@ -59,11 +59,15 @@ VERSIONS: Final[pathlib.Path] = (
 #: read-only database role -- again, and ``0035`` -- the Bangladesh area
 #: vocabulary, and ``0036`` -- the hub's listings, reports and moderation
 #: -- once more, and ``0037`` -- contacts recorded and invited by email --
-#: again, and ``0038`` -- usernames and the hold ledger -- once more.
-EXPECTED_REVISIONS: Final[int] = 38
+#: again, and ``0038`` -- usernames and the hold ledger -- once more, and
+#: ``0039`` -- city corporations and metropolitan thanas -- again, and
+#: ``0040`` -- the public hub's views and search columns -- once more, and
+#: ``0041`` -- the CloudFront invalidation outbox -- again, and ``0042``
+#: -- the demand question and the first-publish anchor -- once more.
+EXPECTED_REVISIONS: Final[int] = 42
 
-#: The head ``0038`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0038"
+#: The head ``0042`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0042"
 
 
 def _revision_files() -> list[pathlib.Path]:

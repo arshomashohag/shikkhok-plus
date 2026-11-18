@@ -126,6 +126,74 @@ current state and the manifest carries only the latter:
 **The deletion implementation must match the manifest**, and
 `project.md` already requires a test per path asserting exactly that.
 
+## Data Safety: what the public hub changes
+
+**Review the Play Data Safety form against this list before the release
+that ships the public hub (H2).** The form is filled in the Play Console,
+not from this repository, so nothing here checks it; this section is the
+record of what changed. `PRIVACY.md`'s generated region already carries
+the hub tables (`owner_listing`, `batch_listing`, `hub_report`,
+`hub_feedback`, `hub_moderation_event`, `cdn_invalidation`) and was
+current when this section was written
+(`python3 -m scripts.generate_privacy_policy --check`).
+
+**1. New: public display of what a teacher or centre chooses to
+publish.** Anyone, signed in or not, can read a published listing on the
+site at `/hub/en` and `/hub/bn`, and search engines index it. Nothing is
+public before the owner's own `publish`, and a listing can be
+unpublished at any time. What a published listing shows:
+
+| Shown publicly | Whose | Condition |
+|---|---|---|
+| Public name, headline, biography, qualifications, how they teach | the teacher's or centre's | always, once published |
+| Area: district and upazila | the teacher's or centre's | when set |
+| Street address | a centre's only; never a solo tutor's | when set |
+| **Contact phone number** | the teacher's or centre's | **opt-in**: only a number entered for the listing, which may differ from the account's |
+| A centre teacher's name | that teacher's | only with that teacher's own recorded consent; otherwise "Centre faculty" |
+| Class listings: public title, description, syllabus, subjects, class levels, curriculum, how it is taught, admissions status | the teacher's or centre's | per class, once that class is published |
+| Weekly times and the monthly fee | the teacher's or centre's | each only when the owner chose to show it |
+| "Runs classes" badge | derived from the owner's own activity | a yes/no, recomputed daily; it names no student |
+
+**No student or guardian data is shown on any public page**: no name,
+photo, marks, attendance, enrollment or anything a student or guardian
+wrote (`project.md`, Forbidden). The pages are rendered only from the
+four `hub_public_*` views and the fixed list of area names, read through
+a role that can see nothing else. The people whose data becomes public are teachers and centre
+staff, all adults, by their own choice.
+
+For the form: the data types concerned (name, phone number, address,
+and the listing text as user-generated content) are already collected
+for teachers. What changes is that they are now **displayed publicly at
+the user's request**. Whether Play counts that as "shared" is a judgement
+for whoever submits the form, against Play's current definitions; it is
+not decided here.
+
+**2. New: reports.** A signed-in reader -- which can be a student or a
+guardian -- can report a hub page. Stored: which page, a reason from a
+fixed list, an optional note of up to 500 characters, the reporting
+account and the time (`hub_report`). It is seen only by the platform
+administrators who moderate the hub, shown with an opaque author
+reference and never a name or phone number; it is never shown to the
+teacher reported. It is deleted with the reporter's account. Form
+category: user-generated content, collected, not shared; purpose: app
+functionality (moderation).
+
+**3. New: the demand question.** A teacher with a published listing is
+asked, 60 and 90 days after first publishing, whether the hub brought
+them a student. Stored: the answer and which account answered
+(`hub_feedback`). It is used to decide whether the hub continues.
+Deleted with a solo teacher's account; a centre's answers stay with the
+centre and lose the answering manager. Form category: user-generated
+content or app interactions (whichever the form's wording fits), from
+teachers only; purpose: analytics.
+
+**Not changed by the hub:** no new SDK, no new Android permission, no
+device or advertising identifier, no cookie on the public pages, and no
+script on them at all (their CSP is `default-src 'none'`). Public page
+reads are counted per network for the rate limit in the same counter
+table the sign-in ceilings already use, keyed on an address prefix, not
+an account.
+
 ## Hosting the link
 
 Play needs a public URL. The raw GitHub link works:

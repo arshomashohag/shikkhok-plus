@@ -166,6 +166,7 @@ internal fun Pill(text: String, modifier: Modifier = Modifier) {
  * @param options The server's areas
  * @param enabled Whether it can be changed
  * @param onPick Called with the chosen code
+ * @param none When given, an empty choice with this text, picked as an empty code
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -175,11 +176,12 @@ internal fun AreaDropdown(
     options: List<AreaOption>,
     enabled: Boolean,
     onPick: (String) -> Unit,
+    none: String? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val bangla = LocalConfiguration.current.locales[0].language == "bn"
     val name: (AreaOption) -> String = { if (bangla) it.nameBn else it.nameEn }
-    val shown = options.firstOrNull { it.code == value }?.let(name).orEmpty()
+    val shown = options.firstOrNull { it.code == value }?.let(name) ?: none.takeIf { value.isEmpty() }.orEmpty()
     ExposedDropdownMenuBox(expanded = expanded && enabled, onExpandedChange = { expanded = it && enabled }) {
         OutlinedTextField(
             value = shown,
@@ -192,6 +194,15 @@ internal fun AreaDropdown(
             modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable).testTag("hub_area_$label"),
         )
         ExposedDropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
+            if (none != null) {
+                DropdownMenuItem(
+                    text = { Text(none, color = MaterialTheme.colorScheme.onSurface) },
+                    onClick = {
+                        onPick("")
+                        expanded = false
+                    },
+                )
+            }
             options.forEach { option ->
                 DropdownMenuItem(
                     text = { Text(name(option), color = MaterialTheme.colorScheme.onSurface) },

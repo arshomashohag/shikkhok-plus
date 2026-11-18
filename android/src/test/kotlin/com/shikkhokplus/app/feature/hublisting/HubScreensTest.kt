@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextReplacement
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.feature.hublisting.ui.BatchListingsActions
 import com.shikkhokplus.app.feature.hublisting.ui.BatchListingsScreen
@@ -24,12 +25,15 @@ import com.shikkhokplus.app.feature.hublisting.ui.TAG_BATCH_PUBLISH
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_AGREE
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_BADGE
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_CONFIRM_PUBLISH
+import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_NAME_LATIN
+import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_PREVIEW
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_PUBLISH
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_RETRY
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_SAVE
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_STREET
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_SUSPENDED
 import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_UNPUBLISH
+import com.shikkhokplus.app.feature.hublisting.ui.TAG_HUB_VIEW_PUBLIC
 import com.shikkhokplus.app.feature.hublisting.ui.batchListingRowTag
 import com.shikkhokplus.app.feature.hublisting.ui.nameConsentTag
 import org.junit.Rule
@@ -139,6 +143,22 @@ class HubScreensTest {
     }
 
     @Test
+    fun `the optional latin name field shows the draft and edits it`() {
+        var draft by mutableStateOf(HubDraft(publicName = "রহিমা", publicNameLatin = "Rahima"))
+        compose.setContent {
+            HubListingScreen(
+                listingState(owner(), draft = draft),
+                HubListingActions(onEdit = { edit -> draft = edit(draft) }),
+            )
+        }
+
+        compose.onNodeWithTag(TAG_HUB_NAME_LATIN).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Rahima").assertExists()
+        compose.onNodeWithTag(TAG_HUB_NAME_LATIN).performTextReplacement("Rahima Akter")
+        assertEquals("Rahima Akter", draft.publicNameLatin)
+    }
+
+    @Test
     fun `a failed save shows the servers message with retry that keeps the form`() {
         var retried = 0
         compose.setContent {
@@ -164,6 +184,39 @@ class HubScreensTest {
         }
         compose.onNodeWithTag(TAG_HUB_UNPUBLISH).performScrollTo().assertIsEnabled()
         compose.onNodeWithTag(TAG_HUB_PUBLISH).assertDoesNotExist()
+    }
+
+    @Test
+    fun `preview is offered for a draft and view public page only once published`() {
+        var previews = 0
+        val viewed = mutableListOf<String>()
+        var state by mutableStateOf(listingState(owner(status = "draft", slug = "rahima")))
+        compose.setContent {
+            HubListingScreen(
+                state,
+                HubListingActions(onPreview = { previews++ }, onViewPublic = { viewed += it }),
+            )
+        }
+
+        compose.onNodeWithTag(TAG_HUB_VIEW_PUBLIC).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_HUB_PREVIEW).performScrollTo().performClick()
+        assertEquals(1, previews)
+
+        state = listingState(owner(status = "published", slug = "rahima"))
+        compose.onNodeWithText("View public page").performScrollTo().performClick()
+        assertEquals(listOf("rahima"), viewed)
+    }
+
+    @Test
+    fun `a build that names no site offers no view public page`() {
+        compose.setContent {
+            HubListingScreen(
+                listingState(owner(status = "published", slug = "rahima")),
+                HubListingActions(onViewPublic = null),
+            )
+        }
+        compose.onNodeWithTag(TAG_HUB_PREVIEW).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(TAG_HUB_VIEW_PUBLIC).assertDoesNotExist()
     }
 
     @Test

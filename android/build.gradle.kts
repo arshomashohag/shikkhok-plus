@@ -1,3 +1,5 @@
+import java.net.URI
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -71,6 +73,41 @@ detekt {
     autoCorrect = false
 }
 
+/**
+ * The host the hub's "Report this page" App Link claims (AndroidManifest.xml).
+ *
+ * It is the WEB-APP host -- the one the hub pages link to, which serves
+ * /ui/ and /.well-known/assetlinks.json from the API's distribution. That
+ * is `-PappLinkHost` when given (the release passes ANDROID_APP_LINK_HOST:
+ * the deployed web app has its own hostname, app.<zone>, beside api.<zone>),
+ * else the API base URL's host, which serves /ui/ too. A build with neither
+ * claims a reserved `.invalid` name, which never verifies and matches no
+ * real link: an unconfigured release already says so on screen.
+ *
+ * @param apiBaseUrl This build type's API base URL
+ * @return A bare host name: no scheme, port or path
+ */
+fun appLinkHost(apiBaseUrl: String): String = (project.findProperty("appLinkHost") as String?)?.trim()?.ifBlank { null }
+    ?: runCatching { URI(apiBaseUrl).host }.getOrNull()?.ifBlank { null }
+    ?: "unconfigured.invalid"
+
+/**
+ * The public site's origin, where a published hub page lives: the listing
+ * editor's "View public page" opens `{SITE_URL}/hub/{locale}/t/{slug}`.
+ *
+ * `-PsiteUrl` when given (the release passes ANDROID_SITE_URL), else
+ * [fallback]. Blank means the build names no site, and the editor then
+ * offers no such link rather than one to a guessed host. Only the
+ * characters of a URL reach generated source.
+ *
+ * @param fallback This build type's default
+ * @return An origin with no trailing slash, or empty
+ */
+fun siteUrl(fallback: String): String =
+    ((project.findProperty("siteUrl") as String?)?.trim()?.ifBlank { null } ?: fallback)
+        .filter { it.isLetterOrDigit() || it in ":/.-_" }
+        .trimEnd('/')
+
 android {
     // Permanent once published. [TC-2, D-38]
     namespace = "com.shikkhokplus.app"
@@ -142,22 +179,27 @@ android {
             // address instead -- override with
             // `-PapiBaseUrl=http://192.168.x.x:8000` or point it at
             // staging once TLS is up.
-            buildConfigField(
-                "String",
-                "API_BASE_URL",
-                "\"${project.findProperty("apiBaseUrl") ?: "http://10.0.2.2:8000"}\"",
-            )
+            val apiBaseUrl = (project.findProperty("apiBaseUrl") as String?) ?: "http://10.0.2.2:8000"
+            buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+            val linkHost = appLinkHost(apiBaseUrl)
+            manifestPlaceholders["appLinkHost"] = linkHost
+            buildConfigField("String", "APP_LINK_HOST", "\"$linkHost\"")
+            // Locally the API serves the public pages itself, at /hub/.
+            buildConfigField("String", "SITE_URL", "\"${siteUrl(apiBaseUrl)}\"")
         }
         release {
             // No default. A release build must be told which backend it
             // talks to, because every possible default is wrong: a
             // developer's machine shipped to a phone, or a production
             // host reached from a test build.
-            buildConfigField(
-                "String",
-                "API_BASE_URL",
-                "\"${project.findProperty("apiBaseUrl") ?: ""}\"",
-            )
+            val apiBaseUrl = (project.findProperty("apiBaseUrl") as String?) ?: ""
+            buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+            val linkHost = appLinkHost(apiBaseUrl)
+            manifestPlaceholders["appLinkHost"] = linkHost
+            buildConfigField("String", "APP_LINK_HOST", "\"$linkHost\"")
+            // No default, as for the API: an unconfigured release offers
+            // no "View public page" rather than a wrong host.
+            buildConfigField("String", "SITE_URL", "\"${siteUrl("")}\"")
             // **R8 is on, and the DEX gate is why.** It scans the
             // MINIFIED build: a debug build can differ in which
             // dependencies are present, and the release AAB is what

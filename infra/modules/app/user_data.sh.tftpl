@@ -681,6 +681,9 @@ echo "Installing the generation cron entry..." \
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-fee-generation.log
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-session-generation.log
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-retention-purge.log
+install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-badge-refresh.log
+install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-feedback-question.log
+install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-invalidation.log
 cat > /etc/cron.d/shikkhokplus-fee-generation <<'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -733,6 +736,120 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 30 3 * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.governance.commands purge >> /var/log/shikkhokplus-retention-purge.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/shikkhokplus-retention-purge
+
+# **The daily hub badge refresh** [0040]. The public hub views cannot
+# count accepted seats, so the "Runs classes" badge is stored on each
+# listing and recomputed here; without this entry a badge would outlive
+# the classes it claims. 02:30 UTC is 08:30 in Dhaka, between the fee job
+# at 02:00 and the purge at 03:30, and the refresh is a few small reads
+# per published listing.
+echo "Installing the hub-badge-refresh cron entry..." \
+  >> /var/log/shikkhokplus-provision.log
+cat > /etc/cron.d/shikkhokplus-hub-badge-refresh <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# min hour dom mon dow user command
+30 2 * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.hub.listings.badge_commands refresh >> /var/log/shikkhokplus-hub-badge-refresh.log 2>&1
+CRON
+chmod 0644 /etc/cron.d/shikkhokplus-hub-badge-refresh
+
+# **The daily hub demand question** [0042]. "Did the hub bring you a
+# student?" goes to each publishing owner at day 60 and day 90 after their
+# first publish; the day-90 answers decide whether the hub continues, so a
+# job that stopped would leave that decision without its evidence. 03:00
+# UTC is 09:00 in Dhaka: after the badge refresh at 02:30, before the purge
+# at 03:30, and a time a teacher reads the inbox. A missed run asks up to
+# seven days late and never asks twice.
+echo "Installing the hub-feedback-question cron entry..." \
+  >> /var/log/shikkhokplus-provision.log
+cat > /etc/cron.d/shikkhokplus-hub-feedback-question <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# min hour dom mon dow user command
+0 3 * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.hub.feedback_commands ask >> /var/log/shikkhokplus-hub-feedback-question.log 2>&1
+CRON
+chmod 0644 /etc/cron.d/shikkhokplus-hub-feedback-question
+
+# **Sending the hub's edge-cache invalidations, from the HOST** [0041, R8].
+# Every takedown enqueues the paths to evict in its own transaction. The
+# container cannot send them and must not be able to: hop limit 1 keeps
+# it from the instance's credentials [OPS-4]. So this host script asks
+# the RUNNING container which rows are unsent (`exec`, never a new
+# container every two minutes on a 2 GB host), sends them with the
+# host's AWS CLI, and reports back with `ack` or `fail`. The job's
+# heartbeat moves only on real progress [R8a]: a `claim` that finds
+# nothing to send, or a successful `ack`, never a claim that hands out
+# rows, so a sender whose every send fails goes stale and alerts. `claim`
+# changes no row, so a host with no distribution (the rehearsal host)
+# claims harmlessly and sends nothing.
+# A stopped container skips the run; the rows wait for the next one.
+# CloudFront's "too many invalidations in progress" is a wait, not a
+# failure: the run ends, the rows stay offered, and no attempt is
+# counted. An ack that fails exits non-zero rather than logging "sent",
+# because the rows would otherwise be sent, and paid for, every run.
+echo "Installing the hub-invalidation sender..." \
+  >> /var/log/shikkhokplus-provision.log
+cat > /usr/local/bin/shikkhokplus-hub-invalidate <<'INVALIDATE'
+#!/bin/bash
+set -uo pipefail
+distribution="${site_distribution_id}"
+say() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
+exec 9>/run/lock/shikkhokplus-hub-invalidate.lock
+flock -n 9 || { say "previous run still sending; skipped"; exit 0; }
+cd /srv/shikkhokplus || { say "no application directory; skipped"; exit 0; }
+if ! docker compose ps --status running --services 2>/dev/null | grep -x api >/dev/null; then
+  say "api container not running; skipped"
+  exit 0
+fi
+if ! claimed=$(docker compose exec -T api python -m app.hub.public.commands claim); then
+  say "claim failed"
+  exit 1
+fi
+parsed=$(printf '%s\n' "$claimed" | tail -n 1 | python3 -I -c '
+import json, sys
+c = json.load(sys.stdin)
+if c["paths"]:
+    print(",".join(str(i) for i in c["ids"]))
+    batch = {"Paths": {"Quantity": len(c["paths"]), "Items": c["paths"]},
+             "CallerReference": c["caller_reference"]}
+    print(json.dumps(batch, separators=(",", ":")))
+') || { say "claim output unreadable"; exit 1; }
+[ -n "$parsed" ] || exit 0
+ids=$(printf '%s\n' "$parsed" | sed -n 1p)
+batch=$(printf '%s\n' "$parsed" | sed -n 2p)
+if [ -z "$distribution" ]; then
+  say "no site distribution on this host; rows $ids left unsent"
+  exit 0
+fi
+err=$(mktemp) || exit 1
+trap 'rm -f "$err"' EXIT
+if ! aws_id=$(aws cloudfront create-invalidation --region us-east-1 \
+    --distribution-id "$distribution" --invalidation-batch "$batch" \
+    --query Invalidation.Id --output text 2>"$err"); then
+  if grep -q TooManyInvalidationsInProgress "$err"; then
+    say "earlier invalidations still in progress; rows $ids retried next run"
+    exit 0
+  fi
+  say "create-invalidation failed for rows $ids: $(tr '\n' ' ' <"$err")"
+  docker compose exec -T api python -m app.hub.public.commands fail --ids "$ids" \
+    || say "fail could not be recorded for rows $ids"
+  exit 1
+fi
+if ! docker compose exec -T api python -m app.hub.public.commands ack \
+    --ids "$ids" --aws-id "$aws_id"; then
+  say "sent rows $ids as $aws_id but ack failed; they will be sent again"
+  exit 1
+fi
+say "sent rows $ids as $aws_id"
+INVALIDATE
+chmod 0755 /usr/local/bin/shikkhokplus-hub-invalidate
+cat > /etc/cron.d/shikkhokplus-hub-invalidation <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# min hour dom mon dow user command
+*/2 * * * * ubuntu /usr/local/bin/shikkhokplus-hub-invalidate >> /var/log/shikkhokplus-hub-invalidation.log 2>&1
+CRON
+chmod 0644 /etc/cron.d/shikkhokplus-hub-invalidation
 
 # **The freshness check is NOT a second cron entry** [§ 1.4].
 #

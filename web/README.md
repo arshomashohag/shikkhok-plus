@@ -62,6 +62,52 @@ laptop, as bootstrap always is): the infrastructure role gains the right
 to create `shikkhokplus-*-web-*` buckets, and the deploy role gains the
 upload, the invalidation and the three new SSM parameters.
 
+### The public site's origin (`VITE_SITE_URL`)
+
+The listing editor links to the owner's published page on the public site
+("View public page", `{VITE_SITE_URL}/hub/{locale}/t/{slug}`), and the
+owner's preview (`src/features/teacher/hub/Preview.tsx`) is the server's
+HTML in a `sandbox=""` srcdoc frame that links its stylesheet on that
+site, since this host serves no `/hub-assets/`. So the build bakes the
+origin in twice: into the code, and into the page's CSP `style-src`
+(`vite.config.ts`), which the frame inherits -- `style-src` only.
+
+`deploy.yml` passes the `site-url` SSM parameter, which the release job
+already reads, as `VITE_SITE_URL`. A build must be given a bare https
+origin or nothing; nothing (as locally) offers no "View public page" link
+and leaves the preview unstyled.
+
+### The Android app-links file
+
+A public hub page's "Report this page" link opens `/ui/hub-report` here
+(`src/features/common/HubReport.tsx`); the Android app claims the same
+path as an App Link, and Android verifies that claim by fetching
+`/.well-known/assetlinks.json` from this host. So the web deploy also
+writes that file, at the web bucket's **root** (beside `ui/`), with
+`Content-Type: application/json` and `Cache-Control: max-age=3600`, and
+invalidates it; CloudFront routes exactly that path to the bucket.
+
+It is built from one SSM parameter, which nothing else creates:
+
+| Parameter                                              | Type   | Value                                                        |
+| ------------------------------------------------------ | ------ | ------------------------------------------------------------ |
+| `/shikkhokplus/shikkhokplus-<env>/android-cert-sha256` | String | SHA-256 certificate fingerprint(s), `AB:CD:…` (32 hex pairs) |
+
+Comma-separate several: Play's app-signing key (Play Console → Test and
+release → App integrity) and the upload key, for an APK installed directly
+(`keytool -list -v -keystore <upload.jks>`). Upper or lower case is fine.
+**The deploy fails while the parameter is unset, empty or malformed**,
+rather than publish a file that verifies nothing:
+
+```bash
+aws ssm put-parameter --type String --overwrite \
+  --name /shikkhokplus/shikkhokplus-staging/android-cert-sha256 \
+  --value 'AB:CD:…:EF'
+```
+
+The deploy role reads it and writes the file once `infra/bootstrap` is
+re-applied with this change (from a laptop, as bootstrap always is).
+
 To serve a build somewhere else entirely, build with
 `VITE_API_BASE_URL=https://<api host>` and set
 `SHIKKHOKPLUS_WEB_ORIGINS=https://<web origin>` on the API

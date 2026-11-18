@@ -268,6 +268,7 @@ private fun MessageRow(message: InboxMessage, onSelect: (InboxMessage) -> Unit) 
             )
             val line =
                 classLine(message.kind, message.classChange)
+                    ?: message.feedbackDay?.let { stringResource(R.string.hub_feedback_day, Numerals.count(it)) }
                     ?: message.preview?.let(Numerals::freeText)
                     ?: body(message)
             line?.let {
@@ -323,7 +324,21 @@ private fun titleOf(kind: InboxKind): Int =
         InboxKind.CLAIM_TO_VERIFY -> R.string.inbox_claim_to_verify_title
         InboxKind.CLASS_CANCELLED -> R.string.inbox_class_cancelled_title
         InboxKind.CLASS_RESCHEDULED -> R.string.inbox_class_rescheduled_title
-        InboxKind.HUB_LISTING_SUSPENDED -> R.string.inbox_hub_listing_suspended_title
+        InboxKind.HUB_LISTING_SUSPENDED, InboxKind.HUB_FEEDBACK_QUESTION -> hubTitleOf(kind)
+    }
+
+/**
+ * A hub message's heading template, kept apart so [titleOf] stays one
+ * exhaustive `when` within the complexity limit.
+ *
+ * @param kind A hub kind
+ * @return Its string resource
+ */
+private fun hubTitleOf(kind: InboxKind): Int =
+    if (kind == InboxKind.HUB_FEEDBACK_QUESTION) {
+        R.string.inbox_hub_feedback_question_title
+    } else {
+        R.string.inbox_hub_listing_suspended_title
     }
 
 /**

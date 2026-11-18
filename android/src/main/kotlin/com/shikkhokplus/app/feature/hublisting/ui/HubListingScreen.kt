@@ -77,11 +77,20 @@ const val TAG_HUB_AGREE: String = "hub_agree"
 /** The consent sheet's confirm button. */
 const val TAG_HUB_CONFIRM_PUBLISH: String = "hub_confirm_publish"
 
+/** The optional Latin spelling of the public name. */
+const val TAG_HUB_NAME_LATIN: String = "hub_name_latin"
+
 /** The street address field, shown to centres only. */
 const val TAG_HUB_STREET: String = "hub_street"
 
 /** The Runs classes badge. */
 const val TAG_HUB_BADGE: String = "hub_badge"
+
+/** "Preview as public". */
+const val TAG_HUB_PREVIEW: String = "hub_preview"
+
+/** "View public page", shown only while the listing is published. */
+const val TAG_HUB_VIEW_PUBLIC: String = "hub_view_public"
 
 /** How long a confirmation stays up. */
 private const val NOTICE_MILLIS: Long = 3_000
@@ -93,7 +102,8 @@ private const val NOTICE_MILLIS: Long = 3_000
  * @property onToggleMode Ticks or unticks a teaching mode
  * @property onPickDivision Chooses a division
  * @property onPickDistrict Chooses a district
- * @property onPickUpazila Chooses an upazila
+ * @property onPickUpazila Chooses an upazila or a city corporation
+ * @property onPickThana Chooses a thana of the city corporation, or empty for the whole city
  * @property onRetryAreas Reads the area lists again
  * @property onSave Sends what changed
  * @property onCheckSlug Asks whether the web address is free
@@ -105,6 +115,9 @@ private const val NOTICE_MILLIS: Long = 3_000
  * @property onRetry Repeats what last failed
  * @property onDismissNotice Forgets the confirmation
  * @property onBatches Opens the batch listings
+ * @property onPreview Opens "Preview as public"
+ * @property onViewPublic Opens the published page for a slug in the browser; null
+ *   when the build names no public site, and then the action is not offered
  * @property onAppeal Opens Help to appeal a suspension
  * @property onBack Leaves the screen
  */
@@ -114,6 +127,7 @@ data class HubListingActions(
     val onPickDivision: (String) -> Unit = {},
     val onPickDistrict: (String) -> Unit = {},
     val onPickUpazila: (String) -> Unit = {},
+    val onPickThana: (String) -> Unit = {},
     val onRetryAreas: () -> Unit = {},
     val onSave: () -> Unit = {},
     val onCheckSlug: () -> Unit = {},
@@ -125,6 +139,8 @@ data class HubListingActions(
     val onRetry: () -> Unit = {},
     val onDismissNotice: () -> Unit = {},
     val onBatches: () -> Unit = {},
+    val onPreview: () -> Unit = {},
+    val onViewPublic: ((String) -> Unit)? = null,
     val onAppeal: () -> Unit = {},
     val onBack: () -> Unit = {},
 )
@@ -206,7 +222,38 @@ private fun ListingBody(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+    PublicPageActions(state, actions)
     TextAction(stringResource(R.string.hub_batches_link), actions.onBatches, Modifier.fillMaxWidth())
+}
+
+/**
+ * "Preview as public", always, and "View public page" while the server
+ * says the listing is published. The preview shows what is saved, so
+ * unsaved edits say so.
+ */
+@Composable
+private fun PublicPageActions(state: HubListingState, actions: HubListingActions) {
+    TextAction(
+        stringResource(R.string.hub_preview_as_public),
+        actions.onPreview,
+        Modifier.fillMaxWidth().testTag(TAG_HUB_PREVIEW),
+    )
+    val slug = state.publicSlug
+    val view = actions.onViewPublic
+    if (slug != null && view != null) {
+        TextAction(
+            stringResource(R.string.hub_view_public_page),
+            { view(slug) },
+            Modifier.fillMaxWidth().testTag(TAG_HUB_VIEW_PUBLIC),
+        )
+    }
+    if (state.dirty) {
+        Text(
+            stringResource(R.string.hub_preview_saved_only),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -220,6 +267,14 @@ private fun ListingFields(state: HubListingState, readOnly: Boolean, actions: Hu
         label = stringResource(R.string.hub_field_public_name),
         enabled = enabled,
         singleLine = false,
+    )
+    ShikkhokTextField(
+        value = draft.publicNameLatin,
+        onValueChange = { v -> actions.onEdit { it.copy(publicNameLatin = v.take(HubLimits.PUBLIC_NAME)) } },
+        label = stringResource(R.string.hub_field_public_name_latin),
+        help = stringResource(R.string.hub_public_name_latin_help),
+        enabled = enabled,
+        fieldModifier = Modifier.testTag(TAG_HUB_NAME_LATIN),
     )
     ShikkhokTextField(
         value = draft.slug,
@@ -356,11 +411,21 @@ private fun AreaPickers(state: HubListingState, enabled: Boolean, actions: HubLi
     )
     AreaDropdown(
         label = stringResource(R.string.hub_field_upazila),
-        value = state.draft.upazilaCode,
+        value = areas.cityCode.ifEmpty { state.draft.upazilaCode },
         options = areas.upazilas,
         enabled = enabled && state.draft.districtCode.isNotEmpty(),
         onPick = actions.onPickUpazila,
     )
+    if (areas.cityCode.isNotEmpty()) {
+        AreaDropdown(
+            label = stringResource(R.string.hub_field_thana),
+            value = state.draft.upazilaCode.takeIf { it != areas.cityCode }.orEmpty(),
+            options = areas.thanas,
+            enabled = enabled,
+            onPick = actions.onPickThana,
+            none = stringResource(R.string.hub_thana_whole_city),
+        )
+    }
 }
 
 @Composable

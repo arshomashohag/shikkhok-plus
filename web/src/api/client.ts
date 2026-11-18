@@ -23,6 +23,11 @@ export interface RequestOptions {
   query?: Record<string, string | number | boolean | undefined>
   /** For the unauthenticated auth routes. */
   anonymous?: boolean
+  /**
+   * The workspace to act on for this one request, in place of the stored
+   * choice: a choice, never a grant, as `workspace.ts` says.
+   */
+  workspace?: string
   signal?: AbortSignal
 }
 
@@ -40,12 +45,13 @@ async function send(
   path: string,
   options: RequestOptions,
   token: string | null,
+  accept: string,
 ): Promise<Response> {
-  const headers: Record<string, string> = { Accept: 'application/json', ...CLIENT_HEADERS }
+  const headers: Record<string, string> = { Accept: accept, ...CLIENT_HEADERS }
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
   if (token) {
     headers.Authorization = `Bearer ${token}`
-    const workspace = currentWorkspace()
+    const workspace = options.workspace ?? currentWorkspace()
     if (workspace) headers[WORKSPACE_HEADER] = workspace
   }
   try {
@@ -76,15 +82,7 @@ export async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  let tokens = options.anonymous ? null : readTokens()
-  if (tokens && !isFresh(tokens)) tokens = await renew(API_BASE, tokens.refresh)
-
-  let response = await send(method, path, options, tokens?.access ?? null)
-  if (response.status === 401 && tokens) {
-    tokens = await renew(API_BASE, tokens.refresh)
-    response = await send(method, path, options, tokens.access)
-  }
-  if (!response.ok) throw await errorFrom(response)
+  const response = await exchange(method, path, options, 'application/json')
   if (response.status === 204) return undefined as T
   const text = await response.text()
   if (!text) return undefined as T
@@ -93,6 +91,44 @@ export async function request<T>(
   } catch {
     throw new ApiError(response.status, 'UNEXPECTED', 'error.unexpected', false)
   }
+}
+
+/**
+ * Make one API call whose answer is a document rather than JSON — the
+ * owner's hub preview, an HTML page — and return its text as sent.
+ * Authenticated and renewed exactly as {@link request} is.
+ *
+ * @throws ApiError For every failure, including no connection (status 0)
+ */
+export async function requestText(
+  method: Method,
+  path: string,
+  options: RequestOptions = {},
+): Promise<string> {
+  const response = await exchange(method, path, options, 'text/html')
+  return response.text()
+}
+
+/**
+ * Send one request with the session's token, renewing it first when it is
+ * about to lapse and once more on a 401, and refuse a non-2xx answer.
+ */
+async function exchange(
+  method: Method,
+  path: string,
+  options: RequestOptions,
+  accept: string,
+): Promise<Response> {
+  let tokens = options.anonymous ? null : readTokens()
+  if (tokens && !isFresh(tokens)) tokens = await renew(API_BASE, tokens.refresh)
+
+  let response = await send(method, path, options, tokens?.access ?? null, accept)
+  if (response.status === 401 && tokens) {
+    tokens = await renew(API_BASE, tokens.refresh)
+    response = await send(method, path, options, tokens.access, accept)
+  }
+  if (!response.ok) throw await errorFrom(response)
+  return response
 }
 
 /**

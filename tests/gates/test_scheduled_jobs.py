@@ -10,8 +10,10 @@ So the obligation is asserted from the code side. Every ``*_JOB``
 constant in ``app/db/models.py`` names a job; the module that records a
 heartbeat under it (``job_name=<CONSTANT>``) is found by reading the
 source; and the rendered boot script must install a cron entry running
-``python -m <that module>``. A job added without its schedule fails
-here, on the pull request.
+``python -m <that module>`` -- directly, or through a host script the
+boot script installs and the cron entry runs, as the hub's invalidation
+sender does [R8]. A job added without its schedule fails here, on the
+pull request.
 """
 
 from __future__ import annotations
@@ -69,10 +71,29 @@ def _writers(constant: str) -> set[str]:
 def _cron_commands() -> list[str]:
     """List every command a cron entry in the boot script runs.
 
-    :return: The command text of each entry
+    A cron entry that runs a script the boot script installs contributes
+    that script's lines too, so a job reached through a host script counts
+    as scheduled exactly when the script names it.
+
+    :return: The command text of each entry, then each such script's lines
     """
     bodies = _shell_bodies(_render(TEMPLATE.read_text(), TEMPLATE_VALUES))
-    return [body.lines[0] for body in bodies if body.name.startswith("cron entry in")]
+    scripts = {
+        match.group(1): body.lines
+        for body in bodies
+        if (match := re.search(r"cat > (/usr/local/bin/\S+)", body.name))
+    }
+    commands = [
+        body.lines[0] for body in bodies if body.name.startswith("cron entry in")
+    ]
+    reached = [
+        line
+        for command in commands
+        for path, lines in scripts.items()
+        if path in command
+        for line in lines
+    ]
+    return commands + reached
 
 
 def test_the_guard_sees_the_jobs_and_the_crontab() -> None:

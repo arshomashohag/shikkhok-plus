@@ -8,10 +8,13 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { Route, Routes } from 'react-router'
 import { json, renderScreen } from '../../../test/render'
 import { BatchListings } from './BatchListings'
+import { HubFeedback } from './Feedback'
 import { HubListing } from './Listing'
 import { NameConsent } from './NameConsent'
+import { HubPreview } from './Preview'
 import { translate } from '../../../i18n/i18n'
 
 const fetchMock = vi.fn()
@@ -31,6 +34,7 @@ const listing = (over: Record<string, unknown> = {}) => ({
   status: 'draft',
   slug: 'sumi-apa',
   public_name: 'Sumi Akter',
+  public_name_latin: null,
   headline_en: 'Maths and science',
   headline_bn: null,
   bio_en: 'Ten years of teaching.',
@@ -159,6 +163,25 @@ describe('HubListing', () => {
     await waitFor(() => expect(body).toEqual({ headline_en: 'Changed' }))
   })
 
+  it('edits the optional Latin name and sends only it', async () => {
+    let body: unknown = null
+    serve(listing({ public_name: 'সুমি আক্তার' }), (_url, init) => {
+      if (init.method !== 'PUT') return undefined
+      body = JSON.parse(init.body as string)
+      return json(200, listing({ public_name: 'সুমি আক্তার', public_name_latin: 'Sumi Akter' }))
+    })
+    renderScreen(<HubListing />)
+    const latin = await screen.findByLabelText('Name in English letters (optional)')
+    expect(latin).toHaveValue('')
+    expect(latin).toHaveAttribute('maxLength', '120')
+    await userEvent.type(latin, ' Sumi Akter ')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(body).toEqual({ public_name_latin: 'Sumi Akter' }))
+    await waitFor(() =>
+      expect(screen.getByLabelText('Name in English letters (optional)')).toHaveValue('Sumi Akter'),
+    )
+  })
+
   it('area pickers go division, district, upazila from /v1/hub/areas', async () => {
     const area = (code: string, kind: string, en: string) => ({
       code,
@@ -178,8 +201,107 @@ describe('HubListing', () => {
     await screen.findByRole('option', { name: 'Dhaka' })
     await userEvent.selectOptions(screen.getByLabelText('District'), 'BD2019')
     await screen.findByRole('option', { name: 'Savar' })
-    await userEvent.selectOptions(screen.getByLabelText('Upazila'), 'BD20190040')
-    expect(screen.getByLabelText('Upazila')).toHaveValue('BD20190040')
+    await userEvent.selectOptions(
+      screen.getByLabelText('Upazila or city corporation'),
+      'BD20190040',
+    )
+    expect(screen.getByLabelText('Upazila or city corporation')).toHaveValue('BD20190040')
+    expect(screen.queryByLabelText('Thana (optional)')).toBeNull()
+  })
+
+  it('a city corporation opens an optional thana picker, and a saved thana reopens under its city', async () => {
+    const area = (code: string, kind: string, en: string) => ({
+      code,
+      kind,
+      name_en: en,
+      name_bn: en,
+    })
+    const tree: Record<string, unknown[]> = {
+      '': [area('BD30', 'division', 'Dhaka Division')],
+      BD30: [area('BD3026', 'district', 'Dhaka')],
+      BD3026: [
+        area('BD30260072', 'upazila', 'Savar'),
+        area('BD30262500', 'city_corporation', 'Dhaka North City Corporation'),
+      ],
+      BD30262500: [
+        area('MT3026250003', 'metro_thana', 'Mirpur'),
+        area('MT3026250006', 'metro_thana', 'Uttara'),
+      ],
+    }
+    const puts: unknown[] = []
+    serve(listing({ district_code: 'BD3026', upazila_code: 'MT3026250003' }), (url, init) => {
+      if (init.method === 'PUT') {
+        const sent = JSON.parse(init.body as string) as { upazila_code: string }
+        puts.push(sent)
+        return json(200, listing({ district_code: 'BD3026', upazila_code: sent.upazila_code }))
+      }
+      if (!url.includes('/v1/hub/areas')) return undefined
+      const parent = new URL(url, 'http://test').searchParams.get('parent') ?? ''
+      return json(200, tree[parent] ?? [])
+    })
+    renderScreen(<HubListing />)
+
+    // The saved thana's city corporation is found and both are shown chosen.
+    const thana = await screen.findByLabelText('Thana (optional)')
+    await waitFor(() => expect(thana).toHaveValue('MT3026250003'))
+    expect(screen.getByLabelText('Upazila or city corporation')).toHaveValue('BD30262500')
+
+    // Leaving the thana blank keeps the city corporation.
+    await userEvent.selectOptions(thana, '')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(puts).toEqual([{ district_code: 'BD3026', upazila_code: 'BD30262500' }]),
+    )
+
+    // Choosing a thana stores the thana.
+    await userEvent.selectOptions(screen.getByLabelText('Thana (optional)'), 'MT3026250006')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(puts).toHaveLength(2))
+    expect(puts[1]).toEqual({ district_code: 'BD3026', upazila_code: 'MT3026250006' })
+
+    // An upazila closes the thana picker again.
+    await userEvent.selectOptions(
+      screen.getByLabelText('Upazila or city corporation'),
+      'BD30260072',
+    )
+    expect(screen.queryByLabelText('Thana (optional)')).toBeNull()
+  })
+
+  it('view-public link only when published', async () => {
+    vi.stubEnv('VITE_SITE_URL', 'https://site.example/')
+    try {
+      serve(listing())
+      const draft = renderScreen(<HubListing />)
+      await screen.findByRole('button', { name: 'Publish' })
+      expect(screen.queryByRole('link', { name: 'View public page' })).toBeNull()
+      // Preview is offered whatever the status: it is the owner's own draft.
+      const preview = screen.getByRole('link', { name: 'Preview as public' })
+      expect(preview).toHaveAttribute('href', '/more/hub/preview?locale=en')
+      expect(preview).toHaveAttribute('target', '_blank')
+      expect(preview).toHaveAttribute('rel', 'noopener noreferrer')
+      draft.unmount()
+
+      serve(listing({ status: 'published' }))
+      renderScreen(<HubListing />)
+      const view = await screen.findByRole('link', { name: 'View public page' })
+      expect(view).toHaveAttribute('href', 'https://site.example/hub/en/t/sumi-apa')
+      expect(view).toHaveAttribute('target', '_blank')
+      expect(view).toHaveAttribute('rel', 'noopener noreferrer')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('offers no view-public link when the build names no site', async () => {
+    vi.stubEnv('VITE_SITE_URL', '')
+    try {
+      serve(listing({ status: 'published' }))
+      renderScreen(<HubListing />)
+      await screen.findByRole('button', { name: 'Unpublish' })
+      expect(screen.queryByRole('link', { name: 'View public page' })).toBeNull()
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 })
 
@@ -546,5 +668,123 @@ describe('publish sheet focus', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Publish' }))
     const dialog = await screen.findByRole('dialog')
     expect(dialog.contains(document.activeElement)).toBe(true)
+  })
+})
+
+describe('HubFeedback', () => {
+  function open(path: string) {
+    return renderScreen(
+      <Routes>
+        <Route path="/more/hub/feedback/:ownerId/:day" element={<HubFeedback />} />
+      </Routes>,
+      path,
+    )
+  }
+
+  it("sends the reply for the item's day, and shows the accepted one", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+    open('/more/hub/feedback/centre-1/90')
+
+    expect(
+      screen.getByRole('heading', { name: 'Did the hub bring you a student?' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('90 days after you first published')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Not yet' }))
+
+    await screen.findByText('Thank you. You can change your answer here at any time.')
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toMatch(/\/v1\/hub\/feedback$/)
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ day: 90, answer: 'not_yet' })
+    expect(screen.getByRole('button', { name: 'Not yet' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('keeps the last accepted reply when a send fails, and offers retry', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockRejectedValueOnce(new TypeError('offline'))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    open('/more/hub/feedback/owner-1/60')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Not sure' }))
+    await screen.findByText('Thank you. You can change your answer here at any time.')
+    await userEvent.click(screen.getByRole('button', { name: 'Yes' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Your answer was not saved.')
+    expect(screen.getByRole('button', { name: 'Not sure' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(
+      within(alert).getByRole('button', { name: translate('en', 'web_hub_retry') }),
+    )
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'true'),
+    )
+    expect(JSON.parse(fetchMock.mock.calls[2]![1].body as string)).toEqual({
+      day: 60,
+      answer: 'yes',
+    })
+  })
+})
+
+describe('HubPreview', () => {
+  const page =
+    '<!doctype html><html lang="en"><head><link rel="stylesheet" ' +
+    'href="https://site.example/hub-assets/hub.0123456789ab.css"></head>' +
+    '<body><p class="banner">Preview — not public yet</p>' +
+    '<script>parent.stolen = true</script></body></html>'
+
+  function open(path: string) {
+    return renderScreen(
+      <Routes>
+        <Route path="/more/hub/preview" element={<HubPreview />} />
+      </Routes>,
+      path,
+    )
+  }
+
+  function answer(asked: string[]) {
+    fetchMock.mockImplementation(async (url: string) => {
+      asked.push(url)
+      return new Response(page, { status: 200, headers: { 'Content-Type': 'text/html' } })
+    })
+  }
+
+  it('preview renders server HTML in a sandboxed frame', async () => {
+    const asked: string[] = []
+    answer(asked)
+    open('/more/hub/preview?locale=bn')
+
+    const frame = await screen.findByTitle('Preview as public')
+    expect(frame.tagName).toBe('IFRAME')
+    // Exactly empty: no allow-* token, so the page can run nothing.
+    expect(frame.getAttribute('sandbox')).toBe('')
+    expect(frame.getAttribute('srcdoc')).toBe(page)
+    expect(frame.getAttribute('src')).toBeNull()
+    expect(asked).toEqual(['/v1/hub/listing/preview?locale=bn'])
+  })
+
+  it('switches the preview to the other language', async () => {
+    const asked: string[] = []
+    answer(asked)
+    open('/more/hub/preview?locale=en')
+    await screen.findByTitle('Preview as public')
+    expect(screen.getByRole('button', { name: 'English' })).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.click(screen.getByRole('button', { name: 'বাংলা' }))
+    await waitFor(() => expect(asked).toContain('/v1/hub/listing/preview?locale=bn'))
+    expect(screen.getByRole('button', { name: 'বাংলা' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('shows a refusal with Retry and no frame', async () => {
+    fetchMock.mockResolvedValue(
+      json(503, {
+        error: { code: 'X', message_key: 'error.network.unreachable', retryable: true },
+      }),
+    )
+    open('/more/hub/preview?locale=en')
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(screen.queryByTitle('Preview as public')).toBeNull()
   })
 })

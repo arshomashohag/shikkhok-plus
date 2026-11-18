@@ -88,6 +88,22 @@ HUB_PUBLIC_IMPORT_ALLOWLIST: Final[frozenset[str]] = frozenset(
     }
 )
 
+#: The names ``app/hub/public/commands.py`` alone may import besides the
+#: allowlist [0041]. It is the outbox's cron entry point, not a page: it
+#: needs an engine, a session and the shared heartbeat writer, and reads
+#: nothing but ``cdn_invalidation``. Exact names, not modules, so the job
+#: constant does not open ``app.db.models`` -- where every private table
+#: lives -- and no other file of the package gains anything.
+HUB_PUBLIC_COMMANDS_EXTRA: Final[frozenset[str]] = frozenset(
+    {
+        "app.db.models.HUB_INVALIDATION_JOB",
+        "app.db.session.build_engine",
+        "app.db.session.session_scope",
+        "app.fees.commands.stamp_heartbeat",
+        "app.fees.generation.GenerationResult",
+    }
+)
+
 #: The only path where raw decimal arithmetic is permitted. [BR6.2, NFR9.5]
 MONEY_PATH_GLOB = "app/money/**"
 
@@ -430,8 +446,15 @@ def _hub_public_offenders(sources: list[Path], package: str | None = None) -> li
     offenders: list[str] = []
     for source in sources:
         home = package or ".".join(source.relative_to(ROOT).parent.parts)
+        extra = (
+            HUB_PUBLIC_COMMANDS_EXTRA
+            if source == HUB_PUBLIC / "commands.py"
+            else frozenset()
+        )
         for module in sorted(_hub_public_imports(source, home)):
             if not module.startswith("app."):
+                continue
+            if module in extra:
                 continue
             allowed = any(
                 module == entry or module.startswith(f"{entry}.")
@@ -462,6 +485,28 @@ class TestHubPublicImportGate:
         fixture = FIXTURES / "hub_public_bad_import" / "bad_module.py.txt"
         assert _hub_public_offenders([fixture], package="app.hub.public") == [
             "bad_module.py.txt imports app.db.models.Account"
+        ]
+
+    def test_commands_exemption_is_exact_and_file_scoped(self, tmp_path: Path) -> None:
+        """Only ``commands.py`` gains its names, and only those names.
+
+        :param tmp_path: A scratch directory
+        :return: None
+        """
+        commands = HUB_PUBLIC / "commands.py"
+        imported = _hub_public_imports(commands, "app.hub.public")
+        assert HUB_PUBLIC_COMMANDS_EXTRA <= imported, "exemption names unused"
+        assert not _hub_public_offenders([commands])
+
+        probe = tmp_path / "probe.py.txt"
+        probe.write_text(
+            "from app.db.session import build_engine\n"
+            "from app.db.models import HUB_INVALIDATION_JOB\n",
+            encoding="utf-8",
+        )
+        assert _hub_public_offenders([probe], package="app.hub.public") == [
+            "probe.py.txt imports app.db.models.HUB_INVALIDATION_JOB",
+            "probe.py.txt imports app.db.session.build_engine",
         ]
 
     @pytest.mark.parametrize(

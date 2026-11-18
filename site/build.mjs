@@ -18,6 +18,12 @@
 //     links, the sitemap), WEB_APP_URL and API_URL differ per environment,
 //     so they are substituted here rather than hard-coded.
 //
+//   * **The public hub's stylesheet.** The hub's pages are rendered by the
+//     API (app/hub/public), but served on this site's host, so their one
+//     stylesheet must be here: app/hub/public/static/hub.css is copied to
+//     hub-assets/hub.<first 12 hex of its SHA-256>.css, the name the API
+//     computes from the same file and links (render.STYLESHEET_PATH).
+//
 // An unknown {{variable}} or a reference to an asset that does not exist is
 // a build error, never a silently broken page.
 
@@ -36,6 +42,17 @@ export const CONTACT_EMAIL = 'shohagsiraj.ru@gmail.com'
 
 // Eight hex characters of SHA-256: a name, not a security property.
 export const HASH_LENGTH = 8
+
+// The public hub's stylesheet: one source, in the API package, named by
+// twelve hex characters exactly as app/hub/public/render.py names it.
+export const HUB_CSS = join(HERE, '..', 'app', 'hub', 'public', 'static', 'hub.css')
+export const HUB_HASH_LENGTH = 12
+
+/** The URL path the API links the hub stylesheet at, from its content. */
+export function hubStylesheetPath(content) {
+  const hash = createHash('sha256').update(content).digest('hex').slice(0, HUB_HASH_LENGTH)
+  return `/hub-assets/hub.${hash}.css`
+}
 
 // Every extension the build may emit under assets/. The deploy workflow
 // sets each one's Content-Type explicitly and refuses a file it has no
@@ -262,18 +279,24 @@ export async function build({ outDir = DIST, env = process.env } = {}) {
     await writeFile(out, html)
   }
 
-  // 3. Unhashed files at fixed URLs (favicon.ico, the font licence).
+  // 3. The public hub's stylesheet, under the API's name for it.
+  const hubCss = await readFile(HUB_CSS)
+  const hubStylesheet = hubStylesheetPath(hubCss)
+  await mkdir(join(outDir, 'hub-assets'), { recursive: true })
+  await writeFile(join(outDir, ...hubStylesheet.slice(1).split('/')), hubCss)
+
+  // 4. Unhashed files at fixed URLs (favicon.ico, the font licence).
   for (const file of await walk(join(SRC, 'static'))) {
     const rel = relative(join(SRC, 'static'), file)
     await mkdir(dirname(join(outDir, rel)), { recursive: true })
     await copyFile(file, join(outDir, rel))
   }
 
-  // 4. robots.txt and the sitemap, which need SITE_URL.
+  // 5. robots.txt and the sitemap, which need SITE_URL.
   const indexable = pages.filter((p) => !p.standalone)
   await writeFile(
     join(outDir, 'robots.txt'),
-    `User-agent: *\nAllow: /\n\nSitemap: ${config.siteUrl}/sitemap.xml\n`,
+    `User-agent: *\nAllow: /\n\nSitemap: ${config.siteUrl}/sitemap.xml\nSitemap: ${config.siteUrl}/hub/sitemap.xml\n`,
   )
   const urls = indexable
     .map((p) => {
@@ -301,6 +324,7 @@ export async function build({ outDir = DIST, env = process.env } = {}) {
     outDir,
     config,
     assets: assetMap,
+    hubStylesheet,
     pages: pages.map(({ rel, path, lang, standalone }) => ({ rel, path, lang, standalone })),
   }
 }

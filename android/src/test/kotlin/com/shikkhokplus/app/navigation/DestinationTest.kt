@@ -101,6 +101,8 @@ class DestinationTest {
                 Destination.MyClass.of("c-1"),
                 Destination.MyExamMarks.of("x-1"),
                 Destination.HelpThread.of("t-1"),
+                Destination.HubReport.of("owner_listing", "o-1"),
+                Destination.HubReport.of(null, null),
             )
 
         built.forEach {

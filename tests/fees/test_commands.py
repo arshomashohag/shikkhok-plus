@@ -30,11 +30,18 @@ import sqlalchemy as sa
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
-from app.db.models import FEE_GENERATION_JOB, JobHeartbeat
+from app.db.models import (
+    EXPECTED_JOBS,
+    FEE_GENERATION_JOB,
+    HUB_INVALIDATION_JOB,
+    JobHeartbeat,
+)
 from app.fees.commands import (
+    JOB_STALENESS_THRESHOLDS,
     STALENESS_THRESHOLD,
     check_generation_freshness,
     run_generation,
+    staleness_threshold,
     stamp_heartbeat,
 )
 from app.fees.generation import GenerationResult
@@ -277,6 +284,37 @@ def test_the_threshold_boundary_is_two_missed_runs(
     assert just_under.healthy is True
     assert exactly_at.healthy is False
     assert STALENESS_THRESHOLD == dt.timedelta(hours=48)
+
+
+def test_the_invalidation_sender_goes_stale_in_half_an_hour(
+    restricted_session: Session,
+) -> None:
+    # The sender runs every two minutes, and a takedown stays on the edge
+    # until it sends; 48 hours would let fifteen hundred failed runs pass
+    # before anyone heard. Thirty minutes is fifteen missed runs, inside
+    # the hourly check's next pass. The daily jobs keep their 48 hours.
+    for job in (HUB_INVALIDATION_JOB, FEE_GENERATION_JOB):
+        stamp_heartbeat(
+            restricted_session,
+            result=GenerationResult(
+                cycles_created=0, cycles_skipped=0, periods_failed=0
+            ),
+            job_name=job,
+            now=AT_NOON,
+        )
+
+    def healthy(job: str, after: dt.timedelta) -> bool:
+        return check_generation_freshness(
+            restricted_session, job_name=job, now=AT_NOON + after
+        ).healthy
+
+    assert staleness_threshold(HUB_INVALIDATION_JOB) == dt.timedelta(minutes=30)
+    assert healthy(HUB_INVALIDATION_JOB, dt.timedelta(minutes=29)) is True
+    assert healthy(HUB_INVALIDATION_JOB, dt.timedelta(minutes=30)) is False
+    assert healthy(FEE_GENERATION_JOB, dt.timedelta(hours=47)) is True
+    assert set(JOB_STALENESS_THRESHOLDS) <= EXPECTED_JOBS
+    for job in EXPECTED_JOBS - {HUB_INVALIDATION_JOB}:
+        assert staleness_threshold(job) == STALENESS_THRESHOLD, job
 
 
 def test_a_run_makes_the_check_healthy_again(

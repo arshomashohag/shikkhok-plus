@@ -19,8 +19,10 @@ from app.accounts.phone import canonical_phone
 from app.authz.lenses import TeacherLens
 from app.db.models import OwnerListing
 from app.errors import ConflictError, ValidationError
+from app.hub.listings.badge import runs_classes
 from app.hub.listings.checklist import owner_checklist
 from app.hub.listings.consent import HUB_CONSENT_VERSION
+from app.hub.listings.evict import evict_owner
 from app.hub.listings.shared import (
     SLUG,
     flush_slug_unique,
@@ -28,6 +30,7 @@ from app.hub.listings.shared import (
     refuse_suspended,
     require_slug_shape,
 )
+from app.local_time import bangladesh_today
 
 __all__ = [
     "OwnerListingUpdate",
@@ -41,6 +44,7 @@ __all__ = [
 #: The owner's own free-text columns, which may not carry a phone number.
 _FREE_TEXT: Final = (
     "public_name",
+    "public_name_latin",
     "headline_en",
     "headline_bn",
     "bio_en",
@@ -69,6 +73,7 @@ class OwnerListingUpdate:
 
     :ivar slug: The public path segment
     :ivar public_name: The name shown publicly
+    :ivar public_name_latin: The owner's Latin spelling of the name
     :ivar headline_en: The English headline
     :ivar headline_bn: The Bangla headline
     :ivar bio_en: The English biography
@@ -83,6 +88,7 @@ class OwnerListingUpdate:
 
     slug: str | None = None
     public_name: str | None = None
+    public_name_latin: str | None = None
     headline_en: str | None = None
     headline_bn: str | None = None
     bio_en: str | None = None
@@ -161,9 +167,15 @@ def slug_available(session: Session, slug: str, lens: TeacherLens) -> bool:
 def _check_area(session: Session, district: str | None, upazila: str | None) -> None:
     """Check the area codes name real, nested areas.
 
+    ``upazila`` is an upazila or a city corporation whose parent is the
+    district, or a metropolitan thana whose city corporation's parent is
+    the district. A city corporation stands for the whole city when the
+    owner's thana is not in the vocabulary; it is never a district.
+
     :param session: The session
     :param district: The district code, if any
-    :param upazila: The upazila code, if any
+    :param upazila: The upazila, city corporation or metropolitan thana
+        code, if any
     :raises ValidationError: An area is unknown or not nested
     """
     if district is None and upazila is None:
@@ -172,8 +184,10 @@ def _check_area(session: Session, district: str | None, upazila: str | None) -> 
         r.code: r
         for r in session.execute(
             sa.text(
-                "SELECT code, kind::text AS kind, parent_code FROM bd_area "
-                "WHERE code = ANY(:codes)"
+                "SELECT a.code, a.kind::text AS kind, a.parent_code, "
+                "p.parent_code AS grandparent_code FROM bd_area a "
+                "LEFT JOIN bd_area p ON p.code = a.parent_code "
+                "WHERE a.code = ANY(:codes)"
             ),
             {"codes": [c for c in (district, upazila) if c is not None]},
         )
@@ -183,12 +197,14 @@ def _check_area(session: Session, district: str | None, upazila: str | None) -> 
     )
     if upazila is not None:
         found = rows.get(upazila)
-        bad = bad or found is None or found.kind != "upazila"
-        bad = (
-            bad
-            or district is None
-            or (found is not None and found.parent_code != district)
+        nested = found is not None and (
+            (
+                found.kind in ("upazila", "city_corporation")
+                and found.parent_code == district
+            )
+            or (found.kind == "metro_thana" and found.grandparent_code == district)
         )
+        bad = bad or district is None or not nested
     if bad:
         raise ValidationError(code="HUB_AREA_MISMATCH", message_key="hub.area_mismatch")
 
@@ -223,7 +239,14 @@ def _next_area(
 def update(
     session: Session, lens: TeacherLens, changes: OwnerListingUpdate
 ) -> OwnerListing:
-    """Apply an owner's edits to their listing.
+    """Apply an owner's edits to their listing, and store the badge anew.
+
+    The stored badge is what the public views show, so every save
+    recomputes it from :func:`~app.hub.listings.badge.runs_classes`.
+
+    A published listing whose slug changes has its old pages evicted from
+    the edge in the same transaction: the old path now 404s, and the cache
+    would otherwise serve it until its TTL ends.
 
     :param session: The session
     :param lens: The owner's lens
@@ -235,6 +258,7 @@ def update(
     """
     listing = _load(session, lens)
     refuse_suspended(listing)
+    old_slug = listing.slug if listing.status == "published" else None
 
     refuse_phone_in((n, getattr(changes, n)) for n in (*_FREE_TEXT, "slug"))
 
@@ -278,6 +302,11 @@ def update(
     if listing.status != "draft":
         _require_complete(listing)
     flush_slug_unique(session, "uq_owner_listing_slug")
+    # After the guarded flush, so the badge's read cannot autoflush a slug
+    # collision past the translation above; the eviction likewise.
+    if old_slug is not None and listing.slug != old_slug:
+        evict_owner(session, old_slug, listing.updated_at)
+    listing.runs_classes = runs_classes(session, lens.owner_id, bangladesh_today())
     session.commit()
     return listing
 
@@ -304,7 +333,7 @@ def _require_complete(listing: OwnerListing) -> None:
 def publish(
     session: Session, lens: TeacherLens, consent_version: str, now: dt.datetime
 ) -> OwnerListing:
-    """Make the owner's listing public, recording their consent.
+    """Make the owner's listing public, recording consent and the badge.
 
     :param session: The session
     :param lens: The owner's lens
@@ -328,13 +357,18 @@ def publish(
     listing.consent_at = now
     listing.consent_by_account_id = lens.account_id
     listing.published_at = now
+    # Set once: the demand question counts its days from the first publish,
+    # so hiding and republishing must not move it [0042].
+    if listing.first_published_at is None:
+        listing.first_published_at = now
     listing.updated_at = now
+    listing.runs_classes = runs_classes(session, lens.owner_id, bangladesh_today(now))
     session.commit()
     return listing
 
 
 def unpublish(session: Session, lens: TeacherLens, now: dt.datetime) -> OwnerListing:
-    """Hide a published listing; a draft stays a draft.
+    """Hide a published listing, evicting its pages; a draft stays a draft.
 
     :param session: The session
     :param lens: The owner's lens
@@ -347,5 +381,6 @@ def unpublish(session: Session, lens: TeacherLens, now: dt.datetime) -> OwnerLis
     if listing.status == "published":
         listing.status = "hidden"
         listing.updated_at = now
+        evict_owner(session, listing.slug, now)
         session.commit()
     return listing

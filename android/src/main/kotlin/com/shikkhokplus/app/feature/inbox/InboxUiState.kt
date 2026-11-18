@@ -42,6 +42,9 @@ enum class InboxKind {
 
     /** An administrator suspended the owner's public listing. */
     HUB_LISTING_SUSPENDED,
+
+    /** "Did the hub bring you a student?", asked 60 and 90 days after the first publish. */
+    HUB_FEEDBACK_QUESTION,
 }
 
 /**
@@ -74,6 +77,7 @@ data class ClassChange(
  * @property childName Which child it is about, on a guardian's copy
  * @property preview A short line of its content, if any
  * @property classChange The class it names, for a class change
+ * @property feedbackDay For the hub's demand question, which one: 60 or 90
  */
 data class InboxMessage(
     val id: String,
@@ -88,6 +92,7 @@ data class InboxMessage(
     val childName: String? = null,
     val preview: String? = null,
     val classChange: ClassChange? = null,
+    val feedbackDay: Int? = null,
 )
 
 /** Where tapping an item leads, decided from the server's fields. */
@@ -121,6 +126,14 @@ sealed interface InboxTarget {
 
     /** The owner's public listing, to read why it was suspended. */
     data object HubListing : InboxTarget
+
+    /**
+     * The hub's demand question, to answer it.
+     *
+     * @property ownerId The listing's owner, sent back as the workspace
+     * @property day Which question: 60 or 90
+     */
+    data class HubFeedback(val ownerId: String, val day: Int) : InboxTarget
 
     /**
      * One payment to check, opened at its review.

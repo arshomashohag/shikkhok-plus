@@ -51,6 +51,7 @@ from typing import Final
 from starlette.requests import Request
 
 __all__ = [
+    "CLOUDFRONT_VIEWER_ADDRESS",
     "FALLBACK_BUCKET",
     "TRUSTED_CLIENT_IP_HEADER_ENV",
     "address_prefix",
@@ -58,6 +59,7 @@ __all__ = [
     "client_coarse_prefix",
     "client_prefix",
     "coarse_address_prefix",
+    "viewer_prefix",
 ]
 
 #: Names the request header the proxy overwrites with the verified
@@ -71,6 +73,11 @@ TRUSTED_CLIENT_IP_HEADER_ENV: Final = "SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER"
 #: request. Not a network spelling either, so no real address can land
 #: in it.
 FALLBACK_BUCKET: Final = "unparsable"
+
+#: The header CloudFront sets to the viewer's address and source port,
+#: ``198.51.100.10:46532`` or ``2001:db8::1:46532`` -- the one header the
+#: public hub's cache behaviour forwards to the origin [H2].
+CLOUDFRONT_VIEWER_ADDRESS: Final = "CloudFront-Viewer-Address"
 
 _IPV4_PREFIX: Final = 24
 _IPV6_PREFIX: Final = 64
@@ -172,3 +179,24 @@ def client_address(request: Request) -> str | None:
     """
     value = _client_address(request)
     return value.strip() if value else None
+
+
+def viewer_prefix(request: Request) -> str:
+    """Return the per-IP bucket for a public hub page read.
+
+    Keyed on :data:`CLOUDFRONT_VIEWER_ADDRESS` with its port removed, and
+    reduced to a prefix as every other per-IP limit is. Without the header
+    -- locally, in tests, or a request that did not come through the
+    distribution -- the bucket is :func:`client_prefix`'s, under its
+    trusted-header rule.
+
+    :param request: The incoming request
+    :return: The prefix to count against
+    """
+    viewer = request.headers.get(CLOUDFRONT_VIEWER_ADDRESS)
+    if viewer is None:
+        return client_prefix(request)
+    host, _, port = viewer.strip().rpartition(":")
+    if not host or not port.isdigit():
+        return FALLBACK_BUCKET
+    return address_prefix(host)

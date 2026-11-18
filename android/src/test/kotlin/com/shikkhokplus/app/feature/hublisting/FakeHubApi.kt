@@ -89,6 +89,8 @@ internal class FakeHubApi : HubApi {
             "BD20" to listOf("BD2019" to "district", "BD2020" to "district"),
             "BD10" to listOf("BD1001" to "district"),
             "BD2019" to listOf("BD201901" to "upazila"),
+            "BD2020" to listOf("BD202001" to "upazila", "BD20205000" to "city_corporation"),
+            "BD20205000" to listOf("MT2020500001" to "metro_thana", "MT2020500002" to "metro_thana"),
             "BD1001" to listOf("BD100101" to "upazila"),
         )
 

@@ -121,7 +121,8 @@ interface HubApi : NameConsentApi {
  */
 class HttpHubApi(
     private val client: HttpClient,
-) : HubApi {
+) : HubApi,
+    HubPreviewApi {
 
     override suspend fun listing(): AuthResult<OwnerListingResponse> = call { client.get("/v1/hub/listing") }
 
@@ -133,6 +134,9 @@ class HttpHubApi(
 
     override suspend fun unpublish(): AuthResult<OwnerListingResponse> =
         call { client.post("/v1/hub/listing/unpublish") }
+
+    override suspend fun preview(locale: String): AuthResult<String> =
+        call { client.get("/v1/hub/listing/preview") { parameter("locale", locale) } }
 
     override suspend fun slugAvailable(slug: String): AuthResult<SlugAvailability> =
         call { client.get("/v1/hub/slugs/${slug.encodeURLPathPart()}") }

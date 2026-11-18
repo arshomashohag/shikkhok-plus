@@ -1995,6 +1995,20 @@ a.tile:hover {
   font-size: 1.125rem;
 }
 
+/* ------------------------------------------------ hub preview */
+
+/* The owner's preview (features/teacher/hub/Preview.tsx): the server's page
+   in a sandboxed frame, white like the public site whatever the theme. */
+.hub-preview-frame {
+  display: block;
+  width: 100%;
+  height: 75vh;
+  min-height: 420px;
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--r-card);
+  background: #fff;
+}
+
 /* Page widths by route (shell/pageWidth.ts); 80px is the side padding. */
 @media (min-width: 900px) {
   .shell-main.width-form {

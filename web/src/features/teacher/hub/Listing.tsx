@@ -6,7 +6,9 @@
  * the client never decides completeness. A suspended listing is
  * read-only, with the reason it cannot be changed and how to appeal. A
  * failed save keeps everything typed and offers Retry, since there is no
- * offline write queue [TC-8].
+ * offline write queue [TC-8]. "Preview as public" opens the saved page as
+ * it would read (Preview.tsx); "View public page" is offered only while
+ * the server says the listing is published.
  */
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
@@ -20,6 +22,7 @@ import {
   type Schemas,
 } from '../../../api/endpoints'
 import { ApiError } from '../../../api/errors'
+import { publicPageUrl } from '../../../core/site'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import { ErrorCard, Loading, Section, Snackbar, StaleBanner, TopBar } from '../../../ui/components'
@@ -46,6 +49,7 @@ function AreaSelect({
   options,
   disabled,
   onChange,
+  blank,
 }: {
   id: string
   label: string
@@ -53,13 +57,15 @@ function AreaSelect({
   options: Area[]
   disabled: boolean
   onChange: (code: string) => void
+  /** What the empty choice says; "Choose…" unless given. */
+  blank?: string
 }) {
   const { t, lang } = useT()
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
       <select id={id} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{t('web_hub_area_choose')}</option>
+        <option value="">{blank ?? t('web_hub_area_choose')}</option>
         {options.map((a) => (
           <option key={a.code} value={a.code}>
             {lang === 'bn' ? a.name_bn : a.name_en}
@@ -70,7 +76,20 @@ function AreaSelect({
   )
 }
 
-/** Division → district → upazila, each level read from the server's area list. */
+/** A city corporation: the one area whose children are offered as a third, optional level. */
+const CITY = 'city_corporation'
+
+/** The city corporation whose thanas are offered, with those thanas. */
+interface City {
+  code: string
+  thanas: Area[]
+}
+
+/**
+ * Division → district → upazila or city corporation → optional thana, each
+ * level read from the server's area list. A thana is stored in place of
+ * its city corporation; leaving it blank stores the city corporation.
+ */
 function AreaPickers({
   draft,
   readOnly,
@@ -85,6 +104,7 @@ function AreaPickers({
   const [division, setDivision] = useState<string | null>(null)
   const [districts, setDistricts] = useState<Area[]>([])
   const [upazilas, setUpazilas] = useState<Area[]>([])
+  const [city, setCity] = useState<City | null>(null)
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
 
@@ -134,6 +154,38 @@ function AreaPickers({
     return () => ctl.abort()
   }, [draft.districtCode, attempt])
 
+  // Whether the stored code is already explained by the city shown.
+  const settled =
+    city !== null &&
+    (city.code === draft.upazilaCode || city.thanas.some((a) => a.code === draft.upazilaCode))
+
+  useEffect(() => {
+    const code = draft.upazilaCode
+    if (settled) return
+    const direct = upazilas.find((a) => a.code === code)
+    if (!code || (direct && direct.kind !== CITY)) {
+      setCity(null)
+      return
+    }
+    // A city corporation chosen directly, or a saved thana: read the thanas
+    // of the district's city corporations until one holds the code.
+    const cities = direct ? [direct] : upazilas.filter((a) => a.kind === CITY)
+    if (cities.length === 0) return
+    const ctl = new AbortController()
+    Promise.all(cities.map((c) => listHubAreas(c.code, ctl.signal)))
+      .then((lists) => {
+        setFailed(false)
+        const i = direct ? 0 : lists.findIndex((l) => l.some((a) => a.code === code))
+        const hit = cities[i]
+        const thanas = lists[i]
+        setCity(hit && thanas ? { code: hit.code, thanas } : null)
+      })
+      .catch((e: unknown) => {
+        if (!(e instanceof DOMException && e.name === 'AbortError')) setFailed(true)
+      })
+    return () => ctl.abort()
+  }, [draft.upazilaCode, upazilas, settled, attempt])
+
   return (
     <>
       {failed ? (
@@ -161,11 +213,22 @@ function AreaPickers({
       <AreaSelect
         id="hub-upazila"
         label={t('web_hub_field_upazila')}
-        value={draft.upazilaCode}
+        value={city ? city.code : draft.upazilaCode}
         options={upazilas}
         disabled={readOnly || !draft.districtCode}
         onChange={(code) => set({ upazilaCode: code })}
       />
+      {city ? (
+        <AreaSelect
+          id="hub-thana"
+          label={t('web_hub_field_thana')}
+          value={draft.upazilaCode === city.code ? '' : draft.upazilaCode}
+          options={city.thanas}
+          disabled={readOnly}
+          blank={t('web_hub_thana_whole_city')}
+          onChange={(code) => set({ upazilaCode: code || city.code })}
+        />
+      ) : null}
     </>
   )
 }
@@ -218,7 +281,7 @@ function Field({
 }
 
 function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () => void }) {
-  const { t, message } = useT()
+  const { t, message, lang } = useT()
   // What the server holds now; replaced by each save's answer.
   const [saved, setSaved] = useState(listing)
   const [draft, setDraft] = useState<Draft>(() => draftOf(listing))
@@ -299,6 +362,9 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
   }
 
   const canPublish = saved.publishable && !dirty && !suspended && saved.status !== 'published'
+  // The server's status decides; the site's address is the build's.
+  const publicUrl =
+    saved.status === 'published' && saved.slug ? publicPageUrl(lang, saved.slug) : null
 
   return (
     <>
@@ -341,6 +407,15 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
             maxLength={120}
             disabled={suspended}
             onChange={(v) => set({ publicName: v })}
+          />
+          <Field
+            id="hub-name-latin"
+            label={t('web_hub_field_public_name_latin')}
+            value={draft.publicNameLatin}
+            maxLength={120}
+            disabled={suspended}
+            help={t('web_hub_public_name_latin_help')}
+            onChange={(v) => set({ publicNameLatin: v })}
           />
           <div className="field">
             <label htmlFor="hub-slug">{t('web_hub_field_slug')}</label>
@@ -490,6 +565,24 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
           <p className="meta">{t('web_hub_save_first')}</p>
         ) : null}
       </form>
+
+      {/* Both open a tab of their own, so nothing typed here is lost. */}
+      <div className="button-row" style={{ marginTop: 8 }}>
+        <Link
+          className="btn btn-text"
+          to={paths.hubPreview(lang)}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {t('hub_preview_as_public')}
+        </Link>
+        {publicUrl ? (
+          <a className="btn btn-text" href={publicUrl} target="_blank" rel="noopener noreferrer">
+            {t('hub_view_public_page')}
+          </a>
+        ) : null}
+      </div>
+      {dirty ? <p className="meta">{t('hub_preview_saved_only')}</p> : null}
 
       <p>
         <Link className="btn btn-text" to={paths.hubBatches()}>

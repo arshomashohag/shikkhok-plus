@@ -26,6 +26,7 @@ __all__ = [
     "CentreMembershipResponse",
     "ChecklistItemWire",
     "ConsentRequest",
+    "HubFeedbackRequest",
     "OwnerListingResponse",
     "OwnerListingUpdateRequest",
     "PublishRequest",
@@ -86,6 +87,8 @@ class OwnerListingUpdateRequest(BaseModel):
 
     :ivar slug: The public path segment
     :ivar public_name: The name shown publicly
+    :ivar public_name_latin: The owner's own Latin spelling of the name,
+        so a search typed in English finds a Bangla name
     :ivar headline_en: The English headline
     :ivar headline_bn: The Bangla headline
     :ivar bio_en: The English biography
@@ -102,6 +105,7 @@ class OwnerListingUpdateRequest(BaseModel):
 
     slug: str | None = Field(default=None, max_length=60)
     public_name: str | None = Field(default=None, max_length=120)
+    public_name_latin: str | None = Field(default=None, max_length=120)
     headline_en: str | None = Field(default=None, max_length=140)
     headline_bn: str | None = Field(default=None, max_length=140)
     bio_en: str | None = Field(default=None, max_length=4000)
@@ -120,6 +124,7 @@ class OwnerListingResponse(BaseModel):
     :ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``
     :ivar slug: The public path segment, or None while a draft
     :ivar public_name: The name shown publicly
+    :ivar public_name_latin: The owner's Latin spelling of the name
     :ivar headline_en: The English headline
     :ivar headline_bn: The Bangla headline
     :ivar bio_en: The English biography
@@ -143,6 +148,7 @@ class OwnerListingResponse(BaseModel):
     status: ListingStatus
     slug: str | None
     public_name: str
+    public_name_latin: str | None
     headline_en: str | None
     headline_bn: str | None
     bio_en: str | None
@@ -185,16 +191,17 @@ class SlugAvailability(BaseModel):
 
 
 class AreaOption(BaseModel):
-    """One division, district or upazila.
+    """One area: a division, district, upazila, city corporation or thana.
 
-    :ivar code: The BBS geocode
-    :ivar kind: ``division``, ``district`` or ``upazila``
+    :ivar code: The BBS geocode, or ``MT...`` for a metropolitan thana
+    :ivar kind: ``division``, ``district``, ``upazila``,
+        ``city_corporation`` or ``metro_thana``
     :ivar name_en: The English name
     :ivar name_bn: The Bangla name
     """
 
     code: str
-    kind: Literal["division", "district", "upazila"]
+    kind: Literal["division", "district", "upazila", "city_corporation", "metro_thana"]
     name_en: str
     name_bn: str
 
@@ -297,6 +304,20 @@ class ConsentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     consent: bool
+
+
+class HubFeedbackRequest(BaseModel):
+    """An owner's answer to "Did the hub bring you a student?" [0042].
+
+    :ivar day: Which question: the one asked at day 60 or day 90 after the
+        first publish, as the inbox item's ``preview`` names it
+    :ivar answer: ``yes``, ``not_yet`` or ``not_sure``
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    day: Literal[60, 90]
+    answer: Literal["yes", "not_yet", "not_sure"]
 
 
 class CentreMembershipResponse(BaseModel):
