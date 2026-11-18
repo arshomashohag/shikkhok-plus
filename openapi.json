@@ -6103,6 +6103,284 @@
         "title": "MeResponse",
         "type": "object"
       },
+      "MediaComplete": {
+        "additionalProperties": false,
+        "description": "Submit an uploaded photo for review.\n\n:ivar alt_en: English alt text, at most 200 characters\n:ivar alt_bn: Bangla alt text, at most 200 characters",
+        "properties": {
+          "alt_bn": {
+            "maxLength": 200,
+            "title": "Alt Bn",
+            "type": "string"
+          },
+          "alt_en": {
+            "maxLength": 200,
+            "title": "Alt En",
+            "type": "string"
+          }
+        },
+        "required": [
+          "alt_bn",
+          "alt_en"
+        ],
+        "title": "MediaComplete",
+        "type": "object"
+      },
+      "MediaOrder": {
+        "additionalProperties": false,
+        "description": "Put one gallery's photos in order.\n\n:ivar batch_id: The batch; None for the owner's own gallery\n:ivar ids: The photos in their new order",
+        "properties": {
+          "batch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "title": "MediaOrder",
+        "type": "object"
+      },
+      "MediaResponse": {
+        "description": "One of the owner's photos.\n\n:ivar id: The photo\n:ivar batch_id: The batch it is for; None for the owner's own page\n:ivar status: Where it is in upload and review\n:ivar alt_en: English alt text\n:ivar alt_bn: Bangla alt text\n:ivar position: Its place in its gallery\n:ivar width: The decoded width in pixels\n:ivar height: The decoded height in pixels\n:ivar rejection_code: Why it was rejected, if it was\n:ivar thumb_url: A 320-pixel preview: the public URL once approved, a\n    five-minute signed URL while it awaits review, otherwise None",
+        "properties": {
+          "alt_bn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt Bn"
+          },
+          "alt_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt En"
+          },
+          "batch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "rejection_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Code"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "awaiting_upload",
+              "held",
+              "pending_review",
+              "processing",
+              "rejected",
+              "withdrawn"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "thumb_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumb Url"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "alt_bn",
+          "alt_en",
+          "batch_id",
+          "height",
+          "id",
+          "position",
+          "rejection_code",
+          "status",
+          "thumb_url",
+          "width"
+        ],
+        "title": "MediaResponse",
+        "type": "object"
+      },
+      "MediaUpdate": {
+        "additionalProperties": false,
+        "description": "Change a photo's alt text; an omitted field is left alone.\n\n:ivar alt_en: New English alt text\n:ivar alt_bn: New Bangla alt text",
+        "properties": {
+          "alt_bn": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt Bn"
+          },
+          "alt_en": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt En"
+          }
+        },
+        "title": "MediaUpdate",
+        "type": "object"
+      },
+      "MediaUploadInit": {
+        "additionalProperties": false,
+        "description": "Start an upload.\n\n``content_type`` and ``byte_size`` are checked by the service, not the\nschema, so a disallowed type or size answers ``MEDIA_TYPE_NOT_ALLOWED``\nor ``MEDIA_TOO_LARGE`` -- a message key the client can localize -- and\nnot a generic 422. The type set is still published as an enum.\n\n:ivar batch_id: The batch the photo is for; None for the owner's page\n:ivar content_type: ``image/jpeg``, ``image/png`` or ``image/webp``\n:ivar byte_size: The file's size in bytes, at most 8 MiB",
+        "properties": {
+          "batch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "byte_size": {
+            "maximum": 2147483647.0,
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "content_type": {
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ],
+            "maxLength": 32,
+            "title": "Content Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "byte_size",
+          "content_type"
+        ],
+        "title": "MediaUploadInit",
+        "type": "object"
+      },
+      "MediaUploadTicket": {
+        "description": "What the client needs to post the file straight to the bucket.\n\n:ivar media_id: The photo the upload is for\n:ivar url: The POST target\n:ivar fields: The form fields to send, in order, before the file\n:ivar expires_at: When the signature stops being accepted",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "object"
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expires_at",
+          "fields",
+          "media_id",
+          "url"
+        ],
+        "title": "MediaUploadTicket",
+        "type": "object"
+      },
       "MemberInviteRequest": {
         "additionalProperties": false,
         "description": "Invite a number, an address, or both, to the centre [U2: FR6.4].\n\nAt least one of the two; a request naming neither is refused at the\nschema [BR1.8].\n\n:ivar phone: The number, typed by the manager, or null\n:ivar email: The address, typed by the manager, or null\n:ivar display_name: The name the centre knows them by\n:ivar role: ``manager`` or ``teacher``",
@@ -23559,6 +23837,692 @@
           }
         },
         "summary": "Unpublish Listing",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/media": {
+      "get": {
+        "description": "List one gallery: the owner's own, or one batch's.\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param store: The bucket\n:param batch_id: The batch; omit for the owner's own gallery\n:return: The photos in gallery order, withdrawn ones excluded",
+        "operationId": "list_photos_v1_hub_media_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "batch_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaResponse"
+                  },
+                  "title": "Response List Photos V1 Hub Media Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such photo or batch of yours."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "List Photos",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/media/order": {
+      "put": {
+        "description": "Put a gallery's photos in the given order.\n\n:param body: The gallery and the photo ids, first to last\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param store: The bucket\n:return: The gallery in its new order",
+        "operationId": "put_order_v1_hub_media_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaResponse"
+                  },
+                  "title": "Response Put Order V1 Hub Media Order Put",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such photo or batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Put Order",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/media/uploads": {
+      "post": {
+        "description": "Start an upload and sign it.\n\nCounts against the owner's daily uploads, not their daily edits.\n\n:param body: The declared type, size and the batch\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param store: The bucket\n:return: The presigned POST",
+        "operationId": "start_upload_v1_hub_media_uploads_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUploadInit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaUploadTicket"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such photo or batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Start Upload",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/media/{media_id}": {
+      "delete": {
+        "description": "Withdraw a photo; its stored files are deleted.\n\n:param media_id: The photo\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: An empty 204",
+        "operationId": "delete_photo_v1_hub_media__media_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such photo or batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Delete Photo",
+        "tags": [
+          "hub"
+        ]
+      },
+      "patch": {
+        "description": "Change a photo's alt text.\n\nChanging an approved photo's text sends it back to review, because the\nnew text has not been moderated.\n\n:param media_id: The photo\n:param body: The new text; an omitted field is left alone\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param store: The bucket\n:return: The photo",
+        "operationId": "patch_photo_v1_hub_media__media_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such photo or batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Patch Photo",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/media/{media_id}/complete": {
+      "post": {
+        "description": "Submit an uploaded photo for review once the file has been read.\n\nSafe to repeat: before the file has been processed the answer is 409\n``MEDIA_NOT_UPLOADED`` and nothing changes.\n\n:param media_id: The photo\n:param body: Both alt texts\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param store: The bucket\n:return: The photo",
+        "operationId": "complete_upload_v1_hub_media__media_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaComplete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such photo or batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Complete Upload",
         "tags": [
           "hub"
         ]

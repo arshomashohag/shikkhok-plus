@@ -117,6 +117,8 @@ def test_no_hub_schema_contains_collection_number_or_phone() -> None:
                 (path, str(name), field)
                 for name, field in _walk(schema, definitions, set(), _public_field)
             ]
-    assert checked == 10
+    # The ten listing responses plus the five JSON-bodied media routes (the
+    # sixth, DELETE, is a 204 with no body to walk).
+    assert checked == 15
     assert leaks == []
     assert "public_contact_phone" not in PUBLIC_FORBIDDEN_FIELDS

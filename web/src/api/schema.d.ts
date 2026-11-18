@@ -3088,6 +3088,155 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/hub/media': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Photos
+     * @description List one gallery: the owner's own, or one batch's.
+     *
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :param store: The bucket
+     *     :param batch_id: The batch; omit for the owner's own gallery
+     *     :return: The photos in gallery order, withdrawn ones excluded
+     */
+    get: operations['list_photos_v1_hub_media_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/media/order': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Put Order
+     * @description Put a gallery's photos in the given order.
+     *
+     *     :param body: The gallery and the photo ids, first to last
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :param store: The bucket
+     *     :return: The gallery in its new order
+     */
+    put: operations['put_order_v1_hub_media_order_put']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/media/uploads': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Start Upload
+     * @description Start an upload and sign it.
+     *
+     *     Counts against the owner's daily uploads, not their daily edits.
+     *
+     *     :param body: The declared type, size and the batch
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :param store: The bucket
+     *     :return: The presigned POST
+     */
+    post: operations['start_upload_v1_hub_media_uploads_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/media/{media_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Delete Photo
+     * @description Withdraw a photo; its stored files are deleted.
+     *
+     *     :param media_id: The photo
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: An empty 204
+     */
+    delete: operations['delete_photo_v1_hub_media__media_id__delete']
+    options?: never
+    head?: never
+    /**
+     * Patch Photo
+     * @description Change a photo's alt text.
+     *
+     *     Changing an approved photo's text sends it back to review, because the
+     *     new text has not been moderated.
+     *
+     *     :param media_id: The photo
+     *     :param body: The new text; an omitted field is left alone
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :param store: The bucket
+     *     :return: The photo
+     */
+    patch: operations['patch_photo_v1_hub_media__media_id__patch']
+    trace?: never
+  }
+  '/v1/hub/media/{media_id}/complete': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Complete Upload
+     * @description Submit an uploaded photo for review once the file has been read.
+     *
+     *     Safe to repeat: before the file has been processed the answer is 409
+     *     ``MEDIA_NOT_UPLOADED`` and nothing changes.
+     *
+     *     :param media_id: The photo
+     *     :param body: Both alt texts
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :param store: The bucket
+     *     :return: The photo
+     */
+    post: operations['complete_upload_v1_hub_media__media_id__complete_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/hub/reports': {
     parameters: {
       query?: never
@@ -8589,6 +8738,147 @@ export interface components {
       username_required: boolean
       /** Workspaces */
       workspaces?: components['schemas']['WorkspaceResponse'][]
+    }
+    /**
+     * MediaComplete
+     * @description Submit an uploaded photo for review.
+     *
+     *     :ivar alt_en: English alt text, at most 200 characters
+     *     :ivar alt_bn: Bangla alt text, at most 200 characters
+     */
+    MediaComplete: {
+      /** Alt Bn */
+      alt_bn: string
+      /** Alt En */
+      alt_en: string
+    }
+    /**
+     * MediaOrder
+     * @description Put one gallery's photos in order.
+     *
+     *     :ivar batch_id: The batch; None for the owner's own gallery
+     *     :ivar ids: The photos in their new order
+     */
+    MediaOrder: {
+      /** Batch Id */
+      batch_id?: string | null
+      /** Ids */
+      ids: string[]
+    }
+    /**
+     * MediaResponse
+     * @description One of the owner's photos.
+     *
+     *     :ivar id: The photo
+     *     :ivar batch_id: The batch it is for; None for the owner's own page
+     *     :ivar status: Where it is in upload and review
+     *     :ivar alt_en: English alt text
+     *     :ivar alt_bn: Bangla alt text
+     *     :ivar position: Its place in its gallery
+     *     :ivar width: The decoded width in pixels
+     *     :ivar height: The decoded height in pixels
+     *     :ivar rejection_code: Why it was rejected, if it was
+     *     :ivar thumb_url: A 320-pixel preview: the public URL once approved, a
+     *         five-minute signed URL while it awaits review, otherwise None
+     */
+    MediaResponse: {
+      /** Alt Bn */
+      alt_bn: string | null
+      /** Alt En */
+      alt_en: string | null
+      /** Batch Id */
+      batch_id: string | null
+      /** Height */
+      height: number | null
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Position */
+      position: number
+      /** Rejection Code */
+      rejection_code: string | null
+      /**
+       * Status
+       * @enum {string}
+       */
+      status:
+        | 'approved'
+        | 'awaiting_upload'
+        | 'held'
+        | 'pending_review'
+        | 'processing'
+        | 'rejected'
+        | 'withdrawn'
+      /** Thumb Url */
+      thumb_url: string | null
+      /** Width */
+      width: number | null
+    }
+    /**
+     * MediaUpdate
+     * @description Change a photo's alt text; an omitted field is left alone.
+     *
+     *     :ivar alt_en: New English alt text
+     *     :ivar alt_bn: New Bangla alt text
+     */
+    MediaUpdate: {
+      /** Alt Bn */
+      alt_bn?: string | null
+      /** Alt En */
+      alt_en?: string | null
+    }
+    /**
+     * MediaUploadInit
+     * @description Start an upload.
+     *
+     *     ``content_type`` and ``byte_size`` are checked by the service, not the
+     *     schema, so a disallowed type or size answers ``MEDIA_TYPE_NOT_ALLOWED``
+     *     or ``MEDIA_TOO_LARGE`` -- a message key the client can localize -- and
+     *     not a generic 422. The type set is still published as an enum.
+     *
+     *     :ivar batch_id: The batch the photo is for; None for the owner's page
+     *     :ivar content_type: ``image/jpeg``, ``image/png`` or ``image/webp``
+     *     :ivar byte_size: The file's size in bytes, at most 8 MiB
+     */
+    MediaUploadInit: {
+      /** Batch Id */
+      batch_id?: string | null
+      /** Byte Size */
+      byte_size: number
+      /**
+       * Content Type
+       * @enum {string}
+       */
+      content_type: 'image/jpeg' | 'image/png' | 'image/webp'
+    }
+    /**
+     * MediaUploadTicket
+     * @description What the client needs to post the file straight to the bucket.
+     *
+     *     :ivar media_id: The photo the upload is for
+     *     :ivar url: The POST target
+     *     :ivar fields: The form fields to send, in order, before the file
+     *     :ivar expires_at: When the signature stops being accepted
+     */
+    MediaUploadTicket: {
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string
+      /** Fields */
+      fields: {
+        [key: string]: string
+      }
+      /**
+       * Media Id
+       * Format: uuid
+       */
+      media_id: string
+      /** Url */
+      url: string
     }
     /**
      * MemberInviteRequest
@@ -20337,6 +20627,562 @@ export interface operations {
       }
       /** @description Valid request; current state forbids it. Refetch and decide. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  list_photos_v1_hub_media_get: {
+    parameters: {
+      query?: {
+        batch_id?: string | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MediaResponse'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such photo or batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  put_order_v1_hub_media_order_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MediaOrder']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MediaResponse'][]
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such photo or batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  start_upload_v1_hub_media_uploads_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MediaUploadInit']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MediaUploadTicket']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such photo or batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  delete_photo_v1_hub_media__media_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        media_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such photo or batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  patch_photo_v1_hub_media__media_id__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        media_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MediaUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MediaResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such photo or batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  complete_upload_v1_hub_media__media_id__complete_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        media_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MediaComplete']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MediaResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such photo or batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
         headers: {
           [name: string]: unknown
         }
