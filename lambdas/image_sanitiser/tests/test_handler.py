@@ -403,7 +403,7 @@ def _saved(image: Image.Image, kind: str, **params: object) -> bytes:
 def test_ordinary_encodings_are_readable(
     s3: FakeS3, body: bytes, declared: str
 ) -> None:
-    # The container walk must not refuse what real encoders write.
+    # The signature check must not refuse what real encoders write.
     s3.upload(body, declared)
 
     _run()
@@ -426,12 +426,6 @@ def _assert_unreadable(s3: FakeS3) -> None:
 @pytest.mark.parametrize(
     ("body", "declared"),
     [
-        # A real JPEG with a page appended: Pillow decodes the JPEG and
-        # ignores the tail, so the container's end is checked separately.
-        (
-            _jpeg((400, 300)) + b"<html><script>alert(1)</script></html>",
-            "image/jpeg",
-        ),
         # An HTML page uploaded under a .jpg name and an image type.
         (b"<html><body><script>alert(1)</script></body></html>", "image/jpeg"),
         # An SVG declared as a PNG.
@@ -440,20 +434,87 @@ def _assert_unreadable(s3: FakeS3) -> None:
             b"<script>alert(1)</script></svg>",
             "image/png",
         ),
-        # The same tail after a PNG's IEND, and after a WebP's RIFF chunk.
-        (_png((64, 64)) + b"<html></html>", "image/png"),
-        (_webp((64, 64)) + b"<html></html>", "image/webp"),
     ],
-    ids=["jpeg-html-polyglot", "html-as-jpeg", "svg-as-png", "png-tail", "webp-tail"],
+    ids=["html-as-jpeg", "svg-as-png"],
 )
 def test_polyglot_and_svg_are_unreadable(
     s3: FakeS3, body: bytes, declared: str
 ) -> None:
+    # The signature is not the declared type's: no decoder is tried.
     s3.upload(body, declared)
 
     _run()
 
     _assert_unreadable(s3)
+
+
+#: A page appended after an image's end: the polyglot's payload.
+_PAGE = b"<html><script>alert('polyglot-marker')</script></html>"
+
+#: Strings from the appended data that must never reach a written object.
+_TAIL_MARKERS = (
+    b"<html",
+    b"<script>",
+    b"polyglot-marker",
+    b"second-image-marker",
+    b"ftypmp42",
+    b"motion-video-marker",
+)
+
+
+def _motion_photo() -> bytes:
+    """Build a JPEG shaped like a phone's motion photo or an MPO.
+
+    The primary image, then a second JPEG after its end (as an MPO stores
+    its other pictures), then an MP4-shaped trailer (as a motion photo
+    stores its video).
+    """
+    second = _saved(
+        Image.new("RGB", (400, 300), (0, 0, 255)),
+        "JPEG",
+        comment=b"second-image-marker",
+    )
+    video = (
+        b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"
+        + b"\x00\x00\x00\x20mdat"
+        + b"motion-video-marker"
+        + b"\x00" * 13
+    )
+    return _jpeg((400, 300)) + second + video
+
+
+@pytest.mark.parametrize(
+    ("body", "declared"),
+    [
+        (_jpeg((400, 300)) + _PAGE, "image/jpeg"),
+        (_png((400, 300)) + _PAGE, "image/png"),
+        (_webp((400, 300)) + _PAGE, "image/webp"),
+        (_motion_photo(), "image/jpeg"),
+    ],
+    ids=["jpeg-html-polyglot", "png-tail", "webp-tail", "motion-photo"],
+)
+def test_trailing_data_is_accepted_and_never_written(
+    s3: FakeS3, body: bytes, declared: str
+) -> None:
+    # [R6] The image decodes, so it is accepted; the re-encode writes only
+    # its pixels, so nothing after the image's end reaches staged/.
+    s3.upload(body, declared)
+
+    _run()
+
+    assert s3.result()["ok"] is True
+    # A 400 px source: 320, and 960 written at 400.
+    assert s3.result()["widths"] == [320, 960]
+    written = s3.staged()
+    assert sorted(written) == ["320.webp", "960.webp", "result.json"]
+    for name, obj in written.items():
+        for marker in _TAIL_MARKERS:
+            assert marker not in obj.body, (name, marker)
+    # And the variant is the FIRST image, not anything after it.
+    if declared == "image/jpeg":
+        red, _green, blue = _pixel(_open(written["320.webp"]).convert("RGB"), (5, 5))
+        assert red > 150 and blue < 100
+    assert QUARANTINE not in s3.objects
 
 
 def test_decompression_bomb_is_unreadable(s3: FakeS3) -> None:

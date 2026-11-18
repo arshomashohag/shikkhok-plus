@@ -1,10 +1,11 @@
 # The image sanitiser: the one place an uploaded photo's bytes are decoded.
 #
 # S3 invokes it for every object created under quarantine/. It reads the
-# upload, checks it is byte for byte the type its presigned POST declared,
+# upload, checks its signature is the type its presigned POST declared,
 # decodes it under a 40-megapixel cap, and writes WebP variants and a
 # result.json to staged/{media_id}/ -- or a result.json saying
-# "unreadable" -- then deletes the upload (lambdas/image_sanitiser).
+# "unreadable" -- then deletes the upload (lambdas/image_sanitiser). Only
+# decoded pixels are written, never an original byte [R6].
 #
 # **Untrusted image decoding never runs on the API host.** A decoder fed
 # hostile bytes is the classic way in; here it runs in a function that can

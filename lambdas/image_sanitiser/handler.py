@@ -5,11 +5,8 @@ bucket (infra/modules/media/lambda.tf). For each ``quarantine/{media_id}``:
 
 1. read the object, refusing anything over the POST policy's 8 MiB;
 2. check its magic bytes against the type its presigned POST declared
-   (``x-amz-meta-declared-type``), and that the container ends where its
-   own structure says it does -- so a JPEG with a page appended is refused,
-   although Pillow would decode the JPEG and ignore the tail. A phone's
-   "motion photo", which stores a video after the JPEG's end, is refused
-   for the same reason;
+   (``x-amz-meta-declared-type``), so an HTML page or an SVG named as an
+   image is refused before any decoder sees it;
 3. decode it under ``MAX_IMAGE_PIXELS = 40_000_000``, with Pillow's
    ``DecompressionBombWarning`` raised as an error, opening only the
    declared format's decoder;
@@ -24,8 +21,13 @@ Anything that fails to decode writes ``{"ok": false, "reason":
 A failure to READ or WRITE storage is not an unreadable image: it is
 raised, so Lambda retries the event, and the upload stays where it is.
 
-**No original byte is ever published.** Every variant is an encoder's
-output from decoded pixels; no EXIF, ICC profile or XMP is passed to it.
+**No original byte is ever published** [R6]. Every variant is an
+encoder's output from decoded pixels; no EXIF, ICC profile or XMP is passed
+to it. That is also why bytes AFTER the image's end are accepted: an
+Android motion photo (a video after the JPEG), an MPO multi-picture JPEG or
+a JPEG with a page appended all decode as their first image, and the tail
+is never read into a variant. Refusing them would reject ordinary phone
+photos to block something the re-encode already removes.
 
 Only this file is packaged (``make lambda-image``), with Pillow beside it.
 boto3 is the Lambda runtime's own and is imported only when the handler
@@ -147,7 +149,7 @@ class Sanitised:
 
 
 # ---------------------------------------------------------------------------
-# The container: is it what was declared, and does it end where it says?
+# The signature: is it what was declared?
 # ---------------------------------------------------------------------------
 
 
@@ -165,105 +167,22 @@ def _magic_matches(data: bytes, declared_format: str) -> bool:
     return data[:4] == b"RIFF" and data[8:12] == b"WEBP"
 
 
-def _jpeg_end(data: bytes) -> int | None:
-    """Return the offset just past the JPEG's end-of-image marker.
+def _check_signature(data: bytes, declared_type: str | None) -> str:
+    """Refuse an upload whose signature is not the declared type's.
 
-    Walks the marker segments from SOI, skipping each segment by its
-    length and each scan's entropy-coded data to the next real marker.
-    Embedded thumbnails live inside an APP segment's length and are
-    skipped with it.
-
-    :param data: Bytes starting with SOI
-    :return: The end offset, or None when the structure does not hold
-    """
-    size = len(data)
-    index = 2
-    while index < size:
-        if data[index] != 0xFF:
-            return None
-        while index < size and data[index] == 0xFF:  # fill bytes
-            index += 1
-        if index >= size:
-            return None
-        marker = data[index]
-        index += 1
-        if marker == 0xD9:  # EOI
-            return index
-        if 0xD0 <= marker <= 0xD7 or marker == 0x01:  # no length
-            continue
-        if index + 2 > size:
-            return None
-        length = int.from_bytes(data[index : index + 2], "big")
-        if length < 2:
-            return None
-        index += length
-        if marker == 0xDA:  # SOS: entropy-coded data until a real marker
-            while True:
-                found = data.find(b"\xff", index)
-                if found < 0 or found + 1 >= size:
-                    return None
-                following = data[found + 1]
-                if following == 0x00 or 0xD0 <= following <= 0xD7:
-                    index = found + 2  # a stuffed byte or a restart marker
-                elif following == 0xFF:
-                    index = found + 1  # fill before the next marker
-                else:
-                    index = found
-                    break
-    return None
-
-
-def _png_end(data: bytes) -> int | None:
-    """Return the offset just past the PNG's IEND chunk.
-
-    :param data: Bytes starting with the PNG signature
-    :return: The end offset, or None when the chunks do not hold
-    """
-    index = 8
-    while index + 12 <= len(data):
-        length = int.from_bytes(data[index : index + 4], "big")
-        kind = data[index + 4 : index + 8]
-        index += 12 + length
-        if index > len(data):
-            return None
-        if kind == b"IEND":
-            return index
-    return None
-
-
-def _webp_end(data: bytes) -> int | None:
-    """Return the offset the RIFF header says the WebP ends at.
-
-    :param data: Bytes starting with ``RIFF....WEBP``
-    :return: The end offset, or None when the header overruns the data
-    """
-    end = 8 + int.from_bytes(data[4:8], "little")
-    return end if end <= len(data) else None
-
-
-_ENDS: dict[str, Callable[[bytes], int | None]] = {
-    "JPEG": _jpeg_end,
-    "PNG": _png_end,
-    "WEBP": _webp_end,
-}
-
-
-def _check_container(data: bytes, declared_type: str | None) -> str:
-    """Refuse an upload that is not, byte for byte, the declared type.
+    Bytes after the image's end are not checked: the decoder reads the
+    first image and the re-encode writes only its pixels [R6].
 
     :param data: The upload
     :param declared_type: The type its presigned POST declared
     :return: Pillow's format name for it
-    :raises Unreadable: Wrong signature, unknown type, or bytes beyond the
-        container's own end (a polyglot's appended page)
+    :raises Unreadable: An undeclarable type, or the wrong signature
     """
     declared_format = FORMATS.get(declared_type or "")
     if declared_format is None:
         raise Unreadable(f"declared type {declared_type!r}")
     if not _magic_matches(data, declared_format):
         raise Unreadable(f"signature is not {declared_format}")
-    if _ENDS[declared_format](data) != len(data):
-        raise Unreadable(f"{declared_format} container does not end at the file's end")
     return declared_format
 
 
@@ -321,7 +240,7 @@ def sanitise(data: bytes, declared_type: str | None) -> Sanitised:
     :raises Unreadable: For anything that is not a decodable image of the
         declared type within the pixel cap
     """
-    declared_format = _check_container(data, declared_type)
+    declared_format = _check_signature(data, declared_type)
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
