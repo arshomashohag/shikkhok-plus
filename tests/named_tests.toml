@@ -1052,3 +1052,131 @@ id = "test_every_app_module_reads_the_clock_through_a_dt_alias"
 file = "tests/seed/test_clock.py"
 criterion = "no app module imports datetime in a form the seeder's simulated clock cannot reach"
 rule = "a seeded history stamped with the real clock would be silently wrong"
+
+# --- H4 Task 3: review eligibility and the ReviewerLens [spec §6] ---
+
+[[test]]
+id = "test_day_29_not_yet_with_eligible_from"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A guardian who joined 29 days ago is not_yet, waiting on tenure, with eligible_from = joined + 30"
+rule = "spec §6"
+
+[[test]]
+id = "test_day_30_eligible"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A guardian who joined exactly 30 days ago, with 4 attended classes, is eligible"
+rule = "spec §6"
+
+[[test]]
+id = "test_joined_on_null_uses_created_at_in_dhaka"
+file = "tests/reviews/test_eligibility.py"
+criterion = "With no joined_on, a seat created at 20:00 UTC counts from the next Dhaka day, so UTC day today-30 is still not_yet"
+rule = "spec §6"
+
+[[test]]
+id = "test_three_attended_not_yet_attendance"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Three attended classes leave a member not_yet, waiting on attendance, with no eligible_from"
+rule = "spec §6"
+
+[[test]]
+id = "test_four_attended_eligible"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Four attended, non-cancelled classes of the batch make a tenured member eligible"
+rule = "spec §6"
+
+[[test]]
+id = "test_absent_and_cancelled_sessions_do_not_count"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Absent rows and present rows at cancelled classes add nothing to three attended classes"
+rule = "spec §6"
+
+[[test]]
+id = "test_attendance_in_another_batch_does_not_count"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Neither the seat's rows at another batch's classes nor a sibling seat's attendance elsewhere count toward this batch"
+rule = "spec §6"
+
+[[test]]
+id = "test_tenure_and_attendance_unmet_waits_on_attendance_with_eligible_from"
+file = "tests/reviews/test_eligibility.py"
+criterion = "With tenure and attendance both unmet the member waits on attendance and still gets eligible_from (F20)"
+rule = "spec §6"
+
+[[test]]
+id = "test_inactive_180_days_eligible"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A seat inactive from exactly 180 days ago still qualifies"
+rule = "spec §6"
+
+[[test]]
+id = "test_inactive_181_days_closed"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A seat inactive from 181 days ago is closed, with no waiting_on and no eligible_from"
+rule = "spec §6"
+
+[[test]]
+id = "test_pending_declined_or_blocked_guardian_is_not_member"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A pending, declined or relink-blocked guardian link assesses to None however long and well attended the seat"
+rule = "spec §6"
+
+[[test]]
+id = "test_student_link_is_not_member"
+file = "tests/reviews/test_eligibility.py"
+criterion = "An accepted, attending student link assesses to None: V1 reviewers are guardians only"
+rule = "spec §6"
+
+[[test]]
+id = "test_invisible_batch_is_not_member"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A draft or hidden batch listing, a suspended or draft owner listing, or an inactive batch assesses to None"
+rule = "spec §6"
+
+[[test]]
+id = "test_siblings_one_eligible_grants_with_that_enrollment"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Of three sibling seats, the evidence is the earliest-joined ELIGIBLE seat, not the earlier ineligible one, and tenure is measured from it"
+rule = "spec §6"
+
+[[test]]
+id = "test_closed_sibling_does_not_mask_a_live_one"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A sibling seat closed by recency does not close a batch where a newer sibling is not_yet"
+rule = "spec §6"
+
+[[test]]
+id = "test_author_keeps_lens_after_losing_membership"
+file = "tests/reviews/test_eligibility.py"
+criterion = "An author whose seat is declined or whose batch listing is hidden assesses as author_only with the review id and no seat"
+rule = "spec §6"
+
+[[test]]
+id = "test_member_never_carries_another_authors_review"
+file = "tests/reviews/test_eligibility.py"
+criterion = "An eligible member of a batch another guardian reviewed assesses with review_id None, never the other author's review"
+rule = "spec §6"
+
+[[test]]
+id = "test_tenure_buckets_at_boundaries"
+file = "tests/reviews/test_eligibility.py"
+criterion = "j+6m-1d is lt_6m, j+6m is 6_12m, j+12m-1d is 6_12m, j+12m is gt_1y"
+rule = "spec §6"
+
+[[test]]
+id = "test_reviewable_lists_open_and_reviewed_omits_closed"
+file = "tests/reviews/test_eligibility.py"
+criterion = "The list holds eligible, not_yet and every reviewed batch, ordered by public title, and omits a closed batch never reviewed"
+rule = "spec §6"
+
+[[test]]
+id = "test_reviewable_off_lists_only_reviewed"
+file = "tests/reviews/test_eligibility.py"
+criterion = "With include_open False the list holds only batches the account reviewed"
+rule = "spec §6"
+
+[[test]]
+id = "test_reviewer_lens_refusal_is_identical_for_nonmember_and_missing_batch"
+file = "tests/reviews/test_reviewer_lens.py"
+criterion = "A non-member of a real batch and a caller naming a nonexistent batch get the same 403 status and body bytes"
+rule = "spec §6"
