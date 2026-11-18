@@ -35,6 +35,7 @@ import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.ShikkhokTextField
 import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.Spacing
+import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.designsystem.asHeading
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.hublisting.Admissions
@@ -59,6 +60,9 @@ const val TAG_BATCH_PUBLISH: String = "batch_listing_publish"
 /** The batch editor's Unpublish button. */
 const val TAG_BATCH_UNPUBLISH: String = "batch_listing_unpublish"
 
+/** The batch editor's "Photos": opens that batch's photo gallery. */
+const val TAG_BATCH_PHOTOS: String = "batch_listing_photos"
+
 /**
  * Tag for one batch's edit row.
  *
@@ -76,6 +80,8 @@ fun batchListingRowTag(batchId: String): String = "batch_listing_$batchId"
  * @property onSave Sends the form
  * @property onPublish Publishes the batch
  * @property onUnpublish Takes it down
+ * @property onPhotos Opens a batch's photos: the batch, and true when its
+ *   listing is suspended, so the gallery opens read-only
  * @property onRetry Repeats what last failed
  * @property onBack Leaves the screen
  */
@@ -86,6 +92,7 @@ data class BatchListingsActions(
     val onSave: () -> Unit = {},
     val onPublish: () -> Unit = {},
     val onUnpublish: () -> Unit = {},
+    val onPhotos: (String, Boolean) -> Unit = { _, _ -> },
     val onRetry: () -> Unit = {},
     val onBack: () -> Unit = {},
 )
@@ -217,6 +224,11 @@ private fun BatchEditorSheet(editor: BatchEditorState, actions: BatchListingsAct
             }
             ChecklistCard(editor.batch.checklist)
             BatchFields(editor, actions)
+            TextAction(
+                stringResource(R.string.hub_photos_title),
+                { actions.onPhotos(editor.batch.batchId, editor.readOnly) },
+                Modifier.fillMaxWidth().testTag(TAG_BATCH_PHOTOS),
+            )
             editor.failure?.let { FailureBanner(it, actions.onRetry) }
             BatchButtons(editor, actions)
             SecondaryButton(

@@ -4,6 +4,9 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -41,11 +44,18 @@ import com.shikkhokplus.app.feature.hublisting.report.ReportLink
 import com.shikkhokplus.app.feature.hublisting.report.ui.HubReportActions
 import com.shikkhokplus.app.feature.hublisting.report.ui.HubReportScreen
 import com.shikkhokplus.app.feature.hublisting.ui.NameConsentScreen
+import com.shikkhokplus.app.feature.hubmedia.BucketClient
+import com.shikkhokplus.app.feature.hubmedia.HttpHubMediaApi
+import com.shikkhokplus.app.feature.hubmedia.HubMediaViewModel
+import com.shikkhokplus.app.feature.hubmedia.pickedPhoto
+import com.shikkhokplus.app.feature.hubmedia.ui.HubPhotosActions
+import com.shikkhokplus.app.feature.hubmedia.ui.HubPhotosScreen
 import io.ktor.client.HttpClient
 
 /**
  * The public hub's owner screens, pushed over More: the listing editor,
- * its preview, its batch listings, and a centre member's name consent;
+ * its preview, its batch listings, the photos of either, and a centre
+ * member's name consent;
  * and the demand question, opened from its inbox item; and, for any
  * signed-in reader, reporting a public hub page, opened from that page's
  * App Link.
@@ -54,11 +64,14 @@ import io.ktor.client.HttpClient
  * @param navController The app's controller
  * @param siteUrl The public site's origin, or null when the build names
  *   none; then "View public page" is not offered
+ * @param bucket The bare client photos are posted to the bucket with,
+ *   which never carries the session; see [BucketClient]
  */
 internal fun NavGraphBuilder.hubRoutes(
     client: HttpClient,
     navController: NavHostController,
     siteUrl: String? = BuildConfig.SITE_URL.ifBlank { null },
+    bucket: HttpClient = BucketClient.shared,
 ) {
     composable(Destination.HubListing.route) {
         val model: HubListingViewModel = viewModel { HubListingViewModel(HttpHubApi(client)) }
@@ -88,6 +101,7 @@ internal fun NavGraphBuilder.hubRoutes(
                     onRetry = model::retry,
                     onDismissNotice = model::dismissNotice,
                     onBatches = { navController.navigate(Destination.BatchListings.route) },
+                    onPhotos = { readOnly -> navController.navigate(Destination.HubPhotos.of(null, readOnly)) },
                     onPreview = { navController.navigate(Destination.HubPreview.of(locale)) },
                     onViewPublic =
                         siteUrl?.let { site ->
@@ -139,11 +153,16 @@ internal fun NavGraphBuilder.hubRoutes(
                     onSave = model::save,
                     onPublish = model::publish,
                     onUnpublish = model::unpublish,
+                    onPhotos = { batchId, readOnly ->
+                        navController.navigate(Destination.HubPhotos.of(batchId, readOnly))
+                    },
                     onRetry = model::retry,
                     onBack = { navController.popBackStack() },
                 ),
         )
     }
+
+    hubPhotosRoute(client, bucket, navController)
 
     composable(Destination.NameConsent.route) {
         val model: NameConsentViewModel = viewModel { NameConsentViewModel(HttpHubApi(client)) }
@@ -211,6 +230,69 @@ internal fun NavGraphBuilder.hubRoutes(
                     onNote = model::editNote,
                     onSend = model::send,
                     onRetry = model::retry,
+                    onBack = { navController.popBackStack() },
+                ),
+        )
+    }
+}
+
+/**
+ * One gallery's photos: the owner's own (no batch) or one batch's.
+ *
+ * "Add a photo" opens the system photo picker for images only, which
+ * needs no permission; the content resolver gives the file's type and
+ * size, and the bytes go to the bucket on [bucket], never on [client].
+ *
+ * @param client The authenticated HTTP client
+ * @param bucket The bare bucket client
+ * @param navController The app's controller
+ */
+private fun NavGraphBuilder.hubPhotosRoute(
+    client: HttpClient,
+    bucket: HttpClient,
+    navController: NavHostController,
+) {
+    composable(
+        route = Destination.HubPhotos.route,
+        arguments =
+            listOf(
+                navArgument(Destination.HubPhotos.ARG_BATCH) {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+                navArgument(Destination.HubPhotos.ARG_READ_ONLY) {
+                    type = NavType.BoolType
+                    defaultValue = false
+                },
+            ),
+    ) { entry ->
+        val batchId = entry.arguments?.getString(Destination.HubPhotos.ARG_BATCH)?.ifEmpty { null }
+        val readOnly = entry.arguments?.getBoolean(Destination.HubPhotos.ARG_READ_ONLY) ?: false
+        val model: HubMediaViewModel =
+            viewModel { HubMediaViewModel(HttpHubMediaApi(client, bucket), batchId, readOnly) }
+        val state by model.state.collectAsState()
+        val resolver = LocalContext.current.contentResolver
+        val picker =
+            rememberLauncherForActivityResult(PickVisualMedia()) { uri ->
+                model.picked(uri?.let { pickedPhoto(resolver, it) })
+            }
+        LaunchedEffect(Unit) { model.load() }
+        HubPhotosScreen(
+            state = state,
+            actions =
+                HubPhotosActions(
+                    onAltEn = model::editAltEn,
+                    onAltBn = model::editAltBn,
+                    onAdd = {
+                        if (model.startPicking()) picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+                    },
+                    onRetryUpload = model::retry,
+                    onRetryLoad = model::retryLoad,
+                    onMove = model::move,
+                    onDelete = model::askDelete,
+                    onConfirmDelete = model::confirmDelete,
+                    onCancelDelete = model::cancelDelete,
+                    onRetryWrite = model::retryWrite,
                     onBack = { navController.popBackStack() },
                 ),
         )

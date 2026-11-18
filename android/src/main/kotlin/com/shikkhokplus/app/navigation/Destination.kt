@@ -739,6 +739,30 @@ sealed interface Destination {
         fun of(locale: String): String = "hub/preview?locale=$locale"
     }
 
+    /**
+     * The photos of the owner's page or of one batch's page, pushed over
+     * [HubListing] or [BatchListings].
+     */
+    data object HubPhotos : Destination {
+        override val route: String = "hub/photos?batchId={batchId}&readOnly={readOnly}"
+
+        /** The batch argument's name; empty for the owner's own gallery. */
+        const val ARG_BATCH: String = "batchId"
+
+        /** The read-only argument's name: true while the listing is suspended. */
+        const val ARG_READ_ONLY: String = "readOnly"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param batchId The batch, or null for the owner's own gallery
+         * @param readOnly Whether the listing is suspended
+         * @return The route to navigate to
+         */
+        fun of(batchId: String?, readOnly: Boolean): String =
+            "hub/photos?batchId=${batchId.orEmpty()}&readOnly=$readOnly"
+    }
+
     /** "Show my name on the centre's public page", opened from More. */
     data object NameConsent : Destination {
         override val route: String = "hub/name-consent"

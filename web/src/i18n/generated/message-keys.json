@@ -143,6 +143,7 @@
   "hub.media.too_large": "hub_media_too_large",
   "hub.media.type_not_allowed": "hub_media_type_not_allowed",
   "hub.media.unreadable": "hub_media_unreadable",
+  "hub.media.upload_failed": "hub_photo_upload_failed",
   "hub.owner_not_published": "hub_owner_not_published",
   "hub.report_already_decided": "hub_report_already_decided",
   "hub.report_already_filed": "hub_report_already_filed",

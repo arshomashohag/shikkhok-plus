@@ -25,8 +25,9 @@ const val NOTE_MAX: Int = 500
 private val UUID_TEXT = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 /**
- * What a hub page's report link may name: the two listing kinds. Media,
- * reviews and replies are reported elsewhere, never from this link.
+ * What a hub page's report link may name: the two listing kinds, and a
+ * photo on either. Reviews and replies are reported elsewhere, never from
+ * this link.
  *
  * @property wire The value the server takes
  */
@@ -36,6 +37,9 @@ enum class ReportKind(val wire: String) {
 
     /** A batch's page; the id is the batch's. */
     BATCH_LISTING("batch_listing"),
+
+    /** A photo on a public page; the id is the photo's. */
+    MEDIA("media"),
 }
 
 /**
@@ -67,8 +71,9 @@ enum class ReportReason(val wire: String) {
 /**
  * A page a report is about, as the link named it and the server takes it.
  *
- * @property kind Which kind of page
- * @property id The owner's id for an owner page, the batch's for a batch page
+ * @property kind Which kind of page, or a photo on one
+ * @property id The owner's id for an owner page, the batch's for a batch
+ *   page, the photo's for a photo
  */
 data class ReportTarget(val kind: ReportKind, val id: String)
 
@@ -109,8 +114,8 @@ data class ReportLink(val kind: String?, val id: String?) {
 /**
  * A report, as `POST /v1/hub/reports` takes it.
  *
- * @property targetKind `owner_listing` or `batch_listing`
- * @property targetId The owner's or the batch's id
+ * @property targetKind `owner_listing`, `batch_listing` or `media`
+ * @property targetId The owner's, the batch's or the photo's id
  * @property reason One of [ReportReason]'s wire values
  * @property note An optional note; omitted when null
  */

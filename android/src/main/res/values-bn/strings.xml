@@ -2065,4 +2065,34 @@
     <string name="hub_report_failed">আপনার রিপোর্ট পাঠানো হয়নি।</string>
     <string name="hub_report_link_invalid">এই লিংকটি সঠিক নয়।</string>
     <string name="hub_report_link_invalid_body">পেজ থেকে রিপোর্টের লিংকটি আবার খুলুন।</string>
+    <string name="hub_report_target_media">একটি পাবলিক পেজের ছবি</string>
+    <!-- The photo editor for the owner's page and each batch's [H3]. -->
+    <string name="hub_photos_title">ছবি</string>
+    <string name="hub_photos_count">%2$sটির মধ্যে %1$sটি ছবি</string>
+    <string name="hub_photos_help">প্রতিটি ছবি আপনার পাবলিক পেজে আসার আগে যাচাই করা হয়। JPEG, PNG বা WebP, সর্বোচ্চ 8 MB।</string>
+    <string name="hub_photos_empty">এখনও কোনো ছবি নেই।</string>
+    <string name="hub_photos_load_failed">আপনার ছবিগুলো লোড করা যায়নি।</string>
+    <string name="hub_photo_alt_en">ছবির বর্ণনা (ইংরেজি)</string>
+    <string name="hub_photo_alt_bn">ছবির বর্ণনা (বাংলা)</string>
+    <string name="hub_photo_choose">ছবি যোগ করুন</string>
+    <string name="hub_photo_uploading">ছবি আপলোড হচ্ছে…</string>
+    <string name="hub_photo_checking">ছবি যাচাই হচ্ছে…</string>
+    <string name="hub_photo_sent">ছবিটি পর্যালোচনার জন্য পাঠানো হয়েছে।</string>
+    <string name="hub_photo_slow">ছবিটি যাচাই হতে প্রত্যাশার চেয়ে বেশি সময় লাগছে।</string>
+    <string name="hub_photo_check_again">আবার দেখুন</string>
+    <string name="hub_photo_upload_failed">ছবিটি আপলোড করা যায়নি।</string>
+    <string name="hub_photo_no_preview">প্রিভিউ নেই</string>
+    <string name="hub_photo_status_awaiting_upload">জমা দেওয়া হয়নি</string>
+    <string name="hub_photo_status_processing">প্রক্রিয়া চলছে</string>
+    <string name="hub_photo_status_pending_review">পর্যালোচনার অপেক্ষায়</string>
+    <string name="hub_photo_status_approved">অনুমোদিত</string>
+    <string name="hub_photo_status_rejected">অনুমোদিত হয়নি</string>
+    <string name="hub_photo_status_held">স্থগিত</string>
+    <string name="hub_photo_status_withdrawn">সরানো হয়েছে</string>
+    <string name="hub_photo_move_up">%1$s নম্বর ছবি উপরে সরান</string>
+    <string name="hub_photo_move_down">%1$s নম্বর ছবি নিচে সরান</string>
+    <string name="hub_photo_delete">%1$s নম্বর ছবি মুছুন</string>
+    <string name="hub_photo_delete_title">ছবিটি মুছবেন?</string>
+    <string name="hub_photo_delete_body">এটি আপনার পেজ থেকে সরে যাবে এবং আর ফেরানো যাবে না।</string>
+    <string name="hub_photo_delete_confirm">ছবি মুছুন</string>
 </resources>

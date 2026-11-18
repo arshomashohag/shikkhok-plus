@@ -103,6 +103,8 @@ class DestinationTest {
                 Destination.HelpThread.of("t-1"),
                 Destination.HubReport.of("owner_listing", "o-1"),
                 Destination.HubReport.of(null, null),
+                Destination.HubPhotos.of(null, readOnly = false),
+                Destination.HubPhotos.of("b-1", readOnly = true),
             )
 
         built.forEach {

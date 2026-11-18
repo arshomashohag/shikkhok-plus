@@ -92,6 +92,9 @@ const val TAG_HUB_PREVIEW: String = "hub_preview"
 /** "View public page", shown only while the listing is published. */
 const val TAG_HUB_VIEW_PUBLIC: String = "hub_view_public"
 
+/** "Photos": opens the page's photo gallery. */
+const val TAG_HUB_PHOTOS: String = "hub_photos"
+
 /** How long a confirmation stays up. */
 private const val NOTICE_MILLIS: Long = 3_000
 
@@ -115,6 +118,8 @@ private const val NOTICE_MILLIS: Long = 3_000
  * @property onRetry Repeats what last failed
  * @property onDismissNotice Forgets the confirmation
  * @property onBatches Opens the batch listings
+ * @property onPhotos Opens the page's photos; true when the listing is
+ *   suspended, so the gallery opens read-only
  * @property onPreview Opens "Preview as public"
  * @property onViewPublic Opens the published page for a slug in the browser; null
  *   when the build names no public site, and then the action is not offered
@@ -139,6 +144,7 @@ data class HubListingActions(
     val onRetry: () -> Unit = {},
     val onDismissNotice: () -> Unit = {},
     val onBatches: () -> Unit = {},
+    val onPhotos: (Boolean) -> Unit = {},
     val onPreview: () -> Unit = {},
     val onViewPublic: ((String) -> Unit)? = null,
     val onAppeal: () -> Unit = {},
@@ -223,6 +229,11 @@ private fun ListingBody(
         )
     }
     PublicPageActions(state, actions)
+    TextAction(
+        stringResource(R.string.hub_photos_title),
+        { actions.onPhotos(readOnly) },
+        Modifier.fillMaxWidth().testTag(TAG_HUB_PHOTOS),
+    )
     TextAction(stringResource(R.string.hub_batches_link), actions.onBatches, Modifier.fillMaxWidth())
 }
 
