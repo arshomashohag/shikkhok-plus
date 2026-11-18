@@ -197,8 +197,10 @@ private fun PhotoRow(
                 Pill(stringResource(photoStatusLabel(photo.status)))
             }
         }
-        if (!state.readOnly) {
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.tight)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.tight)) {
+            // A read-only (suspended) gallery still deletes: the photo keeps
+            // its public link until its owner removes it.
+            if (!state.readOnly) {
                 Control(
                     symbol = "↑",
                     label = stringResource(R.string.hub_photo_move_up, number),
@@ -211,13 +213,13 @@ private fun PhotoRow(
                     tag = photoMoveDownTag(index),
                     enabled = !state.busy && !last,
                 ) { actions.onMove(index, 1) }
-                Control(
-                    symbol = "×",
-                    label = stringResource(R.string.hub_photo_delete, number),
-                    tag = photoDeleteTag(index),
-                    enabled = !state.busy,
-                ) { actions.onDelete(photo) }
             }
+            Control(
+                symbol = "×",
+                label = stringResource(R.string.hub_photo_delete, number),
+                tag = photoDeleteTag(index),
+                enabled = !state.busy,
+            ) { actions.onDelete(photo) }
         }
     }
 }

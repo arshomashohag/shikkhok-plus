@@ -47,6 +47,7 @@ internal fun media(
 
 internal const val PHOTO_A = "a1111111-1111-4111-8111-111111111111"
 internal const val PHOTO_B = "b2222222-2222-4222-8222-222222222222"
+internal const val PHOTO_C = "c3333333-3333-4333-8333-333333333333"
 internal const val BATCH = "0b9e8d7c-6b5a-4c3d-9e2f-1a0b9c8d7e6f"
 
 /** Records every call and answers each with the queued results, the last repeating. */
@@ -574,7 +575,9 @@ class HubMediaViewModelTest {
     }
 
     @Test
-    fun `a read-only gallery takes no writes`() = runTest(dispatcher) {
+    fun `a read-only gallery takes no writes but a delete`() = runTest(dispatcher) {
+        // A suspended listing's photo keeps its public link; the server lets
+        // its owner delete it, so the editor does too, and nothing else.
         val api = FakeHubMediaApi()
         val photo = media(PHOTO_A, 1)
         api.lists = ArrayDeque(listOf(AuthResult.Ok(listOf(photo, media(PHOTO_B, 2)))))
@@ -586,12 +589,88 @@ class HubMediaViewModelTest {
 
         assertFalse(vm.startPicking())
         vm.move(0, 1)
-        vm.askDelete(photo)
         advanceUntilIdle()
-
         assertEquals("", vm.state.value.altEn)
         assertTrue(api.ordered.isEmpty())
-        assertNull(vm.state.value.deleting)
+
+        vm.askDelete(photo)
+        assertEquals(photo, vm.state.value.deleting)
+        vm.confirmDelete()
+        advanceUntilIdle()
+        assertEquals(listOf(PHOTO_A), api.deleted)
+        assertEquals(listOf(PHOTO_B), vm.state.value.photos?.map { it.id })
+    }
+
+    @Test
+    fun `a failed delete closes the dialog so the failure shows, and Retry repeats it`() = runTest(dispatcher) {
+        val api = FakeHubMediaApi()
+        val photo = media(PHOTO_A, 1)
+        api.lists = ArrayDeque(listOf(AuthResult.Ok(listOf(photo))))
+        api.deletes = ArrayDeque(listOf(AuthResult.TransportFailure, AuthResult.Ok(Unit)))
+        val vm = HubMediaViewModel(api, null)
+        vm.load()
+        advanceUntilIdle()
+
+        vm.askDelete(photo)
+        vm.confirmDelete()
+        advanceUntilIdle()
+
+        assertNull(vm.state.value.deleting, "an open dialog would hide the banner")
+        assertTrue(vm.state.value.failure?.canRetry == true)
+        assertEquals(listOf(PHOTO_A), vm.state.value.photos?.map { it.id })
+
+        vm.retryWrite()
+        advanceUntilIdle()
+        assertNull(vm.state.value.failure)
+        assertEquals(emptyList(), vm.state.value.photos)
+        assertEquals(listOf(PHOTO_A, PHOTO_A), api.deleted)
+    }
+
+    @Test
+    fun `the quota counts what the server counts`() = runTest(dispatcher) {
+        val api = FakeHubMediaApi()
+        api.lists =
+            ArrayDeque(
+                listOf(
+                    AuthResult.Ok(
+                        listOf(
+                            media(PHOTO_A, 1),
+                            media(PHOTO_B, 2, status = "rejected"),
+                            media(PHOTO_C, 3, status = "pending_review"),
+                        ),
+                    ),
+                ),
+            )
+        val vm = HubMediaViewModel(api, null)
+        vm.load()
+        advanceUntilIdle()
+
+        assertEquals(2, vm.state.value.count)
+    }
+
+    @Test
+    fun `reorder names only the photos that count`() = runTest(dispatcher) {
+        val api = FakeHubMediaApi()
+        api.lists =
+            ArrayDeque(
+                listOf(
+                    AuthResult.Ok(
+                        listOf(
+                            media(PHOTO_B, 0, status = "rejected"),
+                            media(PHOTO_A, 1),
+                            media(PHOTO_C, 2, status = "pending_review"),
+                        ),
+                    ),
+                ),
+            )
+        val vm = HubMediaViewModel(api, null)
+        vm.load()
+        advanceUntilIdle()
+
+        vm.move(2, -1)
+        advanceUntilIdle()
+
+        assertEquals(listOf<Pair<String?, List<String>>>(null to listOf(PHOTO_C, PHOTO_A)), api.ordered)
     }
 
     private companion object {

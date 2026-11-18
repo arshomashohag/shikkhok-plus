@@ -57,6 +57,7 @@ interface Routes {
   init?: () => Response
   complete?: () => Response
   order?: (body: unknown) => Response
+  remove?: () => Response
 }
 
 function serve(r: Routes = {}) {
@@ -70,7 +71,7 @@ function serve(r: Routes = {}) {
     if (url.endsWith('/v1/hub/media/order') && method === 'PUT') {
       return r.order?.(JSON.parse(init.body as string)) ?? json(200, [])
     }
-    if (method === 'DELETE') return new Response(null, { status: 204 })
+    if (method === 'DELETE') return r.remove?.() ?? new Response(null, { status: 204 })
     if (url.includes('/v1/hub/media') && method === 'GET') return json(200, r.list ?? [])
     return refusal(404, 'NOT_FOUND', 'error.unexpected')
   })
@@ -251,7 +252,7 @@ describe('Photos', () => {
     expect(screen.getByRole('button', { name: 'Move photo 1 up' })).toBeDisabled()
   })
 
-  it('shows the quota from the list length: 12 for an owner, 8 for a batch', async () => {
+  it('shows the quota of counted photos: 12 for an owner, 8 for a batch', async () => {
     serve({ list: [photo(ids[0], 1), photo(ids[1], 2)] })
     const first = renderScreen(<Photos batchId={null} />)
     expect(await screen.findByText('2 of 12 photos')).toBeInTheDocument()
@@ -280,6 +281,93 @@ describe('Photos', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Delete photo' }))
     await waitFor(() => expect(calls(`/v1/hub/media/${ids[0]}`, 'DELETE')).toHaveLength(1))
     await waitFor(() => expect(screen.queryByRole('img')).not.toBeInTheDocument())
+  })
+
+  it('closes the confirmation when a delete fails, so the failure is seen', async () => {
+    serve({
+      list: [photo(ids[0], 1)],
+      remove: () =>
+        json(503, {
+          error: {
+            code: 'SERVICE_UNAVAILABLE',
+            message_key: 'error.temporarily_unavailable',
+            retryable: true,
+          },
+        }),
+    })
+    const user = userEvent.setup()
+    renderScreen(<Photos batchId={null} />)
+    await user.click(await screen.findByRole('button', { name: 'Delete photo 1' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Delete photo' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      translate('en', 'error_temporarily_unavailable'),
+    )
+    // The photo is still listed: nothing was deleted.
+    expect(screen.getByRole('img', { name: 'Photo 1' })).toBeInTheDocument()
+  })
+
+  it('counts what the server counts: a rejected photo frees its slot', async () => {
+    serve({
+      list: [
+        photo(ids[0], 1),
+        photo(ids[1], 2, { status: 'rejected', thumb_url: null }),
+        photo('c3333333-3333-4333-8333-333333333333', 3, { status: 'pending_review' }),
+      ],
+    })
+    renderScreen(<Photos batchId={null} />)
+    expect(await screen.findByText('2 of 12 photos')).toBeInTheDocument()
+  })
+
+  it('reorders by the photos that count, never naming a rejected one', async () => {
+    const third = 'c3333333-3333-4333-8333-333333333333'
+    let sent: unknown = null
+    serve({
+      list: [
+        photo(ids[1], 0, { status: 'rejected', thumb_url: null }),
+        photo(ids[0], 1),
+        photo(third, 2, { status: 'pending_review' }),
+      ],
+      order: (body) => {
+        sent = body
+        return json(200, [photo(third, 0), photo(ids[0], 1), photo(ids[1], 2)])
+      },
+    })
+    const user = userEvent.setup()
+    renderScreen(<Photos batchId={null} />)
+    await user.click(await screen.findByRole('button', { name: 'Move photo 3 up' }))
+
+    // Only the counted photos are named; the server keeps the rest after them.
+    await waitFor(() => expect(sent).toEqual({ batch_id: null, ids: [third, ids[0]] }))
+  })
+
+  it('tells the owner not to show students', () => {
+    for (const lang of ['en', 'bn'] as const) {
+      const help = translate(lang, 'web_hub_photos_help')
+      expect(help).not.toBe('web_hub_photos_help')
+    }
+    expect(translate('en', 'web_hub_photos_help')).toMatch(/students/)
+    expect(translate('bn', 'web_hub_photos_help')).toMatch(/শিক্ষার্থী/)
+  })
+
+  it('a read-only (suspended) gallery still deletes, and nothing else', async () => {
+    serve({ list: [photo(ids[0], 1), photo(ids[1], 2)] })
+    const user = userEvent.setup()
+    renderScreen(<Photos batchId={null} readOnly />)
+    await screen.findByRole('img', { name: 'Photo 1' })
+
+    expect(screen.queryByRole('button', { name: 'Move photo 2 up' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Add a photo')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Delete photo 1' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Delete photo' }))
+
+    await waitFor(() => expect(calls(`/v1/hub/media/${ids[0]}`, 'DELETE')).toHaveLength(1))
+    await waitFor(() =>
+      expect(screen.queryByRole('img', { name: 'Photo 1' })).not.toBeInTheDocument(),
+    )
   })
 
   it('surfaces the suspended refusal', async () => {

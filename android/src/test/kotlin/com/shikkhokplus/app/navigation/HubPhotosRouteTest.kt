@@ -384,6 +384,24 @@ class HubPhotosRouteTest {
         assertNull(launched.firstOrNull())
     }
 
+    @Test
+    fun `a read-only gallery still deletes a photo, through the route`() {
+        // The server never refuses a delete for a suspension: a suspended
+        // listing's photo keeps its public link until its owner removes it.
+        gallery = "[${photo(PHOTO_A, 1, batchId = BATCH)}]"
+        host(Destination.HubPhotos.of(BATCH, readOnly = true))
+        waitForText("1 of 8 photos")
+        assertTrue(compose.onAllNodesWithTag(TAG_PHOTOS_ADD).fetchSemanticsNodes().isEmpty())
+        assertTrue(compose.onAllNodesWithTag(photoMoveUpTag(0)).fetchSemanticsNodes().isEmpty())
+
+        compose.onNodeWithTag(photoDeleteTag(0)).performScrollTo().performClick()
+        waitForTag(TAG_PHOTO_DELETE_CONFIRM)
+        compose.onNodeWithTag(TAG_PHOTO_DELETE_CONFIRM).performSemanticsAction(SemanticsActions.OnClick)
+
+        compose.waitUntil(timeoutMillis = 5_000) { requests(HttpMethod.Delete, "/v1/hub/media/").isNotEmpty() }
+        assertEquals("https://staging.example/v1/hub/media/$PHOTO_A", requests(HttpMethod.Delete, "/v1/").single().url)
+    }
+
     /** A picked photo: a content URI with a type, a size and bytes, as the photo picker hands back. */
     class PhotoProvider : ContentProvider() {
         /** Which provider call throws, as a cloud document provider may. */

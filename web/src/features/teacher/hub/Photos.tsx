@@ -16,8 +16,15 @@
  * poll: a refusal is shown in the server's words.
  *
  * Every rule is the server's: type and size are only pre-checked for a
- * kinder message, the quota shows the length of the server's list, and a
- * photo's `thumb_url` is absolute and used as it arrives.
+ * kinder message, the quota counts the listed photos the server counts --
+ * every status but `rejected` and `withdrawn` (the server already leaves
+ * out an upload abandoned past its window) -- and a photo's `thumb_url` is
+ * absolute and used as it arrives. A reorder names only those counted
+ * photos; the server keeps the rest after them.
+ *
+ * `readOnly` (a suspended listing) hides adding and reordering but keeps
+ * delete: the server never refuses removing a photo, and a suspended
+ * listing's approved photo keeps its public link until its owner removes it.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -49,6 +56,10 @@ export const POLL_INTERVAL_MS = 2000
 export const POLL_LIMIT_MS = 60_000
 
 const NOT_UPLOADED = 'MEDIA_NOT_UPLOADED'
+
+/** The statuses that free a slot, as the server's quota reads them. */
+const UNCOUNTED: readonly Status[] = ['rejected', 'withdrawn']
+const counts = (p: Photo) => !UNCOUNTED.includes(p.status)
 
 const STATUS_CHIP: Record<Status, string> = {
   awaiting_upload: 'chip',
@@ -233,14 +244,24 @@ export function Photos({
       if (a === undefined || b === undefined) return
       ids[index] = b
       ids[index + by] = a
-      setPhotos(await putHubPhotoOrder(batchId, ids))
+      const counted = new Set(photos.filter(counts).map((p) => p.id))
+      setPhotos(
+        await putHubPhotoOrder(
+          batchId,
+          ids.filter((id) => counted.has(id)),
+        ),
+      )
     })
 
   const remove = (photo: Photo) =>
     run(async () => {
-      await deleteHubPhoto(photo.id)
+      try {
+        await deleteHubPhoto(photo.id)
+      } finally {
+        // Closed either way: an open sheet would hide the failure banner.
+        setDeleting(null)
+      }
       setPhotos((list) => (list ?? []).filter((p) => p.id !== photo.id))
-      setDeleting(null)
     })
 
   const inFlight = job?.phase === 'uploading' || job?.phase === 'checking'
@@ -251,7 +272,9 @@ export function Photos({
       title={t('web_hub_photos_title')}
       aside={
         photos ? (
-          <span className="meta">{t('web_hub_photos_count', list.length, limit)}</span>
+          <span className="meta">
+            {t('web_hub_photos_count', list.filter(counts).length, limit)}
+          </span>
         ) : null
       }
     >
@@ -313,17 +336,18 @@ export function Photos({
                     >
                       ↓
                     </button>
-                    <button
-                      type="button"
-                      className="btn btn-text btn-small"
-                      aria-label={t('web_hub_photo_delete', i + 1)}
-                      disabled={busy}
-                      onClick={() => setDeleting(p)}
-                    >
-                      ×
-                    </button>
                   </>
                 )}
+                {/* Even read-only: a suspended listing's photo keeps its public link until removed. */}
+                <button
+                  type="button"
+                  className="btn btn-text btn-small"
+                  aria-label={t('web_hub_photo_delete', i + 1)}
+                  disabled={busy}
+                  onClick={() => setDeleting(p)}
+                >
+                  ×
+                </button>
               </div>
             </li>
           )

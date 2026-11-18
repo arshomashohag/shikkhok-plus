@@ -133,7 +133,7 @@
   "web_hub_consent_load_failed": "Your centre memberships could not be loaded.",
   "web_hub_photos_title": "Photos",
   "web_hub_photos_count": "{1} of {2} photos",
-  "web_hub_photos_help": "Every photo is checked before it appears on your public page. JPEG, PNG or WebP, up to 8 MB.",
+  "web_hub_photos_help": "Every photo is checked before it appears on your public page. Do not show students or any other child. JPEG, PNG or WebP, up to 8 MB.",
   "web_hub_photos_empty": "No photos yet.",
   "web_hub_photos_load_failed": "Your photos could not be loaded.",
   "web_hub_photo_alt_en": "Describe the photo (English)",

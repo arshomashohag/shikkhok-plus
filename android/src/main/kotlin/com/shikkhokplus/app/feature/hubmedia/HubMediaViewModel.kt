@@ -36,6 +36,12 @@ const val POLL_LIMIT_MS: Long = 60_000
 /** The three types the server takes. */
 private val UPLOAD_TYPES: Set<String> = setOf("image/jpeg", "image/png", "image/webp")
 
+/** The statuses that free a slot, as the server's quota reads them. */
+private val UNCOUNTED: Set<String> = setOf("rejected", "withdrawn")
+
+/** Whether a photo holds one of its gallery's slots. */
+private fun MediaResponse.counts(): Boolean = status !in UNCOUNTED
+
 private const val NOT_UPLOADED_CODE = "MEDIA_NOT_UPLOADED"
 private const val NOT_UPLOADED_KEY = "hub.media.not_uploaded"
 private const val ALT_INVALID_KEY = "hub.media.alt_invalid"
@@ -73,6 +79,8 @@ sealed interface PhotoUpload {
  *
  * @property batchId The batch whose gallery this is; null for the owner's own
  * @property readOnly Whether the listing is suspended, so nothing can change
+ *   but a delete: a suspended listing's photo keeps its public link until
+ *   its owner removes it, and the server never refuses that
  * @property photos The server's list, or null until it has been read
  * @property loadFailure Why the list could not be read, or null
  * @property altEn The English alt text as typed
@@ -97,8 +105,12 @@ data class HubPhotosState(
     /** How many photos the gallery holds: the server's, never counted here. */
     val limit: Int get() = if (batchId == null) OWNER_PHOTO_LIMIT else BATCH_PHOTO_LIMIT
 
-    /** How many photos the server listed. */
-    val count: Int get() = photos?.size ?: 0
+    /**
+     * How many listed photos hold a slot: every status but rejected and
+     * withdrawn, as the server counts (it already leaves out an upload
+     * abandoned past its window).
+     */
+    val count: Int get() = photos?.count { it.counts() } ?: 0
 
     /** Whether a photo is being added right now, so the form is locked. */
     val inFlight: Boolean
@@ -133,8 +145,9 @@ private data class Pending(
  *
  * **Every rule is the server's.** Type and size are pre-checked only so a
  * pointless upload is answered at once, in the server's own words; the
- * quota shows the length of the server's list; `thumb_url` is used as it
- * arrives.
+ * quota counts the listed photos the server counts; a reorder names only
+ * those, and the server keeps the rest after them; `thumb_url` is used as
+ * it arrives.
  *
  * **The file goes to the bucket, not through the API**, on a client that
  * carries no session ([BucketClient]). Then `complete` is asked every two
@@ -379,8 +392,10 @@ class HubMediaViewModel(
         val other = index + by
         if (s.readOnly || s.busy || !listOf(index, other).all { it in ids.indices }) return
         ids[index] = ids[other].also { ids[other] = ids[index] }
+        val counted = s.photos.filter { it.counts() }.map { it.id }.toSet()
+        val named = ids.filter { it in counted }
         write {
-            when (val result = api.order(s.batchId, ids)) {
+            when (val result = api.order(s.batchId, named)) {
                 is AuthResult.Ok -> _state.update { it.copy(photos = result.value) }
                 else -> return@write result
             }
@@ -390,27 +405,30 @@ class HubMediaViewModel(
 
     /**
      * Ask to delete a photo; nothing is deleted until [confirmDelete].
+     * Allowed in a read-only gallery too: removing a photo is never refused.
      *
      * @param photo The photo
      */
     fun askDelete(photo: MediaResponse) {
-        if (!_state.value.readOnly) _state.update { it.copy(deleting = photo) }
+        _state.update { it.copy(deleting = photo) }
     }
 
     /** Keep the photo. */
     fun cancelDelete() = _state.update { it.copy(deleting = null) }
 
-    /** Delete the photo being confirmed. */
+    /** Delete the photo being confirmed; the dialog closes either way, so a failure is seen. */
     fun confirmDelete() {
         val photo = _state.value.deleting ?: return
         if (_state.value.busy) return
         write {
-            when (val result = api.delete(photo.id)) {
-                is AuthResult.Ok ->
-                    _state.update { s -> s.copy(photos = s.photos?.filter { it.id != photo.id }, deleting = null) }
-                else -> return@write result
+            val result = api.delete(photo.id)
+            _state.update { s ->
+                s.copy(
+                    photos = if (result is AuthResult.Ok) s.photos?.filter { it.id != photo.id } else s.photos,
+                    deleting = null,
+                )
             }
-            null
+            if (result is AuthResult.Ok) null else result
         }
     }
 
