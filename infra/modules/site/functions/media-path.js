@@ -7,8 +7,8 @@
 // public/m/k/320.webp -- so the /m/ to /public/ step is made here.
 //
 // **Exactly one shape is mapped, and everything else is 404 at the edge**:
-// a 32-character lowercase hex key (secrets.token_hex(16)) and a numeric
-// width, nothing between them. So no request through /m/ can name a dot
+// a 32-character lowercase hex key (secrets.token_hex(16)) and one of the
+// three widths the sanitiser writes (320, 960, 1600), nothing between them. So no request through /m/ can name a dot
 // segment, a nested path or any other prefix of the bucket -- the bucket
 // policy already lets CloudFront read public/* only, and this keeps the
 // viewer from even asking. The refusal carries nosniff itself, because a
@@ -17,7 +17,7 @@
 // Not the site router: no www redirect and no directory index applies to
 // an image. cloudfront-js-2.0 runtime; tested by media-path.test.mjs beside
 // it (`make infra-functions`).
-var MEDIA = /^\/m\/([0-9a-f]{32})\/([1-9][0-9]{1,3})\.webp$/;
+var MEDIA = /^\/m\/([0-9a-f]{32})\/(320|960|1600)\.webp$/;
 
 function handler(event) {
   var request = event.request;

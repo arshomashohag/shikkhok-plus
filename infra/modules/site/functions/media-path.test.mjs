@@ -38,6 +38,11 @@ describe('media-path: the public URL maps onto public/ only', () => {
     ['a non-numeric width', `/m/${KEY}/result.json`],
     ['the bare prefix', '/m/'],
     ['a key directory', `/m/${KEY}/`],
+    ['a width the sanitiser never writes', `/m/${KEY}/321.webp`],
+    ['a four-digit width outside the three', `/m/${KEY}/9999.webp`],
+    ['a zero-padded width', `/m/${KEY}/0320.webp`],
+    ['an encoded slash', `/m/${KEY}%2F320.webp`],
+    ['an encoded dot-dot and slash', `/m/${KEY}/%2e%2e%2F320.webp`],
   ];
   for (const [name, uri] of refused) {
     it(`answers 404 for ${name}, never reaching the bucket`, () => {
