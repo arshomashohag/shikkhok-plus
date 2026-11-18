@@ -36,8 +36,11 @@ MediaStatus = Literal[
 #: The three upload types, published in the contract as an enum.
 _UPLOAD_TYPES: Final[list[JsonValue]] = ["image/jpeg", "image/png", "image/webp"]
 
-#: The largest gallery an order may name: owner 12, batch 8, with headroom.
-_MAX_ORDER: Final[int] = 50
+#: The most photos an order may name: the larger gallery's quota, the owner's
+#: 12 (a batch holds 8). Clients name the photos that count, never the
+#: rejected ones still listed; any left out keep their order after the named.
+#: ``tests/hub/media/test_media_routes.py`` asserts it equals ``OWNER_LIMIT``.
+_MAX_ORDER: Final[int] = 12
 
 
 class MediaUploadInit(BaseModel):
@@ -105,7 +108,8 @@ class MediaOrder(BaseModel):
     """Put one gallery's photos in order.
 
     :ivar batch_id: The batch; None for the owner's own gallery
-    :ivar ids: The photos in their new order
+    :ivar ids: The photos in their new order, at most 12: the ones that
+        count against the quota; any left out follow them in their order
     """
 
     model_config = ConfigDict(extra="forbid")

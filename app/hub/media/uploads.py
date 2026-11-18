@@ -2,7 +2,8 @@
 
 **The bytes never touch the API.** :func:`init_upload` checks the declared
 type and size, holds the owner's quota, inserts an ``awaiting_upload`` row
-and returns a presigned POST that may write only ``quarantine/{media_id}``.
+after the last photo in its gallery, and returns a presigned POST that may
+write only ``quarantine/{media_id}``.
 The client posts the file straight to the bucket; the sanitiser Lambda
 re-encodes it and writes ``staged/{media_id}/result.json``.
 
@@ -121,6 +122,7 @@ def init_upload(
             status="awaiting_upload",
             content_type=content_type,
             byte_size=byte_size,
+            position=_next_position(session, lens.owner_id, batch_id),
             created_at=now,
         )
         session.add(media)
@@ -132,6 +134,34 @@ def init_upload(
         raise
     session.commit()
     return ticket
+
+
+def _next_position(
+    session: Session, owner_id: uuid.UUID, batch_id: uuid.UUID | None
+) -> int:
+    """Pick a new upload's place: after the last photo in its gallery.
+
+    Read under the owner lock, so two uploads cannot take the same place.
+    A withdrawn photo is no longer in the gallery and does not count.
+
+    :param session: The upload's session, the owner locked
+    :param owner_id: The owner
+    :param batch_id: The batch, or None for the owner's own gallery
+    :return: ``max(position) + 1``, or 0 for an empty gallery
+    """
+    gallery = (
+        ListingMedia.batch_id.is_(None)
+        if batch_id is None
+        else ListingMedia.batch_id == batch_id
+    )
+    last = session.scalar(
+        sa.select(sa.func.max(ListingMedia.position)).where(
+            ListingMedia.owner_id == owner_id,
+            gallery,
+            ListingMedia.status != "withdrawn",
+        )
+    )
+    return 0 if last is None else int(last) + 1
 
 
 def _withdraw_abandoned(

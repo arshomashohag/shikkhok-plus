@@ -804,3 +804,66 @@ def test_concurrent_inits_withdraw_an_abandoned_upload_once(
     assert _status(owner_session, stale).status == "withdrawn"
     assert sorted(tasks(owner_session)) == [f"quarantine/{stale}", f"staged/{stale}/"]
     assert quota.counted(owner_session, tutor.lens.owner_id, None) == quota.OWNER_LIMIT
+
+
+@pytest.mark.parametrize("batch", [False, True], ids=["owner", "batch"])
+def test_a_new_upload_goes_after_the_gallery_s_last_photo(
+    restricted_session: Session,
+    owner_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    batch: bool,
+) -> None:
+    """``max(position) + 1`` in its own gallery, so it never jumps the order.
+
+    A withdrawn photo is not in the gallery and the other gallery is not
+    this one; neither moves the new photo.
+    """
+    batch_id = tutor.batch_id if batch else None
+    other = None if batch else tutor.batch_id
+    media_row(owner_session, tutor.lens.owner_id, batch_id=batch_id, position=0)
+    media_row(
+        owner_session,
+        tutor.lens.owner_id,
+        status="rejected",
+        batch_id=batch_id,
+        position=3,
+    )
+    media_row(
+        owner_session,
+        tutor.lens.owner_id,
+        status="withdrawn",
+        batch_id=batch_id,
+        position=9,
+    )
+    media_row(owner_session, tutor.lens.owner_id, batch_id=other, position=7)
+
+    first = _init(restricted_session, store, tutor, batch=batch)
+    second = _init(restricted_session, store, tutor, batch=batch)
+
+    owner_session.rollback()
+    positions = dict(
+        owner_session.execute(
+            sa.text("SELECT id, position FROM listing_media WHERE id IN (:a, :b)"),
+            {"a": first.media_id, "b": second.media_id},
+        ).all()
+    )
+    assert (positions[first.media_id], positions[second.media_id]) == (4, 5)
+
+
+def test_the_first_upload_takes_position_zero(
+    restricted_session: Session,
+    owner_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+) -> None:
+    ticket = _init(restricted_session, store, tutor)
+
+    owner_session.rollback()
+    assert (
+        owner_session.execute(
+            sa.text("SELECT position FROM listing_media WHERE id = :m"),
+            {"m": ticket.media_id},
+        ).scalar_one()
+        == 0
+    )

@@ -6321,7 +6321,7 @@
       },
       "MediaOrder": {
         "additionalProperties": false,
-        "description": "Put one gallery's photos in order.\n\n:ivar batch_id: The batch; None for the owner's own gallery\n:ivar ids: The photos in their new order",
+        "description": "Put one gallery's photos in order.\n\n:ivar batch_id: The batch; None for the owner's own gallery\n:ivar ids: The photos in their new order, at most 12: the ones that\n    count against the quota; any left out follow them in their order",
         "properties": {
           "batch_id": {
             "anyOf": [
@@ -6340,7 +6340,7 @@
               "format": "uuid",
               "type": "string"
             },
-            "maxItems": 50,
+            "maxItems": 12,
             "title": "Ids",
             "type": "array"
           }

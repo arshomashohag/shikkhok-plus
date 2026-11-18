@@ -8919,7 +8919,8 @@ export interface components {
      * @description Put one gallery's photos in order.
      *
      *     :ivar batch_id: The batch; None for the owner's own gallery
-     *     :ivar ids: The photos in their new order
+     *     :ivar ids: The photos in their new order, at most 12: the ones that
+     *         count against the quota; any left out follow them in their order
      */
     MediaOrder: {
       /** Batch Id */

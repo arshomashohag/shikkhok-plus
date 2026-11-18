@@ -15,6 +15,7 @@ from app.api.hub_media import media_store
 from app.auth.ceilings import HUB_LISTING_OWNER_DAILY
 from app.contract.routes import PUBLIC_ROUTES, _api_routes
 from app.errors import ValidationError
+from app.hub.media import quota
 from app.hub.public import invalidation
 from app.hub.public.settings import site_url
 from app.main import app as real_app
@@ -448,3 +449,47 @@ def test_unreadable_complete_spends_one_unit(
 
     assert bad.status_code == 400
     assert _spent(owner_session, owner_id) == 1
+
+
+def test_an_order_names_at_most_one_full_gallery(
+    api_client: TestClient, owner_session: Session, store: FakeMediaStore
+) -> None:
+    """The cap is the largest gallery, 12; a client sends only counted photos.
+
+    Rejected photos stay listed until deleted, so a gallery can list far
+    more rows than it counts. An order naming only the counted ones keeps
+    every unnamed row after them.
+    """
+    headers, owner_id, _ = _auth(owner_session)
+    for i in range(20):
+        media_row(owner_session, owner_id, status="rejected", position=i)
+    counted = [
+        media_row(owner_session, owner_id, position=20 + i)
+        for i in range(quota.OWNER_LIMIT)
+    ]
+
+    ordered = api_client.put(
+        "/v1/hub/media/order",
+        json={"ids": [str(i) for i in reversed(counted)]},
+        headers=headers,
+    )
+    too_many = api_client.put(
+        "/v1/hub/media/order",
+        json={"ids": [str(uuid.uuid4()) for _ in range(quota.OWNER_LIMIT + 1)]},
+        headers=headers,
+    )
+
+    assert ordered.status_code == 200, ordered.text
+    ids = [m["id"] for m in ordered.json()]
+    assert ids[: quota.OWNER_LIMIT] == [str(i) for i in reversed(counted)]
+    assert len(ids) == 20 + quota.OWNER_LIMIT
+    assert too_many.status_code == 422
+
+
+def test_the_order_cap_is_the_owner_gallery_limit() -> None:
+    """The schema's number is the quota's, not a copy that can drift."""
+    from app.schemas.media import MediaOrder
+
+    cap = MediaOrder.model_json_schema()["properties"]["ids"]["maxItems"]
+    assert cap == quota.OWNER_LIMIT
+    assert quota.BATCH_LIMIT <= cap
