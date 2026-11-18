@@ -34,9 +34,11 @@ host the web and admin CSPs admit (``web/vite.config.ts``,
 ``web/vite.admin.config.ts``). The upload is a CORS simple request -- a
 plain ``fetch`` of ``FormData`` -- so the POST policy asks for no header.
 
-**No bucket configured** (local development, the rehearsal host): an upload
-answers a transient error, and a delete is logged and skipped, so the drain
-does not fail forever on a host that has no bucket to delete from.
+**No bucket configured** (local development, the rehearsal host): every
+operation answers a transient error, deletes included [R9]. A delete that
+silently succeeded would mark its outbox row done and stamp the drain's
+heartbeat, losing the delete while the job looked healthy; failing keeps the
+row pending and lets the heartbeat go stale.
 """
 
 from __future__ import annotations
@@ -63,6 +65,7 @@ __all__ = [
     "MAX_UPLOAD_BYTES",
     "OBJECT_PREFIX",
     "PREVIEW_TTL",
+    "RESULT_DEADLINE",
     "UPLOAD_TTL",
     "UPLOAD_TYPES",
     "VARIANT_WIDTHS",
@@ -89,6 +92,13 @@ MAX_UPLOAD_BYTES: Final[int] = 8_388_608
 
 #: How long a presigned POST stays valid.
 UPLOAD_TTL: Final[dt.timedelta] = dt.timedelta(minutes=10)
+
+#: How long after an upload is signed its objects may still appear: the
+#: ten-minute POST signature, up to five minutes in the Lambda's event queue
+#: (``maximum_event_age_in_seconds = 300``), its thirty seconds, and a
+#: margin. Past it, a missing ``result.json`` means unreadable [R7c], and a
+#: delete of ``quarantine/`` and ``staged/`` can no longer be outrun.
+RESULT_DEADLINE: Final[dt.timedelta] = dt.timedelta(minutes=20)
 
 #: How long a presigned preview GET stays valid.
 PREVIEW_TTL: Final[dt.timedelta] = dt.timedelta(minutes=5)
@@ -577,14 +587,11 @@ class S3MediaStore:
         :param prefix: One of the :data:`OBJECT_PREFIX` shapes
         :return: None
         :raises ValueError: The prefix is wider than one photo
-        :raises TransientError: S3 failed
+        :raises TransientError: S3 failed, or no bucket is configured
         """
         if not OBJECT_PREFIX.fullmatch(prefix):
             raise ValueError(f"not a photo prefix: {prefix!r}")
-        if not self.bucket:
-            log.warning("no media bucket configured; delete skipped")
-            return
-        bucket = self.bucket
+        bucket = self._require_bucket()
         client = self._client()
         keys = self._list(client, bucket, prefix)
         for start in range(0, len(keys), 1000):

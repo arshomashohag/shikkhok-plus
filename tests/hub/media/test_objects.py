@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import HUB_MEDIA_OBJECT_JOB
 from app.hub.media import commands, objects
+from app.hub.media.storage import S3MediaStore
 from tests.hub.media.fakes import FakeMediaStore, Stored
 from tests.hub.media.support import NOW
 
@@ -155,7 +156,8 @@ def test_drain_command(
 ) -> None:
     prefix = f"archive/{uuid.uuid4()}/"
     with Session(restricted_engine) as session:
-        objects.enqueue(session, [prefix], NOW)
+        # The command runs on the real clock, so the row is due by it.
+        objects.enqueue(session, [prefix], dt.datetime.now(tz=dt.UTC))
         session.commit()
     store = FakeMediaStore()
     monkeypatch.setattr(commands, "build_engine", lambda: restricted_engine)
@@ -168,3 +170,48 @@ def test_drain_command(
     assert _heartbeat(owner_session) is not None
     with pytest.raises(SystemExit):
         commands.main(["drain", "--limit", "0"])
+
+
+def test_drain_without_a_bucket_keeps_rows_and_skips_heartbeat(
+    restricted_session: Session, owner_session: Session
+) -> None:
+    # R9: no bucket configured is a failed delete. The row stays pending
+    # with an attempt counted, and a run where every row failed is not
+    # progress, so the heartbeat is not stamped and the check alerts.
+    prefix = f"public/{uuid.uuid4().hex}/"
+    objects.enqueue(restricted_session, [prefix], NOW)
+    restricted_session.commit()
+    store = S3MediaStore(bucket="", region="ap-south-1", credentials_file="")
+
+    assert commands.drain(restricted_session, store, NOW) == 0
+
+    assert _tasks(owner_session) == [(prefix, None, 1)]
+    assert _heartbeat(owner_session) is None
+
+
+def test_deferred_rows_wait_for_the_upload_window(
+    restricted_session: Session, owner_session: Session
+) -> None:
+    # An upload signed at NOW may still land, and be sanitised, until the
+    # 20-minute deadline; deletes enqueued for that moment wait for it.
+    media_id = uuid.uuid4()
+    objects.enqueue_upload_window(
+        restricted_session, media_id, NOW, NOW + dt.timedelta(minutes=1)
+    )
+    restricted_session.commit()
+    due = NOW + objects.UPLOAD_WINDOW
+    store = FakeMediaStore()
+
+    # Nothing is due yet: an empty drain, and a healthy one.
+    assert commands.drain(restricted_session, store, due - dt.timedelta(seconds=1)) == 0
+    assert store.deleted == []
+    assert _heartbeat(owner_session) == due - dt.timedelta(seconds=1)
+
+    assert commands.drain(restricted_session, store, due) == 2
+    assert store.deleted == [f"quarantine/{media_id}", f"staged/{media_id}/"]
+
+    # Once the window has closed there is nothing to defer.
+    objects.enqueue_upload_window(restricted_session, uuid.uuid4(), NOW, due)
+    restricted_session.commit()
+    assert len(_tasks(owner_session)) == 2
+    assert objects.UPLOAD_WINDOW == dt.timedelta(minutes=20)

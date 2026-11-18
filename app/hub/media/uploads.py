@@ -38,6 +38,7 @@ from app.hub.media import objects, quota
 from app.hub.media.shared import clean_alt, owned_media
 from app.hub.media.storage import (
     MAX_UPLOAD_BYTES,
+    RESULT_DEADLINE,
     UPLOAD_TYPES,
     MediaStore,
     UploadTicket,
@@ -46,9 +47,6 @@ from app.hub.media.storage import (
 )
 
 __all__ = ["RESULT_DEADLINE", "UNREADABLE", "UploadTicket", "complete", "init_upload"]
-
-#: How long after the upload started a missing result means unreadable.
-RESULT_DEADLINE: Final[dt.timedelta] = dt.timedelta(minutes=20)
 
 #: The rejection code for an upload the sanitiser could not decode.
 UNREADABLE: Final[str] = "unreadable"

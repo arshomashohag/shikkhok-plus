@@ -9,12 +9,14 @@ The host runs it every two minutes inside the running container with
 ``flock`` so two runs never overlap. The container reaches the bucket with
 the host-refreshed media-role credentials, the only AWS credentials it has.
 
-**The drain** (:func:`drain`) deletes up to ``limit`` pending prefixes,
-least-failed and then oldest first, so a prefix that keeps failing never
-starves the rows behind it. A deleted prefix is stamped ``done_at``; a
-failed one counts an attempt and is logged, and the next run tries it
-again. Rows are claimed ``FOR UPDATE SKIP LOCKED``, so two overlapping runs
-never take the same prefix.
+**The drain** (:func:`drain`) deletes up to ``limit`` pending prefixes that
+are due -- ``requested_at`` passed; see
+:func:`~app.hub.media.objects.enqueue_upload_window` -- least-failed and
+then oldest first, so a prefix that keeps failing never starves the rows
+behind it. A deleted prefix is stamped ``done_at``; a failed one counts an
+attempt and is logged, and the next run tries it again. Rows are claimed
+``FOR UPDATE SKIP LOCKED``, so two overlapping runs never take the same
+prefix.
 
 **The heartbeat means progress** [R8a]. ``HUB_MEDIA_OBJECT_JOB`` is stamped
 by a drain that found nothing to do and by one that finished at least one
@@ -95,7 +97,11 @@ def drain(
     """
     rows = session.execute(
         sa.select(MediaObjectTask.id, MediaObjectTask.prefix)
-        .where(MediaObjectTask.done_at.is_(None))
+        .where(
+            MediaObjectTask.done_at.is_(None),
+            # A deferred row waits for its upload window to close.
+            MediaObjectTask.requested_at <= now,
+        )
         .order_by(MediaObjectTask.attempts, MediaObjectTask.id)
         .limit(limit)
         .with_for_update(skip_locked=True)

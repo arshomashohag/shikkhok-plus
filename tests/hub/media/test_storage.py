@@ -120,14 +120,19 @@ def test_a_missing_credentials_file_fails_fast(
         store.presign_upload(uuid.uuid4(), "image/jpeg")
 
 
-def test_unset_bucket_refuses_uploads_and_skips_deletes(
+def test_unset_bucket_refuses_uploads_and_deletes(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    # R9: a delete with nowhere to go is a failure, never a silent success,
+    # so the outbox keeps the row and the drain's heartbeat goes stale.
     store = S3MediaStore(bucket="", region="ap-south-1", credentials_file="")
     with pytest.raises(TransientError):
         store.presign_upload(uuid.uuid4(), "image/jpeg")
 
-    with caplog.at_level(logging.WARNING, logger="app.hub.media.storage"):
+    with (
+        caplog.at_level(logging.WARNING, logger="app.hub.media.storage"),
+        pytest.raises(TransientError),
+    ):
         store.delete_prefix(f"staged/{uuid.uuid4()}/")
     assert "no media bucket" in caplog.text
 

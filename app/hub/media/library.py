@@ -9,11 +9,14 @@ transaction. An alt-text change to an approved photo calls it -- the new
 text has not been moderated -- and so does a withdrawal; moderation's hold
 (Task 6) can reuse it.
 
-**Withdrawal deletes everything the photo has.** Every prefix it might own
+**Withdrawal deletes everything the photo has, including what has not
+arrived yet.** Every prefix it might own
 is enqueued -- the quarantined original, the staged and archived variants,
 and the public copies while approved -- because deleting a prefix that
 holds nothing costs one listing, while missing one leaves a photo of a
-child in the bucket.
+child in the bucket. A photo withdrawn mid-upload has its quarantine and
+staged deletes enqueued a second time, due when its upload window closes
+(:func:`~app.hub.media.objects.enqueue_upload_window`).
 """
 
 from __future__ import annotations
@@ -263,6 +266,7 @@ def withdraw(
     if media.status == "withdrawn":
         session.commit()
         return
+    in_flight = media.status in objects.IN_FLIGHT
     if media.status == "approved":
         unpublish(session, media, "withdrawn", now)
     else:
@@ -272,4 +276,7 @@ def withdraw(
         [quarantine_key(media.id), staged_prefix(media.id), archive_prefix(media.id)],
         now,
     )
+    if in_flight:
+        # The upload may still land after the first drain [Task 4 review].
+        objects.enqueue_upload_window(session, media.id, media.created_at, now)
     session.commit()

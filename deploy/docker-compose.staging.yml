@@ -88,7 +88,8 @@ x-app-environment: &app-environment
   SHIKKHOKPLUS_WEB_APP_URL: ${SHIKKHOKPLUS_WEB_APP_URL:-}
   # The hub photo bucket and its region, both written by the deploy from
   # SSM (modules/media). Empty bucket: uploads answer a transient error and
-  # deletes are logged and skipped -- the rest of the API is unaffected.
+  # deletes wait in the outbox, failing, so the drain's heartbeat goes stale
+  # [R9] -- the rest of the API is unaffected.
   # Here rather than on `api` alone so `migrate` sees the same runtime env;
   # only `api` holds credentials to use them with (below).
   SHIKKHOKPLUS_MEDIA_BUCKET: ${SHIKKHOKPLUS_MEDIA_BUCKET:-}

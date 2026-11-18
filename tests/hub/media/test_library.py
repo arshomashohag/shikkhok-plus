@@ -8,6 +8,7 @@ deletion, and the ``/m/`` path and the page it sits on for invalidation.
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 
 import pytest
@@ -16,8 +17,10 @@ from sqlalchemy.orm import Session
 
 from app.batches.service import BatchNotFound
 from app.errors import AuthorizationError, ValidationError
+from app.hub.media import commands as media_commands
 from app.hub.media import library
 from app.hub.public import commands
+from tests.hub.media.fakes import FakeMediaStore
 from tests.hub.media.support import (
     NOW,
     Owner,
@@ -259,3 +262,34 @@ def test_reorder_swaps_approved_slots(
     with pytest.raises(AuthorizationError, match="MEDIA_NOT_FOUND"):
         library.reorder(restricted_session, tutor.lens, None, [in_batch, a])
     assert _row(owner_session, a).position == 1
+
+
+def test_withdraw_while_uploading_deletes_a_late_upload(
+    restricted_session: Session, owner_session: Session, tutor: Owner
+) -> None:
+    # The presigned POST outlives a cancel: the file can land, and the
+    # sanitiser write staged/, after the first drain found nothing.
+    media_id = media_row(owner_session, tutor.lens.owner_id, status="awaiting_upload")
+    store = FakeMediaStore()
+
+    library.withdraw(
+        restricted_session, tutor.lens, media_id, now=NOW + dt.timedelta(minutes=1)
+    )
+    assert (
+        media_commands.drain(restricted_session, store, NOW + dt.timedelta(minutes=2))
+        == 3
+    )
+
+    store.put_result(media_id, {"ok": True, "width": 10, "height": 10, "widths": [320]})
+    media_commands.drain(restricted_session, store, NOW + dt.timedelta(minutes=4))
+    assert f"staged/{media_id}/320.webp" in store.objects
+
+    media_commands.drain(restricted_session, store, NOW + dt.timedelta(minutes=20))
+    assert not [k for k in store.objects if str(media_id) in k]
+    assert tasks(owner_session) == [
+        f"quarantine/{media_id}",
+        f"staged/{media_id}/",
+        f"archive/{media_id}/",
+        f"quarantine/{media_id}",
+        f"staged/{media_id}/",
+    ]
