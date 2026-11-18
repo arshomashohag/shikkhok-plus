@@ -1517,3 +1517,109 @@ def test_approving_a_held_photo_waits_for_its_open_holding_report(
     owner_session.commit()
     key = _approve(restricted_session, store, admin, media_id, LATER)
     assert key != old
+
+
+# ---------------------------------------------------------------------------
+# A copy that outlives a failed commit is deleted, not orphaned.
+# ---------------------------------------------------------------------------
+
+
+def _fail_next_commit_after(
+    patch: pytest.MonkeyPatch, session: Session, target: object, name: str
+) -> list[str]:
+    """Make the first commit after ``target.name`` runs fail, as a lost link would.
+
+    :param patch: The monkeypatch context
+    :param session: The session whose commit fails
+    :param target: The module holding the function
+    :param name: The function after which the commit fails
+    :return: A list that records the function's runs
+    """
+    real = getattr(target, name)
+    real_commit = session.commit
+    ran: list[str] = []
+
+    def flaky_commit() -> None:
+        patch.setattr(session, "commit", real_commit)
+        raise sa.exc.OperationalError("COMMIT", {}, Exception("connection lost"))
+
+    def wrapped(*args: object, **kwargs: object) -> object:
+        result = real(*args, **kwargs)
+        ran.append(name)
+        patch.setattr(session, "commit", flaky_commit)
+        return result
+
+    patch.setattr(target, name, wrapped)
+    return ran
+
+
+def _public_keys(store: FakeMediaStore) -> set[str]:
+    return {k.split("/")[1] for k in store.objects if k.startswith("public/")}
+
+
+def test_an_approval_whose_commit_fails_deletes_its_public_copy(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The copy succeeded, the commit did not: its key is enqueued for deletion.
+
+    The key is recorded nowhere else, so without this no withdrawal or
+    account deletion would ever reach ``public/{key}/``.
+    """
+    media_id = _pending(owner_session, store, tutor.lens.owner_id)
+
+    with monkeypatch.context() as patch:
+        ran = _fail_next_commit_after(patch, restricted_session, media, "_publish")
+        with pytest.raises(sa.exc.OperationalError):
+            media.decide(
+                restricted_session,
+                store,
+                admin,
+                media_id,
+                approve=True,
+                code=None,
+                now=NOW,
+            )
+
+    assert ran == ["_publish"]
+    (copied,) = _public_keys(store)
+    row = _row(owner_session, media_id)
+    assert (row.status, row.public_key) == ("pending_review", None)
+    assert f"public/{copied}/" in tasks(owner_session)
+    assert _events(owner_session) == []
+
+
+def test_a_restore_whose_commit_fails_deletes_its_public_copy(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dismissing a holding report restores under a fresh key; same rule."""
+    media_id, old = _published(owner_session, restricted_session, store, tutor, admin)
+    report_id = _report_on(owner_session, restricted_session, media_id, "child_safety")
+
+    with monkeypatch.context() as patch:
+        ran = _fail_next_commit_after(patch, restricted_session, media, "_publish")
+        with pytest.raises(sa.exc.OperationalError):
+            reports.decide(
+                restricted_session, admin, report_id, "dismissed", LATER, store=store
+            )
+
+    assert ran == ["_publish"]
+    (fresh,) = _public_keys(store) - {old}
+    assert _row(owner_session, media_id).status == "held"
+    assert f"public/{fresh}/" in tasks(owner_session)
+    assert (
+        owner_session.execute(
+            sa.text("SELECT status::text FROM hub_report WHERE id = :r"),
+            {"r": report_id},
+        ).scalar_one()
+        == "open"
+    )

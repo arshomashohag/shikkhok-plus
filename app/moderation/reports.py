@@ -505,8 +505,9 @@ def decide(
             at=now,
         )
     )
+    fresh = None
     if report.target_kind == "media":
-        media.settle_report(
+        fresh = media.settle_report(
             session,
             store,
             admin,
@@ -517,4 +518,5 @@ def decide(
             now=now,
             correlation_id=correlation_id,
         )
-    session.commit()
+    # A restore copied to a fresh key; a failed commit must not orphan it.
+    media.commit_releasing(session, fresh, now)

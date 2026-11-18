@@ -13,7 +13,9 @@ back to review by an alt-text edit, or a held photo an administrator
 clears. Whether the archive exists is the row's ``archived_at``, recorded
 at the first approval rather than probed in the bucket [H3 deviation 3].
 A copy that fails changes nothing, and the key it was copying to is
-enqueued for deletion, so a partial public copy cannot linger.
+enqueued for deletion, so a partial public copy cannot linger; so is the
+key of a copy that succeeded when the commit recording it then fails
+(:func:`commit_releasing`).
 
 **Nothing is approved while its upload can still change** [I1]. A
 presigned POST is not single-use: until it expires the owner can post
@@ -62,6 +64,7 @@ from dataclasses import dataclass
 from typing import Final
 
 import sqlalchemy as sa
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import PlatformAdminLens
@@ -97,6 +100,7 @@ __all__ = [
     "MediaDetail",
     "MediaPreview",
     "WaitingMedia",
+    "commit_releasing",
     "decide",
     "describe",
     "detail",
@@ -386,14 +390,17 @@ def _free_position(session: Session, media: ListingMedia) -> int:
 
 def _publish(
     session: Session, store: MediaStore, media: ListingMedia, now: dt.datetime
-) -> None:
+) -> str:
     """Copy a photo's variants out under a fresh key and mark it approved.
+
+    The caller commits through :func:`commit_releasing` with the key, so a
+    commit that fails after the copy leaves no public copy behind.
 
     :param session: The session, the owner and the photo locked
     :param store: The bucket
     :param media: The photo, waiting or held
     :param now: The moment of approval
-    :return: None
+    :return: The fresh key, whose ``public/{key}/`` now holds the variants
     :raises TransientError: A copy failed; the transaction is rolled back,
         and the fresh key's prefix enqueued for deletion and committed
     """
@@ -417,6 +424,32 @@ def _publish(
     media.public_key = key
     if not archived:
         media.archived_at = now
+    return key
+
+
+def commit_releasing(session: Session, key: str | None, now: dt.datetime) -> None:
+    """Commit; if that fails after a copy, enqueue the copy's deletion.
+
+    A key :func:`_publish` copied to is recorded only in the transaction
+    being committed. If that commit fails, no later withdrawal or account
+    deletion would ever find ``public/{key}/``, so it is enqueued for
+    deletion in a transaction of its own, as a failed copy's key is, and
+    the commit's error is raised.
+
+    :param session: The session, holding a decision
+    :param key: The key copied to in this transaction, or None
+    :param now: The moment of the decision
+    :return: None
+    :raises SQLAlchemyError: The commit failed; the decision is rolled back
+    """
+    try:
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+        if key is not None:
+            objects.enqueue(session, [public_prefix(key)], now)
+            session.commit()
+        raise
 
 
 def _remove(
@@ -527,9 +560,10 @@ def decide(
             session.rollback()
             raise _report_open()
         event = "media_restored" if media.status == "held" else "media_approved"
-        _publish(session, store, media, now)
+        key = _publish(session, store, media, now)
     else:
         event = "media_rejected"
+        key = None
         _remove(session, media, code, now)
     media.decided_at = now
     session.add(
@@ -542,7 +576,7 @@ def decide(
             now=now,
         )
     )
-    session.commit()
+    commit_releasing(session, key, now)
     return media
 
 
@@ -557,7 +591,7 @@ def settle_report(
     report_id: uuid.UUID,
     now: dt.datetime,
     correlation_id: str = "internal",
-) -> None:
+) -> str | None:
     """Carry an administrator's decision on a photo report to the photo.
 
     In the decision's transaction, committing nothing on success. Upheld: a
@@ -575,7 +609,8 @@ def settle_report(
     :param report_id: The report being decided, already marked
     :param now: The moment of the decision
     :param correlation_id: The request that caused it
-    :return: None
+    :return: The fresh key a restore copied to, for the caller to commit
+        through :func:`commit_releasing`; None when nothing was copied
     :raises ValueError: A restore is due and no bucket was given
     :raises TransientError: The restore's copy failed; the whole decision
         was rolled back, and the fresh key's prefix enqueued and committed
@@ -584,14 +619,15 @@ def settle_report(
         sa.select(ListingMedia.owner_id).where(ListingMedia.id == media_id)
     )
     if owner_id is None:
-        return
+        return None
     live = lock_owner(session, owner_id)
     media = _locked(session, media_id)
     if media is None:
-        return
+        return None
+    key = None
     if upheld:
         if media.status not in _REMOVABLE:
-            return
+            return None
         code = REPORT_REJECTION_CODES.get(reason, "other")
         _remove(session, media, code, now)
         event = "media_rejected"
@@ -603,11 +639,11 @@ def settle_report(
             or media.status != "held"
             or _still_held(session, media_id, report_id)
         ):
-            return
+            return None
         if store is None:
             raise ValueError("restoring a held photo needs the bucket")
         code = None
-        _publish(session, store, media, now)
+        key = _publish(session, store, media, now)
         event = "media_restored"
     media.decided_at = now
     session.add(
@@ -620,6 +656,7 @@ def settle_report(
             now=now,
         )
     )
+    return key
 
 
 def _still_held(
