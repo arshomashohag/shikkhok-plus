@@ -23,6 +23,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.auth import mfa_crypto, passwords
 from app.auth.hashing import OTP_HMAC_KEY_ENV
 from app.auth.tokens import JWT_ACTIVE_KID_ENV, JWT_KEYS_ENV, issue_pair
 from app.db.roles import APP_ROLE
@@ -31,6 +32,55 @@ from app.db.roles import APP_ROLE
 #: container. A test-only value for a container that is destroyed with the
 #: session; it is not a deployment credential.
 RESTRICTED_PASSWORD = "test-only-restricted"  # noqa: S105
+
+#: The scrypt costs production uses, read before anything lowers them, so
+#: :func:`production_scrypt` can put them back.
+_PRODUCTION_SCRYPT: dict[tuple[object, str], int] = {
+    (passwords, "_N"): passwords._N,
+    (passwords, "_R"): passwords._R,
+    (passwords, "_P"): passwords._P,
+    (mfa_crypto, "_SCRYPT_N"): mfa_crypto._SCRYPT_N,
+    (mfa_crypto, "_SCRYPT_R"): mfa_crypto._SCRYPT_R,
+    (mfa_crypto, "_SCRYPT_P"): mfa_crypto._SCRYPT_P,
+}
+
+#: The costs every other test hashes at. N=16 rather than 1024, because
+#: ``scrypt$1024$8$1`` is the "old parameters" example the rehash test
+#: needs to stay old.
+_TEST_SCRYPT: dict[tuple[object, str], int] = {
+    (passwords, "_N"): 2**4,
+    (passwords, "_P"): 1,
+    (mfa_crypto, "_SCRYPT_N"): 2**4,
+}
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _test_cost_scrypt() -> Iterator[None]:
+    """Hash passwords and recovery codes at a test-only cost.
+
+    Production scrypt is ~160 ms a password hash, and every sign-up,
+    sign-in and wrong-password test pays it, often more than once: about
+    a quarter of the account and auth suites' time. What those tests
+    assert is the flow, not the cost. The cost itself is covered by the
+    tests that take :func:`production_scrypt`.
+
+    :return: A context manager that restores the module values after
+    """
+    with pytest.MonkeyPatch.context() as patch:
+        for (module, name), value in _TEST_SCRYPT.items():
+            patch.setattr(module, name, value)
+        yield
+
+
+@pytest.fixture
+def production_scrypt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Put production's scrypt costs back for one test.
+
+    :param monkeypatch: The patcher, which undoes this after the test
+    :return: None
+    """
+    for (module, name), value in _PRODUCTION_SCRYPT.items():
+        monkeypatch.setattr(module, name, value)
 
 
 def _require_docker() -> None:
@@ -76,6 +126,11 @@ def postgres_url() -> Iterator[str]:
     A real PostgreSQL rather than SQLite, because row-level security,
     ``NUMERIC(12,2)``, ``ON CONFLICT DO NOTHING`` and partial indexes are
     the behaviours under test and SQLite emulates none of them faithfully.
+
+    **One container per pytest-xdist worker**, because a session fixture
+    runs once per worker process. That is deliberate: migrations create
+    cluster-wide roles and the migration tests alter them, so two workers
+    sharing a cluster could see each other's role changes mid-test.
 
     :return: A context manager yielding the owner connection URL
     """
@@ -192,7 +247,7 @@ def owner_session(owner_engine: Engine) -> Iterator[Session]:
 
 @pytest.fixture(autouse=True)
 def _clean_tables(request: pytest.FixtureRequest) -> Iterator[None]:
-    """Truncate the owned tables between integration tests.
+    """Empty the owned tables between integration tests.
 
     Only for tests that actually took a database fixture, so the pure unit
     suites pay nothing for it.
@@ -210,12 +265,15 @@ def _clean_tables(request: pytest.FixtureRequest) -> Iterator[None]:
         yield
         return
 
+    # Requested before the test runs: pytest deprecates asking for a
+    # fixture during teardown.
+    engine = request.getfixturevalue("owner_engine")
+
     yield
 
-    engine = request.getfixturevalue("owner_engine")
     with engine.begin() as connection:
         # The table list is DERIVED from the schema, not maintained by
-        # hand. A hand-kept list silently stops truncating a table a
+        # hand. A hand-kept list silently stops emptying a table a
         # later migration adds, and the leak shows up as a test that
         # passes alone and fails in sequence -- which is how
         # staging_sms_outbox was found leaking between tests.
@@ -224,7 +282,7 @@ def _clean_tables(request: pytest.FixtureRequest) -> Iterator[None]:
         # schema has is one a test can write.
         #
         # ``bd_area`` is the exception: a fixed vocabulary seeded by its
-        # migration that no test writes, so truncating it would leave
+        # migration that no test writes, so emptying it would leave
         # every later test an empty list.
         tables = [
             row[0]
@@ -236,10 +294,43 @@ def _clean_tables(request: pytest.FixtureRequest) -> Iterator[None]:
                 )
             )
         ]
-        if tables:
-            connection.execute(
-                sa.text(f"TRUNCATE {', '.join(tables)} RESTART IDENTITY CASCADE")
-            )
+        if not tables:
+            return
+        # **DELETE, not TRUNCATE, because this runs after ~3,000 tests.**
+        # TRUNCATE swaps every table's storage file and was ~110 ms a test
+        # on 51 near-empty tables, about a third of the whole suite's time.
+        # DELETE on tables holding a handful of rows costs ~3 ms.
+        #
+        # `replica` turns off the foreign-key and ordinary triggers for
+        # this transaction only, so the tables can be emptied in any order
+        # and the append-only guards do not refuse the clean-up. It needs
+        # a superuser, which the owner engine is (the container's own
+        # user). Nothing is asserted here, so the restricted-role rule for
+        # the privacy suite is untouched.
+        connection.execute(sa.text("SET LOCAL session_replication_role = replica"))
+        # S608: every name is one pg_tables just returned, quoted as an
+        # identifier; none comes from a test or a request.
+        quote = connection.dialect.identifier_preparer.quote
+        connection.execute(
+            sa.text("; ".join(f"DELETE FROM {quote(t)}" for t in tables))  # noqa: S608
+        )
+        # What RESTART IDENTITY did: put each sequence those tables own
+        # back at its start, so an id a test reads does not depend on what
+        # ran before it. Only sequences that have been used need it.
+        connection.execute(
+            sa.text(
+                "SELECT setval(s.oid::regclass, ps.start_value, false) "
+                "FROM pg_class s "
+                "JOIN pg_depend d ON d.objid = s.oid AND d.deptype IN ('a', 'i') "
+                "JOIN pg_class t ON t.oid = d.refobjid "
+                "JOIN pg_namespace n ON n.oid = t.relnamespace "
+                "JOIN pg_sequences ps "
+                "  ON ps.schemaname = n.nspname AND ps.sequencename = s.relname "
+                "WHERE s.relkind = 'S' AND n.nspname = 'public' "
+                "AND t.relname = ANY(:tables) AND ps.last_value IS NOT NULL"
+            ),
+            {"tables": tables},
+        )
 
 
 @pytest.fixture

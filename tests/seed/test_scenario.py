@@ -54,7 +54,7 @@ def _rows(engine: Engine, sql: str, **params: object) -> list[tuple[object, ...]
     """Run a query as the restricted role, closing the connection after.
 
     Closing matters: a connection left idle in its transaction holds a
-    lock the suite's TRUNCATE between tests then waits on forever.
+    lock the suite's clean-up between tests then waits on forever.
 
     :param engine: The restricted engine
     :param sql: The statement

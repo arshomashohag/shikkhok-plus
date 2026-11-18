@@ -20,6 +20,7 @@ import uuid
 
 import pytest
 import sqlalchemy as sa
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
 from app.accounts.service import _EMAIL_LOOKUP_QUERY
@@ -46,6 +47,38 @@ def _plan(session: Session, statement: sa.TextClause) -> str:
     plan = "\n".join(rows)
     session.rollback()
     return plan
+
+
+@pytest.fixture
+def _fresh_storage(owner_engine: Engine) -> None:
+    """Give the planned tables what a freshly migrated database has.
+
+    The planner picks between index scans from page counts and column
+    statistics, and earlier tests on the same worker leave both behind:
+    the suite empties tables with DELETE, which keeps their pages, and
+    autovacuum may have analyzed a table while a test's rows were in it,
+    which TRUNCATE never clears. On either, two index scans can tie the
+    other way and the plan names a different index. So this resets the
+    storage and drops the statistics, and the plan depends only on the
+    schema. The tables are already empty here; the owner is a superuser,
+    which writing pg_statistic needs.
+
+    :param owner_engine: The table owner
+    :return: None
+    """
+    with owner_engine.begin() as connection:
+        connection.execute(
+            sa.text(
+                "TRUNCATE enrollment, owner_member, student RESTART IDENTITY CASCADE"
+            )
+        )
+        connection.execute(
+            sa.text(
+                "DELETE FROM pg_statistic WHERE starelid = ANY(ARRAY["
+                "'enrollment'::regclass, 'owner_member'::regclass, "
+                "'student'::regclass])"
+            )
+        )
 
 
 @pytest.mark.parametrize(
@@ -83,6 +116,7 @@ def _plan(session: Session, statement: sa.TextClause) -> str:
     ],
 )
 def test_each_email_statement_can_use_its_partial_index(
+    _fresh_storage: None,
     restricted_session: Session,
     name: str,
     statement: sa.TextClause,
@@ -90,6 +124,7 @@ def test_each_email_statement_can_use_its_partial_index(
 ) -> None:
     """The plan names the intended index [NFR8.3, NFR8.8].
 
+    :param _fresh_storage: Resets the planned tables to a fresh state first
     :param restricted_session: The application's role
     :param name: Which statement, for the report
     :param statement: The statement

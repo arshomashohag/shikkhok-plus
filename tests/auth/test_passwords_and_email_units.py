@@ -66,6 +66,17 @@ def test_a_hash_with_old_parameters_is_marked_for_rehash() -> None:
     assert passwords.needs_rehash("scrypt$1024$8$1$AAAA$BBBB")
 
 
+def test_the_production_cost_hashes_and_verifies(production_scrypt: None) -> None:
+    # Every other test hashes at a test-only cost (tests/conftest.py), so
+    # this is the one that runs production's: its parameters, and the
+    # memory limit `_derive` computes for them, must work together.
+    stored = passwords.hash_password("correct horse battery")
+    assert stored.startswith("scrypt$16384$8$5$")
+    assert passwords.verify_password("correct horse battery", stored)
+    assert not passwords.verify_password("correct horse batterY", stored)
+    assert not passwords.needs_rehash(stored)
+
+
 @pytest.mark.parametrize(
     ("password", "key"),
     [
