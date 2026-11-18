@@ -96,6 +96,37 @@ def test_an_upload_gets_one_attempt_and_events_expire() -> None:
     )
 
 
+def test_the_upload_window_outlasts_every_write_the_sanitiser_can_make() -> None:
+    # [I1] Moderation refuses an approval until `created_at + UPLOAD_WINDOW`
+    # because the presigned POST is reusable until it expires and the
+    # sanitiser re-stages whatever lands. That gate closes the window only
+    # if the last possible re-stage finishes before it: a post at the
+    # signature's last second, queued for the longest event age Lambda
+    # keeps, then run for the whole timeout. Read from the Terraform the
+    # function is created from, so raising either setting fails here.
+    import datetime as dt
+
+    from app.hub.media.objects import UPLOAD_WINDOW
+    from app.hub.media.storage import UPLOAD_TTL
+    from app.moderation import media
+
+    config = _block(
+        _lambda_tf(),
+        r'resource\s+"aws_lambda_function_event_invoke_config"\s+"sanitiser"',
+    )
+    age = re.search(r"maximum_event_age_in_seconds\s*=\s*(\d+)\n", config)
+    timeout = re.search(r"\btimeout\s*=\s*(\d+)\n", _function())
+    assert age is not None
+    assert timeout is not None
+
+    last_write = UPLOAD_TTL + dt.timedelta(
+        seconds=int(age.group(1)) + int(timeout.group(1))
+    )
+    assert last_write <= UPLOAD_WINDOW
+    # And the gate is the same window, not a copy of its number.
+    assert media.UPLOAD_WINDOW is UPLOAD_WINDOW
+
+
 def test_terraform_creates_the_placeholder_and_never_touches_code_again() -> None:
     function = _function()
 

@@ -373,7 +373,7 @@ def _waiting_media(session: Session, moment: dt.datetime) -> list[QueueItem]:
             reporter_ref=None,
             waited_hours=_hours(w.since, moment),
         )
-        for w in media.waiting(session)
+        for w in media.waiting(session, moment)
     ]
 
 

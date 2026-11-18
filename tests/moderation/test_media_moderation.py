@@ -33,6 +33,7 @@ from app.errors import (
     ValidationError,
 )
 from app.hub.media import library
+from app.hub.media.objects import UPLOAD_WINDOW
 from app.hub.public.db import as_hub_reader
 from app.moderation import media, reports
 from tests.batches.conftest import make_teacher
@@ -62,6 +63,9 @@ OK: Final[dict[str, object]] = {
 
 LATER: Final[dt.datetime] = NOW + dt.timedelta(hours=2)
 
+#: When an arranged upload was signed: its upload window long closed by NOW.
+SIGNED: Final[dt.datetime] = NOW - dt.timedelta(hours=1)
+
 
 @pytest.fixture
 def tutor(owner_session: Session) -> Owner:
@@ -84,6 +88,7 @@ def _pending(
     owner_id: uuid.UUID,
     *,
     batch_id: uuid.UUID | None = None,
+    created_at: dt.datetime = SIGNED,
 ) -> uuid.UUID:
     """Arrange a photo the sanitiser read, waiting for review.
 
@@ -91,9 +96,11 @@ def _pending(
     :param store: The fake bucket, given its staged variants
     :param owner_id: The owner
     :param batch_id: The batch, or None for the owner's gallery
+    :param created_at: When its upload was signed; by default an hour
+        before NOW, so its upload window has closed
     :return: The media id
     """
-    media_id = media_row(session, owner_id, batch_id=batch_id)
+    media_id = media_row(session, owner_id, batch_id=batch_id, created_at=created_at)
     session.execute(
         sa.text(
             "UPDATE listing_media SET width = 1600, height = 1200, widths = :ws "
@@ -1224,3 +1231,131 @@ def test_the_report_decision_route_removes_an_upheld_photo(
 
     assert dismissed.status_code == 200, dismissed.text
     assert _row(owner_session, held).status == "approved"
+
+
+# ---------------------------------------------------------------------------
+# [I1] Nothing is approved while its upload can still change.
+# ---------------------------------------------------------------------------
+
+
+def _due(session: Session) -> set[tuple[str, dt.datetime]]:
+    """Read every object-outbox row with the moment it falls due.
+
+    :param session: The arranging session
+    :return: ``{(prefix, requested_at)}``
+    """
+    session.rollback()
+    return {
+        (r.prefix, r.requested_at)
+        for r in session.execute(
+            sa.text("SELECT prefix, requested_at FROM media_object_task")
+        )
+    }
+
+
+def test_approval_waits_until_the_upload_window_closes(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+) -> None:
+    """Not queued and not approvable until ``created_at + UPLOAD_WINDOW``.
+
+    The presigned POST can be posted to again until it expires, and the
+    sanitiser re-stages whatever lands, so before the window closes the
+    variants an administrator previewed need not be the ones an approval
+    would copy.
+    """
+    media_id = _pending(owner_session, store, tutor.lens.owner_id, created_at=NOW)
+    inside = NOW + UPLOAD_WINDOW - dt.timedelta(seconds=1)
+
+    assert reports.queue(restricted_session, "media", inside) == []
+    with pytest.raises(ConflictError) as caught:
+        media.decide(
+            restricted_session,
+            store,
+            admin,
+            media_id,
+            approve=True,
+            code=None,
+            now=inside,
+        )
+    assert caught.value.code == "MEDIA_UPLOAD_WINDOW_OPEN"
+    assert caught.value.message_key == "hub.media.not_uploaded"
+    row = _row(owner_session, media_id)
+    assert (row.status, row.public_key, row.archived_at) == (
+        "pending_review",
+        None,
+        None,
+    )
+    assert not any(k.startswith(("public/", "archive/")) for k in store.objects)
+    assert tasks(owner_session) == []
+    assert _events(owner_session) == []
+
+    closed = NOW + UPLOAD_WINDOW
+    (item,) = reports.queue(restricted_session, "media", closed)
+    assert item.target_id == media_id
+    key = _approve(restricted_session, store, admin, media_id, closed)
+    assert _row(owner_session, media_id).public_key == key
+
+
+def test_the_admin_route_refuses_an_approval_inside_the_window(
+    api_client: TestClient,
+    owner_session: Session,
+    served: FakeMediaStore,
+    people: People,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Through the route, on the real clock: 409, and the queue omits it."""
+    media_id = _pending(
+        owner_session,
+        served,
+        people.teacher.owner_id,
+        created_at=dt.datetime.now(tz=dt.UTC),
+    )
+    headers = _admin(owner_session, people, monkeypatch)
+
+    refused = api_client.post(
+        f"/v1/admin/hub/media/{media_id}/decision",
+        json={"decision": "approve"},
+        headers=headers,
+    )
+    queue = api_client.get("/v1/admin/hub/queue?kind=media", headers=headers)
+
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["error"]["code"] == "MEDIA_UPLOAD_WINDOW_OPEN"
+    assert queue.json() == {"kind": "media", "items": []}
+    assert _row(owner_session, media_id).status == "pending_review"
+
+
+def test_a_rejection_inside_the_window_deletes_what_lands_later(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+) -> None:
+    """Removal is never refused; a file posted after it is deleted too."""
+    media_id = _pending(owner_session, store, tutor.lens.owner_id, created_at=NOW)
+    at = NOW + dt.timedelta(minutes=5)
+
+    media.decide(
+        restricted_session,
+        store,
+        admin,
+        media_id,
+        approve=False,
+        code="other",
+        now=at,
+    )
+
+    assert _row(owner_session, media_id).status == "rejected"
+    closes = NOW + UPLOAD_WINDOW
+    assert _due(owner_session) == {
+        (f"quarantine/{media_id}", at),
+        (f"staged/{media_id}/", at),
+        (f"archive/{media_id}/", at),
+        (f"quarantine/{media_id}", closes),
+        (f"staged/{media_id}/", closes),
+    }

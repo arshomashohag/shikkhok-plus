@@ -165,9 +165,12 @@ def _pending(
     :param session: The arranging session
     :param store: The fake bucket, given its staged variants
     :param owner_id: The owner
-    :param row: Passed to :func:`media_row`
+    :param row: Passed to :func:`media_row`; ``created_at`` defaults to an
+        hour before NOW, so the upload window has closed and it can be
+        approved [I1]
     :return: The media id
     """
+    row.setdefault("created_at", NOW - dt.timedelta(hours=1))
     media_id = media_row(session, owner_id, **row)  # type: ignore[arg-type]
     session.execute(
         sa.text(

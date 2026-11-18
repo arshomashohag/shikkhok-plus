@@ -15,6 +15,17 @@ at the first approval rather than probed in the bucket [H3 deviation 3].
 A copy that fails changes nothing, and the key it was copying to is
 enqueued for deletion, so a partial public copy cannot linger.
 
+**Nothing is approved while its upload can still change** [I1]. A
+presigned POST is not single-use: until it expires the owner can post
+another file with the same form, and the sanitiser re-stages whatever
+lands. So until ``created_at + UPLOAD_WINDOW`` -- the ten-minute signature,
+at most five minutes in the sanitiser's event queue, its thirty seconds and
+a margin, all pinned by ``tests/gates/test_image_sanitiser.py`` -- a photo
+is left out of the queue and an approval is refused. After it, nothing can
+write ``staged/{id}/`` again, so what the administrator previewed is what
+the approval copies. A rejection is never refused; inside the window it
+also deletes, once the window closes, whatever lands after it.
+
 **Rejection deletes everything the photo has**: the quarantined original
 (which may not have expired yet), the staged variants and the archive. A
 rejected photo never has a public copy: it was waiting or held, and a hold
@@ -63,6 +74,7 @@ from app.db.models import (
 )
 from app.errors import ConflictError, TransientError, ValidationError
 from app.hub.media import library, objects
+from app.hub.media.objects import UPLOAD_WINDOW
 from app.hub.media.quota import lock_owner
 from app.hub.media.storage import (
     MediaStore,
@@ -90,6 +102,7 @@ __all__ = [
     "hold",
     "is_public",
     "settle_report",
+    "settled",
     "waiting",
 ]
 
@@ -312,6 +325,26 @@ def _already_decided() -> ConflictError:
     )
 
 
+def _window_open() -> ConflictError:
+    """Build the refusal for approving a photo whose upload may still change.
+
+    :return: The error
+    """
+    return ConflictError(
+        code="MEDIA_UPLOAD_WINDOW_OPEN", message_key="hub.media.not_uploaded"
+    )
+
+
+def settled(media: ListingMedia, now: dt.datetime) -> bool:
+    """Say whether nothing can write a photo's staged variants any more.
+
+    :param media: The photo
+    :param now: The present moment
+    :return: True once its upload window has closed [I1]
+    """
+    return now >= media.created_at + UPLOAD_WINDOW
+
+
 def _free_position(session: Session, media: ListingMedia) -> int:
     """Pick the photo's slot among its gallery's approved photos.
 
@@ -403,6 +436,8 @@ def _remove(
         [quarantine_key(media.id), staged_prefix(media.id), archive_prefix(media.id)],
         now,
     )
+    # Inside the upload window a file can still land after the first drain.
+    objects.enqueue_upload_window(session, media.id, media.created_at, now)
 
 
 def decide(
@@ -436,7 +471,9 @@ def decide(
     :raises AuthorizationError: No such photo, or nothing to review: an
         upload still in flight, or a withdrawn photo; or an approval for a
         solo owner whose account has been deleted [R13]
-    :raises ConflictError: The photo is already approved or rejected
+    :raises ConflictError: The photo is already approved or rejected; or an
+        approval while its upload window is still open
+        (``MEDIA_UPLOAD_WINDOW_OPEN``) [I1]
     :raises TransientError: The bucket could not copy the variants; nothing
         changed
     """
@@ -462,6 +499,9 @@ def decide(
         raise admin_not_found()
 
     if approve:
+        if not settled(media, now):
+            session.rollback()
+            raise _window_open()
         event = "media_restored" if media.status == "held" else "media_approved"
         _publish(session, store, media, now)
     else:
@@ -660,16 +700,23 @@ def describe(
     }
 
 
-def waiting(session: Session) -> list[WaitingMedia]:
+def waiting(session: Session, now: dt.datetime) -> list[WaitingMedia]:
     """List the photos an administrator should decide, oldest upload first.
 
+    A photo whose upload window is still open is left out until it closes
+    [I1]: it cannot be approved yet, and its preview may still change.
+
     :param session: The session
+    :param now: The present moment
     :return: Photos waiting for review or held after a report
     """
     rows = list(
         session.scalars(
             sa.select(ListingMedia)
-            .where(ListingMedia.status.in_(DECIDABLE))
+            .where(
+                ListingMedia.status.in_(DECIDABLE),
+                ListingMedia.created_at <= now - UPLOAD_WINDOW,
+            )
             .order_by(ListingMedia.created_at, ListingMedia.id)
         )
     )
