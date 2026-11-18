@@ -3634,6 +3634,12 @@ HUB_MODERATION_EVENT_VALUES: tuple[str, ...] = (
     "report_dismissed",
     "listing_suspended",
     "listing_unsuspended",
+    # [0044] What moderation did to a photo: an administrator's approval,
+    # rejection or restore after a hold, and a report's hold.
+    "media_approved",
+    "media_rejected",
+    "media_held",
+    "media_restored",
 )
 
 _HUB_LISTING_STATUS = PgEnum(
@@ -4208,6 +4214,8 @@ class ListingMedia(Base):
     :ivar rejection_code: Why moderation rejected it, if it did
     :ivar created_at: When the upload was started
     :ivar decided_at: When moderation last decided it
+    :ivar archived_at: When the first approval copied the variants to
+        ``archive/{id}/``; set once, so a later approval copies from there
     """
 
     __tablename__ = "listing_media"
@@ -4242,6 +4250,9 @@ class ListingMedia(Base):
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
     decided_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    archived_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 

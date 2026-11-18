@@ -1,8 +1,14 @@
-"""Reader reports about hub listings, and the administrator's decision on them.
+"""Reader reports about hub listings and photos, and the administrator's decision.
 
 **Filing a report never changes a listing.** A report is a complaint, so a
 stranger cannot take a teacher's page down by filing one; only an
 administrator's suspension (see :mod:`app.moderation.suspension`) does.
+
+**A photo is the one exception, and only for two reasons.** A
+``child_safety`` or ``personal_info`` report on a photo holds it at once, in
+the report's own transaction (:func:`app.moderation.media.hold`): a photo of
+a child that should not be public comes down before anyone reviews it, and
+an administrator restores it if the report was wrong [H3 deviation 2].
 
 **Every unreportable target answers identically.** A draft, hidden, suspended
 or missing listing, and a target kind R1 has not built, all raise the same
@@ -30,10 +36,12 @@ from app.db.models import (
     HubReport,
     OwnerListing,
 )
-from app.errors import AuthorizationError, ConflictError, ValidationError
+from app.errors import ConflictError, ValidationError
 from app.help.identity import requester_ref
 from app.hub.listings.shared import refuse_phone_in
-from app.moderation.vocab import REASONS
+from app.moderation import media
+from app.moderation.refusals import admin_not_found, not_found
+from app.moderation.vocab import HOLD_REASONS, REASONS
 
 __all__ = [
     "BATCH_FIELDS",
@@ -90,22 +98,24 @@ _AREA_NAMES: Final = sa.text(
 class QueueItem:
     """One row of the administrator's queue.
 
-    :ivar kind: ``report`` or ``listing``
+    :ivar kind: ``report``, ``listing`` or ``media``
     :ivar report_id: The report, for a report row
     :ivar target_kind: What was reported or suspended
     :ivar target_id: The target's id
     :ivar owner_id: The owner a listing belongs to, when known
     :ivar title: The target's public name: an owner's ``public_name`` or a
-        batch's ``public_title``
+        batch's ``public_title``; for a photo, its page's
     :ivar fields: Everything the owner submitted for display on the target,
         as ``(key, value)`` pairs
-    :ivar reason: The report reason, or the suspension reason code
+    :ivar reason: The report reason, the suspension reason code, or the
+        reason a held photo was held
     :ivar note: The reporter's note, for a report row
     :ivar reporter_ref: The opaque reporter label, for a report row
-    :ivar waited_hours: Whole hours since the report or the suspension
+    :ivar waited_hours: Whole hours since the report, the suspension, the
+        hold or the upload
     """
 
-    kind: Literal["report", "listing"]
+    kind: Literal["report", "listing", "media"]
     report_id: uuid.UUID | None
     target_kind: str
     target_id: uuid.UUID
@@ -118,42 +128,22 @@ class QueueItem:
     waited_hours: int
 
 
-def not_found() -> AuthorizationError:
-    """Build the one refusal every unreportable target shares.
-
-    :return: A 404-equivalent authorization error
-    """
-    return AuthorizationError(
-        code="REPORT_TARGET_NOT_FOUND",
-        message_key="hub.report_target_not_found",
-        status=404,
-    )
-
-
-def admin_not_found() -> AuthorizationError:
-    """Build the refusal an administrator gets for nothing to act on.
-
-    :return: A 404-equivalent authorization error
-    """
-    return AuthorizationError(
-        code="HUB_ADMIN_TARGET_NOT_FOUND",
-        message_key="hub.admin_target_not_found",
-        status=404,
-    )
-
-
 def _reportable(session: Session, target_kind: str, target_id: uuid.UUID) -> bool:
-    """Say whether a target is a published listing of the kind named.
+    """Say whether a target is public: a published listing, or a shown photo.
 
     The kind decides the one table looked in: an owner listing by owner id,
-    a batch listing by batch id. A batch listing counts only while its owner
-    listing is published too.
+    a batch listing by batch id, a photo by media id. A batch listing counts
+    only while its owner listing is published too; a photo only where the
+    public view shows it -- approved, on a published page.
 
     :param session: The session
     :param target_kind: The reported kind
     :param target_id: The reported id
-    :return: True only for a published owner or batch listing
+    :return: True only for a published owner or batch listing, or a photo
+        on a public page
     """
+    if target_kind == "media":
+        return media.is_public(session, target_id)
     if target_kind == "owner_listing":
         status = session.scalar(
             sa.select(OwnerListing.status).where(OwnerListing.owner_id == target_id)
@@ -186,6 +176,9 @@ def file(
 ) -> None:
     """File one report and log the event; change no listing.
 
+    A ``child_safety`` or ``personal_info`` report on a photo also holds the
+    photo, in this same transaction.
+
     :param session: The session
     :param account_id: The reporter
     :param target_kind: ``owner_listing``, ``batch_listing``, ``media``,
@@ -199,7 +192,8 @@ def file(
     :raises ValidationError: The reason is unknown or the note carries a phone
         number
     :raises CeilingBreach: The account has filed ten reports today
-    :raises AuthorizationError: The target is not a published listing
+    :raises AuthorizationError: The target is not a published listing or a
+        photo on a public page
     :raises ConflictError: This account already reported this target
     """
     if reason not in REASONS:
@@ -240,6 +234,10 @@ def file(
             at=now,
         )
     )
+    if target_kind == "media" and reason in HOLD_REASONS:
+        media.hold(
+            session, target_id, reason=reason, now=now, correlation_id=correlation_id
+        )
     session.commit()
 
 
@@ -348,18 +346,46 @@ def _targets(
             batch.public_title,
             _batch_fields(batch),
         )
+    for media_id, described in media.describe(session, wanted.get("media", [])).items():
+        found["media", media_id] = described
     return found
+
+
+def _waiting_media(session: Session, moment: dt.datetime) -> list[QueueItem]:
+    """List the photos waiting for a decision as queue rows.
+
+    :param session: The session
+    :param moment: The moment waits are measured to
+    :return: Photos waiting for review or held, oldest upload first
+    """
+    return [
+        QueueItem(
+            kind="media",
+            report_id=None,
+            target_kind="media",
+            target_id=w.media_id,
+            owner_id=w.owner_id,
+            title=w.title,
+            fields=w.fields,
+            reason=w.held_reason,
+            note=None,
+            reporter_ref=None,
+            waited_hours=_hours(w.since, moment),
+        )
+        for w in media.waiting(session)
+    ]
 
 
 def queue(
     session: Session,
-    kind: Literal["report", "listing"],
+    kind: Literal["report", "listing", "media"],
     now: dt.datetime | None = None,
 ) -> list[QueueItem]:
     """List what an administrator should look at, oldest first.
 
-    ``report`` lists open reports; ``listing`` lists suspended owner listings.
-    Neither carries a reporter's phone, name or account id.
+    ``report`` lists open reports; ``listing`` lists suspended owner
+    listings; ``media`` lists photos waiting for review or held after a
+    report. None carries a reporter's phone, name or account id.
 
     :param session: The session
     :param kind: Which queue
@@ -367,6 +393,8 @@ def queue(
     :return: The items, oldest first
     """
     moment = now or dt.datetime.now(tz=dt.UTC)
+    if kind == "media":
+        return _waiting_media(session, moment)
     if kind == "listing":
         suspended = list(
             session.scalars(

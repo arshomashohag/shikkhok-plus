@@ -1,0 +1,615 @@
+"""Photo moderation: an administrator's decision, and a report's hold.
+
+**Every photo is seen before it is public** [hub spec D7]. An upload waits
+in ``pending_review`` with its sanitised variants at ``staged/{id}/`` until
+an administrator decides it (:func:`decide`), previewing it through
+five-minute signed URLs (:func:`detail`) that name no account.
+
+**Approval publishes and archives.** It mints a fresh 128-bit key, copies
+the variants to ``public/{key}/`` -- the only prefix CloudFront serves --
+and, the first time, to ``archive/{id}/``. ``staged/`` expires after thirty
+days, so the archive is what any later approval copies from: a photo sent
+back to review by an alt-text edit, or a held photo an administrator
+clears. Whether the archive exists is the row's ``archived_at``, recorded
+at the first approval rather than probed in the bucket [H3 deviation 3].
+A copy that fails changes nothing, and the key it was copying to is
+enqueued for deletion, so a partial public copy cannot linger.
+
+**Rejection deletes everything the photo has**: the quarantined original
+(which may not have expired yet), the staged variants and the archive. A
+rejected photo never has a public copy: it was waiting or held, and a hold
+already enqueued the public objects' deletion and the edge invalidation.
+
+**A child-safety or personal-information report holds a photo at once**
+[H3 deviation 2, Review Focus 3]. :func:`hold` runs in the report's own
+transaction: the photo goes to ``held``, its key is cleared, ``public/{key}/``
+is enqueued for deletion and ``/m/{key}/*`` and its page for invalidation,
+all through :func:`app.hub.media.library.unpublish`. A report that rolls
+back leaves the photo approved.
+
+**Every act is a closed-vocabulary moderation event** with
+``target_kind = 'media'``: ``media_approved``, ``media_rejected`` (its code),
+``media_held`` (the report's reason, no actor) and ``media_restored``.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import secrets
+import uuid
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Final
+
+import sqlalchemy as sa
+from sqlalchemy.orm import Session
+
+from app.authz.lenses import PlatformAdminLens
+from app.db.models import (
+    Batch,
+    BatchListing,
+    HubModerationEvent,
+    HubReport,
+    ListingMedia,
+    OwnerListing,
+)
+from app.errors import ConflictError, TransientError, ValidationError
+from app.hub.media import library, objects
+from app.hub.media.quota import lock_owner
+from app.hub.media.storage import (
+    MediaStore,
+    archive_prefix,
+    public_prefix,
+    quarantine_key,
+    staged_prefix,
+)
+from app.moderation.refusals import admin_not_found
+from app.moderation.vocab import MEDIA_REJECTION_CODES
+
+__all__ = [
+    "DECIDABLE",
+    "MEDIA_FIELDS",
+    "MediaDetail",
+    "MediaPreview",
+    "WaitingMedia",
+    "decide",
+    "describe",
+    "detail",
+    "hold",
+    "is_public",
+    "waiting",
+]
+
+#: The statuses an administrator decides: waiting for review, or held.
+DECIDABLE: Final[tuple[str, ...]] = ("pending_review", "held")
+
+#: The statuses whose variants exist to preview.
+_PREVIEWABLE: Final[tuple[str, ...]] = ("pending_review", "held", "approved")
+
+#: The statuses a decision has already settled.
+_DECIDED: Final[tuple[str, ...]] = ("approved", "rejected")
+
+#: What an owner submitted for display with a photo, in queue order.
+MEDIA_FIELDS: Final[tuple[str, ...]] = ("alt_en", "alt_bn")
+
+#: A photo's submitted fields: ``(key, value)`` pairs, empty ones left out.
+Fields = tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class MediaPreview:
+    """One variant an administrator can look at.
+
+    :ivar width: The variant's width in pixels
+    :ivar url: A signed GET of the variant, valid for five minutes
+    """
+
+    width: int
+    url: str
+
+
+@dataclass(frozen=True, slots=True)
+class MediaDetail:
+    """One photo as an administrator reviews it, with no account in it.
+
+    :ivar media_id: The photo
+    :ivar status: ``pending_review``, ``held`` or ``approved``
+    :ivar width: The decoded width in pixels
+    :ivar height: The decoded height in pixels
+    :ivar previews: One signed URL per variant written
+    :ivar alt_en: English alt text
+    :ivar alt_bn: Bangla alt text
+    :ivar public_name: The owner listing's public name, if it has one
+    :ivar public_title: The batch listing's public title, for a batch photo
+    :ivar report_count: How many reports name this photo
+    """
+
+    media_id: uuid.UUID
+    status: str
+    width: int | None
+    height: int | None
+    previews: tuple[MediaPreview, ...]
+    alt_en: str | None
+    alt_bn: str | None
+    public_name: str | None
+    public_title: str | None
+    report_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class WaitingMedia:
+    """One photo waiting for an administrator.
+
+    :ivar media_id: The photo
+    :ivar owner_id: Its owner
+    :ivar title: Its page's public name or title
+    :ivar fields: Its alt texts
+    :ivar held_reason: The report reason that held it, when held
+    :ivar since: When the wait began: the hold, else the upload
+    """
+
+    media_id: uuid.UUID
+    owner_id: uuid.UUID
+    title: str | None
+    fields: Fields
+    held_reason: str | None
+    since: dt.datetime
+
+
+def is_public(session: Session, media_id: uuid.UUID) -> bool:
+    """Say whether a photo is on a public page, as ``hub_public_media`` does.
+
+    The same predicates as the view, written against the tables because
+    the view is the hub reader's alone: approved, under a published owner
+    listing, and for a batch photo under that owner's published listing of
+    an active batch [0040, 0043].
+
+    :param session: The session
+    :param media_id: The photo
+    :return: True exactly when the public view shows it
+    """
+    owner_live = sa.select(OwnerListing.owner_id).where(
+        OwnerListing.owner_id == ListingMedia.owner_id,
+        OwnerListing.status == "published",
+    )
+    batch_live = (
+        sa.select(BatchListing.batch_id)
+        .join(Batch, Batch.id == BatchListing.batch_id)
+        .where(
+            BatchListing.batch_id == ListingMedia.batch_id,
+            BatchListing.owner_id == ListingMedia.owner_id,
+            BatchListing.status == "published",
+            Batch.active.is_(True),
+        )
+    )
+    found = session.scalar(
+        sa.select(ListingMedia.id).where(
+            ListingMedia.id == media_id,
+            ListingMedia.status == "approved",
+            sa.exists(owner_live),
+            sa.or_(ListingMedia.batch_id.is_(None), sa.exists(batch_live)),
+        )
+    )
+    return found is not None
+
+
+def _locked(session: Session, media_id: uuid.UUID) -> ListingMedia | None:
+    """Read and lock one photo, fresh from the database.
+
+    :param session: The session
+    :param media_id: The photo
+    :return: The photo, or None
+    """
+    return session.execute(
+        sa.select(ListingMedia)
+        .where(ListingMedia.id == media_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).scalar_one_or_none()
+
+
+def _event(
+    media_id: uuid.UUID,
+    event: str,
+    *,
+    actor: uuid.UUID | None,
+    code: str | None,
+    correlation_id: str,
+    now: dt.datetime,
+) -> HubModerationEvent:
+    """Build one photo moderation event.
+
+    :param media_id: The photo
+    :param event: ``media_approved``, ``media_rejected``, ``media_held`` or
+        ``media_restored``
+    :param actor: The administrator, or None for a report's hold
+    :param code: The rejection code or the report reason
+    :param correlation_id: The request that caused it
+    :param now: When it happened
+    :return: The event, not yet added
+    """
+    return HubModerationEvent(
+        event=event,
+        target_kind="media",
+        target_id=media_id,
+        actor_admin_account_id=actor,
+        decision_code=code,
+        correlation_id=correlation_id,
+        at=now,
+    )
+
+
+def hold(
+    session: Session,
+    media_id: uuid.UUID,
+    *,
+    reason: str,
+    now: dt.datetime,
+    correlation_id: str = "internal",
+) -> None:
+    """Take a reported photo down, in the reporting transaction.
+
+    Commits nothing: the hold stands or falls with the report. A photo no
+    longer approved by the time it is locked -- held by another report a
+    moment earlier, or sent back to review -- is left as it is.
+
+    :param session: The report's session
+    :param media_id: The photo
+    :param reason: The report's reason, recorded on the event
+    :param now: The moment of the report
+    :param correlation_id: The request that caused it
+    :return: None
+    """
+    media = _locked(session, media_id)
+    if media is None or media.status != "approved":
+        return
+    library.unpublish(session, media, "held", now)
+    session.add(
+        _event(
+            media_id,
+            "media_held",
+            actor=None,
+            code=reason,
+            correlation_id=correlation_id,
+            now=now,
+        )
+    )
+
+
+def _invalid_code() -> ValidationError:
+    """Build the refusal for a code that does not fit the decision.
+
+    :return: The error
+    """
+    return ValidationError(
+        code="MEDIA_REJECTION_CODE_INVALID", message_key="hub.report_reason_invalid"
+    )
+
+
+def _already_decided() -> ConflictError:
+    """Build the refusal for a photo already approved or rejected.
+
+    :return: The error
+    """
+    return ConflictError(
+        code="MEDIA_ALREADY_DECIDED", message_key="hub.media.already_decided"
+    )
+
+
+def _free_position(session: Session, media: ListingMedia) -> int:
+    """Pick the photo's slot among its gallery's approved photos.
+
+    Its own position is kept when no approved photo holds it, so an order
+    the owner chose survives; otherwise it goes after the last.
+
+    :param session: The session, with the owner row locked
+    :param media: The photo being approved
+    :return: A position no approved photo in the gallery holds
+    """
+    gallery = (
+        ListingMedia.batch_id.is_(None)
+        if media.batch_id is None
+        else ListingMedia.batch_id == media.batch_id
+    )
+    taken = set(
+        session.scalars(
+            sa.select(ListingMedia.position).where(
+                ListingMedia.owner_id == media.owner_id,
+                gallery,
+                ListingMedia.status == "approved",
+                ListingMedia.id != media.id,
+            )
+        )
+    )
+    if media.position >= 0 and media.position not in taken:
+        return media.position
+    return max(taken) + 1
+
+
+def _publish(
+    session: Session, store: MediaStore, media: ListingMedia, now: dt.datetime
+) -> None:
+    """Copy a photo's variants out under a fresh key and mark it approved.
+
+    :param session: The session, the owner and the photo locked
+    :param store: The bucket
+    :param media: The photo, waiting or held
+    :param now: The moment of approval
+    :return: None
+    :raises TransientError: A copy failed; the transaction is rolled back,
+        and the fresh key's prefix enqueued for deletion and committed
+    """
+    widths = sorted(media.widths or [])
+    key = secrets.token_hex(16)
+    archived = media.archived_at is not None
+    source = archive_prefix(media.id) if archived else staged_prefix(media.id)
+    try:
+        if not archived:
+            store.copy_variants(
+                staged_prefix(media.id), archive_prefix(media.id), widths
+            )
+        store.copy_variants(source, public_prefix(key), widths)
+    except TransientError:
+        session.rollback()
+        objects.enqueue(session, [public_prefix(key)], now)
+        session.commit()
+        raise
+    media.position = _free_position(session, media)
+    media.status = "approved"
+    media.public_key = key
+    if not archived:
+        media.archived_at = now
+
+
+def decide(
+    session: Session,
+    store: MediaStore,
+    lens: PlatformAdminLens,
+    media_id: uuid.UUID,
+    *,
+    approve: bool,
+    code: str | None,
+    now: dt.datetime,
+    correlation_id: str = "internal",
+) -> ListingMedia:
+    """Approve or reject a photo waiting for review or held, and commit.
+
+    The owner row is locked first, as an upload does, so two approvals in
+    one gallery cannot both take the same free slot.
+
+    :param session: The session
+    :param store: The bucket
+    :param lens: The administrator's lens
+    :param media_id: The photo
+    :param approve: True to publish it, False to reject it
+    :param code: For a rejection, one of
+        :data:`~app.moderation.vocab.MEDIA_REJECTION_CODES`; None to approve
+    :param now: The moment of the decision
+    :param correlation_id: The request that caused it
+    :return: The photo, decided
+    :raises ValidationError: A code with an approval, or a rejection without
+        one of the five codes
+    :raises AuthorizationError: No such photo, or nothing to review: an
+        upload still in flight, or a withdrawn photo
+    :raises ConflictError: The photo is already approved or rejected
+    :raises TransientError: The bucket could not copy the variants; nothing
+        changed
+    """
+    fits = code is None if approve else code in MEDIA_REJECTION_CODES
+    if not fits:
+        raise _invalid_code()
+    owner_id = session.scalar(
+        sa.select(ListingMedia.owner_id).where(ListingMedia.id == media_id)
+    )
+    if owner_id is None:
+        raise admin_not_found()
+    lock_owner(session, owner_id)
+    media = _locked(session, media_id)
+    if media is None or media.status not in DECIDABLE:
+        session.rollback()
+        if media is not None and media.status in _DECIDED:
+            raise _already_decided()
+        raise admin_not_found()
+
+    if approve:
+        event = "media_restored" if media.status == "held" else "media_approved"
+        _publish(session, store, media, now)
+    else:
+        event = "media_rejected"
+        media.status = "rejected"
+        media.rejection_code = code
+        objects.enqueue(
+            session,
+            [
+                quarantine_key(media.id),
+                staged_prefix(media.id),
+                archive_prefix(media.id),
+            ],
+            now,
+        )
+    media.decided_at = now
+    session.add(
+        _event(
+            media.id,
+            event,
+            actor=lens.account_id,
+            code=code,
+            correlation_id=correlation_id,
+            now=now,
+        )
+    )
+    session.commit()
+    return media
+
+
+def _titles(
+    session: Session, rows: Sequence[ListingMedia]
+) -> dict[uuid.UUID, tuple[str | None, str | None]]:
+    """Read the public name and title of the pages some photos are for.
+
+    Only listing fields: an owner's ``public_name`` and a batch's
+    ``public_title``, never ``batch.name``, which is the teacher's private
+    label.
+
+    :param session: The session
+    :param rows: The photos
+    :return: ``{media id: (public name, public title)}``
+    """
+    names = {
+        owner_id: name
+        for owner_id, name in session.execute(
+            sa.select(OwnerListing.owner_id, OwnerListing.public_name).where(
+                OwnerListing.owner_id.in_({m.owner_id for m in rows})
+            )
+        )
+    }
+    titles = {
+        batch_id: title
+        for batch_id, title in session.execute(
+            sa.select(BatchListing.batch_id, BatchListing.public_title).where(
+                BatchListing.batch_id.in_(
+                    {m.batch_id for m in rows if m.batch_id is not None}
+                )
+            )
+        )
+    }
+    return {
+        m.id: (
+            names.get(m.owner_id),
+            titles.get(m.batch_id) if m.batch_id is not None else None,
+        )
+        for m in rows
+    }
+
+
+def _fields(media: ListingMedia) -> Fields:
+    """Read a photo's submitted fields, empty ones left out.
+
+    :param media: The photo
+    :return: Its alt texts as ``(key, value)`` pairs
+    """
+    return tuple(
+        (key, value)
+        for key in MEDIA_FIELDS
+        if (value := getattr(media, key)) and value.strip()
+    )
+
+
+def describe(
+    session: Session, media_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, tuple[uuid.UUID, str | None, Fields]]:
+    """Describe reported photos for the queue: owner, page title and alt text.
+
+    A batch photo is titled by its batch's public title, an owner photo by
+    the owner's public name.
+
+    :param session: The session
+    :param media_ids: The photos
+    :return: ``{media id: (owner id, title, fields)}`` for those that exist
+    """
+    rows = list(
+        session.scalars(sa.select(ListingMedia).where(ListingMedia.id.in_(media_ids)))
+    )
+    titles = _titles(session, rows)
+    return {
+        m.id: (
+            m.owner_id,
+            titles[m.id][1] if m.batch_id is not None else titles[m.id][0],
+            _fields(m),
+        )
+        for m in rows
+    }
+
+
+def waiting(session: Session) -> list[WaitingMedia]:
+    """List the photos an administrator should decide, oldest upload first.
+
+    :param session: The session
+    :return: Photos waiting for review or held after a report
+    """
+    rows = list(
+        session.scalars(
+            sa.select(ListingMedia)
+            .where(ListingMedia.status.in_(DECIDABLE))
+            .order_by(ListingMedia.created_at, ListingMedia.id)
+        )
+    )
+    described = describe(session, [m.id for m in rows])
+    holds: dict[uuid.UUID, tuple[str | None, dt.datetime]] = {}
+    for target_id, code, at in session.execute(
+        sa.select(
+            HubModerationEvent.target_id,
+            HubModerationEvent.decision_code,
+            HubModerationEvent.at,
+        )
+        .where(
+            HubModerationEvent.event == "media_held",
+            HubModerationEvent.target_kind == "media",
+            HubModerationEvent.target_id.in_(
+                [m.id for m in rows if m.status == "held"]
+            ),
+        )
+        .order_by(HubModerationEvent.at)
+    ):
+        holds[target_id] = (code, at)
+    items = []
+    for m in rows:
+        owner_id, title, fields = described[m.id]
+        reason, since = holds.get(m.id, (None, m.created_at))
+        items.append(
+            WaitingMedia(
+                media_id=m.id,
+                owner_id=owner_id,
+                title=title,
+                fields=fields,
+                held_reason=reason,
+                since=since,
+            )
+        )
+    return items
+
+
+def detail(session: Session, store: MediaStore, media_id: uuid.UUID) -> MediaDetail:
+    """Read one photo for review, with five-minute previews of its variants.
+
+    Previews come from ``archive/`` once the photo has been approved --
+    ``staged/`` may have expired -- and from ``staged/`` before. Only the
+    widths the sanitiser wrote are signed.
+
+    :param session: The session
+    :param store: The bucket
+    :param media_id: The photo
+    :return: The photo, naming its page but no account
+    :raises AuthorizationError: No such photo, or one with nothing to see
+    :raises TransientError: The bucket cannot sign right now
+    """
+    media = session.scalar(sa.select(ListingMedia).where(ListingMedia.id == media_id))
+    if media is None or media.status not in _PREVIEWABLE:
+        raise admin_not_found()
+    folder = (
+        archive_prefix(media.id)
+        if media.archived_at is not None
+        else staged_prefix(media.id)
+    )
+    previews = tuple(
+        MediaPreview(width=w, url=store.presign_get(f"{folder}{w}.webp"))
+        for w in sorted(media.widths or [])
+    )
+    public_name, public_title = _titles(session, [media])[media.id]
+    reported = session.scalar(
+        sa.select(sa.func.count())
+        .select_from(HubReport)
+        .where(HubReport.target_kind == "media", HubReport.target_id == media.id)
+    )
+    return MediaDetail(
+        media_id=media.id,
+        status=media.status,
+        width=media.width,
+        height=media.height,
+        previews=previews,
+        alt_en=media.alt_en,
+        alt_bn=media.alt_bn,
+        public_name=public_name,
+        public_title=public_title,
+        report_count=int(reported or 0),
+    )

@@ -12,11 +12,15 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.moderation.vocab import Reason, TargetKind
+from app.moderation.vocab import MediaRejectionCode, Reason, TargetKind
 
 __all__ = [
     "AdminHubDecisionRequest",
     "AdminHubField",
+    "AdminHubMediaDecided",
+    "AdminHubMediaDecisionRequest",
+    "AdminHubMediaDetail",
+    "AdminHubMediaPreview",
     "AdminHubQueueItem",
     "AdminHubQueueResponse",
     "AdminHubReportDecided",
@@ -32,7 +36,7 @@ class HubReportRequest(BaseModel):
     :ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,
         ``review`` or ``reply``
     :ivar target_id: The target's id: an owner id for an owner listing, a
-        batch id for a batch listing
+        batch id for a batch listing, a media id for a photo
     :ivar reason: A closed reason
     :ivar note: An optional note; it may not carry a phone number
     """
@@ -64,7 +68,12 @@ AdminHubFieldKey = Literal[
     "syllabus_en",
     "syllabus_bn",
     "subject_tags",
+    "alt_en",
+    "alt_bn",
 ]
+
+#: Which queue: open reports, suspended listings, or photos to decide.
+AdminHubQueueKind = Literal["report", "listing", "media"]
 
 
 class AdminHubField(BaseModel):
@@ -81,7 +90,7 @@ class AdminHubField(BaseModel):
 class AdminHubQueueItem(BaseModel):
     """One row of the moderation queue.
 
-    :ivar kind: ``report`` or ``listing``
+    :ivar kind: ``report``, ``listing`` or ``media``
     :ivar report_id: The report, for a report row
     :ivar target_kind: What was reported or suspended
     :ivar target_id: The target's id
@@ -89,13 +98,15 @@ class AdminHubQueueItem(BaseModel):
     :ivar title: The target's public name: an owner's public name or a
         batch's public title
     :ivar fields: Everything the owner submitted for display on the target
-    :ivar reason: The report reason or the suspension reason code
+    :ivar reason: The report reason, the suspension reason code, or why a
+        held photo was held; None for a photo waiting for review
     :ivar note: The reporter's note, for a report row
     :ivar reporter_ref: The opaque reporter label, for a report row
-    :ivar waited_hours: Whole hours since the report or the suspension
+    :ivar waited_hours: Whole hours since the report, the suspension, the
+        hold or the upload
     """
 
-    kind: Literal["report", "listing"]
+    kind: AdminHubQueueKind
     report_id: uuid.UUID | None
     target_kind: str
     target_id: uuid.UUID
@@ -115,7 +126,7 @@ class AdminHubQueueResponse(BaseModel):
     :ivar items: Its rows
     """
 
-    kind: Literal["report", "listing"]
+    kind: AdminHubQueueKind
     items: list[AdminHubQueueItem]
 
 
@@ -163,3 +174,68 @@ class AdminHubSuspensionState(BaseModel):
 
     owner_id: uuid.UUID
     suspended: bool
+
+
+class AdminHubMediaPreview(BaseModel):
+    """One variant of a photo, signed for a five-minute look.
+
+    :ivar width: The variant's width in pixels
+    :ivar url: A signed GET of the variant in the photo bucket
+    """
+
+    width: int
+    url: str
+
+
+class AdminHubMediaDetail(BaseModel):
+    """One photo as an administrator reviews it.
+
+    Names the page it is for -- the owner's public name, the batch's public
+    title -- and nothing about the account that uploaded it.
+
+    :ivar media_id: The photo
+    :ivar status: ``pending_review``, ``held`` or ``approved``
+    :ivar width: The decoded width in pixels
+    :ivar height: The decoded height in pixels
+    :ivar previews: One signed URL per variant, narrowest first
+    :ivar alt_en: English alt text
+    :ivar alt_bn: Bangla alt text
+    :ivar public_name: The owner listing's public name
+    :ivar public_title: The batch listing's public title, for a batch photo
+    :ivar report_count: How many reports name this photo
+    """
+
+    media_id: uuid.UUID
+    status: Literal["pending_review", "held", "approved"]
+    width: int | None
+    height: int | None
+    previews: list[AdminHubMediaPreview]
+    alt_en: str | None
+    alt_bn: str | None
+    public_name: str | None
+    public_title: str | None
+    report_count: int
+
+
+class AdminHubMediaDecisionRequest(BaseModel):
+    """An administrator's decision on a photo.
+
+    :ivar decision: ``approve`` or ``reject``
+    :ivar code: Why, for a rejection; omitted for an approval
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision: Literal["approve", "reject"]
+    code: MediaRejectionCode | None = None
+
+
+class AdminHubMediaDecided(BaseModel):
+    """A photo after its decision.
+
+    :ivar media_id: The photo
+    :ivar status: ``approved`` or ``rejected``
+    """
+
+    media_id: uuid.UUID
+    status: Literal["approved", "rejected"]

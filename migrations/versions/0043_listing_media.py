@@ -19,6 +19,11 @@ restore after a hold mints a fresh key, so no cached URL comes back. An
 approved photo also carries its width, height and at least one variant
 width, which the public page's ``<img>`` is built from.
 
+**``archived_at`` says the variants have an ``archive/`` copy.** The first
+approval writes it; from then on ``staged/`` may have expired, so any
+later approval copies from ``archive/{id}/`` instead. It is recorded rather
+than probed, so a decision never depends on listing the bucket.
+
 **Approved positions are unique per gallery** -- the owner's gallery and
 each batch's -- through a partial index over ``coalesce(batch_id, nil)``,
 because NULLs never collide in a plain unique index.
@@ -166,6 +171,11 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
         ),
         sa.Column("decided_at", sa.DateTime(timezone=True), nullable=True),
+        # Set by the first approval, when the variants are copied to
+        # ``archive/{id}/``; never cleared. Every later approval -- after an
+        # alt-text edit or a hold -- copies from the archive, because
+        # ``staged/`` expires after thirty days [H3 deviation 3].
+        sa.Column("archived_at", sa.DateTime(timezone=True), nullable=True),
         sa.UniqueConstraint("public_key", name=conv("uq_listing_media_public_key")),
         sa.CheckConstraint(
             "(status = 'approved') = (public_key IS NOT NULL)",

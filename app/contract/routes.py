@@ -322,15 +322,18 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # owner from the request, and any signed-in reader -- student,
         # guardian or someone holding no lens at all -- may report what
         # they see. A lens would scope nothing here. What bounds it is that
-        # only a PUBLISHED listing is reportable, every other target
-        # answers one identical refusal, a report changes no listing, and
-        # an account may file ten a day.
+        # only a PUBLISHED listing or a photo on a public page is
+        # reportable, every other target answers one identical refusal, a
+        # report changes no listing -- a child-safety or personal-information
+        # report holds the one photo it names until an administrator
+        # decides [H3] -- and an account may file ten a day.
         ("POST", "/v1/hub/reports"),
     }
 )
 
 #: Every route a :class:`~app.authz.lenses.PlatformAdminLens` reaches,
-#: and exactly those [TC-14, D-6]. Asserted in both directions by
+#: and exactly those [TC-14, D-6] -- twelve, a count
+#: ``tests/contract/test_admin_contract.py`` pins. Asserted in both directions by
 #: ``tests/contract/test_admin_routes.py``: a route taking the lens that
 #: is not listed fails, and so does a ``/v1/admin`` route that does not
 #: take it. The administrator boundary is the most consequential privacy
@@ -350,6 +353,10 @@ PLATFORM_ADMIN_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/v1/admin/hub/queue"),
         ("POST", "/v1/admin/hub/reports/{report_id}/decision"),
         ("PUT", "/v1/admin/hub/owners/{owner_id}/suspension"),
+        # Photo moderation [H3]: one photo with five-minute previews of its
+        # variants and its page's public names, and the decision on it.
+        ("GET", "/v1/admin/hub/media/{media_id}"),
+        ("POST", "/v1/admin/hub/media/{media_id}/decision"),
     }
 )
 

@@ -17,7 +17,7 @@ from app.authz.lenses import PlatformAdminLens
 from app.db.models import HUB_REPORT_TARGET_VALUES
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.help.identity import requester_ref
-from app.moderation import reports
+from app.moderation import media, reports
 from app.moderation.vocab import TARGET_KINDS, TargetKind
 from app.schemas.moderation import AdminHubFieldKey
 from tests.batches.conftest import make_teacher
@@ -472,7 +472,9 @@ def test_admin_queue_names_a_batch_by_its_public_title_never_its_name(
 
 def test_the_wire_field_keys_are_exactly_the_submitted_fields() -> None:
     """Every key the queue can send has a wire name, and nothing else does."""
-    assert get_args(AdminHubFieldKey) == reports.OWNER_FIELDS + reports.BATCH_FIELDS
+    assert get_args(AdminHubFieldKey) == (
+        reports.OWNER_FIELDS + reports.BATCH_FIELDS + media.MEDIA_FIELDS
+    )
 
 
 def test_report_target_kinds_match_the_database_enum() -> None:

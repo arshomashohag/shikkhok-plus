@@ -815,6 +815,7 @@
   "hub_level_ssc": "SSC",
   "hub_listing_incomplete": "Finish the missing parts of your listing before publishing it.",
   "hub_listing_suspended": "This listing has been suspended, so it cannot be changed or published.",
+  "hub_media_already_decided": "This photo has already been decided.",
   "hub_media_alt_invalid": "Describe the photo in English and Bangla, up to 200 characters each.",
   "hub_media_limit_reached": "You have reached the photo limit. Remove a photo, or try again tomorrow.",
   "hub_media_not_found": "This photo is no longer available.",

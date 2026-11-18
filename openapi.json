@@ -211,6 +211,8 @@
         "properties": {
           "key": {
             "enum": [
+              "alt_bn",
+              "alt_en",
               "area_bn",
               "area_en",
               "bio_bn",
@@ -243,8 +245,198 @@
         "title": "AdminHubField",
         "type": "object"
       },
+      "AdminHubMediaDecided": {
+        "description": "A photo after its decision.\n\n:ivar media_id: The photo\n:ivar status: ``approved`` or ``rejected``",
+        "properties": {
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "media_id",
+          "status"
+        ],
+        "title": "AdminHubMediaDecided",
+        "type": "object"
+      },
+      "AdminHubMediaDecisionRequest": {
+        "additionalProperties": false,
+        "description": "An administrator's decision on a photo.\n\n:ivar decision: ``approve`` or ``reject``\n:ivar code: Why, for a rejection; omitted for an approval",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "identifiable_child",
+                  "low_quality",
+                  "not_relevant",
+                  "other",
+                  "personal_info"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "AdminHubMediaDecisionRequest",
+        "type": "object"
+      },
+      "AdminHubMediaDetail": {
+        "description": "One photo as an administrator reviews it.\n\nNames the page it is for -- the owner's public name, the batch's public\ntitle -- and nothing about the account that uploaded it.\n\n:ivar media_id: The photo\n:ivar status: ``pending_review``, ``held`` or ``approved``\n:ivar width: The decoded width in pixels\n:ivar height: The decoded height in pixels\n:ivar previews: One signed URL per variant, narrowest first\n:ivar alt_en: English alt text\n:ivar alt_bn: Bangla alt text\n:ivar public_name: The owner listing's public name\n:ivar public_title: The batch listing's public title, for a batch photo\n:ivar report_count: How many reports name this photo",
+        "properties": {
+          "alt_bn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt Bn"
+          },
+          "alt_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt En"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "previews": {
+            "items": {
+              "$ref": "#/components/schemas/AdminHubMediaPreview"
+            },
+            "title": "Previews",
+            "type": "array"
+          },
+          "public_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Name"
+          },
+          "public_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Title"
+          },
+          "report_count": {
+            "title": "Report Count",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "held",
+              "pending_review"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "alt_bn",
+          "alt_en",
+          "height",
+          "media_id",
+          "previews",
+          "public_name",
+          "public_title",
+          "report_count",
+          "status",
+          "width"
+        ],
+        "title": "AdminHubMediaDetail",
+        "type": "object"
+      },
+      "AdminHubMediaPreview": {
+        "description": "One variant of a photo, signed for a five-minute look.\n\n:ivar width: The variant's width in pixels\n:ivar url: A signed GET of the variant in the photo bucket",
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "url",
+          "width"
+        ],
+        "title": "AdminHubMediaPreview",
+        "type": "object"
+      },
       "AdminHubQueueItem": {
-        "description": "One row of the moderation queue.\n\n:ivar kind: ``report`` or ``listing``\n:ivar report_id: The report, for a report row\n:ivar target_kind: What was reported or suspended\n:ivar target_id: The target's id\n:ivar owner_id: The owner the listing belongs to, when known\n:ivar title: The target's public name: an owner's public name or a\n    batch's public title\n:ivar fields: Everything the owner submitted for display on the target\n:ivar reason: The report reason or the suspension reason code\n:ivar note: The reporter's note, for a report row\n:ivar reporter_ref: The opaque reporter label, for a report row\n:ivar waited_hours: Whole hours since the report or the suspension",
+        "description": "One row of the moderation queue.\n\n:ivar kind: ``report``, ``listing`` or ``media``\n:ivar report_id: The report, for a report row\n:ivar target_kind: What was reported or suspended\n:ivar target_id: The target's id\n:ivar owner_id: The owner the listing belongs to, when known\n:ivar title: The target's public name: an owner's public name or a\n    batch's public title\n:ivar fields: Everything the owner submitted for display on the target\n:ivar reason: The report reason, the suspension reason code, or why a\n    held photo was held; None for a photo waiting for review\n:ivar note: The reporter's note, for a report row\n:ivar reporter_ref: The opaque reporter label, for a report row\n:ivar waited_hours: Whole hours since the report, the suspension, the\n    hold or the upload",
         "properties": {
           "fields": {
             "items": {
@@ -256,6 +448,7 @@
           "kind": {
             "enum": [
               "listing",
+              "media",
               "report"
             ],
             "title": "Kind",
@@ -372,6 +565,7 @@
           "kind": {
             "enum": [
               "listing",
+              "media",
               "report"
             ],
             "title": "Kind",
@@ -5649,7 +5843,7 @@
       },
       "HubReportRequest": {
         "additionalProperties": false,
-        "description": "A reader's report about one hub target.\n\n:ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,\n    ``review`` or ``reply``\n:ivar target_id: The target's id: an owner id for an owner listing, a\n    batch id for a batch listing\n:ivar reason: A closed reason\n:ivar note: An optional note; it may not carry a phone number",
+        "description": "A reader's report about one hub target.\n\n:ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,\n    ``review`` or ``reply``\n:ivar target_id: The target's id: an owner id for an owner listing, a\n    batch id for a batch listing, a media id for a photo\n:ivar reason: A closed reason\n:ivar note: An optional note; it may not carry a phone number",
         "properties": {
           "note": {
             "anyOf": [
@@ -14579,6 +14773,144 @@
         ]
       }
     },
+    "/v1/admin/hub/media/{media_id}": {
+      "get": {
+        "description": "Read one photo for review, with five-minute previews of its variants.\n\n:param media_id: The photo\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param store: The photo bucket\n:return: The photo, its page's public name and title, and no account",
+        "operationId": "hub_media_v1_admin_hub_media__media_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHubMediaDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Media",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/hub/media/{media_id}/decision": {
+      "post": {
+        "description": "Approve or reject a photo waiting for review or held after a report.\n\n:param media_id: The photo\n:param body: The decision, and the code for a rejection\n:param request: The incoming request\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param store: The photo bucket\n:return: The photo and its new status",
+        "operationId": "decide_media_v1_admin_hub_media__media_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminHubMediaDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHubMediaDecided"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Decide Media",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/v1/admin/hub/owners/{owner_id}/suspension": {
       "put": {
         "description": "Suspend or restore an owner's public listing.\n\n:param owner_id: The owner\n:param body: Whether to suspend, and why\n:param request: The incoming request\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:return: The owner and whether the listing is suspended now",
@@ -14655,7 +14987,7 @@
     },
     "/v1/admin/hub/queue": {
       "get": {
-        "description": "List open reports, or suspended listings, oldest first.\n\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param kind: ``report`` or ``listing``\n:return: The queue; a reporter appears only as an opaque label",
+        "description": "List open reports, suspended listings, or photos to decide, oldest first.\n\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param kind: ``report``, ``listing`` or ``media``\n:return: The queue; a reporter appears only as an opaque label",
         "operationId": "hub_queue_v1_admin_hub_queue_get",
         "parameters": [
           {
@@ -14666,6 +14998,7 @@
               "default": "report",
               "enum": [
                 "listing",
+                "media",
                 "report"
               ],
               "title": "Kind",
@@ -24530,7 +24863,7 @@
     },
     "/v1/hub/reports": {
       "post": {
-        "description": "Report a published hub listing; nothing about the listing changes.\n\n:param body: The target, the reason and an optional note\n:param request: The incoming request, for its correlation id\n:param account_id: The authenticated reporter\n:param session: The request-scoped session\n:return: An empty 202",
+        "description": "Report a published hub listing or a public photo.\n\nNothing about a listing changes. A child-safety or personal-information\nreport on a photo takes that photo down until an administrator decides.\n\n:param body: The target, the reason and an optional note\n:param request: The incoming request, for its correlation id\n:param account_id: The authenticated reporter\n:param session: The request-scoped session\n:return: An empty 202",
         "operationId": "file_report_v1_hub_reports_post",
         "requestBody": {
           "content": {

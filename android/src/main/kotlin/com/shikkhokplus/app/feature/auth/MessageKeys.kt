@@ -96,6 +96,7 @@ object MessageKeys {
         "hub.media.unreadable" to R.string.hub_media_unreadable,
         "hub.media.not_found" to R.string.hub_media_not_found,
         "hub.media.alt_invalid" to R.string.hub_media_alt_invalid,
+        "hub.media.already_decided" to R.string.hub_media_already_decided,
         // Adding a phone or an email to an account.
         "account.contact.already_set" to R.string.account_contact_already_set,
         "account.contact.taken" to R.string.account_contact_taken,

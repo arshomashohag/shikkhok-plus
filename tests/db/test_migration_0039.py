@@ -377,12 +377,23 @@ def test_0039_keeps_the_lock_timeout_for_what_follows(at_0038: Engine) -> None:
     finally:
         sa.event.remove(Engine, "after_cursor_execute", record)
 
-    labels = [i for i, (sql, _) in enumerate(seen) if "ADD VALUE" in sql]
+    # Only 0039's own labels: later revisions (0044) add labels to other types.
+    labels = [
+        i
+        for i, (sql, _) in enumerate(seen)
+        if "ADD VALUE" in sql and "bd_area_kind" in sql
+    ]
     assert len(labels) == 2
     after = seen[labels[-1] + 1 :]
     assert any("INSERT INTO bd_area" in sql for sql, _ in after)
     assert any("hub_public_owner" in sql for sql, _ in after)
-    assert [(sql, timeout) for sql, timeout in after if timeout != "10s"] == []
+    # A later revision's own labels run in its own autocommit block, as
+    # 0039's do; everything else after 0039's labels keeps the timeout.
+    assert [
+        (sql, timeout)
+        for sql, timeout in after
+        if timeout != "10s" and "ADD VALUE" not in sql
+    ] == []
 
 
 def test_0039_reruns_after_failing_past_its_enum_labels(at_0038: Engine) -> None:

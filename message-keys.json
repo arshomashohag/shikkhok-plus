@@ -120,6 +120,7 @@
     "hub.listing_incomplete",
     "hub.listing_suspended",
     "hub.media.alt_invalid",
+    "hub.media.already_decided",
     "hub.media.limit_reached",
     "hub.media.not_found",
     "hub.media.not_uploaded",

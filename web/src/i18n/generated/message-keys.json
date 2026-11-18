@@ -135,6 +135,7 @@
   "hub.feedback_not_asked": "hub_feedback_not_asked",
   "hub.listing_incomplete": "hub_listing_incomplete",
   "hub.listing_suspended": "hub_listing_suspended",
+  "hub.media.already_decided": "hub_media_already_decided",
   "hub.media.alt_invalid": "hub_media_alt_invalid",
   "hub.media.limit_reached": "hub_media_limit_reached",
   "hub.media.not_found": "hub_media_not_found",

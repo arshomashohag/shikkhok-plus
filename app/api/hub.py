@@ -499,7 +499,10 @@ def file_report(
     account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
     session: Annotated[Session, Depends(get_session)],
 ) -> Response:
-    """Report a published hub listing; nothing about the listing changes.
+    """Report a published hub listing or a public photo.
+
+    Nothing about a listing changes. A child-safety or personal-information
+    report on a photo takes that photo down until an administrator decides.
 
     :param body: The target, the reason and an optional note
     :param request: The incoming request, for its correlation id

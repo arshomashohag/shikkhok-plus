@@ -1896,6 +1896,7 @@
     <string name="hub_media_unreadable">এই ফাইলটি ছবি হিসেবে পড়া যায়নি। অন্য একটি বেছে নিন।</string>
     <string name="hub_media_not_found">এই ছবিটি আর পাওয়া যাচ্ছে না।</string>
     <string name="hub_media_alt_invalid">ছবিটির বিবরণ ইংরেজি ও বাংলায় লিখুন, প্রতিটি 200 অক্ষরের মধ্যে।</string>
+    <string name="hub_media_already_decided">এই ছবির সিদ্ধান্ত আগেই নেওয়া হয়েছে।</string>
     <string name="hub_batch_inactive">এই ব্যাচটি বন্ধ করা হয়েছে, তাই এর তালিকা প্রকাশ করা যাবে না।</string>
     <string name="hub_owner_not_published">আগে আপনার নিজের তালিকা প্রকাশ করুন, তারপর এই ব্যাচ প্রকাশ করুন।</string>
     <string name="hub_feedback_not_asked">এই তালিকার জন্য প্রশ্নটি জিজ্ঞেস করা হয়নি, তাই উত্তর দেওয়ার কিছু নেই।</string>

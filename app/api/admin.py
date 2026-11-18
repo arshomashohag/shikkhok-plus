@@ -12,6 +12,7 @@ What crosses the boundary is decided in ``app.admin`` and
 
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 import logging
 import uuid
@@ -24,6 +25,7 @@ from app.admin.overview import overview
 from app.admin.teachers import workspaces
 from app.api.deps import get_session, platform_admin_lens
 from app.api.help import present_message
+from app.api.hub_media import media_store
 from app.authz.lenses import PlatformAdminLens
 from app.help.identity import RequesterIdentity
 from app.help.tickets import (
@@ -35,7 +37,8 @@ from app.help.tickets import (
     set_status,
     support_reply,
 )
-from app.moderation import reports, suspension
+from app.hub.media.storage import MediaStore
+from app.moderation import media, reports, suspension
 from app.schemas.admin import (
     AdminAppVersion,
     AdminOverviewResponse,
@@ -54,7 +57,11 @@ from app.schemas.admin import AdminTicket as AdminTicketWire
 from app.schemas.moderation import (
     AdminHubDecisionRequest,
     AdminHubField,
+    AdminHubMediaDecided,
+    AdminHubMediaDecisionRequest,
+    AdminHubMediaDetail,
     AdminHubQueueItem,
+    AdminHubQueueKind,
     AdminHubQueueResponse,
     AdminHubReportDecided,
     AdminHubSuspensionRequest,
@@ -328,13 +335,13 @@ def _correlation(request: Request) -> str:
 def hub_queue(
     lens: Annotated[PlatformAdminLens, Depends(platform_admin_lens)],
     session: Annotated[Session, Depends(get_session)],
-    kind: Annotated[Literal["report", "listing"], Query()] = "report",
+    kind: Annotated[AdminHubQueueKind, Query()] = "report",
 ) -> AdminHubQueueResponse:
-    """List open reports, or suspended listings, oldest first.
+    """List open reports, suspended listings, or photos to decide, oldest first.
 
     :param lens: The administrator's lens
     :param session: The request-scoped session
-    :param kind: ``report`` or ``listing``
+    :param kind: ``report``, ``listing`` or ``media``
     :return: The queue; a reporter appears only as an opaque label
     """
     _audit(lens, f"hub_queue_{kind}")
@@ -419,3 +426,60 @@ def set_suspension(
         _correlation(request),
     )
     return AdminHubSuspensionState(owner_id=owner_id, suspended=body.suspended)
+
+
+@router.get("/hub/media/{media_id}", response_model=AdminHubMediaDetail)
+def hub_media(
+    media_id: uuid.UUID,
+    lens: Annotated[PlatformAdminLens, Depends(platform_admin_lens)],
+    session: Annotated[Session, Depends(get_session)],
+    store: Annotated[MediaStore, Depends(media_store)],
+) -> AdminHubMediaDetail:
+    """Read one photo for review, with five-minute previews of its variants.
+
+    :param media_id: The photo
+    :param lens: The administrator's lens
+    :param session: The request-scoped session
+    :param store: The photo bucket
+    :return: The photo, its page's public name and title, and no account
+    """
+    _audit(lens, "hub_media")
+    return AdminHubMediaDetail.model_validate(
+        dataclasses.asdict(media.detail(session, store, media_id))
+    )
+
+
+@router.post("/hub/media/{media_id}/decision", response_model=AdminHubMediaDecided)
+def decide_media(
+    media_id: uuid.UUID,
+    body: AdminHubMediaDecisionRequest,
+    request: Request,
+    lens: Annotated[PlatformAdminLens, Depends(platform_admin_lens)],
+    session: Annotated[Session, Depends(get_session)],
+    store: Annotated[MediaStore, Depends(media_store)],
+) -> AdminHubMediaDecided:
+    """Approve or reject a photo waiting for review or held after a report.
+
+    :param media_id: The photo
+    :param body: The decision, and the code for a rejection
+    :param request: The incoming request
+    :param lens: The administrator's lens
+    :param session: The request-scoped session
+    :param store: The photo bucket
+    :return: The photo and its new status
+    """
+    _audit(lens, "hub_media_decision")
+    decided = media.decide(
+        session,
+        store,
+        lens,
+        media_id,
+        approve=body.decision == "approve",
+        code=body.code,
+        now=dt.datetime.now(tz=dt.UTC),
+        correlation_id=_correlation(request),
+    )
+    return AdminHubMediaDecided(
+        media_id=decided.id,
+        status="approved" if decided.status == "approved" else "rejected",
+    )
