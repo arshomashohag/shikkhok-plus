@@ -1,0 +1,6 @@
+# The image sanitiser's whole dependency set: Pillow, and nothing else.
+#
+# boto3 is NOT here: the Lambda Python runtime provides it, and the handler
+# imports it only when it runs there. Compile with `make lambda-lock`,
+# never by hand: requirements.txt is an output.
+pillow>=13.0

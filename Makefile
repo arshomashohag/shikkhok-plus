@@ -12,9 +12,9 @@ PY ?= python3
 ## Where `make test` writes its JUnit report; CI reads it for skips.
 PYTEST_JUNIT ?= build/pytest-junit.xml
 
-.PHONY: check format lint typecheck test gates contract openapi install clean android lock audit android-quality web web-dev site infra-functions
+.PHONY: check format lint typecheck test gates contract openapi install clean android lock audit android-quality web web-dev site infra-functions lambda-test lambda-image lambda-lock
 
-check: lint typecheck test android android-quality web site infra-functions
+check: lint typecheck test lambda-test android android-quality web site infra-functions
 	@echo ""
 	@echo "All gates passed."
 
@@ -42,6 +42,68 @@ site:
 ## Node 22's --test does not search a directory argument.
 infra-functions:
 	node --test 'infra/modules/*/functions/*.test.mjs'
+
+## The image sanitiser Lambda (lambdas/image_sanitiser/): the one place
+## untrusted image bytes are decoded, never on the API host [H3]. Its own
+## format, lint, types and tests, against a stand-in S3 -- nothing here
+## calls AWS.
+##
+## **Pillow comes from the Lambda's lockfile, never the API's.** It is
+## installed into this interpreter for the tests only, hash-checked, from
+## lambdas/image_sanitiser/requirements.txt; neither pyproject.toml nor
+## requirements.txt names it, so it never reaches the API image, and
+## tests/gates/test_image_sanitiser.py keeps `PIL` out of app/. The lockfile
+## carries every wheel's hash (uv records them all), so the same file
+## installs this host's wheel here and the aarch64 one into the package.
+LAMBDA_DIR := lambdas/image_sanitiser
+LAMBDA_BUILD := build/image_sanitiser
+LAMBDA_ZIP := dist/image_sanitiser.zip
+
+lambda-test:
+	@echo "==> image sanitiser: install Pillow from its lockfile"
+	$(PY) -m pip install --quiet --disable-pip-version-check \
+		--require-hashes -r $(LAMBDA_DIR)/requirements.txt
+	@echo "==> image sanitiser: format, lint, types"
+	$(PY) -m ruff format --check lambdas
+	$(PY) -m ruff check lambdas
+	MYPYPATH=lambdas $(PY) -m mypy -p image_sanitiser
+	@echo "==> image sanitiser: tests"
+	$(PY) -m pytest $(LAMBDA_DIR)/tests -q -p no:cacheprovider
+
+## The deployable package, dist/image_sanitiser.zip: handler.py and Pillow
+## for the function's platform (arm64, CPython 3.12), from the lockfile's
+## hashes and wheels only -- `--only-binary :all:` means no sdist is ever
+## built, so nothing compiled on this machine reaches the package.
+##
+## **manylinux_2_28, not manylinux2014.** Pillow 13 publishes its aarch64
+## wheel for glibc 2.28 only; the python3.12 runtime is Amazon Linux 2023
+## (glibc 2.34), so 2_28 is the honest tag. A 2014 tag would have locked a
+## version with no wheel to install. The last line PROVES the package holds
+## Pillow's aarch64 extension: a zip with an x86 or missing _imaging fails
+## here, not at the function's first invocation.
+lambda-image:
+	@echo "==> image sanitiser: building $(LAMBDA_ZIP) for linux/arm64"
+	rm -rf $(LAMBDA_BUILD) $(LAMBDA_ZIP)
+	mkdir -p $(LAMBDA_BUILD) $(dir $(LAMBDA_ZIP))
+	$(PY) -m pip install --quiet --disable-pip-version-check --no-compile \
+		--only-binary :all: --platform manylinux_2_28_aarch64 \
+		--python-version 3.12 --implementation cp --abi cp312 \
+		--require-hashes -r $(LAMBDA_DIR)/requirements.txt \
+		--target $(LAMBDA_BUILD)
+	cp $(LAMBDA_DIR)/handler.py $(LAMBDA_BUILD)/handler.py
+	cd $(LAMBDA_BUILD) && $(PY) -m zipfile -c $(abspath $(LAMBDA_ZIP)) *
+	$(PY) $(LAMBDA_DIR)/check_package.py $(LAMBDA_ZIP)
+
+## Recompile the sanitiser's lockfile. THE ONLY SANCTIONED WAY to change
+## lambdas/image_sanitiser/requirements.txt, as `make lock` is for the
+## API's. `--only-binary :all:` makes the resolver pick a version that has
+## a wheel for the function's platform, not merely an sdist.
+lambda-lock:
+	cd $(LAMBDA_DIR) && uv pip compile --quiet --upgrade --generate-hashes \
+		--only-binary :all: --python-platform aarch64-manylinux_2_28 \
+		--python-version 3.12 --custom-compile-command "make lambda-lock" \
+		requirements.in -o requirements.txt
+	@echo "    done — now read the diff."
 
 ## Run the web client against a local API on :8000 (`make up` first).
 web-dev:
@@ -90,6 +152,10 @@ lock:
 audit:
 	@echo "==> dependency CVEs (annotating)"
 	@$(PY) -m pip_audit --requirement requirements.txt --desc \
+		--progress-spinner off \
+		|| echo "    findings above do not block; they block the release gate."
+	@echo "==> image sanitiser dependency CVEs (annotating)"
+	@$(PY) -m pip_audit --requirement $(LAMBDA_DIR)/requirements.txt --desc \
 		--progress-spinner off \
 		|| echo "    findings above do not block; they block the release gate."
 

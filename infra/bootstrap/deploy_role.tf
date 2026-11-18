@@ -152,6 +152,22 @@ resource "aws_iam_role_policy" "deploy" {
         Resource = "arn:aws:lambda:*:${data.aws_caller_identity.current.account_id}:function:shikkhokplus-${each.key}-seeder"
       },
       {
+        # **Shipping the image sanitiser's package** (modules/media/
+        # lambda.tf), which Terraform creates from a placeholder and never
+        # updates: the deploy uploads the real zip, then reads the
+        # function's configuration until LastUpdateStatus is Successful.
+        # Unlike the seeder's, that configuration holds no secret -- the
+        # function has no environment at all -- so reading it is safe.
+        # This one function, by name.
+        Sid    = "ShipTheImageSanitiser"
+        Effect = "Allow"
+        Action = [
+          "lambda:UpdateFunctionCode",
+          "lambda:GetFunctionConfiguration",
+        ]
+        Resource = "arn:aws:lambda:*:${data.aws_caller_identity.current.account_id}:function:shikkhokplus-${each.key}-image-sanitiser"
+      },
+      {
         # The deployment state: the image tag and the runtime env,
         # written by the release and read back for the rollback; and
         # the public URL, read by the smoke and the ZAP scan. NOT the

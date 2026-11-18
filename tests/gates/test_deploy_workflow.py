@@ -1446,3 +1446,181 @@ def test_bootstrap_creates_the_parameter_the_web_deploy_reads() -> None:
     )
     assert f'region = "{region}"' in tf
     assert "for_each = var.android_cert_sha256 == null" in tf
+
+
+# ---------------------------------------------------------------------------
+# The image sanitiser's code [H3 task 3, R3, R4]. Terraform creates the
+# function from a placeholder and ignores its code afterwards, so the deploy
+# ships the real package: after the infrastructure job (which may have just
+# created the function) and before the release (whose API hands out the
+# upload forms the sanitiser answers). The step is run here against a
+# stand-in ``aws``, as the runner would run it.
+# ---------------------------------------------------------------------------
+
+_SANITISER_JOB = "image-sanitiser"
+_SANITISER_FUNCTION = "shikkhokplus-staging-image-sanitiser"
+_SANITISER_ZIP = "dist/image_sanitiser.zip"
+
+#: A stand-in ``aws``: Lambda's three answers, steered by the environment.
+#: ``STORED_SHA`` is what UpdateFunctionCode reports storing (default: the
+#: zip's real digest); ``FINAL_STATUS`` is where the update ends;
+#: ``RUNNING_SHA`` is the code the configuration then reports running.
+_FAKE_AWS_LAMBDA = """#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "$AWS_LOG"
+zip="" query="" prev=""
+for arg in "$@"; do
+  [ "$prev" = "--zip-file" ] && zip="${arg#fileb://}"
+  [ "$prev" = "--query" ] && query="$arg"
+  prev="$arg"
+done
+case "$1 $2" in
+  "lambda update-function-code")
+    [ -f "$zip" ] || { echo "Error parsing parameter: $zip not found" >&2; exit 252; }
+    sha="${STORED_SHA:-$(openssl dgst -sha256 -binary "$zip" | base64)}"
+    printf '%s\\n' "$sha" > "$STATE_DIR/stored"
+    printf '%s\\n' "$sha" ;;
+  "lambda wait")
+    [ "$FINAL_STATUS" = "Successful" ] || {
+      echo "Waiter FunctionUpdated failed: terminal failure state" >&2
+      exit 255; } ;;
+  "lambda get-function-configuration")
+    if [ "$query" = "LastUpdateStatusReason" ]; then
+      echo "Unable to import module 'handler'"
+    else
+      printf '%s\\t%s\\n' "$FINAL_STATUS" "${RUNNING_SHA:-$(cat "$STATE_DIR/stored")}"
+    fi ;;
+  *) echo "unexpected call: $*" >&2; exit 2 ;;
+esac
+"""
+
+
+def _sanitiser_ship_step() -> dict[str, object]:
+    """Return the step that uploads the sanitiser's package.
+
+    :return: The step
+    """
+    named = [
+        s
+        for s in _steps(_SANITISER_JOB)
+        if "update-function-code" in str(s.get("run", ""))
+    ]
+    assert len(named) == 1
+    return named[0]
+
+
+def _run_sanitiser_ship(
+    tmp_path: pathlib.Path, **steer: str
+) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+    """Run the ship step against the stand-in, from a checkout with a zip.
+
+    :param tmp_path: A scratch directory, used as the checkout
+    :param steer: ``STORED_SHA``, ``FINAL_STATUS`` or ``RUNNING_SHA``
+    :return: The process and each ``aws`` call
+    """
+    step = _sanitiser_ship_step()
+    env = step["env"]
+    assert isinstance(env, dict)
+    # The step's own values, the expression rendered for staging.
+    assert env["FUNCTION"] == "shikkhokplus-${{ inputs.environment }}-image-sanitiser"
+    assert env["PACKAGE"] == _SANITISER_ZIP
+    package = tmp_path / _SANITISER_ZIP
+    package.parent.mkdir(parents=True)
+    package.write_bytes(b"PK\x03\x04 the package make lambda-image built")
+    bin_dir = tmp_path / "bin"
+    state = tmp_path / "state"
+    for directory in (bin_dir, state):
+        directory.mkdir()
+    fake = bin_dir / "aws"
+    fake.write_text(_FAKE_AWS_LAMBDA)
+    fake.chmod(0o755)
+    log = tmp_path / "aws.log"
+    log.write_text("")
+    finished = subprocess.run(  # noqa: S603 -- a fixed interpreter and our own script
+        [  # noqa: S607 -- bash from PATH, as the runner finds it
+            "bash",
+            "--noprofile",
+            "--norc",
+            "-eo",
+            "pipefail",
+            "-c",
+            str(step["run"]),
+        ],
+        cwd=tmp_path,
+        env={
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "FUNCTION": _SANITISER_FUNCTION,
+            "PACKAGE": _SANITISER_ZIP,
+            "AWS_LOG": str(log),
+            "STATE_DIR": str(state),
+            "FINAL_STATUS": "Successful",
+            **steer,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    return finished, log.read_text().splitlines()
+
+
+def test_the_sanitiser_ships_the_built_zip_and_waits_for_success(
+    tmp_path: pathlib.Path,
+) -> None:
+    finished, calls = _run_sanitiser_ship(tmp_path)
+
+    assert finished.returncode == 0, finished.stdout + finished.stderr
+    assert calls == [
+        f"lambda update-function-code --function-name {_SANITISER_FUNCTION} "
+        f"--zip-file fileb://{_SANITISER_ZIP} --query CodeSha256 --output text",
+        f"lambda wait function-updated --function-name {_SANITISER_FUNCTION}",
+        f"lambda get-function-configuration --function-name {_SANITISER_FUNCTION} "
+        "--query [LastUpdateStatus, CodeSha256] --output text",
+    ]
+    assert "LastUpdateStatus Successful" in finished.stdout
+
+
+def test_a_failed_sanitiser_update_fails_the_deploy(tmp_path: pathlib.Path) -> None:
+    finished, calls = _run_sanitiser_ship(tmp_path, FINAL_STATUS="Failed")
+
+    assert finished.returncode != 0
+    assert "did not reach LastUpdateStatus Successful" in finished.stdout
+    # Lambda's own reason is printed, so the failure says what broke.
+    assert "Unable to import module 'handler'" in finished.stdout
+    assert calls[-1].endswith("--query LastUpdateStatusReason --output text")
+
+
+def test_a_package_lambda_stored_differently_fails_before_waiting(
+    tmp_path: pathlib.Path,
+) -> None:
+    finished, calls = _run_sanitiser_ship(tmp_path, STORED_SHA="c29tZXRoaW5nIGVsc2U=")
+
+    assert finished.returncode != 0
+    assert "the package built here is" in finished.stdout
+    assert [c.split()[1] for c in calls] == ["update-function-code"]
+
+
+def test_a_successful_update_running_other_code_fails(tmp_path: pathlib.Path) -> None:
+    finished, _ = _run_sanitiser_ship(tmp_path, RUNNING_SHA="b2xkIGNvZGU=")
+
+    assert finished.returncode != 0
+    assert "running b2xkIGNvZGU=" in finished.stdout
+
+
+def test_the_sanitiser_ships_after_infrastructure_and_before_release() -> None:
+    jobs = yaml.safe_load(DEPLOY.read_text())["jobs"]
+
+    assert "infrastructure" in jobs[_SANITISER_JOB]["needs"]
+    assert _SANITISER_JOB in jobs["release"]["needs"]
+    # Nothing that starts the release can run before the code is in place.
+    assert not jobs[_SANITISER_JOB].get("continue-on-error")
+
+    steps = _steps(_SANITISER_JOB)
+    build = _first_index(steps, lambda s: s.get("run") == "make lambda-image")
+    credentials = _first_index(
+        steps, lambda s: "configure-aws-credentials" in str(s.get("uses", ""))
+    )
+    ship = steps.index(_sanitiser_ship_step())
+    # Built before any credential exists; shipped with the deploy role.
+    assert build < credentials < ship
+    assert "AWS_DEPLOY_ROLE_ARN" in str(steps[credentials]["with"])
+    assert not steps[ship].get("continue-on-error")

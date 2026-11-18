@@ -156,7 +156,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ steps.commit.outputs.sha }}
-          REQUIRED: "backend image android-unit web site"
+          REQUIRED: "backend image android-unit web site lambda"
         run: |
           deadline=$((SECONDS + 1200))
           while :; do
@@ -232,6 +232,13 @@ jobs:
         with:
           python-version: "3.12"
 
+      #
+      # Two Python lockfiles ship: the API's, and the image sanitiser
+      # Lambda's (Pillow, lambdas/image_sanitiser/requirements.txt). Both
+      # are audited and decided in one run of the gate, against the same
+      # exceptions file. The sanitiser's lockfile pins the same Pillow
+      # version for every platform, so auditing it on this runner audits
+      # what the arm64 package carries.
       - name: Release gate - dependency CVEs
         if: inputs.environment == 'production'
         run: |
@@ -241,11 +248,17 @@ jobs:
           # verdict -- but a missing report is.
           pip-audit --requirement requirements.txt --format json \
             --output audit.json --progress-spinner off || true
-          if [ ! -s audit.json ]; then
-            echo "::error::pip-audit produced no report; the gate cannot decide."
-            exit 1
-          fi
-          python3 deploy/cve_gate.py audit.json .security-exceptions.md
+          pip-audit --requirement lambdas/image_sanitiser/requirements.txt \
+            --format json --output audit-image-sanitiser.json \
+            --progress-spinner off || true
+          for report in audit.json audit-image-sanitiser.json; do
+            if [ ! -s "$report" ]; then
+              echo "::error::pip-audit produced no $report; the gate cannot decide."
+              exit 1
+            fi
+          done
+          python3 deploy/cve_gate.py audit.json audit-image-sanitiser.json \
+            .security-exceptions.md
 
       - name: Fail early when the environment is not configured
         env:
@@ -663,11 +676,85 @@ jobs:
           [ -z "$KEY" ] || aws s3 rm "s3://$BUCKET/$KEY" --region "$TF_STATE_REGION" --only-show-errors || true
 
   # ---------------------------------------------------------------
+  # 2b. The image sanitiser's code. Every deploy.
+  # ---------------------------------------------------------------
+  #
+  # **Terraform creates the function; this ships what it runs**
+  # (infra/modules/media/lambda.tf). The function is created from a
+  # placeholder that refuses every event, and Terraform ignores its code
+  # afterwards, so the real package -- handler.py and Pillow for arm64,
+  # built from the hashed lockfile -- is uploaded here: after the
+  # infrastructure job, which may have just created the function, and
+  # before the release, whose API hands out the upload forms the
+  # sanitiser answers. A failure here stops the release.
+  #
+  # **Done means Lambda says so.** UpdateFunctionCode only starts the
+  # update; the function runs the old code until LastUpdateStatus is
+  # Successful. The step waits for that, and checks the code Lambda
+  # reports is the zip built here, byte for byte (CodeSha256).
+  #
+  # Built before any credential exists: nothing in the build needs AWS.
+  image-sanitiser:
+    name: image sanitiser
+    needs: [plan, infrastructure]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      # The same target CI's `lambda` job builds on every push. It ends
+      # by proving the zip holds Pillow's AArch64 extension.
+      - name: Build the package
+        run: make lambda-image
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: deploy-sanitiser-${{ github.run_id }}
+
+      - name: Ship the package and wait for Lambda
+        env:
+          FUNCTION: shikkhokplus-${{ inputs.environment }}-image-sanitiser
+          PACKAGE: dist/image_sanitiser.zip
+        run: |
+          # Lambda's CodeSha256: base64 of the zip's SHA-256 digest.
+          expected=$(openssl dgst -sha256 -binary "$PACKAGE" | base64)
+          uploaded=$(aws lambda update-function-code --function-name "$FUNCTION" \
+            --zip-file "fileb://$PACKAGE" --query CodeSha256 --output text)
+          if [ "$uploaded" != "$expected" ]; then
+            echo "::error::Lambda stored $uploaded; the package built here is $expected."
+            exit 1
+          fi
+          if ! aws lambda wait function-updated --function-name "$FUNCTION"; then
+            reason=$(aws lambda get-function-configuration --function-name "$FUNCTION" \
+              --query LastUpdateStatusReason --output text || true)
+            echo "::error::$FUNCTION did not reach LastUpdateStatus Successful: $reason"
+            exit 1
+          fi
+          read -r status running < <(aws lambda get-function-configuration \
+            --function-name "$FUNCTION" \
+            --query '[LastUpdateStatus, CodeSha256]' --output text)
+          if [ "$status" != "Successful" ] || [ "$running" != "$expected" ]; then
+            echo "::error::$FUNCTION is $status running $running, not $expected."
+            exit 1
+          fi
+          echo "$FUNCTION runs ${expected:0:12}... (LastUpdateStatus $status)."
+
+  # ---------------------------------------------------------------
   # 3. Build, push, and roll the instance. Every deploy.
   # ---------------------------------------------------------------
   release:
     name: build and release
-    needs: [plan, infrastructure]
+    needs: [plan, infrastructure, image-sanitiser]
     runs-on: ubuntu-latest
     # A refresh can take 40 minutes (the readiness hook's own timeout
     # plus one retry), a rollback is a second refresh, and the snapshot

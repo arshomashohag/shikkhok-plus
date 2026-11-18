@@ -39,3 +39,8 @@ tests
 .env.*
 *.keystore
 *.jks
+
+# The image sanitiser Lambda and its built package: a separate artifact,
+# shipped by deploy.yml, never part of the API image.
+lambdas
+dist

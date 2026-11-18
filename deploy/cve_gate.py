@@ -3,7 +3,11 @@
 Usage::
 
     pip-audit -r requirements.txt --format json -o audit.json || true
-    python3 deploy/cve_gate.py audit.json .security-exceptions.md
+    python3 deploy/cve_gate.py audit.json [more.json ...] .security-exceptions.md
+
+Every report named is decided in the one run, so each blocking finding
+is listed together and an expired exception is reported once. The deploy
+passes two: the API's lockfile and the image sanitiser Lambda's.
 
 The report may be any of three shapes, recognised by their top-level
 key [C-32]:
@@ -295,18 +299,27 @@ def decide(
 def main(argv: list[str]) -> int:
     """Run the gate.
 
-    :param argv: ``[report.json, exceptions.md]``
+    :param argv: ``[report.json, ..., exceptions.md]``: one or more
+        reports, then the exceptions file
     :return: The process exit code
     """
-    report = json.loads(pathlib.Path(argv[0]).read_text())
-    exceptions = parse_exceptions(pathlib.Path(argv[1]).read_text())
-    findings = parse_report(report)
+    if len(argv) < 2:
+        print("usage: cve_gate.py REPORT.json [REPORT.json ...] EXCEPTIONS.md")
+        return 2
+    *reports, exceptions_file = argv
+    exceptions = parse_exceptions(pathlib.Path(exceptions_file).read_text())
+    findings = [
+        finding
+        for report in reports
+        for finding in parse_report(json.loads(pathlib.Path(report).read_text()))
+    ]
     problems = decide(
         findings, exceptions, dt.datetime.now(dt.UTC).date(), osv_severity
     )
     unrated = sum(1 for f in findings if f.severity in VENDOR_UNRATED)
     print(
-        f"{len(findings)} finding(s), {len(exceptions)} exception row(s), "
+        f"{len(reports)} report(s), {len(findings)} finding(s), "
+        f"{len(exceptions)} exception row(s), "
         f"{unrated} rated UNDEFINED or INFORMATIONAL by the scanner."
     )
     for problem in problems:

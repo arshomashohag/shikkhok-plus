@@ -42,3 +42,13 @@ variable "web_app_origin" {
     error_message = "web_app_origin must be a bare https origin, e.g. https://app.example.com."
   }
 }
+
+variable "log_retention_days" {
+  description = <<-EOT
+    How long the image sanitiser's logs are kept: 30 days, as the app's
+    container logs. Its lines carry a media id and an outcome, never image
+    bytes, metadata or anything a person typed.
+  EOT
+  type        = number
+  default     = 30
+}

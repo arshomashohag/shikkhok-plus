@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import datetime as dt
 import importlib.util
+import json
 import pathlib
 import sys
 from collections.abc import Callable
@@ -248,3 +249,45 @@ def test_an_incomplete_ecr_scan_is_refused_rather_than_read_as_clean() -> None:
 def test_an_unrecognised_report_is_refused_rather_than_read_as_empty() -> None:
     with pytest.raises(ValueError, match="unrecognised"):
         gate.parse_report({"vulnerabilities": []})
+
+
+# ---------------------------------------------------------------------------
+# More than one report in one run [H3 task 3]: the release gate audits the
+# API's lockfile and the image sanitiser Lambda's together.
+# ---------------------------------------------------------------------------
+
+CLEAN_AUDIT = {"dependencies": [{"name": "pillow", "version": "13.0.0", "vulns": []}]}
+
+
+def _files(tmp_path: pathlib.Path, *reports: dict[str, object]) -> list[str]:
+    paths = []
+    for index, report in enumerate(reports):
+        path = tmp_path / f"report-{index}.json"
+        path.write_text(json.dumps(report))
+        paths.append(str(path))
+    exceptions = tmp_path / "exceptions.md"
+    exceptions.write_text("# Exceptions\n")
+    return [*paths, str(exceptions)]
+
+
+def test_every_report_named_is_decided(
+    tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A clean first report does not hide a High finding in the second.
+    argv = _files(tmp_path, CLEAN_AUDIT, OSV_REPORT)
+
+    assert gate.main(argv) == 1
+    out = capsys.readouterr().out
+    assert "2 report(s), 2 finding(s)" in out
+    assert "okio" in out
+
+
+def test_two_clean_reports_pass(
+    tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert gate.main(_files(tmp_path, CLEAN_AUDIT, CLEAN_AUDIT)) == 0
+    assert "2 report(s), 0 finding(s)" in capsys.readouterr().out
+
+
+def test_a_gate_with_no_report_is_refused(tmp_path: pathlib.Path) -> None:
+    assert gate.main(_files(tmp_path)) == 2
