@@ -155,6 +155,7 @@
   "hub.review.contains_contact": "hub_review_contains_contact",
   "hub.review.edit_closed": "hub_review_edit_closed",
   "hub.review.needs_attendance": "hub_review_needs_attendance",
+  "hub.review.not_found": "hub_review_not_found",
   "hub.review.not_yet_eligible": "hub_review_not_yet_eligible",
   "hub.review.off": "hub_review_off",
   "hub.review.window_closed": "hub_review_window_closed",

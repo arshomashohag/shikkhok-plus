@@ -903,6 +903,7 @@
   "hub_review_contains_contact": "Remove phone numbers and web addresses from your review.",
   "hub_review_edit_closed": "This review can no longer be changed.",
   "hub_review_needs_attendance": "You can review this batch once your child has attended 4 classes.",
+  "hub_review_not_found": "This review is no longer available.",
   "hub_review_not_yet_eligible": "You can review this batch once your child has been enrolled for 30 days.",
   "hub_review_off": "Reviews are not available right now.",
   "hub_review_window_closed": "Reviews close 180 days after a child leaves the batch.",

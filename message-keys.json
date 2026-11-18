@@ -138,6 +138,7 @@
     "hub.review.contains_contact",
     "hub.review.edit_closed",
     "hub.review.needs_attendance",
+    "hub.review.not_found",
     "hub.review.not_yet_eligible",
     "hub.review.off",
     "hub.review.window_closed",

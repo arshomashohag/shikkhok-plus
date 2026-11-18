@@ -1955,6 +1955,7 @@
     <string name="hub_review_contains_contact">Remove phone numbers and web addresses from your review.</string>
     <string name="hub_review_edit_closed">This review can no longer be changed.</string>
     <string name="hub_review_needs_attendance">You can review this batch once your child has attended 4 classes.</string>
+    <string name="hub_review_not_found">This review is no longer available.</string>
     <string name="hub_review_not_yet_eligible">You can review this batch once your child has been enrolled for 30 days.</string>
     <string name="hub_review_window_closed">Reviews close 180 days after a child leaves the batch.</string>
     <string name="hub_report_target_not_found">This listing can no longer be reported.</string>
