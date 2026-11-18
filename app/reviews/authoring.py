@@ -23,7 +23,9 @@ write counts nothing.
 **Two devices writing a first review at once make one review** (Review
 Focus 1). The insert is ``ON CONFLICT DO NOTHING`` on the one-review-per-
 author constraint; the call that loses the race continues as an edit of the
-winner's row, and both succeed.
+winner's row, and both succeed. The loser spends its allowance only if
+it changes the winner's words: a double submit of the same review counts
+once.
 
 **Delete is total and never switch-gated**: :func:`delete` hands the review
 to :func:`app.reviews.forget.forget`.
@@ -377,6 +379,22 @@ def _unchanged(current: Row[tuple[object, ...]], rating: int, body: str | None) 
     return bool(current.rating == rating and current.body == body)
 
 
+def _spend(session: Session, lens: ReviewerLens, now: dt.datetime) -> None:
+    """Count one changing write against the author, without committing [F5].
+
+    Called only once a create or an edit is certain, so an identical
+    resubmit -- a retry, or a double submit that lost the insert race --
+    spends nothing.
+
+    :param session: The write's session
+    :param lens: The caller's reviewer lens
+    :param now: The moment of the write
+    :return: None
+    :raises CeilingBreach: ``HUB_REVIEW_CEILING``
+    """
+    CeilingChecker(session).consume_hub_review_in_transaction(lens.account_id, now)
+
+
 def write(
     session: Session,
     lens: ReviewerLens,
@@ -414,13 +432,6 @@ def write(
         current = session.execute(_LOCK_MINE, keys).one_or_none()
         if current is None:
             _refuse_create(lens.assessment)
-        else:
-            _refuse_edit(lens.assessment, current.submitted_at, today)
-            if _unchanged(current, rating, text):
-                session.rollback()
-                return state(session, lens, today)
-        CeilingChecker(session).consume_hub_review_in_transaction(lens.account_id, now)
-        if current is None:
             created = session.execute(
                 _CREATE,
                 {
@@ -432,11 +443,25 @@ def write(
                     "now": now,
                 },
             ).scalar_one_or_none()
-            if created is None:
-                # Another call's first review won the race: edit that one.
-                current = session.execute(_LOCK_MINE, keys).one()
-        if current is not None and not _unchanged(current, rating, text):
-            _edit(session, current, lens.batch_id, rating=rating, body=text, now=now)
+            if created is not None:
+                # Counted only now that a review was written; a breach
+                # rolls the insert back with the count.
+                _spend(session, lens, now)
+                session.commit()
+                return state(session, lens, today)
+            # Another call's first review won the race: this call is an
+            # edit of that one, and spends only if it changes it.
+            current = session.execute(_LOCK_MINE, keys).one_or_none()
+            if current is None:
+                # The winner was deleted in between: the delete stands.
+                session.rollback()
+                return state(session, lens, today)
+        _refuse_edit(lens.assessment, current.submitted_at, today)
+        if _unchanged(current, rating, text):
+            session.rollback()
+            return state(session, lens, today)
+        _spend(session, lens, now)
+        _edit(session, current, lens.batch_id, rating=rating, body=text, now=now)
         session.commit()
     except Exception:
         session.rollback()

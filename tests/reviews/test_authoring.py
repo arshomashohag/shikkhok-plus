@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import threading
+import time
 import uuid
 from typing import Any
 
@@ -536,10 +537,20 @@ def test_sixth_write_in_a_day_hits_ceiling(
     assert _consumed(owner_session, guardian) == HUB_REVIEW_ACCOUNT_DAILY
 
 
+@pytest.mark.parametrize(
+    ("ratings", "spent"), [((3, 4), 2), ((4, 4), 1)], ids=["different", "identical"]
+)
 def test_concurrent_first_writes_make_one_review(
-    owner_session: Session, restricted_engine: Engine
+    owner_session: Session,
+    restricted_engine: Engine,
+    ratings: tuple[int, int],
+    spent: int,
 ) -> None:
-    """Review Focus 1: two devices submit a first review at once."""
+    """Review Focus 1: two devices submit a first review at once.
+
+    Whichever way the two interleave, an identical second submit changes
+    nothing and spends nothing, and a different one is one edit.
+    """
     batch = public_batch(owner_session)
     guardian = account(owner_session)
     _member(owner_session, batch.batch_id, guardian)
@@ -559,7 +570,7 @@ def test_concurrent_first_writes_make_one_review(
             except Exception as error:  # noqa: BLE001 -- reported below
                 outcomes.append(error)
 
-    threads = [threading.Thread(target=submit, args=(n,)) for n in (3, 4)]
+    threads = [threading.Thread(target=submit, args=(n,)) for n in ratings]
     for thread in threads:
         thread.start()
     for thread in threads:
@@ -573,6 +584,89 @@ def test_concurrent_first_writes_make_one_review(
         {"a": guardian},
     ).scalar_one()
     assert count == 1
+    assert _consumed(owner_session, guardian) == spent
+
+
+def _wait_for_a_lock_waiter(session: Session) -> None:
+    """Block until some backend waits on a lock, or give up and roll back.
+
+    ``pg_locks`` rather than ``pg_stat_activity``: every role may read the
+    former, while the latter hides other roles' wait events. Giving up rolls
+    the holder back, so the waiting write is released and the test fails
+    rather than hangs.
+
+    :param session: The session holding the lock the write must wait on
+    :return: None
+    :raises AssertionError: Nobody waited within ten seconds
+    """
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        waiting = session.execute(
+            sa.text("SELECT count(*) FROM pg_locks WHERE NOT granted")
+        ).scalar_one()
+        if waiting:
+            return
+        time.sleep(0.05)
+    session.rollback()
+    raise AssertionError("the second write never waited on the first's insert")
+
+
+@pytest.mark.parametrize(
+    ("rating", "body", "spent", "edited"),
+    [(4, "Same words", 0, False), (2, "Other words", 1, True)],
+    ids=["identical", "different"],
+)
+def test_a_first_write_losing_the_insert_race_spends_only_on_a_change(
+    owner_session: Session,
+    restricted_session: Session,
+    rating: int,
+    body: str,
+    spent: int,
+    edited: bool,
+) -> None:
+    """I-1, F5: the race is forced, not hoped for.
+
+    The other device's first review is inserted and held uncommitted, so
+    this write finds no review, blocks on the unique index, and loses the
+    insert once the other commits. An identical resubmit then spends
+    nothing and leaves the winner untouched.
+    """
+    batch = public_batch(owner_session)
+    guardian = account(owner_session)
+    _member(owner_session, batch.batch_id, guardian)
+    lens = _lens(restricted_session, batch.batch_id, guardian)
+    owner_session.execute(
+        sa.text(
+            "INSERT INTO review (batch_id, author_account_id, author_role, "
+            "rating, body, tenure_bucket) VALUES (:b, :a, 'guardian', 4, "
+            "'Same words', 'lt_6m')"
+        ),
+        {"b": batch.batch_id, "a": guardian},
+    )
+    outcome: list[object] = []
+
+    def submit() -> None:
+        try:
+            outcome.append(
+                authoring.write(
+                    restricted_session, lens, rating=rating, body=body, now=_now()
+                )
+            )
+        except Exception as error:  # noqa: BLE001 -- reported below
+            outcome.append(error)
+
+    thread = threading.Thread(target=submit)
+    thread.start()
+    _wait_for_a_lock_waiter(owner_session)
+    owner_session.commit()
+    thread.join(timeout=30)
+
+    assert len(outcome) == 1
+    assert isinstance(outcome[0], authoring.MyReviewState), outcome
+    stored = _review(owner_session, batch.batch_id, guardian)
+    assert (stored.rating, stored.body) == (rating, body)
+    assert (stored.edited_at is not None) is edited
+    assert _consumed(owner_session, guardian) == spent
 
 
 def test_body_over_1000_after_strip_refused(
