@@ -8,6 +8,9 @@ a page that renders nothing cannot pass for a page that hides everything.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -130,6 +133,27 @@ def test_batch_name_never_public(
         assert "Canary public title" in page
 
 
+@pytest.fixture
+def preview_store(api_client: TestClient) -> Iterator[FakeMediaStore]:
+    """Serve the preview's photo bucket from memory, for this test only.
+
+    The override is removed however the test ends, as the other media
+    suites' fixtures remove theirs, rather than left on the application
+    after the test body.
+
+    :param api_client: A client over the real application
+    :return: The fake bucket
+    """
+    store = FakeMediaStore()
+    overrides = api_client.app.dependency_overrides  # type: ignore[attr-defined]
+    overrides[media_store] = lambda: store
+    try:
+        yield store
+    finally:
+        overrides.pop(media_store, None)
+
+
+@pytest.mark.usefixtures("preview_store")
 def test_preview_route_carries_no_other_owner_canary(
     owner_session: Session, api_client: TestClient
 ) -> None:
@@ -147,8 +171,6 @@ def test_preview_route_carries_no_other_owner_canary(
     account_id = owner.account_id
     assert account_id is not None
     headers = bearer(owner_session, account_id)
-    store = FakeMediaStore()
-    api_client.app.dependency_overrides[media_store] = lambda: store  # type: ignore[attr-defined]
     for locale in LOCALES:
         response = api_client.get(
             f"/v1/hub/listing/preview?locale={locale}", headers=headers
