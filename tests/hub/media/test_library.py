@@ -325,7 +325,7 @@ def test_withdraw_while_uploading_deletes_a_late_upload(
 
 
 def test_a_photo_is_evicted_by_its_three_exact_paths() -> None:
-    """No wildcard: CloudFront caps wildcard invalidations in progress at 15.
+    """No wildcard: CloudFront caps wildcard invalidations in progress.
 
     An account deletion with many photos would otherwise queue a wildcard
     each. The variant widths are known, and are the sanitiser's.

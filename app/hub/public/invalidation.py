@@ -98,9 +98,9 @@ def batch_paths(owner_slug: str, batch_slug: str) -> list[str]:
 def media_paths(public_key: str) -> list[str]:
     """Build the paths that evict one photo's variants at ``/m/``.
 
-    The three variant paths exactly, no wildcard: CloudFront allows only
-    15 wildcard invalidations in progress, and an account deletion with
-    many photos would queue one each. A variant the sanitiser did not
+    The three variant paths exactly, no wildcard: CloudFront caps how many
+    wildcard invalidations may be in progress at once, and an account
+    deletion with many photos would queue one each. A variant the sanitiser did not
     write (a small photo is never upscaled) costs one path of nothing.
 
     :param public_key: The photo's public key, as it was while approved
