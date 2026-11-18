@@ -39,6 +39,7 @@ from app.db.models import (
 from app.errors import ConflictError, ValidationError
 from app.help.identity import requester_ref
 from app.hub.listings.shared import refuse_phone_in
+from app.hub.media.storage import MediaStore
 from app.moderation import media
 from app.moderation.refusals import admin_not_found, not_found
 from app.moderation.vocab import HOLD_REASONS, REASONS
@@ -458,10 +459,15 @@ def decide(
     decision: Literal["upheld", "dismissed"],
     now: dt.datetime,
     correlation_id: str = "internal",
+    *,
+    store: MediaStore | None = None,
 ) -> None:
     """Record an administrator's decision on a report.
 
-    Upholding a report suspends nothing by itself; suspension is its own act.
+    Upholding a listing report suspends nothing by itself; suspension is its
+    own act. A decision on a photo report carries to the photo in the same
+    transaction [R11]: upheld removes it, and dismissing the report that
+    holds it restores it (:func:`app.moderation.media.settle_report`).
 
     :param session: The session
     :param admin: The administrator's lens
@@ -469,9 +475,12 @@ def decide(
     :param decision: ``upheld`` or ``dismissed``
     :param now: The moment of decision
     :param correlation_id: The request that caused it
+    :param store: The photo bucket, which restoring a held photo needs
     :return: None
     :raises AuthorizationError: No such report
     :raises ConflictError: The report was already decided
+    :raises TransientError: A held photo could not be restored; nothing
+        was decided
     """
     report = session.scalar(
         sa.select(HubReport).where(HubReport.id == report_id).with_for_update()
@@ -496,4 +505,16 @@ def decide(
             at=now,
         )
     )
+    if report.target_kind == "media":
+        media.settle_report(
+            session,
+            store,
+            admin,
+            report.target_id,
+            upheld=decision == "upheld",
+            reason=report.reason,
+            report_id=report.id,
+            now=now,
+            correlation_id=correlation_id,
+        )
     session.commit()

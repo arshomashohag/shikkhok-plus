@@ -27,6 +27,14 @@ is enqueued for deletion and ``/m/{key}/*`` and its page for invalidation,
 all through :func:`app.hub.media.library.unpublish`. A report that rolls
 back leaves the photo approved.
 
+**A decision on a photo report carries to the photo** [R11]
+(:func:`settle_report`, in the decision's own transaction). Upholding a
+report removes the photo -- approved, held or back in review -- as a
+rejection does, with the code mapped from the report reason, and an
+approved photo's public copy and paths go with it. Dismissing the report
+that holds a photo restores it from the archive under a fresh key, unless
+another open child-safety or personal-information report still stands.
+
 **Every act is a closed-vocabulary moderation event** with
 ``target_kind = 'media'``: ``media_approved``, ``media_rejected`` (its code),
 ``media_held`` (the report's reason, no actor) and ``media_restored``.
@@ -64,7 +72,11 @@ from app.hub.media.storage import (
     staged_prefix,
 )
 from app.moderation.refusals import admin_not_found
-from app.moderation.vocab import MEDIA_REJECTION_CODES
+from app.moderation.vocab import (
+    HOLD_REASONS,
+    MEDIA_REJECTION_CODES,
+    REPORT_REJECTION_CODES,
+)
 
 __all__ = [
     "DECIDABLE",
@@ -77,6 +89,7 @@ __all__ = [
     "detail",
     "hold",
     "is_public",
+    "settle_report",
     "waiting",
 ]
 
@@ -85,6 +98,9 @@ DECIDABLE: Final[tuple[str, ...]] = ("pending_review", "held")
 
 #: The statuses whose variants exist to preview.
 _PREVIEWABLE: Final[tuple[str, ...]] = ("pending_review", "held", "approved")
+
+#: The statuses an upheld report removes a photo from.
+_REMOVABLE: Final[tuple[str, ...]] = ("pending_review", "approved", "held")
 
 #: The statuses a decision has already settled.
 _DECIDED: Final[tuple[str, ...]] = ("approved", "rejected")
@@ -361,6 +377,34 @@ def _publish(
         media.archived_at = now
 
 
+def _remove(
+    session: Session, media: ListingMedia, code: str | None, now: dt.datetime
+) -> None:
+    """Reject a photo and enqueue the deletion of everything it has.
+
+    An approved photo is unpublished first, which enqueues ``public/{key}/``
+    and invalidates ``/m/{key}/*`` and its page; the quarantined original,
+    the staged variants and the archive follow in every case.
+
+    :param session: The caller's session, the photo locked
+    :param media: The photo, waiting, approved or held
+    :param code: One of :data:`~app.moderation.vocab.MEDIA_REJECTION_CODES`,
+        checked by the caller
+    :param now: The moment of the removal
+    :return: None
+    """
+    if media.status == "approved":
+        library.unpublish(session, media, "rejected", now)
+    else:
+        media.status = "rejected"
+    media.rejection_code = code
+    objects.enqueue(
+        session,
+        [quarantine_key(media.id), staged_prefix(media.id), archive_prefix(media.id)],
+        now,
+    )
+
+
 def decide(
     session: Session,
     store: MediaStore,
@@ -416,17 +460,7 @@ def decide(
         _publish(session, store, media, now)
     else:
         event = "media_rejected"
-        media.status = "rejected"
-        media.rejection_code = code
-        objects.enqueue(
-            session,
-            [
-                quarantine_key(media.id),
-                staged_prefix(media.id),
-                archive_prefix(media.id),
-            ],
-            now,
-        )
+        _remove(session, media, code, now)
     media.decided_at = now
     session.add(
         _event(
@@ -440,6 +474,98 @@ def decide(
     )
     session.commit()
     return media
+
+
+def settle_report(
+    session: Session,
+    store: MediaStore | None,
+    lens: PlatformAdminLens,
+    media_id: uuid.UUID,
+    *,
+    upheld: bool,
+    reason: str,
+    report_id: uuid.UUID,
+    now: dt.datetime,
+    correlation_id: str = "internal",
+) -> None:
+    """Carry an administrator's decision on a photo report to the photo.
+
+    In the decision's transaction, committing nothing on success. Upheld: a
+    photo waiting, approved or held is removed with the code mapped from
+    the reason. Dismissed: a held photo is restored under a fresh key once
+    no other open holding report names it. Anything else is left alone.
+
+    :param session: The decision's session, the report locked
+    :param store: The bucket; needed only to restore
+    :param lens: The administrator's lens
+    :param media_id: The photo the report names
+    :param upheld: True to uphold, False to dismiss
+    :param reason: The report's reason
+    :param report_id: The report being decided, already marked
+    :param now: The moment of the decision
+    :param correlation_id: The request that caused it
+    :return: None
+    :raises ValueError: A restore is due and no bucket was given
+    :raises TransientError: The restore's copy failed; the whole decision
+        was rolled back, and the fresh key's prefix enqueued and committed
+    """
+    owner_id = session.scalar(
+        sa.select(ListingMedia.owner_id).where(ListingMedia.id == media_id)
+    )
+    if owner_id is None:
+        return
+    lock_owner(session, owner_id)
+    media = _locked(session, media_id)
+    if media is None:
+        return
+    if upheld:
+        if media.status not in _REMOVABLE:
+            return
+        code = REPORT_REJECTION_CODES.get(reason, "other")
+        _remove(session, media, code, now)
+        event = "media_rejected"
+    else:
+        if media.status != "held" or _still_held(session, media_id, report_id):
+            return
+        if store is None:
+            raise ValueError("restoring a held photo needs the bucket")
+        code = None
+        _publish(session, store, media, now)
+        event = "media_restored"
+    media.decided_at = now
+    session.add(
+        _event(
+            media_id,
+            event,
+            actor=lens.account_id,
+            code=code,
+            correlation_id=correlation_id,
+            now=now,
+        )
+    )
+
+
+def _still_held(session: Session, media_id: uuid.UUID, report_id: uuid.UUID) -> bool:
+    """Say whether another open report keeps a photo held.
+
+    :param session: The session
+    :param media_id: The photo
+    :param report_id: The report being dismissed, left out
+    :return: True when an open child-safety or personal-information report
+        other than this one names the photo
+    """
+    other = session.scalar(
+        sa.select(HubReport.id)
+        .where(
+            HubReport.target_kind == "media",
+            HubReport.target_id == media_id,
+            HubReport.status == "open",
+            HubReport.reason.in_(sorted(HOLD_REASONS)),
+            HubReport.id != report_id,
+        )
+        .limit(1)
+    )
+    return other is not None
 
 
 def _titles(

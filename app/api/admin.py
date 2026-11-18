@@ -376,14 +376,16 @@ def decide_report(
     request: Request,
     lens: Annotated[PlatformAdminLens, Depends(platform_admin_lens)],
     session: Annotated[Session, Depends(get_session)],
+    store: Annotated[MediaStore, Depends(media_store)],
 ) -> AdminHubReportDecided:
-    """Uphold or dismiss a report.
+    """Uphold or dismiss a report; a photo report's decision reaches the photo.
 
     :param report_id: The report
     :param body: The decision
     :param request: The incoming request
     :param lens: The administrator's lens
     :param session: The request-scoped session
+    :param store: The photo bucket, for restoring a held photo
     :return: The report and its new status
     """
     _audit(lens, "hub_report_decision")
@@ -394,6 +396,7 @@ def decide_report(
         body.decision,
         dt.datetime.now(tz=dt.UTC),
         _correlation(request),
+        store=store,
     )
     return AdminHubReportDecided(report_id=report_id, status=body.decision)
 

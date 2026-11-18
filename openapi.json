@@ -15056,7 +15056,7 @@
     },
     "/v1/admin/hub/reports/{report_id}/decision": {
       "post": {
-        "description": "Uphold or dismiss a report.\n\n:param report_id: The report\n:param body: The decision\n:param request: The incoming request\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:return: The report and its new status",
+        "description": "Uphold or dismiss a report; a photo report's decision reaches the photo.\n\n:param report_id: The report\n:param body: The decision\n:param request: The incoming request\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param store: The photo bucket, for restoring a held photo\n:return: The report and its new status",
         "operationId": "decide_report_v1_admin_hub_reports__report_id__decision_post",
         "parameters": [
           {

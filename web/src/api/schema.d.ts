@@ -655,13 +655,14 @@ export interface paths {
     put?: never
     /**
      * Decide Report
-     * @description Uphold or dismiss a report.
+     * @description Uphold or dismiss a report; a photo report's decision reaches the photo.
      *
      *     :param report_id: The report
      *     :param body: The decision
      *     :param request: The incoming request
      *     :param lens: The administrator's lens
      *     :param session: The request-scoped session
+     *     :param store: The photo bucket, for restoring a held photo
      *     :return: The report and its new status
      */
     post: operations['decide_report_v1_admin_hub_reports__report_id__decision_post']

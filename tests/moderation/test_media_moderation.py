@@ -948,3 +948,250 @@ def test_rejection_codes_are_one_vocabulary() -> None:
         "low_quality",
         "other",
     )
+
+
+# ---------------------------------------------------------------------------
+# R11: an administrator's decision on a photo report carries to the photo.
+# ---------------------------------------------------------------------------
+
+
+def _report_on(
+    owner_session: Session,
+    restricted_session: Session,
+    media_id: uuid.UUID,
+    reason: str,
+) -> uuid.UUID:
+    """File a report on a photo and return the report's id.
+
+    :param owner_session: The arranging session
+    :param restricted_session: The application role's session
+    :param media_id: The photo
+    :param reason: The report reason
+    :return: The report id
+    """
+    reports.file(
+        restricted_session,
+        make_teacher(owner_session).account_id,
+        "media",
+        media_id,
+        reason,
+        None,
+        NOW,
+    )
+    owner_session.rollback()
+    return owner_session.execute(
+        sa.text(
+            "SELECT id FROM hub_report WHERE target_id = :m AND reason = "
+            "CAST(:r AS hub_report_reason)"
+        ),
+        {"m": media_id, "r": reason},
+    ).scalar_one()
+
+
+def _published(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+) -> tuple[uuid.UUID, str]:
+    publish_owner(owner_session, tutor.lens.owner_id)
+    media_id = _pending(owner_session, store, tutor.lens.owner_id)
+    return media_id, _approve(restricted_session, store, admin, media_id)
+
+
+@pytest.mark.parametrize(
+    ("reason", "code"), [("abusive", "other"), ("misleading", "other")]
+)
+def test_upholding_a_report_on_an_approved_photo_removes_it(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+    reason: str,
+    code: str,
+) -> None:
+    """Rejected with the mapped code; every prefix and path enqueued."""
+    media_id, key = _published(owner_session, restricted_session, store, tutor, admin)
+    report_id = _report_on(owner_session, restricted_session, media_id, reason)
+
+    reports.decide(restricted_session, admin, report_id, "upheld", LATER, store=store)
+
+    row = _row(owner_session, media_id)
+    assert (row.status, row.public_key, row.rejection_code, row.decided_at) == (
+        "rejected",
+        None,
+        code,
+        LATER,
+    )
+    assert set(tasks(owner_session)) == {
+        f"public/{key}/",
+        f"quarantine/{media_id}",
+        f"staged/{media_id}/",
+        f"archive/{media_id}/",
+    }
+    assert f"/m/{key}/*" in invalidations(owner_session)
+    assert ("media_rejected", "media", code, admin.account_id) in _events(owner_session)
+
+
+@pytest.mark.parametrize(
+    ("reason", "code"),
+    [("child_safety", "identifiable_child"), ("personal_info", "personal_info")],
+)
+def test_upholding_a_report_on_a_held_photo_removes_it(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+    reason: str,
+    code: str,
+) -> None:
+    """The hold took the public copy down; upholding deletes the rest."""
+    media_id, key = _published(owner_session, restricted_session, store, tutor, admin)
+    report_id = _report_on(owner_session, restricted_session, media_id, reason)
+    assert _row(owner_session, media_id).status == "held"
+
+    reports.decide(restricted_session, admin, report_id, "upheld", LATER, store=store)
+
+    row = _row(owner_session, media_id)
+    assert (row.status, row.rejection_code) == ("rejected", code)
+    assert set(tasks(owner_session)) == {
+        f"public/{key}/",
+        f"quarantine/{media_id}",
+        f"staged/{media_id}/",
+        f"archive/{media_id}/",
+    }
+
+
+def test_dismissing_the_report_that_held_a_photo_restores_it(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+) -> None:
+    """Back up from the archive under a fresh key, recorded as a restore."""
+    media_id, old = _published(owner_session, restricted_session, store, tutor, admin)
+    report_id = _report_on(owner_session, restricted_session, media_id, "child_safety")
+    _drop_staged(store, media_id)
+
+    reports.decide(
+        restricted_session, admin, report_id, "dismissed", LATER, store=store
+    )
+
+    row = _row(owner_session, media_id)
+    assert row.status == "approved"
+    assert row.public_key not in (None, old)
+    assert all(f"public/{row.public_key}/{w}.webp" in store.objects for w in WIDTHS)
+    events = _events(owner_session)
+    assert ("media_restored", "media", None, admin.account_id) in events
+    assert ("report_dismissed", "media", "child_safety", admin.account_id) in events
+
+
+def test_dismissing_one_report_keeps_a_hold_another_still_stands_on(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+) -> None:
+    """An earlier non-holding report is dismissed; the child-safety one remains."""
+    media_id, _ = _published(owner_session, restricted_session, store, tutor, admin)
+    abusive = _report_on(owner_session, restricted_session, media_id, "abusive")
+    _report_on(owner_session, restricted_session, media_id, "child_safety")
+
+    reports.decide(restricted_session, admin, abusive, "dismissed", LATER, store=store)
+
+    assert _row(owner_session, media_id).status == "held"
+
+
+def test_dismissing_a_report_on_an_approved_photo_changes_nothing(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+) -> None:
+    """A dismissal leaves a photo that was never held exactly as it was."""
+    media_id, key = _published(owner_session, restricted_session, store, tutor, admin)
+    report_id = _report_on(owner_session, restricted_session, media_id, "fake")
+
+    reports.decide(
+        restricted_session, admin, report_id, "dismissed", LATER, store=store
+    )
+
+    assert (
+        _row(owner_session, media_id).status,
+        _row(owner_session, media_id).public_key,
+    ) == (
+        "approved",
+        key,
+    )
+    assert tasks(owner_session) == []
+
+
+def test_an_upheld_report_that_rolls_back_leaves_nothing(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The removal stands or falls with the decision's own commit."""
+    media_id, key = _published(owner_session, restricted_session, store, tutor, admin)
+    report_id = _report_on(owner_session, restricted_session, media_id, "abusive")
+    events_before = _events(owner_session)
+
+    def failing_commit() -> None:
+        raise RuntimeError("the decision's commit failed")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(restricted_session, "commit", failing_commit)
+        with pytest.raises(RuntimeError):
+            reports.decide(
+                restricted_session, admin, report_id, "upheld", LATER, store=store
+            )
+    restricted_session.rollback()
+
+    row = _row(owner_session, media_id)
+    assert (row.status, row.public_key) == ("approved", key)
+    assert tasks(owner_session) == []
+    assert invalidations(owner_session) == set()
+    assert _events(owner_session) == events_before
+    assert (
+        owner_session.execute(
+            sa.text("SELECT status::text FROM hub_report WHERE id = :r"),
+            {"r": report_id},
+        ).scalar_one()
+        == "open"
+    )
+
+
+def test_the_report_decision_route_removes_an_upheld_photo(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    served: FakeMediaStore,
+    people: People,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Through the admin route: uphold removes; the store reaches the service."""
+    teacher = people.teacher
+    publish_owner(owner_session, teacher.owner_id)
+    held = _pending(owner_session, served, teacher.owner_id)
+    admin = PlatformAdminLens(account_id=make_teacher(owner_session).account_id)
+    _approve(restricted_session, served, admin, held)
+    report_id = _report_on(owner_session, restricted_session, held, "child_safety")
+    headers = _admin(owner_session, people, monkeypatch)
+
+    dismissed = api_client.post(
+        f"/v1/admin/hub/reports/{report_id}/decision",
+        json={"decision": "dismissed"},
+        headers=headers,
+    )
+
+    assert dismissed.status_code == 200, dismissed.text
+    assert _row(owner_session, held).status == "approved"
