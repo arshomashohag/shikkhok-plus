@@ -440,3 +440,28 @@ export const fileHubReport = (body: Schemas['HubReportRequest']) =>
 function enc(segment: string): string {
   return encodeURIComponent(segment)
 }
+
+// ------------------------------------------------------------ hub photos [H3]
+
+/** One gallery: the owner's own, or a batch's. */
+export const listHubPhotos = (batchId: string | null, signal?: AbortSignal) =>
+  request<Schemas['MediaResponse'][]>('GET', '/v1/hub/media', {
+    query: { batch_id: batchId ?? undefined },
+    signal,
+  })
+
+/** Start an upload; the answer is the presigned POST for the bucket. */
+export const startHubPhotoUpload = (body: Schemas['MediaUploadInit']) =>
+  request<Schemas['MediaUploadTicket']>('POST', '/v1/hub/media/uploads', { body })
+
+/** Submit an uploaded photo; answers `MEDIA_NOT_UPLOADED` until the file is processed. */
+export const completeHubPhoto = (mediaId: string, body: Schemas['MediaComplete']) =>
+  request<Schemas['MediaResponse']>('POST', `/v1/hub/media/${enc(mediaId)}/complete`, { body })
+
+export const putHubPhotoOrder = (batchId: string | null, ids: string[]) =>
+  request<Schemas['MediaResponse'][]>('PUT', '/v1/hub/media/order', {
+    body: { batch_id: batchId, ids },
+  })
+
+export const deleteHubPhoto = (mediaId: string) =>
+  request<undefined>('DELETE', `/v1/hub/media/${enc(mediaId)}`)

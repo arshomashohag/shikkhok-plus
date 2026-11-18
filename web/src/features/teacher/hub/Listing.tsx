@@ -38,6 +38,7 @@ import {
   type Listing as ListingModel,
 } from './hub.mappers'
 import { Checklist, failureText, FailureBanner, StatusChip } from './hubUi'
+import { Photos } from './Photos'
 import { PublishSheet } from './PublishSheet'
 
 type Area = Schemas['AreaOption']
@@ -565,6 +566,8 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
           <p className="meta">{t('web_hub_save_first')}</p>
         ) : null}
       </form>
+
+      <Photos batchId={null} readOnly={suspended} />
 
       {/* Both open a tab of their own, so nothing typed here is lost. */}
       <div className="button-row" style={{ marginTop: 8 }}>

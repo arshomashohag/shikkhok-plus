@@ -1,11 +1,11 @@
 /**
  * Report a public hub page, opened from the page's "Report this page"
- * link: `/ui/hub-report?kind=owner_listing|batch_listing&id=<uuid>`. The
+ * link: `/ui/hub-report?kind=owner_listing|batch_listing|media&id=<uuid>`. The
  * id is what `POST /v1/hub/reports` takes: the owner's id for an owner
- * listing, the batch's for a batch listing.
+ * listing, the batch's for a batch listing, the photo's for a photo.
  *
  * **The target is the link's and only the link's.** A kind other than
- * the two listing kinds, or an id that is not a UUID, says the link is
+ * the listing kinds and `media`, or an id that is not a UUID, says the link is
  * not valid and sends nothing; the reader cannot retarget a report here.
  *
  * Any signed-in reader may report, whatever their lens; a signed-out one
@@ -23,7 +23,7 @@ import { EmptyState, TopBar } from '../../ui/components'
 import { WarningIcon } from '../../ui/icons'
 
 type Request = Schemas['HubReportRequest']
-type Kind = 'owner_listing' | 'batch_listing'
+type Kind = 'owner_listing' | 'batch_listing' | 'media'
 type Reason = Request['reason']
 
 /** The server's limit on the note (`HubReportRequest.note`). */
@@ -42,6 +42,7 @@ const REASONS: readonly Reason[] = [
 const KINDS: Record<Kind, string> = {
   owner_listing: 'hub_report_target_owner',
   batch_listing: 'hub_report_target_batch',
+  media: 'web_hub_report_target_media',
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -50,8 +51,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 function targetOf(params: URLSearchParams): { kind: Kind; id: string } | null {
   const kind = params.get('kind')
   const id = params.get('id')
-  if ((kind !== 'owner_listing' && kind !== 'batch_listing') || !id || !UUID.test(id)) return null
-  return { kind, id }
+  if (!kind || !Object.hasOwn(KINDS, kind) || !id || !UUID.test(id)) return null
+  return { kind: kind as Kind, id }
 }
 
 export function HubReport() {
