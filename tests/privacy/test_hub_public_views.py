@@ -1,8 +1,9 @@
-"""The four public hub views: what the hub reader can see, and nothing else.
+"""The five public hub views: what the hub reader can see, and nothing else.
 
 Public pages read only ``hub_public_owner``, ``hub_public_batch``,
-``hub_public_teacher_name`` and ``hub_public_area``, and only as
-``shikkhok_hub_reader``. A view runs with its owner's rights and bypasses
+``hub_public_teacher_name``, ``hub_public_area`` and ``hub_public_media``
+(``0043``; its rows are probed in ``test_hub_public_media_view.py``), and
+only as ``shikkhok_hub_reader``. A view runs with its owner's rights and bypasses
 row-level security, so what a view selects IS the boundary: these tests
 read every view as the reader and arrange rows as the table owner.
 """
@@ -21,13 +22,14 @@ from app.hub.public.db import as_hub_reader
 from tests.batches.conftest import make_teacher
 from tests.hub.support import add_member, assign_slot, centre_with_manager
 
-#: The four views public pages may read.
+#: The five views public pages may read.
 VIEWS: Final[frozenset[str]] = frozenset(
     {
         "hub_public_owner",
         "hub_public_batch",
         "hub_public_teacher_name",
         "hub_public_area",
+        "hub_public_media",
     }
 )
 
@@ -172,8 +174,11 @@ def _visible(session: Session) -> dict[str, set[str]]:
     }
 
 
-def test_hub_reader_reads_only_the_four_views(restricted_session: Session) -> None:
-    """The reader may SELECT the four views and ``bd_area``, nothing else.
+def test_hub_reader_reads_only_the_five_views(restricted_session: Session) -> None:
+    """The reader may SELECT the five views and ``bd_area``, nothing else.
+
+    ``listing_media`` and ``media_object_task`` (``0043``) are among the
+    "nothing else": the reader sees a photo only through ``hub_public_media``.
 
     ``bd_area`` was granted to the reader by ``0035`` (H0) and stays: the
     public area view is a passthrough of it. No relation is writable.

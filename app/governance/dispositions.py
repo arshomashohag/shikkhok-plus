@@ -713,6 +713,27 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "they stay when a manager's account is deleted."
         ),
     ),
+    "listing_media": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "Photos a solo teacher uploaded for their public hub page or "
+            "their class pages, with the descriptions they wrote for them. "
+            "They go when that teacher deletes their account. A coaching "
+            "centre's photos belong to the centre, so they stay when a "
+            "manager's account is deleted."
+        ),
+    ),
+    "media_object_task": TableGovernance(
+        disposition=Disposition.NOT_PERSONAL,
+        retention=RetentionClass.DAYS_7,
+        basis=(
+            "Instructions to delete a photo's stored image files, naming the "
+            "files only by a random reference. About no person, and kept "
+            "seven days after the files are deleted, never less while the "
+            "deletion is still to be done."
+        ),
+    ),
     "hub_report": TableGovernance(
         disposition=Disposition.HARD_DELETE,
         retention=RetentionClass.LIFE_OF_ACCOUNT,

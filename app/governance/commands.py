@@ -121,6 +121,10 @@ _AGE_COLUMN: Final[dict[str, str]] = {
     "pending_signup": "created_at",
     "username_hold": "held_until",
     "cdn_invalidation": "requested_at",
+    # Measured from completion, not request: a NULL never compares older
+    # than the cutoff, so a deletion still to be done is never purged and
+    # a photo's objects cannot outlive the only record that they must go.
+    "media_object_task": "done_at",
 }
 
 

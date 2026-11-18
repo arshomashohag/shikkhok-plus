@@ -47,6 +47,7 @@ import datetime as dt
 import uuid
 
 from sqlalchemy import (
+    CHAR,
     JSON,
     BigInteger,
     Boolean,
@@ -419,6 +420,7 @@ __all__ = [
     "HUB_SEARCH_NORM_FUNCTION",
     "HUB_TAGS_TEXT_FUNCTION",
     "LEDGER_KIND_VALUES",
+    "MEDIA_STATUS_VALUES",
     "MEMBER_ROLE_VALUES",
     "OWNER_KIND_VALUES",
     "PAYMENT_PURPOSE_VALUES",
@@ -451,7 +453,9 @@ __all__ = [
     "HiddenBatchPreference",
     "JobHeartbeat",
     "LedgerEntryRow",
+    "ListingMedia",
     "Mark",
+    "MediaObjectTask",
     "MfaFactor",
     "MfaRecoveryCode",
     "OtpRequest",
@@ -4143,4 +4147,169 @@ class HubFeedback(Base):
             name=conv("ck_hub_feedback_answered"),
         ),
         Index("ix_hub_feedback_answered_by_account_id", "answered_by_account_id"),
+    )
+
+
+#: A photo's statuses [0043], in lifecycle order. ``held`` is an approved
+#: photo taken down at once by a child-safety or personal-information
+#: report while an admin decides; a restore mints a fresh public key.
+MEDIA_STATUS_VALUES: tuple[str, ...] = (
+    "awaiting_upload",
+    "processing",
+    "pending_review",
+    "approved",
+    "rejected",
+    "withdrawn",
+    "held",
+)
+
+_MEDIA_STATUS = PgEnum(*MEDIA_STATUS_VALUES, name="media_status", create_type=False)
+
+#: The canonical lower-case UUID text of a media id, inside a prefix.
+_MEDIA_UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+
+
+class ListingMedia(Base):
+    """One photo an owner uploaded for their page or one batch's [0043].
+
+    Public only through ``hub_public_media``, and only while ``approved``
+    under a visible owner and, for a batch photo, a visible batch.
+
+    :ivar id: Surrogate key; also names the photo's quarantine, staged and
+        archive objects
+    :ivar owner_id: The owner whose page it illustrates
+    :ivar batch_id: The batch whose page it illustrates; NULL for the
+        owner's own page
+    :ivar status: One of :data:`MEDIA_STATUS_VALUES`
+    :ivar content_type: The declared upload type: JPEG, PNG or WebP
+    :ivar byte_size: The declared upload size, 1 byte to 8 MiB
+    :ivar public_key: 32 random hex digits naming the public objects and
+        URL; set exactly while approved
+    :ivar width: The decoded image's width in pixels
+    :ivar height: The decoded image's height in pixels
+    :ivar widths: The variant names written, a subset of 320, 960 and 1600
+    :ivar alt_en: English alt text
+    :ivar alt_bn: Bangla alt text
+    :ivar position: Its place in its gallery; unique among approved photos
+    :ivar rejection_code: Why moderation rejected it, if it did
+    :ivar created_at: When the upload was started
+    :ivar decided_at: When moderation last decided it
+    """
+
+    __tablename__ = "listing_media"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner.id", ondelete="CASCADE", name=conv("fk_listing_media_owner")),
+        nullable=False,
+    )
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("batch.id", ondelete="CASCADE", name=conv("fk_listing_media_batch")),
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        _MEDIA_STATUS, nullable=False, server_default=text("'awaiting_upload'")
+    )
+    content_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    public_key: Mapped[str | None] = mapped_column(CHAR(32), nullable=True)
+    width: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    height: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    widths: Mapped[list[int] | None] = mapped_column(ARRAY(SmallInteger), nullable=True)
+    alt_en: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    alt_bn: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    position: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, server_default=text("0")
+    )
+    rejection_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    decided_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint("public_key", name=conv("uq_listing_media_public_key")),
+        CheckConstraint(
+            "(status = 'approved') = (public_key IS NOT NULL)",
+            name=conv("ck_listing_media_public_key_iff_approved"),
+        ),
+        CheckConstraint(
+            "public_key IS NULL OR public_key ~ '^[0-9a-f]{32}$'",
+            name=conv("ck_listing_media_public_key"),
+        ),
+        CheckConstraint(
+            "content_type IN ('image/jpeg', 'image/png', 'image/webp')",
+            name=conv("ck_listing_media_content_type"),
+        ),
+        CheckConstraint(
+            "byte_size BETWEEN 1 AND 8388608",
+            name=conv("ck_listing_media_byte_size"),
+        ),
+        CheckConstraint(
+            "widths IS NULL OR widths <@ ARRAY[320, 960, 1600]::smallint[]",
+            name=conv("ck_listing_media_widths"),
+        ),
+        Index("ix_listing_media_owner_id", "owner_id"),
+        Index("ix_listing_media_batch_id", "batch_id"),
+        # One approved photo per slot per gallery. NULLs never collide in a
+        # unique index, so the owner's own gallery is keyed on the nil UUID.
+        Index(
+            "uq_listing_media_approved_position",
+            "owner_id",
+            text("coalesce(batch_id, '00000000-0000-0000-0000-000000000000'::uuid)"),
+            "position",
+            unique=True,
+            postgresql_where=text("status = 'approved'"),
+        ),
+    )
+
+
+class MediaObjectTask(Base):
+    """One bucket prefix a takedown asked the drain to delete [0043].
+
+    Written in the takedown's own transaction, like ``cdn_invalidation``.
+    The prefix names exactly one photo's objects -- ``quarantine/{id}``,
+    ``staged/{id}/``, ``archive/{id}/`` or ``public/{key}/`` -- and a CHECK
+    refuses any wider shape. Purged seven days after it is done, never
+    before: the retention window is measured from ``done_at``.
+
+    :ivar id: Surrogate key, in insertion order
+    :ivar op: ``delete``, the only operation
+    :ivar prefix: The object prefix to delete
+    :ivar requested_at: When the takedown enqueued it
+    :ivar done_at: When the drain finished it; NULL while pending
+    :ivar attempts: Failed attempts so far
+    """
+
+    __tablename__ = "media_object_task"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    op: Mapped[str] = mapped_column(String(8), nullable=False)
+    prefix: Mapped[str] = mapped_column(String(80), nullable=False)
+    requested_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    done_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    attempts: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, server_default=text("0")
+    )
+
+    __table_args__ = (
+        CheckConstraint("op IN ('delete')", name=conv("ck_media_object_task_op")),
+        CheckConstraint(
+            f"prefix ~ '^(quarantine/{_MEDIA_UUID}|(staged|archive)/{_MEDIA_UUID}/"
+            "|public/[0-9a-f]{32}/)$'",
+            name=conv("ck_media_object_task_prefix"),
+        ),
+        Index(
+            "ix_media_object_task_pending",
+            "requested_at",
+            postgresql_where=text("done_at IS NULL"),
+        ),
     )

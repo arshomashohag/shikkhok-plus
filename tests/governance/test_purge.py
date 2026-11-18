@@ -248,10 +248,10 @@ def test_no_life_of_account_table_appears_in_the_window_map(
     # authenticator factor and its recovery codes; 36 since 0035 added
     # the fixed Bangladesh area vocabulary; 39 since 0036 added the hub's
     # two listing tables and its reports; 40 since 0042 added the hub's
-    # demand-question answers.
-    assert len(life_of_account) == 40, (
+    # demand-question answers; 41 since 0043 added owners' hub photos.
+    assert len(life_of_account) == 41, (
         f"the manifest now marks {len(life_of_account)} tables "
-        "LIFE_OF_ACCOUNT, not 40. If that is deliberate, this count is "
+        "LIFE_OF_ACCOUNT, not 41. If that is deliberate, this count is "
         "the claim that needs updating with it."
     )
 
@@ -281,9 +281,10 @@ def test_every_finite_retention_class_has_a_window(
     # 9 since 0031 added `pending_signup`, a signup draft kept 48 hours;
     # 10 since 0036 added `hub_moderation_event`, kept twelve months;
     # 11 since 0038 added `username_hold`, kept until its own expiry;
-    # 12 since 0041 added `cdn_invalidation`, kept seven days.
-    assert len(finite) == 12, (
-        f"the manifest now carries {len(finite)} finite windows, not 12."
+    # 12 since 0041 added `cdn_invalidation`, kept seven days;
+    # 13 since 0043 added `media_object_task`, kept seven days once done.
+    assert len(finite) == 13, (
+        f"the manifest now carries {len(finite)} finite windows, not 13."
     )
 
 
@@ -447,6 +448,15 @@ def _plant(
             ),
             {"path": _outbox_path_of(row_id), "at": at},
         )
+    elif table == "media_object_task":
+        # Aged by `done_at`: a task is purgeable only once it is done.
+        session.execute(
+            sa.text(
+                "INSERT INTO media_object_task (op, prefix, requested_at, done_at) "
+                "VALUES ('delete', :prefix, :at, :at)"
+            ),
+            {"prefix": _media_prefix_of(row_id), "at": at},
+        )
     else:  # pragma: no cover - guarded by the assertion below
         raise AssertionError(
             f"{table} is purgeable but this file has no way to plant a "
@@ -465,6 +475,7 @@ def _plant(
         "held_until",
         "at",
         "requested_at",
+        "done_at",
     }, f"{table} is planted at an age column this helper does not set"
     return row_id
 
@@ -476,6 +487,15 @@ def _outbox_path_of(row_id: uuid.UUID) -> str:
     :return: The ``path`` the outbox row was given
     """
     return f"/hub/en/t/{row_id.hex}"
+
+
+def _media_prefix_of(row_id: uuid.UUID) -> str:
+    """Derive a planted object task's prefix from its planted id.
+
+    :param row_id: The id the planting helper returned
+    :return: The ``prefix`` the outbox row was given
+    """
+    return f"staged/{row_id}/"
 
 
 def _hold_digest_of(row_id: uuid.UUID) -> str:
@@ -626,6 +646,14 @@ def _exists(session: Session, table: str, row_id: uuid.UUID) -> bool:
             ).first()
             is not None
         )
+    if table == "media_object_task":
+        return (
+            session.execute(
+                sa.text("SELECT 1 FROM media_object_task WHERE prefix = :p"),
+                {"p": _media_prefix_of(row_id)},
+            ).first()
+            is not None
+        )
     if table == "cdn_invalidation":
         return (
             session.execute(
@@ -679,6 +707,33 @@ def test_every_window_deletes_past_its_horizon_and_keeps_inside_it(
             f"{table}: a row INSIDE its {WINDOWS[table].keep_for} window "
             "was deleted, which is data loss rather than retention"
         )
+
+
+def test_an_undone_media_object_task_is_never_purged(owner_session: Session) -> None:
+    """A photo deletion not yet done survives the purge at any age [0043].
+
+    The window is measured from ``done_at``, so a row the drain has not
+    finished -- ``done_at`` NULL -- never matches. Purging it by
+    ``requested_at`` would drop the only record that a photo's objects are
+    still in the bucket, and the photo would outlive its takedown.
+
+    :param owner_session: The session to arrange and purge through
+    :return: None
+    """
+    assert WINDOWS["media_object_task"].age_column == "done_at"
+    stuck = uuid.uuid4()
+    owner_session.execute(
+        sa.text(
+            "INSERT INTO media_object_task (op, prefix, requested_at, attempts) "
+            "VALUES ('delete', :prefix, :at, 40)"
+        ),
+        {"prefix": _media_prefix_of(stuck), "at": LONG_AGO},
+    )
+    owner_session.commit()
+
+    purge_expired(owner_session, now=NOW)
+
+    assert _exists(owner_session, "media_object_task", stuck)
 
 
 def test_a_second_immediate_run_deletes_nothing(

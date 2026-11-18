@@ -122,3 +122,54 @@ def test_reporter_deletion_removes_their_reports(owner_session: Session) -> None
     assert (
         _count(owner_session, "hub_report", "reporter_account_id", two.account_id) == 1
     )
+
+
+def test_solo_owner_deletion_removes_media_centre_media_survives_manager(
+    owner_session: Session,
+) -> None:
+    """A solo owner's photos go with them; a centre's outlive a manager [0043].
+
+    :param owner_session: An arranging session
+    :return: None
+    """
+    solo = make_teacher(owner_session)
+    manager = make_teacher(owner_session)
+    centre = uuid.uuid4()
+    owner_session.execute(
+        sa.text(
+            "INSERT INTO owner (id, account_id, created_at, kind, name) "
+            "VALUES (:id, NULL, now(), 'organisation', 'Udoy Coaching')"
+        ),
+        {"id": centre},
+    )
+    owner_session.execute(
+        sa.text(
+            "INSERT INTO owner_member (id, owner_id, account_id, invited_phone, "
+            "display_name, role, decision, created_at) VALUES "
+            "(gen_random_uuid(), :o, :a, '+8801700000002', 'Manager', 'manager', "
+            "'accepted', now())"
+        ),
+        {"o": centre, "a": manager.account_id},
+    )
+    for owner_id, batch_id in (
+        (solo.owner_id, None),
+        (solo.owner_id, solo.batch_id),
+        (centre, None),
+    ):
+        owner_session.execute(
+            sa.text(
+                "INSERT INTO listing_media (id, owner_id, batch_id, content_type, "
+                "byte_size) VALUES (gen_random_uuid(), :o, :b, 'image/png', 10)"
+            ),
+            {"o": owner_id, "b": batch_id},
+        )
+    owner_session.commit()
+
+    result = delete_account(owner_session, _phone(owner_session, solo.account_id))
+    owner_session.expire_all()
+    assert result.rows_deleted["listing_media"] == 2
+    assert _count(owner_session, "listing_media", "owner_id", solo.owner_id) == 0
+
+    delete_account(owner_session, _phone(owner_session, manager.account_id))
+    owner_session.expire_all()
+    assert _count(owner_session, "listing_media", "owner_id", centre) == 1

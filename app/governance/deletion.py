@@ -284,6 +284,22 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
             "as its students' history; only the publication goes."
         ),
     ),
+    "listing_media": _Target(
+        scope=Scope.SOLO_OWNER,
+        column="owner_id",
+        note=(
+            "A solo teacher's hub photos. `owner` is retained, so no cascade "
+            "fires; deleted by owner, and a centre's photos survive a manager."
+        ),
+    ),
+    "media_object_task": _Target(
+        scope=Scope.NOT_PERSONAL,
+        column=None,
+        note=(
+            "Bucket prefixes named by random ids, purged a week after they are "
+            "done. A deletion enqueues rows here rather than removing any."
+        ),
+    ),
     "hub_report": _Target(
         scope=Scope.ACCOUNT_COLUMN,
         column="reporter_account_id",
