@@ -24510,7 +24510,7 @@
     },
     "/v1/hub/media/{media_id}": {
       "delete": {
-        "description": "Withdraw a photo; its stored files are deleted.\n\n:param media_id: The photo\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: An empty 204",
+        "description": "Withdraw a photo; its stored files are deleted, even while suspended.\n\n:param media_id: The photo\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: An empty 204",
         "operationId": "delete_photo_v1_hub_media__media_id__delete",
         "parameters": [
           {

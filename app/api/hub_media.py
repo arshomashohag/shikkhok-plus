@@ -9,9 +9,12 @@ application rolls back on any exception and on any 4xx/5xx response. The
 services commit on their own success paths and roll back on the refusals
 that follow a write, so a validation failure leaves no row behind.
 
-**Writes** (upload, complete, edit, reorder, delete) are refused for an
-owner whose listing is suspended, with the refusal H1 uses for its edits,
-and each consumes the owner's daily listing-edit allowance. Starting an
+**Writes** (upload, complete, edit, reorder) are refused for an owner
+whose listing is suspended, with the refusal H1 uses for its edits, and
+each consumes the owner's daily listing-edit allowance. **A delete is never
+refused for a suspension** [I2]: it only removes content, and a suspension
+leaves an approved photo's ``/m/`` URL live, so its owner must still be
+able to take it down. It still consumes the allowance. Starting an
 upload consumes the daily *upload* allowance instead, inside the service,
 so it is counted once. Reading the library is never refused.
 """
@@ -308,13 +311,14 @@ def delete_photo(
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
     session: Annotated[Session, Depends(get_session)],
 ) -> Response:
-    """Withdraw a photo; its stored files are deleted.
+    """Withdraw a photo; its stored files are deleted, even while suspended.
 
     :param media_id: The photo
     :param lens: The owner's lens
     :param session: The request-scoped session
     :return: An empty 204
     """
-    _begin_write(session, lens)
+    # No suspension check [I2]: taking a photo down is always allowed.
+    CeilingChecker(session).check_and_consume_hub_listing(lens.owner_id)
     library.withdraw(session, lens, media_id, now=dt.datetime.now(tz=dt.UTC))
     return Response(status_code=status.HTTP_204_NO_CONTENT)

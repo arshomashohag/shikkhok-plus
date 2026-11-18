@@ -15,13 +15,14 @@ from app.api.hub_media import media_store
 from app.auth.ceilings import HUB_LISTING_OWNER_DAILY
 from app.contract.routes import PUBLIC_ROUTES, _api_routes
 from app.errors import ValidationError
+from app.hub.public import invalidation
 from app.hub.public.settings import site_url
 from app.main import app as real_app
 from app.schemas.media import MediaResponse
 from tests.batches.conftest import make_teacher
 from tests.conftest import bearer
 from tests.hub.media.fakes import URL, FakeMediaStore
-from tests.hub.media.support import media_row
+from tests.hub.media.support import invalidations, media_row, tasks
 from tests.hub.support import add_member, centre_with_manager
 
 OK: Final[dict[str, object]] = {
@@ -292,9 +293,18 @@ def test_validation_error_mid_route_leaves_no_row(
 def test_suspended_owner_writes_refused_reads_allowed(
     api_client: TestClient, owner_session: Session, store: FakeMediaStore
 ) -> None:
-    """R8: every write answers HUB_LISTING_SUSPENDED; GET still works."""
+    """R8: every write but a delete answers HUB_LISTING_SUSPENDED; GET works.
+
+    A delete only removes content, so it is exempt [I2]: an approved photo
+    a suspension took off the page keeps its ``/m/`` URL live, and its owner
+    must still be able to take it down. It is the last call here.
+    """
     headers, owner_id, _ = _auth(owner_session)
-    media_id = media_row(owner_session, owner_id)
+    media_id = media_row(owner_session, owner_id, status="approved")
+    key = owner_session.execute(
+        sa.text("SELECT public_key FROM listing_media WHERE id = :m"),
+        {"m": media_id},
+    ).scalar_one()
     owner_session.execute(
         sa.text(
             "INSERT INTO owner_listing (owner_id, slug, status, public_name, "
@@ -316,13 +326,26 @@ def test_suspended_owner_writes_refused_reads_allowed(
         ),
         api_client.patch(f"/v1/hub/media/{media_id}", json=ALT, headers=headers),
         api_client.put("/v1/hub/media/order", json={"ids": []}, headers=headers),
-        api_client.delete(f"/v1/hub/media/{media_id}", headers=headers),
     )
     for resp in writes:
         assert resp.status_code == 409, resp.text
         assert resp.json()["error"]["code"] == "HUB_LISTING_SUSPENDED"
     assert api_client.get("/v1/hub/media", headers=headers).status_code == 200
     assert _count(owner_session, owner_id) == 1
+
+    deleted = api_client.delete(f"/v1/hub/media/{media_id}", headers=headers)
+
+    assert deleted.status_code == 204, deleted.text
+    owner_session.rollback()
+    assert (
+        owner_session.execute(
+            sa.text("SELECT status::text FROM listing_media WHERE id = :m"),
+            {"m": media_id},
+        ).scalar_one()
+        == "withdrawn"
+    )
+    assert f"public/{key}/" in tasks(owner_session)
+    assert set(invalidation.media_paths(key)) <= invalidations(owner_session)
 
 
 def test_writes_share_the_listing_ceiling_but_uploads_do_not(

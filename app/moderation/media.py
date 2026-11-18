@@ -28,8 +28,9 @@ also deletes, once the window closes, whatever lands after it.
 
 **Rejection deletes everything the photo has**: the quarantined original
 (which may not have expired yet), the staged variants and the archive. A
-rejected photo never has a public copy: it was waiting or held, and a hold
-already enqueued the public objects' deletion and the edge invalidation.
+photo waiting or held has no public copy -- a hold already enqueued the
+public objects' deletion and the edge invalidation -- and an approved one
+is unpublished first, so a rejected photo never keeps a public copy [I2].
 
 **A child-safety or personal-information report holds a photo at once**
 [H3 deviation 2, Review Focus 3]. :func:`hold` runs in the report's own
@@ -451,7 +452,11 @@ def decide(
     now: dt.datetime,
     correlation_id: str = "internal",
 ) -> ListingMedia:
-    """Approve or reject a photo waiting for review or held, and commit.
+    """Approve a photo waiting for review or held, or reject one, and commit.
+
+    A rejection also takes down an approved photo [I2], on a public page or
+    not: it is unpublished, its ``public/{key}/`` enqueued for deletion and
+    its ``/m/`` paths and page for invalidation, as an upheld report does.
 
     The owner row is locked first, as an upload does, so two approvals in
     one gallery cannot both take the same free slot.
@@ -471,9 +476,9 @@ def decide(
     :raises AuthorizationError: No such photo, or nothing to review: an
         upload still in flight, or a withdrawn photo; or an approval for a
         solo owner whose account has been deleted [R13]
-    :raises ConflictError: The photo is already approved or rejected; or an
-        approval while its upload window is still open
-        (``MEDIA_UPLOAD_WINDOW_OPEN``) [I1]
+    :raises ConflictError: An approval of a photo already approved, or any
+        decision on one already rejected; or an approval while its upload
+        window is still open (``MEDIA_UPLOAD_WINDOW_OPEN``) [I1]
     :raises TransientError: The bucket could not copy the variants; nothing
         changed
     """
@@ -492,7 +497,11 @@ def decide(
         # nothing is copied out. A rejection still goes ahead, because it
         # only deletes.
         media = None
-    if media is None or media.status not in DECIDABLE:
+    # A rejection also reaches an approved photo [I2]: one a suspension or
+    # an unpublished page took off the page keeps its /m/ URL live and
+    # cannot be reported, so this is the takedown that reaches it.
+    allowed = DECIDABLE if approve else _REMOVABLE
+    if media is None or media.status not in allowed:
         session.rollback()
         if media is not None and media.status in _DECIDED:
             raise _already_decided()

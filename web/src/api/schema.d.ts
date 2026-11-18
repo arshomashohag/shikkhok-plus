@@ -3236,7 +3236,7 @@ export interface paths {
     post?: never
     /**
      * Delete Photo
-     * @description Withdraw a photo; its stored files are deleted.
+     * @description Withdraw a photo; its stored files are deleted, even while suspended.
      *
      *     :param media_id: The photo
      *     :param lens: The owner's lens

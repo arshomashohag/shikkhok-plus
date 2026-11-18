@@ -34,6 +34,7 @@ from app.errors import (
 )
 from app.hub.media import library
 from app.hub.media.objects import UPLOAD_WINDOW
+from app.hub.public import invalidation
 from app.hub.public.db import as_hub_reader
 from app.moderation import media, reports
 from tests.batches.conftest import make_teacher
@@ -521,7 +522,13 @@ def test_restore_from_hold_uses_fresh_key(
     )
 
 
-@pytest.mark.parametrize("status", ["approved", "rejected"])
+@pytest.mark.parametrize(
+    ("status", "decisions"),
+    [
+        ("approved", ((True, None),)),
+        ("rejected", ((True, None), (False, "other"))),
+    ],
+)
 def test_decision_on_approved_or_rejected_is_conflict(
     owner_session: Session,
     restricted_session: Session,
@@ -529,12 +536,17 @@ def test_decision_on_approved_or_rejected_is_conflict(
     tutor: Owner,
     admin: PlatformAdminLens,
     status: str,
+    decisions: tuple[tuple[bool, str | None], ...],
 ) -> None:
-    """Deciding twice is a conflict that changes nothing."""
+    """Deciding twice is a conflict that changes nothing.
+
+    Rejecting an approved photo is not deciding twice: it is a takedown
+    [I2], tested below.
+    """
     media_id = media_row(owner_session, tutor.lens.owner_id, status=status)
     before = _row(owner_session, media_id)
 
-    for approve, code in ((True, None), (False, "other")):
+    for approve, code in decisions:
         with pytest.raises(ConflictError) as caught:
             media.decide(
                 restricted_session,
@@ -1359,3 +1371,89 @@ def test_a_rejection_inside_the_window_deletes_what_lands_later(
         (f"quarantine/{media_id}", closes),
         (f"staged/{media_id}/", closes),
     }
+
+
+# ---------------------------------------------------------------------------
+# [I2] An approved photo can always be taken down by an administrator.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("listing", ["suspended", "hidden", "published"])
+def test_rejecting_an_approved_photo_takes_it_down_wherever_it_is(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+    listing: str,
+) -> None:
+    """Off any page or on one: unpublished, every prefix, its ``/m/`` paths.
+
+    Suspension and unpublishing leave an approved photo's URL live, and a
+    photo on no page cannot be reported, so the administrator's rejection
+    is the one takedown that reaches it.
+    """
+    publish_owner(owner_session, tutor.lens.owner_id, status=listing)
+    media_id = _pending(owner_session, store, tutor.lens.owner_id)
+    key = _approve(restricted_session, store, admin, media_id)
+    assert media.is_public(restricted_session, media_id) is (listing == "published")
+
+    decided = media.decide(
+        restricted_session,
+        store,
+        admin,
+        media_id,
+        approve=False,
+        code="identifiable_child",
+        now=LATER,
+    )
+
+    assert decided.status == "rejected"
+    row = _row(owner_session, media_id)
+    assert (row.status, row.public_key, row.rejection_code, row.decided_at) == (
+        "rejected",
+        None,
+        "identifiable_child",
+        LATER,
+    )
+    assert set(tasks(owner_session)) == {
+        f"public/{key}/",
+        f"quarantine/{media_id}",
+        f"staged/{media_id}/",
+        f"archive/{media_id}/",
+    }
+    assert set(invalidation.media_paths(key)) <= invalidations(owner_session)
+    assert (
+        "media_rejected",
+        "media",
+        "identifiable_child",
+        admin.account_id,
+    ) in _events(owner_session)
+
+
+def test_the_admin_route_rejects_an_approved_photo(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    served: FakeMediaStore,
+    people: People,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Through the route: an approved photo's detail is readable and rejectable."""
+    teacher = people.teacher
+    media_id = _pending(owner_session, served, teacher.owner_id)
+    admin = PlatformAdminLens(account_id=make_teacher(owner_session).account_id)
+    key = _approve(restricted_session, served, admin, media_id)
+    headers = _admin(owner_session, people, monkeypatch)
+
+    detail = api_client.get(f"/v1/admin/hub/media/{media_id}", headers=headers)
+    rejected = api_client.post(
+        f"/v1/admin/hub/media/{media_id}/decision",
+        json={"decision": "reject", "code": "other"},
+        headers=headers,
+    )
+
+    assert detail.json()["status"] == "approved"
+    assert rejected.status_code == 200, rejected.text
+    assert rejected.json() == {"media_id": str(media_id), "status": "rejected"}
+    assert f"public/{key}/" in tasks(owner_session)
