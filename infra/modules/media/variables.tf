@@ -1,5 +1,5 @@
 variable "name_prefix" {
-  description = "Prefix for resource names, e.g. shikkhokplus-staging. The bucket and the role are both <this>-media."
+  description = "Prefix for resource names, e.g. shikkhokplus-staging. The role is <this>-media; the bucket <this>-media-<account id>."
   type        = string
 }
 

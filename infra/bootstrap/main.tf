@@ -401,8 +401,9 @@ data "aws_iam_policy_document" "ci_state" {
   #
   # Scoped by THIS environment's name prefix [C-09]: this role can create
   # and destroy `shikkhokplus-<env>-config-*`, `-web-*`, `-site-*`,
-  # `-admin-*` and the hub photo bucket `-media` and nothing else, so it cannot touch the state bucket's
-  # siblings, the other environment's buckets, or another project's data.
+  # `-admin-*` and the hub photo bucket `-media-*` and nothing else, so it
+  # cannot touch the state bucket's siblings, the other environment's
+  # buckets, or another project's data.
   # It writes no object into the web, site or admin bucket -- the deploy
   # role uploads those builds.
   #
@@ -461,7 +462,7 @@ data "aws_iam_policy_document" "ci_state" {
       "arn:aws:s3:::shikkhokplus-${each.key}-web-*",
       "arn:aws:s3:::shikkhokplus-${each.key}-site-*",
       "arn:aws:s3:::shikkhokplus-${each.key}-admin-*",
-      "arn:aws:s3:::shikkhokplus-${each.key}-media",
+      "arn:aws:s3:::shikkhokplus-${each.key}-media-*",
     ]
   }
 
@@ -709,7 +710,7 @@ resource "aws_iam_policy" "environment_boundary" {
         Sid      = "MediaObjects"
         Effect   = "Allow"
         Action   = ["s3:*Object*"]
-        Resource = ["arn:aws:s3:::shikkhokplus-${each.key}-media/*"]
+        Resource = ["arn:aws:s3:::shikkhokplus-${each.key}-media-*/*"]
       },
       {
         # Deleting a prefix lists it first; the media role's own policy
@@ -717,7 +718,7 @@ resource "aws_iam_policy" "environment_boundary" {
         Sid      = "MediaList"
         Effect   = "Allow"
         Action   = ["s3:ListBucket"]
-        Resource = ["arn:aws:s3:::shikkhokplus-${each.key}-media"]
+        Resource = ["arn:aws:s3:::shikkhokplus-${each.key}-media-*"]
       },
     ]
   })
@@ -1465,7 +1466,7 @@ resource "aws_iam_role_policy" "plan" {
           "arn:aws:s3:::shikkhokplus-${each.key}-web-*",
           "arn:aws:s3:::shikkhokplus-${each.key}-site-*",
           "arn:aws:s3:::shikkhokplus-${each.key}-admin-*",
-          "arn:aws:s3:::shikkhokplus-${each.key}-media",
+          "arn:aws:s3:::shikkhokplus-${each.key}-media-*",
         ]
       },
       {

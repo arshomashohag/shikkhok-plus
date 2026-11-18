@@ -1290,8 +1290,10 @@ _RECORD_PARAMS = {
     "ses-smtp-host": "email-smtp.us-east-1.amazonaws.com",
     "site-url": "https://site.example.test",
     "web-url": "https://app.example.test/ui/",
-    "media-bucket": "shikkhokplus-staging-media",
-    "media-bucket-domain": "shikkhokplus-staging-media.s3.us-east-1.amazonaws.com",
+    "media-bucket": "shikkhokplus-staging-media-123456789012",
+    "media-bucket-domain": (
+        "shikkhokplus-staging-media-123456789012.s3.us-east-1.amazonaws.com"
+    ),
 }
 
 

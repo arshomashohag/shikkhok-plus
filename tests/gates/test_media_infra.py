@@ -116,7 +116,12 @@ def test_media_bucket_blocks_public_access_and_expires_prefixes() -> None:
     text = _media_main()
 
     bucket = _block(text, r'resource\s+"aws_s3_bucket"\s+"media"')
-    assert re.search(r'bucket\s*=\s*"\$\{var\.name_prefix\}-media"', bucket)
+    # Account-suffixed, as the config, web, site and admin buckets are.
+    assert re.search(
+        r'bucket\s*=\s*"\$\{var\.name_prefix\}-media-'
+        r'\$\{data\.aws_caller_identity\.current\.account_id\}"',
+        bucket,
+    )
 
     block = _block(text, r'resource\s+"aws_s3_bucket_public_access_block"\s+"media"')
     for flag in (
@@ -245,10 +250,10 @@ def test_cdn_serves_only_public_prefix_with_sandbox_headers() -> None:
             images,
         )
     )
-    assert custom == {
-        "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Type": "image/webp",
-    }
+    # Content-Type is the object's own (image/webp, stored by the sanitiser
+    # and the approval copy), not a header the edge forces.
+    assert custom == {"Cache-Control": "public, max-age=31536000, immutable"}
+    assert not re.search(r'header\s*=\s*"Content-Type"', images, re.IGNORECASE)
     assert re.search(r"content_type_options\s*\{\s*override\s*=\s*true\s*\}", images)
     csp = re.search(
         r'content_security_policy\s*=\s*"([^"]+)"\s*override\s*=\s*true', images
@@ -392,11 +397,13 @@ def test_instance_role_may_only_assume_media_role() -> None:
     objects = statements["MediaObjects"]
     assert _list(objects, "Action") == ["s3:*Object*"]
     assert _list(objects, "Resource") == [
-        "arn:aws:s3:::shikkhokplus-${each.key}-media/*"
+        "arn:aws:s3:::shikkhokplus-${each.key}-media-*/*"
     ]
     listing = statements["MediaList"]
     assert _list(listing, "Action") == ["s3:ListBucket"]
-    assert _list(listing, "Resource") == ["arn:aws:s3:::shikkhokplus-${each.key}-media"]
+    assert _list(listing, "Resource") == [
+        "arn:aws:s3:::shikkhokplus-${each.key}-media-*"
+    ]
 
 
 def test_the_infrastructure_role_may_manage_the_bucket_and_its_notification() -> None:
@@ -412,7 +419,7 @@ def test_the_infrastructure_role_may_manage_the_bucket_and_its_notification() ->
         "s3:PutBucketNotification",
     ):
         assert f'"{action}"' in statement, action
-    assert '"arn:aws:s3:::shikkhokplus-${each.key}-media"' in statement
+    assert '"arn:aws:s3:::shikkhokplus-${each.key}-media-*"' in statement
 
 
 # ---------------------------------------------------------------------------
@@ -618,15 +625,22 @@ def test_compose_mounts_creds_read_only() -> None:
     assert environment["AWS_SHARED_CREDENTIALS_FILE"] == f"{MOUNT}/credentials"
     assert environment["AWS_REGION"] == "${AWS_REGION:-}"
     assert environment["SHIKKHOKPLUS_MEDIA_BUCKET"] == "${SHIKKHOKPLUS_MEDIA_BUCKET:-}"
+    # No fallback to IMDS when the file is missing: hop limit 1 would make
+    # every such call time out rather than fail.
+    assert environment["AWS_EC2_METADATA_DISABLED"] == "true"
+    assert services["migrate"]["environment"]["AWS_EC2_METADATA_DISABLED"] == "true"
     # The migrate service is the schema owner and never touches S3.
     migrate = services["migrate"]
     assert "volumes" not in migrate
     assert "AWS_SHARED_CREDENTIALS_FILE" not in migrate["environment"]
 
 
+#: The bucket the stand-in SSM names: account-suffixed.
+_BUCKET = "shikkhokplus-staging-media-123456789012"
+
 _MEDIA_PARAMS = {
-    "media-bucket": "shikkhokplus-staging-media",
-    "media-bucket-domain": "shikkhokplus-staging-media.s3.ap-south-1.amazonaws.com",
+    "media-bucket": "shikkhokplus-staging-media-123456789012",
+    "media-bucket-domain": f"{_BUCKET}.s3.ap-south-1.amazonaws.com",
 }
 
 
@@ -634,11 +648,11 @@ def test_the_release_writes_the_bucket_and_its_region(tmp_path: pathlib.Path) ->
     finished, _, runtime = _run_record_step(tmp_path, **_MEDIA_PARAMS)
 
     assert finished.returncode == 0, finished.stdout + finished.stderr
-    assert runtime["SHIKKHOKPLUS_MEDIA_BUCKET"] == "shikkhokplus-staging-media"
+    assert runtime["SHIKKHOKPLUS_MEDIA_BUCKET"] == _BUCKET
     assert runtime["AWS_REGION"] == "ap-south-1"
     output = (tmp_path / "github-output").read_text()
     assert (
-        "media_origin=https://shikkhokplus-staging-media.s3.ap-south-1.amazonaws.com"
+        f"media_origin=https://{_BUCKET}.s3.ap-south-1.amazonaws.com"
         in output.splitlines()
     )
 
@@ -650,10 +664,17 @@ def test_the_release_writes_the_bucket_and_its_region(tmp_path: pathlib.Path) ->
         {"media-bucket-domain": None},
         # A legacy global endpoint names no region, and the CSP would not
         # match what the SDK signs for.
-        {"media-bucket-domain": "shikkhokplus-staging-media.s3.amazonaws.com"},
+        {"media-bucket-domain": f"{_BUCKET}.s3.amazonaws.com"},
         {"media-bucket-domain": "another-bucket.s3.ap-south-1.amazonaws.com"},
+        # The pre-suffix name: not the bucket Terraform now creates.
+        {
+            "media-bucket": "shikkhokplus-staging-media",
+            "media-bucket-domain": (
+                "shikkhokplus-staging-media.s3.ap-south-1.amazonaws.com"
+            ),
+        },
     ],
-    ids=["no-bucket", "no-domain", "global-endpoint", "other-bucket"],
+    ids=["no-bucket", "no-domain", "global-endpoint", "other-bucket", "unsuffixed"],
 )
 def test_no_media_bucket_stops_the_release_before_anything_is_written(
     tmp_path: pathlib.Path, overrides: dict[str, str | None]

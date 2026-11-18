@@ -93,6 +93,12 @@ x-app-environment: &app-environment
   # only `api` holds credentials to use them with (below).
   SHIKKHOKPLUS_MEDIA_BUCKET: ${SHIKKHOKPLUS_MEDIA_BUCKET:-}
   AWS_REGION: ${AWS_REGION:-}
+  # **The SDK never falls back to IMDS.** With the credentials file
+  # missing (before the host job's first success, or on the rehearsal
+  # host) boto3 would otherwise try the instance metadata service, which
+  # hop limit 1 makes time out rather than refuse; this makes it fail at
+  # once with "no credentials" instead. Fixed, not from the runtime env.
+  AWS_EC2_METADATA_DISABLED: "true"
 
 # **Every container ships its output to CloudWatch** [OPS-11] -- the
 # API, the migrate runs and each scheduled job (`run --rm api` inherits

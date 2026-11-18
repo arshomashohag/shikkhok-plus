@@ -1014,7 +1014,7 @@ jobs:
           MEDIA_DOMAIN=""
           MEDIA_BUCKET=$(ses_param media-bucket) || true
           MEDIA_DOMAIN=$(ses_param media-bucket-domain) || true
-          if ! [[ "$MEDIA_BUCKET" =~ ^shikkhokplus-[a-z0-9-]+-media$ ]] \
+          if ! [[ "$MEDIA_BUCKET" =~ ^shikkhokplus-[a-z0-9-]+-media-[0-9]{12}$ ]] \
              || ! [[ "$MEDIA_DOMAIN" =~ ^${MEDIA_BUCKET}\.s3\.([a-z]{2}(-[a-z]+)+-[0-9])\.amazonaws\.com$ ]]; then
             echo "::error::Cannot read the hub media bucket from SSM as media-bucket and its regional media-bucket-domain (got '${MEDIA_BUCKET}', '${MEDIA_DOMAIN}')."
             echo "Either the infrastructure job has not applied infra/modules/media,"

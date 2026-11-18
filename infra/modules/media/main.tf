@@ -34,6 +34,8 @@ terraform {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
 data "aws_region" "current" {}
 
 locals {
@@ -50,10 +52,11 @@ locals {
 # ---------------------------------------------------------------------
 
 # In the app's runtime region [R5], beside the Lambda that reads it and the
-# host that signs for it. Not account-suffixed: the name is the one the
-# workload boundary and the infrastructure role grant by exact match.
+# host that signs for it. Account-suffixed, as the config, web, site and
+# admin buckets are: S3 names are global, and the infrastructure role may
+# create only `shikkhokplus-<env>-media-*` (infra/bootstrap/main.tf).
 resource "aws_s3_bucket" "media" {
-  bucket = "${var.name_prefix}-media"
+  bucket = "${var.name_prefix}-media-${data.aws_caller_identity.current.account_id}"
 
   tags = { Role = "hub-media" }
 }

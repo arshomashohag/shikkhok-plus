@@ -326,7 +326,7 @@ nothing but send from that one address.
 ## Hub photos: the media bucket and its credentials
 
 `modules/media` holds the hub's photos in one private bucket,
-`shikkhokplus-<env>-media`, in the app's runtime region:
+`shikkhokplus-<env>-media-<account id>`, in the app's runtime region:
 
 ```
 quarantine/{media_id}         presigned POST from the web app     expires after 1 day
@@ -336,8 +336,9 @@ archive/{media_id}/           approved copies, for a restore after a hold
 ```
 
 - **Served at `/m/*` on the site distribution** (`modules/site`), through
-  Origin Access Control, cached a year, with `nosniff`, a forced
-  `image/webp` and `Content-Security-Policy: default-src 'none'; sandbox`.
+  Origin Access Control, cached a year, with `nosniff` and
+  `Content-Security-Policy: default-src 'none'; sandbox`; the objects carry
+  their own `image/webp` type.
   `functions/media-path.js` maps `/m/{key}/{w}.webp` to
   `public/{key}/{w}.webp` and answers any other shape 404 at the edge:
   CloudFront's origin path can only prepend, never strip `/m/`.

@@ -27,7 +27,7 @@
 # policy -- a photo's URL carries a fresh 128-bit key per approval, so a
 # changed photo is a new URL and a takedown deletes the object and
 # invalidates the old one. Its own response headers (below) make each
-# response an inert image whatever bytes it holds.
+# response inert whatever bytes it holds.
 #
 # **Cached at the edge for a year, and a release is still visible at once.**
 # The cache policy below honours whatever Cache-Control the object carries
@@ -423,14 +423,14 @@ data "aws_cloudfront_cache_policy" "optimized" {
 }
 
 # **Every /m/* response is an inert image.** The bytes were re-encoded to
-# WebP by the sanitiser, but the headers do not rely on it: Content-Type is
-# forced to image/webp, nosniff stops a browser second-guessing it, and a
-# CSP of default-src 'none' plus sandbox means that even a document
-# somehow served from here could run nothing and load nothing. Cached a
+# WebP by the sanitiser and stored as image/webp, but the headers do not
+# rely on it: nosniff stops a browser second-guessing the type, and a CSP
+# of default-src 'none' plus sandbox means that even a document somehow
+# served from here could run nothing and load nothing. Cached a
 # year and immutable in browsers too, for the reason the cache policy gives.
 resource "aws_cloudfront_response_headers_policy" "images" {
   name    = "${var.name_prefix}-site-images"
-  comment = "Hub photos: immutable, nosniff, sandboxed image/webp"
+  comment = "Hub photos: immutable, nosniff, sandboxed"
 
   security_headers_config {
     content_type_options {
@@ -442,15 +442,16 @@ resource "aws_cloudfront_response_headers_policy" "images" {
     }
   }
 
+  # **No Content-Type here.** The type is the object's own: the sanitiser
+  # writes every variant as image/webp and the approval copy keeps it, each
+  # tested where it is set. Forcing it at the edge would also stamp
+  # image/webp on the site's HTML 404 page whenever a missing photo falls
+  # through to it, and CloudFront's support for overriding Content-Type
+  # in a response headers policy could not be confirmed before an apply.
   custom_headers_config {
     items {
       header   = "Cache-Control"
       value    = "public, max-age=31536000, immutable"
-      override = true
-    }
-    items {
-      header   = "Content-Type"
-      value    = "image/webp"
       override = true
     }
   }
