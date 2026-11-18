@@ -33,6 +33,7 @@ from app.authz.lenses import PlatformAdminLens, TeacherLens
 from app.errors import AuthorizationError
 from app.governance.deletion import delete_account
 from app.hub.media import uploads
+from app.hub.public import invalidation
 from app.moderation import media, reports
 from tests.batches.conftest import make_teacher
 from tests.hub.media.fakes import FakeMediaStore
@@ -310,7 +311,7 @@ def test_deletion_waiting_on_an_approval_queues_its_public_copy(
     """The other order: the approval holds the lock and commits first.
 
     The deletion then reads the approved photo, so ``public/{key}/`` and
-    ``/m/{key}/*`` are queued with everything else.
+    its ``/m/{key}/{w}.webp`` paths are queued with everything else.
 
     :param restricted_engine: The application role's engine
     :param owner_engine: The table owner's engine
@@ -370,7 +371,7 @@ def test_deletion_waiting_on_an_approval_queues_its_public_copy(
     paths = set(
         owner_session.execute(sa.text("SELECT path FROM cdn_invalidation")).scalars()
     )
-    assert f"/m/{key}/*" in paths
+    assert set(invalidation.media_paths(key)) <= paths
 
 
 def test_writes_for_a_departed_solo_owner_refuse(

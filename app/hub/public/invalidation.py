@@ -56,6 +56,11 @@ SITEMAP_PATH: Final[str] = "/hub/sitemap.xml"
 #: A photo's public key: 32 lower-case hex digits [0043].
 _PUBLIC_KEY: Final = re.compile(r"[0-9a-f]{32}")
 
+#: The sanitiser's variant widths. Restated rather than imported, because
+#: the storage module imports boto3, which this package may never reach;
+#: ``tests/hub/media/test_library.py`` asserts the two are equal.
+_VARIANT_WIDTHS: Final[tuple[int, ...]] = (320, 960, 1600)
+
 #: The ``path`` column's width.
 MAX_PATH: Final[int] = 300
 
@@ -91,18 +96,20 @@ def batch_paths(owner_slug: str, batch_slug: str) -> list[str]:
 
 
 def media_paths(public_key: str) -> list[str]:
-    """Build the path that evicts one photo's variants at ``/m/``.
+    """Build the paths that evict one photo's variants at ``/m/``.
 
-    One wildcard, which counts toward a claim's wildcard cap like any
-    other; the photo's variants share no path with a page.
+    The three variant paths exactly, no wildcard: CloudFront allows only
+    15 wildcard invalidations in progress, and an account deletion with
+    many photos would queue one each. A variant the sanitiser did not
+    write (a small photo is never upscaled) costs one path of nothing.
 
     :param public_key: The photo's public key, as it was while approved
-    :return: The one prefix path, ending in ``*``
+    :return: ``/m/{key}/{w}.webp`` for each variant width
     :raises ValueError: The key is not 32 lower-case hex digits
     """
     if not _PUBLIC_KEY.fullmatch(public_key):
         raise ValueError("a photo key is 32 lower-case hex digits")
-    return [f"/m/{public_key}/*"]
+    return [f"/m/{public_key}/{width}.webp" for width in _VARIANT_WIDTHS]
 
 
 def _require_valid(path: str) -> None:

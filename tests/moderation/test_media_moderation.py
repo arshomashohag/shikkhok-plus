@@ -362,7 +362,7 @@ def test_rejecting_a_held_photo_leaves_nothing_public(
         f"staged/{media_id}/",
         f"archive/{media_id}/",
     }
-    assert f"/m/{key}/*" in invalidations(owner_session)
+    assert set(invalidation.media_paths(key)) <= invalidations(owner_session)
     assert _row(owner_session, media_id).status == "rejected"
 
 
@@ -442,7 +442,11 @@ def test_child_safety_report_holds_photo_in_same_transaction(
         if batch
         else {f"/hub/{lc}/t/{owner_slug}*" for lc in ("en", "bn")}
     )
-    assert invalidations(owner_session) == {f"/m/{key}/*", "/hub/sitemap.xml", *page}
+    assert invalidations(owner_session) == {
+        *invalidation.media_paths(key),
+        "/hub/sitemap.xml",
+        *page,
+    }
     assert _events(owner_session)[-2:] == [
         ("media_held", "media", reason, None),
         ("report_filed", "media", reason, None),
@@ -1071,7 +1075,7 @@ def test_upholding_a_report_on_an_approved_photo_removes_it(
         f"staged/{media_id}/",
         f"archive/{media_id}/",
     }
-    assert f"/m/{key}/*" in invalidations(owner_session)
+    assert set(invalidation.media_paths(key)) <= invalidations(owner_session)
     assert ("media_rejected", "media", code, admin.account_id) in _events(owner_session)
 
 

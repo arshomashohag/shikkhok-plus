@@ -661,7 +661,7 @@ def _enqueue_solo_media(
     ``archive/`` queued whatever its status -- a held photo has no key but
     still has its variants and its archive, and a prefix with no object
     under it costs the drain one empty listing. An approved photo also has
-    ``public/{key}/`` queued and ``/m/{key}/*`` evicted. A photo still
+    ``public/{key}/`` queued and ``/m/{key}/{w}.webp`` evicted. A photo still
     uploading has ``quarantine/`` and ``staged/`` queued again for when its
     upload window closes, as a withdrawal does, so a late upload is removed.
 

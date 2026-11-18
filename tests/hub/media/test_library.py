@@ -150,7 +150,7 @@ def test_alt_edit_on_approved_returns_to_review_and_unpublishes(
     )
     assert tasks(owner_session) == [f"public/{key}/"]
     assert invalidations(owner_session) == {
-        f"/m/{key}/*",
+        *(f"/m/{key}/{w}.webp" for w in (320, 960, 1600)),
         "/hub/bn/t/rahim-sir*",
         "/hub/en/t/rahim-sir*",
         "/hub/sitemap.xml",
@@ -216,7 +216,7 @@ def test_withdraw_enqueues_all_prefixes_and_invalidation(
         f"archive/{media_id}/",
     ]
     assert invalidations(owner_session) == {
-        f"/m/{key}/*",
+        *(f"/m/{key}/{w}.webp" for w in (320, 960, 1600)),
         "/hub/bn/t/rahim-sir/class-nine",
         "/hub/en/t/rahim-sir/class-nine",
         "/hub/sitemap.xml",
@@ -226,9 +226,9 @@ def test_withdraw_enqueues_all_prefixes_and_invalidation(
     library.withdraw(restricted_session, tutor.lens, media_id, now=NOW)
     assert len(tasks(owner_session)) == 4
 
-    # The /m/ path is a wildcard: it counts toward the claim's cap.
+    # The /m/ paths are exact, so a claim sends all three.
     claimed = commands.claim(restricted_session, now=NOW)
-    assert f"/m/{key}/*" in claimed.paths
+    assert {f"/m/{key}/{w}.webp" for w in (320, 960, 1600)} <= set(claimed.paths)
 
 
 def test_withdraw_unapproved_deletes_objects_without_invalidating(
@@ -322,3 +322,23 @@ def test_withdraw_while_uploading_deletes_a_late_upload(
         f"quarantine/{media_id}",
         f"staged/{media_id}/",
     ]
+
+
+def test_a_photo_is_evicted_by_its_three_exact_paths() -> None:
+    """No wildcard: CloudFront caps wildcard invalidations in progress at 15.
+
+    An account deletion with many photos would otherwise queue a wildcard
+    each. The variant widths are known, and are the sanitiser's.
+    """
+    from app.hub.media.storage import VARIANT_WIDTHS
+    from app.hub.public import invalidation
+
+    key = "0123456789abcdef" * 2
+
+    paths = invalidation.media_paths(key)
+
+    assert paths == [f"/m/{key}/{w}.webp" for w in VARIANT_WIDTHS]
+    assert paths == [f"/m/{key}/320.webp", f"/m/{key}/960.webp", f"/m/{key}/1600.webp"]
+    assert not any("*" in p for p in paths)
+    with pytest.raises(ValueError, match="32 lower-case hex"):
+        invalidation.media_paths("../" + key)

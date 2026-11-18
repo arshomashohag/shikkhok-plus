@@ -3,7 +3,7 @@
 A solo owner's photos are hard-deleted with their account, and a row is not
 the photo: the bucket holds ``quarantine/{id}``, ``staged/{id}/``,
 ``archive/{id}/`` and, while approved, ``public/{key}/``, and the edge caches
-``/m/{key}/*``. Every one of those is enqueued in the deletion's transaction,
+``/m/{key}/{w}.webp``. Every one of those is enqueued in the deletion's transaction,
 read before the rows go [Review Focus 5].
 
 A retired batch is the other case [H3 deviation 4]: its photos stay as rows,
@@ -228,11 +228,10 @@ def test_solo_owner_deletion_removes_media_rows_and_enqueues_objects(
             assert later == []
 
     paths = _paths(owner_session)
-    for key in approved:
-        assert invalidation.media_paths(key)[0] in paths
     assert {p for p in paths if p.startswith("/m/")} == {
-        f"/m/{key}/*" for key in approved
+        path for key in approved for path in invalidation.media_paths(key)
     }
+    assert not any("*" in p for p in paths if p.startswith("/m/"))
     assert set(invalidation.owner_paths("rahim-sir")) <= paths
 
 

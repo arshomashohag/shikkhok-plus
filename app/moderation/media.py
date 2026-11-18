@@ -37,8 +37,8 @@ is unpublished first, so a rejected photo never keeps a public copy [I2].
 **A child-safety or personal-information report holds a photo at once**
 [H3 deviation 2, Review Focus 3]. :func:`hold` runs in the report's own
 transaction: the photo goes to ``held``, its key is cleared, ``public/{key}/``
-is enqueued for deletion and ``/m/{key}/*`` and its page for invalidation,
-all through :func:`app.hub.media.library.unpublish`. A report that rolls
+is enqueued for deletion and ``/m/{key}/{w}.webp`` and its page for
+invalidation, all through :func:`app.hub.media.library.unpublish`. A report that rolls
 back leaves the photo approved.
 
 **A decision on a photo report carries to the photo** [R11]
@@ -458,8 +458,8 @@ def _remove(
     """Reject a photo and enqueue the deletion of everything it has.
 
     An approved photo is unpublished first, which enqueues ``public/{key}/``
-    and invalidates ``/m/{key}/*`` and its page; the quarantined original,
-    the staged variants and the archive follow in every case.
+    and invalidates ``/m/{key}/{w}.webp`` and its page; the quarantined
+    original, the staged variants and the archive follow in every case.
 
     :param session: The caller's session, the photo locked
     :param media: The photo, waiting, approved or held

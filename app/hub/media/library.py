@@ -150,8 +150,8 @@ def unpublish(
 
     Moves it to ``status`` and clears its key together -- the key exists
     exactly while approved -- then enqueues ``public/{key}/`` for deletion,
-    and the ``/m/{key}/*`` path and its page for invalidation. The caller
-    commits.
+    and the ``/m/{key}/{w}.webp`` paths and its page for invalidation. The
+    caller commits.
 
     :param session: The caller's session
     :param media: The photo, locked and approved
