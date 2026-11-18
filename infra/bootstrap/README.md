@@ -291,6 +291,12 @@ CI run failing to assume a role that exists — in a different account.
 The precondition makes that mistake impossible rather than merely
 unlikely.
 
+Set `android_cert_sha256` too, before the first web deploy that ships
+the Android App Link: bootstrap writes it to
+`/shikkhokplus/shikkhokplus-<env>/android-cert-sha256` in us-east-1 for
+both environments, and the web deploy fails without it (see
+`web/README.md`).
+
 The state bucket name defaults to
 `shikkhokplus-tfstate-<your-account-id>`. S3 names are globally unique
 across **every** AWS account, so an unsuffixed name is very likely

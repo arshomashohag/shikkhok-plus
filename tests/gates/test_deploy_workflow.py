@@ -1416,3 +1416,27 @@ def test_every_deploy_boots_a_host_from_the_applied_template() -> None:
         r'version\s*=\s*"\$Latest"',
         asg,
     )
+
+
+def test_bootstrap_creates_the_parameter_the_web_deploy_reads() -> None:
+    """``infra/bootstrap`` writes the App Link fingerprint where deploy reads it.
+
+    The web deploy reads ``/shikkhokplus/shikkhokplus-${ENVIRONMENT}/
+    android-cert-sha256`` in its AWS_REGION and fails without it. Bootstrap
+    creates it from ``android_cert_sha256``, so the two names and the region
+    must agree or the parameter lands where nothing looks.
+    """
+    tf = (ROOT / "infra" / "bootstrap" / "android_app_links.tf").read_text()
+    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+    region = yaml.safe_load(workflow)["env"]["AWS_REGION"]
+
+    assert (
+        'name="/shikkhokplus/shikkhokplus-${ENVIRONMENT}/android-cert-sha256"'
+        in workflow
+    )
+    assert (
+        'name        = "/shikkhokplus/shikkhokplus-${each.key}/android-cert-sha256"'
+        in tf
+    )
+    assert f'region = "{region}"' in tf
+    assert "for_each = var.android_cert_sha256 == null" in tf

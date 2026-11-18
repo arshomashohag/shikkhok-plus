@@ -20,3 +20,10 @@ github_repository = "arshomashohag/shikkhok-plus"
 
 # Only for recovering a lost terraform.tfstate. See README.
 # recover_existing = false
+
+# The Android app's SHA-256 signing-certificate fingerprint(s), for the
+# App Link file the web deploy publishes. Play Console -> Test and
+# release -> App integrity -> App signing key certificate. Add the upload
+# key, comma-separated, if testers install the APK directly. Leaving it
+# unset creates no parameter, and the web deploy fails until one exists.
+# android_cert_sha256 = "AB:CD:...:EF"

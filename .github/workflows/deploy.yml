@@ -1320,7 +1320,7 @@ jobs:
         run: |
           set -euo pipefail
           name="/shikkhokplus/shikkhokplus-${ENVIRONMENT}/android-cert-sha256"
-          how="Create the SSM parameter $name (String: the app's SHA-256 certificate fingerprint(s), see web/README.md), and re-apply infra/bootstrap once so the deploy role may read it. Nothing was uploaded."
+          how="Set android_cert_sha256 (the app's SHA-256 certificate fingerprint(s), see web/README.md) in infra/bootstrap/terraform.tfvars and apply infra/bootstrap: it creates $name and lets the deploy role read it. Nothing was uploaded."
           if ! raw=$(aws ssm get-parameter --name "$name" --query 'Parameter.Value' --output text); then
             echo "::error::Cannot read $name from SSM. $how"
             exit 1

@@ -87,7 +87,9 @@ writes that file, at the web bucket's **root** (beside `ui/`), with
 `Content-Type: application/json` and `Cache-Control: max-age=3600`, and
 invalidates it; CloudFront routes exactly that path to the bucket.
 
-It is built from one SSM parameter, which nothing else creates:
+It is built from one SSM parameter, created for both environments by
+`infra/bootstrap` from its `android_cert_sha256` variable
+(`infra/bootstrap/android_app_links.tf`):
 
 | Parameter                                              | Type   | Value                                                        |
 | ------------------------------------------------------ | ------ | ------------------------------------------------------------ |
@@ -99,14 +101,19 @@ release → App integrity) and the upload key, for an APK installed directly
 **The deploy fails while the parameter is unset, empty or malformed**,
 rather than publish a file that verifies nothing:
 
-```bash
-aws ssm put-parameter --type String --overwrite \
-  --name /shikkhokplus/shikkhokplus-staging/android-cert-sha256 \
-  --value 'AB:CD:…:EF'
+Set it in `infra/bootstrap/terraform.tfvars` and apply bootstrap (from a
+laptop, as bootstrap always is):
+
+```hcl
+android_cert_sha256 = "AB:CD:…:EF"
 ```
 
-The deploy role reads it and writes the file once `infra/bootstrap` is
-re-applied with this change (from a laptop, as bootstrap always is).
+```bash
+terraform -chdir=infra/bootstrap apply
+```
+
+The variable is validated (32 hex pairs per fingerprint) before anything
+is written, and the same apply grants the deploy role read access.
 
 To serve a build somewhere else entirely, build with
 `VITE_API_BASE_URL=https://<api host>` and set

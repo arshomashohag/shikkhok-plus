@@ -161,3 +161,27 @@ variable "record_name_patterns" {
     error_message = "record_name_patterns needs an entry for staging and for production."
   }
 }
+
+variable "android_cert_sha256" {
+  description = <<-EOT
+    The Android app's SHA-256 signing-certificate fingerprint(s), as
+    32 colon-separated hex pairs, several comma-separated: Play's
+    app-signing key (Play Console -> Test and release -> App integrity)
+    and, for an APK installed directly, the upload key
+    (`keytool -list -v -keystore <upload.jks>`).
+
+    Written to `/shikkhokplus/shikkhokplus-<env>/android-cert-sha256` in
+    us-east-1 for both environments (android_app_links.tf). Null creates
+    nothing, and the web deploy then fails until the parameter exists.
+  EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition = var.android_cert_sha256 == null || alltrue([
+      for fp in split(",", upper(replace(var.android_cert_sha256, " ", ""))) :
+      can(regex("^([0-9A-F]{2}:){31}[0-9A-F]{2}$", fp))
+    ])
+    error_message = "Each fingerprint is 32 colon-separated hex pairs (AB:CD:...), several comma-separated."
+  }
+}

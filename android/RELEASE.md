@@ -80,7 +80,8 @@ it is the only moment it can be checked before the AAB exists.
 `app.shikkhokplus.<apex>`: the host whose `/ui/hub-report` links (a hub
 page's "Report this page") open the app, as an App Link verified against
 that host's `/.well-known/assetlinks.json` (published by `deploy.yml`
-from the SSM parameter `android-cert-sha256`, see `web/README.md`).
+from the SSM parameter `android-cert-sha256`, which `infra/bootstrap`
+creates from its `android_cert_sha256` variable; see `web/README.md`).
 Unset, the build claims the API base URL's host, which also serves `/ui/`
 but is not the host the hub pages link to, and the release run warns.
 
