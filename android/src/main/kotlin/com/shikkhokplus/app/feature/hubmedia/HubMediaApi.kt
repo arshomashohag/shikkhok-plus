@@ -9,7 +9,6 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.request.delete
-import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
@@ -18,7 +17,9 @@ import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
+import io.ktor.http.content.PartData
 import io.ktor.http.isSuccess
+import io.ktor.utils.io.core.ByteReadPacket
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -211,20 +212,7 @@ class HttpHubMediaApi(
 
     override suspend fun send(ticket: MediaUploadTicket, contentType: String, bytes: ByteArray): AuthResult<Unit> =
         try {
-            val form =
-                formData {
-                    // The signed fields first, in the server's order; the file last.
-                    ticket.fields.forEach { (name, value) -> append(name, value) }
-                    append(
-                        "file",
-                        bytes,
-                        Headers.build {
-                            append(HttpHeaders.ContentType, contentType)
-                            append(HttpHeaders.ContentDisposition, "filename=\"photo\"")
-                        },
-                    )
-                }
-            val response = bucket.submitFormWithBinaryData(ticket.url, form)
+            val response = bucket.submitFormWithBinaryData(ticket.url, bucketForm(ticket, contentType, bytes))
             if (response.status.isSuccess()) AuthResult.Ok(Unit) else AuthResult.Refused(BUCKET_REFUSED)
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -243,6 +231,44 @@ class HttpHubMediaApi(
         callDiscardingBody { client.delete("/v1/hub/media/$mediaId") }
 
     private companion object {
+        /**
+         * The presigned form: the signed fields first, in the server's order,
+         * and the file last.
+         *
+         * **Every part names itself with a quoted string**, built here rather
+         * than by Ktor's `formData`, which writes a name unquoted when it
+         * needs no escaping (`form-data; name=file`). RFC 7578 gives the
+         * name as a quoted-string, and S3's browser-POST parser is
+         * documented only against that form.
+         *
+         * @param ticket The signed form
+         * @param contentType The file's type
+         * @param bytes The file
+         * @return The parts, in the order they are sent
+         */
+        fun bucketForm(ticket: MediaUploadTicket, contentType: String, bytes: ByteArray): List<PartData> {
+            val fields =
+                ticket.fields.map { (name, value) ->
+                    PartData.FormItem(value, {}, disposition("form-data; name=${quoted(name)}"))
+                }
+            val file =
+                PartData.BinaryItem(
+                    { ByteReadPacket(bytes) },
+                    {},
+                    Headers.build {
+                        append(HttpHeaders.ContentDisposition, "form-data; name=\"file\"; filename=\"photo\"")
+                        append(HttpHeaders.ContentType, contentType)
+                    },
+                )
+            return fields + file
+        }
+
+        private fun disposition(value: String): Headers =
+            Headers.build { append(HttpHeaders.ContentDisposition, value) }
+
+        /** [text] as an RFC 7578 quoted-string: a quote or a backslash is escaped. */
+        private fun quoted(text: String): String = "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
         /**
          * The bucket refused the form (an expired signature, a file the
          * policy does not admit). Retryable: the retry asks for a new ticket.

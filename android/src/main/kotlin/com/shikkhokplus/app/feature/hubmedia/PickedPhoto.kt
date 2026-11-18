@@ -30,20 +30,41 @@ private const val CHUNK: Int = 64 * 1024
 /**
  * Describe a picked photo through the content resolver.
  *
+ * **A provider that fails is answered, never a crash.** On API 24-29 the
+ * picker falls back to the document picker, so the file can come from any
+ * document provider, a cloud one included, and a provider may throw from
+ * any call (`SecurityException`, `IllegalArgumentException`,
+ * `UnsupportedOperationException`). A type that cannot be read is null,
+ * which is refused as a type the server does not take; a size that cannot
+ * be read is null, and the bytes are measured instead.
+ *
  * @param resolver The app's content resolver
  * @param uri The picker's result
  * @return The photo; its bytes are read later
  */
 fun pickedPhoto(resolver: ContentResolver, uri: Uri): PickedPhoto =
     PickedPhoto(
-        contentType = resolver.getType(uri),
-        byteSize = sizeOf(resolver, uri),
+        contentType = orNull { resolver.getType(uri) },
+        byteSize = orNull { sizeOf(resolver, uri) },
         read = {
             withContext(Dispatchers.IO) {
                 resolver.openInputStream(uri)?.use { readAtMost(it, MAX_UPLOAD_BYTES + 1) }
             }
         },
     )
+
+/**
+ * Run one provider call, reading a provider's runtime failure as "it did not say".
+ *
+ * @param lookup The call
+ * @return Its answer, or null when the provider threw
+ */
+private inline fun <T> orNull(lookup: () -> T?): T? =
+    try {
+        lookup()
+    } catch (_: RuntimeException) {
+        null
+    }
 
 /**
  * The size the resolver reports, or null when the provider does not say.

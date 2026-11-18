@@ -291,6 +291,67 @@ class HubMediaViewModelTest {
     }
 
     @Test
+    fun `alt text edited after a failure is the text Retry sends`() = runTest(dispatcher) {
+        val api = FakeHubMediaApi()
+        api.completes =
+            ArrayDeque(listOf(AuthResult.TransportFailure, AuthResult.Ok(media(status = "pending_review"))))
+        val vm = ready(api)
+        choose(vm)
+        assertTrue(assertIs<PhotoUpload.Failed>(vm.state.value.upload).failure.canRetry)
+
+        vm.editAltEn("  Our Saturday class ")
+        vm.editAltBn("শনিবারের ক্লাস")
+        vm.retry()
+        runCurrent()
+
+        assertEquals(
+            listOf(MediaComplete("A class", "ক্লাস"), MediaComplete("Our Saturday class", "শনিবারের ক্লাস")),
+            api.completed.map { it.second },
+        )
+        assertEquals(PhotoUpload.Done, vm.state.value.upload)
+    }
+
+    @Test
+    fun `Retry with an alt text cleared is refused, and works once it is typed again`() = runTest(dispatcher) {
+        val api = FakeHubMediaApi()
+        api.sends = ArrayDeque(listOf(AuthResult.TransportFailure, AuthResult.Ok(Unit)))
+        val vm = ready(api)
+        choose(vm)
+
+        vm.editAltBn("  ")
+        vm.retry()
+        runCurrent()
+
+        val refused = assertIs<PhotoUpload.Failed>(vm.state.value.upload)
+        assertEquals("hub.media.alt_invalid", refused.failure.messageKey)
+        assertTrue(refused.failure.canRetry, "the photo is still pending")
+        assertEquals(1, api.sent.size, "nothing is sent without both texts")
+
+        vm.editAltBn("ক্লাস ঘর")
+        vm.retry()
+        runCurrent()
+
+        assertEquals(PhotoUpload.Done, vm.state.value.upload)
+        assertEquals(listOf(MediaComplete("A class", "ক্লাস ঘর")), api.completed.map { it.second })
+    }
+
+    @Test
+    fun `a provider that throws while the file is read is refused, never stuck uploading`() = runTest(dispatcher) {
+        listOf(IllegalArgumentException("gone"), IllegalStateException("closed"), SecurityException("revoked"))
+            .forEach { thrown ->
+                val api = FakeHubMediaApi()
+                val vm = ready(api)
+
+                choose(vm, png { throw thrown })
+                advanceUntilIdle()
+
+                val failed = assertIs<PhotoUpload.Failed>(vm.state.value.upload, "$thrown")
+                assertEquals("hub.media.unreadable", failed.failure.messageKey)
+                assertTrue(api.started.isEmpty())
+            }
+    }
+
+    @Test
     fun `a dropped connection on complete is retried by polling, not by uploading`() = runTest(dispatcher) {
         val api = FakeHubMediaApi()
         api.completes =

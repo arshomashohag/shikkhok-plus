@@ -38,6 +38,7 @@ private val UPLOAD_TYPES: Set<String> = setOf("image/jpeg", "image/png", "image/
 
 private const val NOT_UPLOADED_CODE = "MEDIA_NOT_UPLOADED"
 private const val NOT_UPLOADED_KEY = "hub.media.not_uploaded"
+private const val ALT_INVALID_KEY = "hub.media.alt_invalid"
 
 /**
  * Where the photo being added is. The six states of the editor.
@@ -219,7 +220,7 @@ class HubMediaViewModel(
         val s = _state.value
         if (s.readOnly || s.inFlight) return false
         if (s.altEn.isBlank() || s.altBn.isBlank()) {
-            _state.update { it.copy(upload = PhotoUpload.Failed(HubFailure("hub.media.alt_invalid", false))) }
+            _state.update { it.copy(upload = PhotoUpload.Failed(HubFailure(ALT_INVALID_KEY, false))) }
             return false
         }
         _state.update { it.copy(upload = PhotoUpload.Picking) }
@@ -257,8 +258,11 @@ class HubMediaViewModel(
                 throw cancelled
             } catch (_: IOException) {
                 null
-            } catch (_: SecurityException) {
-                // The picker's grant was revoked before the file was read.
+            } catch (_: RuntimeException) {
+                // A provider may throw anything from openInputStream: a revoked
+                // grant (SecurityException), a document gone from a cloud
+                // provider (IllegalArgumentException, IllegalStateException).
+                // Each means this file cannot be read, never a crash.
                 null
             }
         when {
@@ -345,9 +349,21 @@ class HubMediaViewModel(
 
     /** Repeat a failed upload from where it stopped: Check again polls; otherwise it posts again. */
     fun retry() {
-        val failed = _state.value.upload as? PhotoUpload.Failed ?: return
-        val p = pending
-        if (!failed.failure.canRetry || p == null) return
+        val s = _state.value
+        val failed = s.upload as? PhotoUpload.Failed ?: return
+        val held = pending
+        if (!failed.failure.canRetry || held == null) return
+        // The text sent is the text on screen now: the fields stay editable
+        // after a failure, and this is public listing text.
+        val altEn = s.altEn.trim()
+        val altBn = s.altBn.trim()
+        if (altEn.isEmpty() || altBn.isEmpty()) {
+            // Kept retryable: the photo is still pending, and Retry works once both are typed.
+            _state.update { it.copy(upload = PhotoUpload.Failed(HubFailure(ALT_INVALID_KEY, canRetry = true))) }
+            return
+        }
+        val p = held.copy(altEn = altEn, altBn = altBn)
+        pending = p
         job = viewModelScope.launch { if (p.uploaded) poll(p) else upload(p) }
     }
 

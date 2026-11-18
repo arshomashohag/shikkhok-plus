@@ -16,6 +16,7 @@ import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -117,6 +118,7 @@ class HubPhotosRouteTest {
 
     @Before
     fun registerProvider() {
+        PhotoProvider.throwing = null
         Robolectric.setupContentProvider(PhotoProvider::class.java, AUTHORITY)
     }
 
@@ -253,8 +255,19 @@ class HubPhotosRouteTest {
         assertTrue(HttpHeaders.Authorization !in post.headers, "headers: ${post.headers}")
         assertTrue("X-Client-Platform" !in post.headers, "headers: ${post.headers}")
         // The ticket's fields first, in their order, and the file last.
-        val names = Regex("""form-data; name="?([^";\r\n]+)"?""").findAll(post.body).map { it.groupValues[1] }.toList()
-        assertEquals(listOf("key", "Content-Type", "policy", "x-amz-signature", "file"), names)
+        // Each part's raw Content-Disposition, and every name a quoted-string (RFC 7578).
+        val dispositions =
+            Regex("""Content-Disposition: ([^\r\n]+)""").findAll(post.body).map { it.groupValues[1] }.toList()
+        assertEquals(
+            listOf(
+                "form-data; name=\"key\"",
+                "form-data; name=\"Content-Type\"",
+                "form-data; name=\"policy\"",
+                "form-data; name=\"x-amz-signature\"",
+                "form-data; name=\"file\"; filename=\"photo\"",
+            ),
+            dispositions,
+        )
         assertTrue(String(PNG) in post.body, "the file's bytes are posted")
         // The API, unlike the bucket, carries the session.
         assertTrue(HttpHeaders.Authorization in requests(HttpMethod.Post, "/v1/hub/media/uploads").single().headers)
@@ -324,6 +337,46 @@ class HubPhotosRouteTest {
     }
 
     @Test
+    fun `a provider that will not say the size still uploads, measured from the bytes`() {
+        PhotoProvider.throwing = PhotoProvider.Failing.QUERY
+        host(Destination.HubPhotos.of(null, readOnly = false))
+        waitForText("0 of 12 photos")
+
+        typeAltsAndChoose()
+        waitForText("Awaiting review")
+
+        assertEquals(
+            """{"content_type":"image/png","byte_size":${PNG.size}}""",
+            requests(HttpMethod.Post, "/v1/hub/media/uploads").single().body,
+        )
+    }
+
+    @Test
+    fun `a provider that throws on the file is refused in words, not a crash`() {
+        PhotoProvider.throwing = PhotoProvider.Failing.OPEN_FILE
+        host(Destination.HubPhotos.of(null, readOnly = false))
+        waitForText("0 of 12 photos")
+
+        typeAltsAndChoose()
+        waitForText("This file could not be read as a photo. Choose another.")
+
+        assertTrue(requests(HttpMethod.Post, "/v1/hub/media/uploads").isEmpty())
+        compose.onNodeWithTag(TAG_PHOTOS_ADD).assertIsEnabled()
+    }
+
+    @Test
+    fun `a provider that throws on the type is refused as a type the server does not take`() {
+        PhotoProvider.throwing = PhotoProvider.Failing.TYPE
+        host(Destination.HubPhotos.of(null, readOnly = false))
+        waitForText("0 of 12 photos")
+
+        typeAltsAndChoose()
+        waitForText("Choose a JPEG, PNG or WebP photo.")
+
+        assertTrue(requests(HttpMethod.Post, "/v1/hub/media/uploads").isEmpty())
+    }
+
+    @Test
     fun `a suspended batch opens its gallery read-only`() {
         host(Destination.HubPhotos.of(BATCH, readOnly = true))
         waitForText("0 of 8 photos")
@@ -333,9 +386,21 @@ class HubPhotosRouteTest {
 
     /** A picked photo: a content URI with a type, a size and bytes, as the photo picker hands back. */
     class PhotoProvider : ContentProvider() {
+        /** Which provider call throws, as a cloud document provider may. */
+        enum class Failing { TYPE, QUERY, OPEN_FILE }
+
+        companion object {
+            /** The call that throws in this test, or null for a provider that answers. */
+            @Volatile
+            var throwing: Failing? = null
+        }
+
         override fun onCreate(): Boolean = true
 
-        override fun getType(uri: Uri): String = "image/png"
+        override fun getType(uri: Uri): String {
+            if (throwing == Failing.TYPE) throw UnsupportedOperationException("no type")
+            return "image/png"
+        }
 
         override fun query(
             uri: Uri,
@@ -343,12 +408,15 @@ class HubPhotosRouteTest {
             selection: String?,
             selectionArgs: Array<out String>?,
             sortOrder: String?,
-        ): Cursor =
-            MatrixCursor(arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)).apply {
+        ): Cursor {
+            if (throwing == Failing.QUERY) throw SecurityException("no query")
+            return MatrixCursor(arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)).apply {
                 addRow(arrayOf<Any>("class.png", PNG.size.toLong()))
             }
+        }
 
         override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
+            check(throwing != Failing.OPEN_FILE) { "document gone" }
             val file = File.createTempFile("photo", ".png").apply { writeBytes(PNG) }
             return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
         }
