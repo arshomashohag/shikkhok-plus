@@ -6,17 +6,20 @@ teacher sees exactly what the public sees of their own batches:
 Below three published reviews a batch shows no review, and no count either
 [T2-a] -- a count of 1 or 2 is what lets a teacher who knows which family
 just became eligible guess who wrote. This module never names the ``review``
-base table; ``tests/gates/test_teacher_reviews_read_views.py`` enforces it.
+base table for content; ``tests/gates/test_teacher_reviews_read_views.py``
+enforces it, allowlisting one ownership check that reads a review's id and
+batch only (see the delete below).
 Its own reads of ``batch_listing`` (which batches are the owner's) and
 ``review_reply`` (the owner's own replies) carry nothing a guardian wrote.
 
 **Order says nothing about who wrote first** [T2-c]: every read of the
 review view orders by ``published_month DESC, id``, and ids are random.
 
-**A review the teacher cannot reach is not found.** Another owner's review,
-a review of a batch below the threshold, and an id that was never minted
-all answer ``REVIEW_NOT_FOUND`` with the same bytes, so the refusal is not
-an existence oracle.
+**A review the teacher cannot reach is not found by a reply.** Another
+owner's review, a review of a batch below the threshold, a review deleted
+while the reply was being written, and an id that was never minted all
+answer ``REVIEW_NOT_FOUND`` with the same bytes, so the refusal is not an
+existence oracle.
 
 **A reply is pre-moderated.** Writing or replacing one puts it back to
 ``pending`` with the last decision cleared; replacing a published reply
@@ -27,8 +30,10 @@ nothing. A suspended listing may not reply [F6]; that refusal comes first,
 because a suspended owner's batches have left the views and the review
 would otherwise be "not found".
 
-**A delete is total and never refused for a switch or a suspension**
-[F8]: the reply and every report filed against it go together.
+**A delete is total and never refused for a switch, a suspension or the
+review's visibility** [F8, T5-a]: the reply and every report filed against
+it go together, and a delete that finds nothing of the owner's to delete
+answers the same quiet success.
 """
 
 from __future__ import annotations
@@ -40,6 +45,7 @@ from typing import Final, cast
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Row
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth.ceilings import CeilingChecker
@@ -63,6 +69,10 @@ __all__ = [
 
 #: The longest reply, counted after surrounding whitespace is stripped.
 MAX_REPLY: Final = 1000
+
+#: The reply's foreign key to its review: violated when the review is
+#: deleted while a first reply to it is being written.
+_REPLY_REVIEW_FK: Final = "fk_review_reply_review_id"
 
 #: Every batch listing of the owner; the published ones are reported on.
 _LISTINGS: Final = sa.text(
@@ -336,6 +346,46 @@ def _evict_owner(session: Session, lens: TeacherLens, now: dt.datetime) -> None:
         invalidation.enqueue(session, invalidation.owner_paths(slug), now)
 
 
+def _create_reply(
+    session: Session,
+    lens: TeacherLens,
+    review_id: uuid.UUID,
+    text: str,
+    now: dt.datetime,
+) -> uuid.UUID | None:
+    """Insert a first reply, if no other call's insert won the race.
+
+    The review was read through the view, but its author may delete it
+    before the insert's key check: that is the review going, not a fault,
+    and it answers as any other unreachable review does [T5-b].
+
+    :param session: The write's session
+    :param lens: The teacher's lens; its account is recorded as the writer
+    :param review_id: The review
+    :param text: The normalised reply
+    :param now: The moment of the write
+    :return: The review id when this call inserted the reply, else None
+    :raises AuthorizationError: ``REVIEW_NOT_FOUND`` when the review was
+        deleted first; the session is rolled back
+    """
+    try:
+        return session.execute(
+            _CREATE,
+            {
+                "review_id": review_id,
+                "body": text,
+                "account_id": lens.account_id,
+                "now": now,
+            },
+        ).scalar_one_or_none()
+    except IntegrityError as error:
+        diag = getattr(error.orig, "diag", None)
+        if getattr(diag, "constraint_name", None) != _REPLY_REVIEW_FK:
+            raise
+        session.rollback()
+        raise _not_found() from error
+
+
 def put_reply(
     session: Session,
     lens: TeacherLens,
@@ -369,10 +419,7 @@ def put_reply(
         keys = {"review_id": review_id}
         current = session.execute(_LOCK_REPLY, keys).one_or_none()
         if current is None:
-            created = session.execute(
-                _CREATE,
-                {**keys, "body": text, "account_id": lens.account_id, "now": now},
-            ).scalar_one_or_none()
+            created = _create_reply(session, lens, review_id, text, now)
             if created is None:
                 # Another call's first reply won the race: this call
                 # replaces it, and spends only if it changes it.
@@ -401,27 +448,67 @@ def put_reply(
     return _reachable(session, lens, review_id)
 
 
+def _reply_target_batch_owned(
+    session: Session, lens: TeacherLens, review_id: uuid.UUID
+) -> bool:
+    """Say whether a review is in one of the owner's batches, whatever its state.
+
+    **The one read of the** ``review`` **base table in this module**
+    [T5-a]. Removing one's own words is never gated by publication, so a
+    reply must be deletable while its review is held, below the threshold
+    or on a hidden or suspended listing -- states in which the review has
+    left the views. The statement reads only the review's ``id`` and
+    ``batch_id``, never what anyone wrote, its status or its author; the
+    source gate allowlists exactly this function and checks that.
+
+    The review row is share-locked, so a concurrent author delete, which
+    locks the review before its reports and its reply, is ordered before or
+    after this one rather than deadlocking with it.
+
+    :param session: The write's session
+    :param lens: The teacher's lens
+    :param review_id: The review
+    :return: True when the review exists in a batch the owner lists
+    """
+    found = session.execute(
+        sa.text(
+            """
+            SELECT r.id
+            FROM review r
+            JOIN batch_listing bl ON bl.batch_id = r.batch_id
+            WHERE r.id = :review_id AND bl.owner_id = :owner_id
+            FOR SHARE OF r
+            """
+        ),
+        {"review_id": review_id, "owner_id": lens.owner_id},
+    ).scalar_one_or_none()
+    return found is not None
+
+
 def delete_reply(
     session: Session, lens: TeacherLens, review_id: uuid.UUID, now: dt.datetime
 ) -> None:
     """Delete the owner's reply to a review, and every report on it.
 
-    Refuses nothing when there is no reply: deleting is idempotent. Never
-    switch-gated, and never refused for a suspension.
+    Works whatever the review's visibility [T5-a]: held, below the
+    threshold, or on a hidden or suspended listing. Never switch-gated.
+    Refuses nothing: a reply that is absent, already deleted, or on a
+    review that is not the owner's is a quiet success that changes nothing,
+    so the answer says nothing about another owner's review.
 
     :param session: The session to write through
     :param lens: The teacher's lens
     :param review_id: The review
     :param now: The moment of the delete
     :return: None
-    :raises AuthorizationError: ``REVIEW_NOT_FOUND`` for a review the
-        teacher cannot reach
     """
     try:
-        _reachable(session, lens, review_id)
+        if not _reply_target_batch_owned(session, lens, review_id):
+            session.rollback()
+            return
         keys = {"review_id": review_id}
-        # The reply first, then its reports: the order every delete and
-        # every report decision takes, so two of them cannot deadlock.
+        # The review (above), then the reply, then its reports: the order
+        # the author's delete and every report decision take.
         current = session.execute(_LOCK_REPLY, keys).one_or_none()
         if current is not None:
             session.execute(_DELETE_REPORTS, keys)

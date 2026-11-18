@@ -419,15 +419,10 @@ def test_other_owner_cannot_list_or_reply(
         owner.put_reply(restricted_session, intruder, target, "Mine now", _now())
     with pytest.raises(AuthorizationError) as invented:
         owner.put_reply(restricted_session, intruder, uuid.uuid4(), "Mine now", _now())
-    with pytest.raises(AuthorizationError) as foreign_delete:
-        owner.delete_reply(restricted_session, intruder, target, _now())
-    with pytest.raises(AuthorizationError) as invented_delete:
-        owner.delete_reply(restricted_session, intruder, uuid.uuid4(), _now())
+    owner.delete_reply(restricted_session, intruder, target, _now())
+    owner.delete_reply(restricted_session, intruder, uuid.uuid4(), _now())
 
-    responses = [
-        to_response(e.value)
-        for e in (foreign, invented, foreign_delete, invented_delete)
-    ]
+    responses = [to_response(e.value) for e in (foreign, invented)]
     assert {r.status_code for r in responses} == {404}
     assert len({r.body for r in responses}) == 1
     assert foreign.value.code == "REVIEW_NOT_FOUND"
@@ -763,6 +758,116 @@ def test_delete_reply_idempotent(
     owner.delete_reply(restricted_session, _lens(batch), target, _now())
 
     assert _invalidated(owner_session) == set()
+    assert _spent(owner_session, batch.owner_id) == 0
+
+
+def test_teacher_deletes_their_reply_on_a_held_review(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """T5-a: removing one's own words is never gated by publication."""
+    batch = public_batch(owner_session)
+    target = _published(owner_session, batch.batch_id, (5, 4, 4, 3))[0]
+    _reply(owner_session, target)
+    _report(owner_session, "reply", target, account(owner_session))
+    _set_status(owner_session, target, "held")
+
+    owner.delete_reply(restricted_session, _lens(batch), target, _now())
+
+    assert _reply_row(owner_session, target) is None
+    assert _reports(owner_session, "reply", target) == 0
+
+
+def test_teacher_deletes_their_reply_below_threshold(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    batch = public_batch(owner_session)
+    target, other = _published(owner_session, batch.batch_id, (5, 4))
+    _reply(owner_session, target, status="pending")
+
+    owner.delete_reply(restricted_session, _lens(batch), target, _now())
+
+    assert _reply_row(owner_session, target) is None
+    assert owner.owner_reviews(restricted_session, _lens(batch))[1] == []
+    assert other != target
+
+
+def test_teacher_deletes_their_reply_on_a_suspended_listing(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    batch = public_batch(owner_session)
+    target = _published(owner_session, batch.batch_id)[0]
+    _reply(owner_session, target)
+    owner_session.execute(
+        sa.text("UPDATE owner_listing SET status = 'suspended' WHERE owner_id = :o"),
+        {"o": batch.owner_id},
+    )
+    owner_session.commit()
+
+    owner.delete_reply(restricted_session, _lens(batch), target, _now())
+
+    assert _reply_row(owner_session, target) is None
+
+
+def test_another_owners_delete_leaves_a_hidden_reply_and_answers_quietly(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """T5-a: a foreign delete is the same quiet success and deletes nothing."""
+    mine = public_batch(owner_session)
+    target = _published(owner_session, mine.batch_id, (5, 4))[0]
+    _reply(owner_session, target, status="pending", body="Ours")
+    reporter = account(owner_session)
+    _report(owner_session, "reply", target, reporter)
+    theirs = public_batch(owner_session, title="Other teacher's batch")
+    _clear_outbox(owner_session)
+
+    result = owner.delete_reply(restricted_session, _lens(theirs), target, _now())
+
+    assert result is None
+    reply = _reply_row(owner_session, target)
+    assert reply is not None
+    assert reply.body == "Ours"
+    assert _reports(owner_session, "reply", target) == 1
+    assert _invalidated(owner_session) == set()
+
+
+def test_a_first_reply_losing_to_a_review_delete_is_not_found(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """T5-b: the review is deleted under the reply; not found, not a 500.
+
+    The author's delete is held uncommitted, so the reply reads the review
+    through the view, finds no reply, and its insert's key check waits on the
+    deleted row; once the delete commits, the key check fails.
+    """
+    batch = public_batch(owner_session)
+    target = _published(owner_session, batch.batch_id)[0]
+    lens = _lens(batch)
+    owner_session.execute(sa.text("DELETE FROM review WHERE id = :r"), {"r": target})
+    outcome: list[object] = []
+
+    def submit() -> None:
+        try:
+            outcome.append(
+                owner.put_reply(restricted_session, lens, target, "Thanks", _now())
+            )
+        except Exception as error:  # noqa: BLE001 -- asserted below
+            outcome.append(error)
+
+    thread = threading.Thread(target=submit)
+    thread.start()
+    _wait_for_a_lock_waiter(owner_session)
+    owner_session.commit()
+    thread.join(timeout=30)
+
+    assert len(outcome) == 1
+    refused = outcome[0]
+    assert isinstance(refused, AuthorizationError), outcome
+    assert (refused.code, refused.message_key, refused.status) == (
+        "REVIEW_NOT_FOUND",
+        "hub.review.not_found",
+        404,
+    )
+    assert _reply_row(owner_session, target) is None
     assert _spent(owner_session, batch.owner_id) == 0
 
 
