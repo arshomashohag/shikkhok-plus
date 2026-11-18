@@ -65,11 +65,12 @@ VERSIONS: Final[pathlib.Path] = (
 #: ``0041`` -- the CloudFront invalidation outbox -- again, and ``0042``
 #: -- the demand question and the first-publish anchor -- once more, and
 #: ``0043`` -- owner photos, their object outbox and public view -- again,
-#: and ``0044`` -- moderation events for photos -- once more.
-EXPECTED_REVISIONS: Final[int] = 44
+#: and ``0044`` -- moderation events for photos -- once more, and ``0045`` --
+#: reviews, their replies and the two threshold views -- again.
+EXPECTED_REVISIONS: Final[int] = 45
 
-#: The head ``0044`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0044"
+#: The head ``0045`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0045"
 
 
 def _revision_files() -> list[pathlib.Path]:

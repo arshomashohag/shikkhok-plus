@@ -1,11 +1,13 @@
-"""The five public hub views: what the hub reader can see, and nothing else.
+"""The seven public hub views: what the hub reader can see, and nothing else.
 
 Public pages read only ``hub_public_owner``, ``hub_public_batch``,
-``hub_public_teacher_name``, ``hub_public_area`` and ``hub_public_media``
+``hub_public_teacher_name``, ``hub_public_area``, ``hub_public_media``
 (``0043``; its rows are probed in ``test_hub_public_media_view.py``), and
-only as ``shikkhok_hub_reader``. A view runs with its owner's rights and bypasses
-row-level security, so what a view selects IS the boundary: these tests
-read every view as the reader and arrange rows as the table owner.
+``hub_public_review`` and ``hub_public_rating`` (``0045``; probed in
+``test_hub_public_review_view.py``), and only as ``shikkhok_hub_reader``.
+A view runs with its owner's rights and bypasses row-level security, so
+what a view selects IS the boundary: these tests read every view as the
+reader and arrange rows as the table owner.
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ from app.hub.public.db import as_hub_reader
 from tests.batches.conftest import make_teacher
 from tests.hub.support import add_member, assign_slot, centre_with_manager
 
-#: The five views public pages may read.
+#: The seven views public pages may read.
 VIEWS: Final[frozenset[str]] = frozenset(
     {
         "hub_public_owner",
@@ -30,6 +32,8 @@ VIEWS: Final[frozenset[str]] = frozenset(
         "hub_public_teacher_name",
         "hub_public_area",
         "hub_public_media",
+        "hub_public_review",
+        "hub_public_rating",
     }
 )
 
@@ -40,6 +44,29 @@ PRIVATE_TABLES: Final[tuple[str, ...]] = (
     "enrollment",
     "student",
     "payment_method",
+)
+
+#: Columns of readable tables that no view may read, by ``(table, column)``:
+#: a class's private name, the number a centre typed for a member, and
+#: everything that would join a review or reply to a person, a seat or a
+#: moment finer than a month.
+PRIVATE_COLUMNS: Final[frozenset[tuple[str, str]]] = frozenset(
+    {
+        ("batch", "name"),
+        ("owner_member", "invited_phone"),
+        ("review", "author_account_id"),
+        ("review", "enrollment_id"),
+        ("review", "submitted_at"),
+        ("review", "edited_at"),
+        ("review", "approved_at"),
+        ("review", "decided_at"),
+        ("review", "decided_by_account_id"),
+        ("review_reply", "written_by_account_id"),
+        ("review_reply", "created_at"),
+        ("review_reply", "edited_at"),
+        ("review_reply", "decided_at"),
+        ("review_reply", "decided_by_account_id"),
+    }
 )
 
 
@@ -174,11 +201,13 @@ def _visible(session: Session) -> dict[str, set[str]]:
     }
 
 
-def test_hub_reader_reads_only_the_five_views(restricted_session: Session) -> None:
-    """The reader may SELECT the five views and ``bd_area``, nothing else.
+def test_hub_reader_reads_only_the_seven_views(restricted_session: Session) -> None:
+    """The reader may SELECT the seven views and ``bd_area``, nothing else.
 
     ``listing_media`` and ``media_object_task`` (``0043``) are among the
     "nothing else": the reader sees a photo only through ``hub_public_media``.
+    So are ``review`` and ``review_reply`` (``0045``): the reader sees a
+    review only through ``hub_public_review`` and ``hub_public_rating``.
 
     ``bd_area`` was granted to the reader by ``0035`` (H0) and stays: the
     public area view is a passthrough of it. No relation is writable.
@@ -205,7 +234,7 @@ def test_hub_reader_reads_only_the_five_views(restricted_session: Session) -> No
 
 
 def test_views_do_not_reference_private_tables(restricted_session: Session) -> None:
-    """No view names a private table, or ``batch.name``, in text or in fact.
+    """No view names a private table, or reads a private column, in text or in fact.
 
     The text is what a reviewer reads; ``pg_depend`` is what PostgreSQL
     resolved, so a column reached through an alias is still caught.
@@ -245,10 +274,9 @@ def test_views_do_not_reference_private_tables(restricted_session: Session) -> N
     tables = {row.tbl for row in depends}
     assert "owner_listing" in tables  # not vacuous
     assert tables.isdisjoint(PRIVATE_TABLES), tables
-    assert ("batch", "name") not in {(row.tbl, row.col) for row in depends}
-    assert ("owner_member", "invited_phone") not in {
-        (row.tbl, row.col) for row in depends
-    }
+    read = {(row.tbl, row.col) for row in depends}
+    assert ("review", "rating") in read  # the review columns are walked
+    assert read.isdisjoint(PRIVATE_COLUMNS), sorted(read & PRIVATE_COLUMNS)
 
 
 @pytest.mark.parametrize("status", ["draft", "hidden", "suspended"])

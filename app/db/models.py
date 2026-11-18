@@ -4348,3 +4348,259 @@ class MediaObjectTask(Base):
             postgresql_where=text("done_at IS NULL"),
         ),
     )
+
+
+#: A review's statuses [0045], in lifecycle order. ``approved`` waits for the
+#: weekly publication; ``held`` is a published review taken down by a report
+#: while an admin decides.
+HUB_REVIEW_STATUS_VALUES: tuple[str, ...] = (
+    "pending",
+    "approved",
+    "published",
+    "rejected",
+    "removed",
+    "held",
+)
+#: A reply's statuses [0045]: a reply publishes on approval, so no
+#: ``approved``.
+HUB_REPLY_STATUS_VALUES: tuple[str, ...] = (
+    "pending",
+    "published",
+    "rejected",
+    "removed",
+    "held",
+)
+#: Who may write a review. V1 accepts ``guardian`` only, by CHECK.
+HUB_REVIEW_AUTHOR_ROLE_VALUES: tuple[str, ...] = ("guardian", "student")
+#: How long the evidencing seat had been held at first submit.
+HUB_REVIEW_TENURE_VALUES: tuple[str, ...] = ("lt_6m", "6_12m", "gt_1y")
+
+_HUB_REVIEW_STATUS = PgEnum(
+    *HUB_REVIEW_STATUS_VALUES, name="hub_review_status", create_type=False
+)
+_HUB_REPLY_STATUS = PgEnum(
+    *HUB_REPLY_STATUS_VALUES, name="hub_reply_status", create_type=False
+)
+_HUB_REVIEW_AUTHOR_ROLE = PgEnum(
+    *HUB_REVIEW_AUTHOR_ROLE_VALUES, name="hub_review_author_role", create_type=False
+)
+_HUB_REVIEW_TENURE = PgEnum(
+    *HUB_REVIEW_TENURE_VALUES, name="hub_review_tenure", create_type=False
+)
+
+#: ``published_month`` exists exactly while the item is shown or held.
+_MONTH_IFF_SHOWN = (
+    "(status = 'published' OR status = 'held') = (published_month IS NOT NULL)"
+)
+#: A month is stored as its first day.
+_MONTH_IS_FIRST = "published_month IS NULL OR extract(day FROM published_month) = 1"
+#: A rejection or a removal carries its closed code.
+_REJECTION_CODE = "status NOT IN ('rejected', 'removed') OR rejection_code IS NOT NULL"
+
+
+class Review(Base):
+    """One guardian's review of one batch [0045].
+
+    Public only through ``hub_public_review`` and ``hub_public_rating``, and
+    only once the batch holds three published reviews. **Never in any
+    response:** the author, the evidencing seat, and every time finer than
+    ``published_month``. The id is minted by the server as a random UUID, so
+    order within a month says nothing about submission order.
+
+    :ivar id: Surrogate key, random
+    :ivar batch_id: The reviewed batch, through its listing
+    :ivar author_account_id: Who wrote it; the review goes with them
+    :ivar enrollment_id: The seat that evidenced eligibility; cleared if it
+        goes
+    :ivar author_role: ``guardian`` (V1, by CHECK) or ``student``
+    :ivar rating: 1 to 5
+    :ivar body: Up to 1000 characters; NULL when none was written
+    :ivar status: One of :data:`HUB_REVIEW_STATUS_VALUES`
+    :ivar tenure_bucket: One of :data:`HUB_REVIEW_TENURE_VALUES`, frozen at
+        first submit
+    :ivar rejection_code: Why it was rejected or removed
+    :ivar submitted_at: The first submit; the edit window runs from it
+    :ivar edited_at: The latest edit
+    :ivar approved_at: When a moderator approved it; set exactly while
+        ``approved``
+    :ivar published_month: The first of the month it was published in; set
+        exactly while ``published`` or ``held``
+    :ivar decided_at: When moderation last decided it
+    :ivar decided_by_account_id: The administrator who did, cleared if their
+        account goes
+    """
+
+    __tablename__ = "review"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "batch_listing.batch_id",
+            ondelete="CASCADE",
+            name=conv("fk_review_batch_id"),
+        ),
+        nullable=False,
+    )
+    author_account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="CASCADE",
+            name=conv("fk_review_author_account_id"),
+        ),
+        nullable=False,
+    )
+    enrollment_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "enrollment.id",
+            ondelete="SET NULL",
+            name=conv("fk_review_enrollment_id"),
+        ),
+        nullable=True,
+    )
+    author_role: Mapped[str] = mapped_column(_HUB_REVIEW_AUTHOR_ROLE, nullable=False)
+    rating: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(
+        _HUB_REVIEW_STATUS, nullable=False, server_default=text("'pending'")
+    )
+    tenure_bucket: Mapped[str] = mapped_column(_HUB_REVIEW_TENURE, nullable=False)
+    rejection_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    submitted_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    edited_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    approved_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    published_month: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    decided_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decided_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_review_decided_by_account_id"),
+        ),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "batch_id", "author_account_id", name=conv("uq_review_batch_author")
+        ),
+        CheckConstraint(
+            "author_role = 'guardian'", name=conv("ck_review_author_role_v1")
+        ),
+        CheckConstraint("rating BETWEEN 1 AND 5", name=conv("ck_review_rating")),
+        CheckConstraint(
+            "body IS NULL OR char_length(body) <= 1000", name=conv("ck_review_body")
+        ),
+        CheckConstraint(
+            _MONTH_IFF_SHOWN, name=conv("ck_review_published_month_iff_shown")
+        ),
+        CheckConstraint(_MONTH_IS_FIRST, name=conv("ck_review_published_month_first")),
+        CheckConstraint(_REJECTION_CODE, name=conv("ck_review_rejection_code")),
+        CheckConstraint(
+            "(status = 'approved') = (approved_at IS NOT NULL)",
+            name=conv("ck_review_approved_at_iff_approved"),
+        ),
+        # What both public views and the threshold count read.
+        Index(
+            "ix_review_batch_id_published",
+            "batch_id",
+            postgresql_where=text("status = 'published'"),
+        ),
+        Index("ix_review_author_account_id", "author_account_id"),
+        Index("ix_review_enrollment_id", "enrollment_id"),
+    )
+
+
+class ReviewReply(Base):
+    """The batch owner's one reply to one review [0045].
+
+    Pre-moderated like the review (Call 3), and public only through
+    ``hub_public_review``, only while ``published``. A centre's reply
+    survives a manager's account deletion, with ``written_by_account_id``
+    cleared.
+
+    :ivar review_id: The review answered, the key; the reply goes with it
+    :ivar body: 1 to 1000 characters
+    :ivar status: One of :data:`HUB_REPLY_STATUS_VALUES`
+    :ivar written_by_account_id: Who wrote it, cleared if their account goes
+    :ivar created_at: When it was first written
+    :ivar edited_at: The latest replacement
+    :ivar published_month: The first of the month it was published in; set
+        exactly while ``published`` or ``held``
+    :ivar decided_at: When moderation last decided it
+    :ivar decided_by_account_id: The administrator who did, cleared if their
+        account goes
+    :ivar rejection_code: Why it was rejected or removed
+    """
+
+    __tablename__ = "review_reply"
+
+    review_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "review.id", ondelete="CASCADE", name=conv("fk_review_reply_review_id")
+        ),
+        primary_key=True,
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        _HUB_REPLY_STATUS, nullable=False, server_default=text("'pending'")
+    )
+    written_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_review_reply_written_by_account_id"),
+        ),
+        nullable=True,
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    edited_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    published_month: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    decided_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decided_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_review_reply_decided_by_account_id"),
+        ),
+        nullable=True,
+    )
+    rejection_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "char_length(body) BETWEEN 1 AND 1000", name=conv("ck_review_reply_body")
+        ),
+        CheckConstraint(
+            _MONTH_IFF_SHOWN, name=conv("ck_review_reply_published_month_iff_shown")
+        ),
+        CheckConstraint(
+            _MONTH_IS_FIRST, name=conv("ck_review_reply_published_month_first")
+        ),
+        CheckConstraint(_REJECTION_CODE, name=conv("ck_review_reply_rejection_code")),
+    )

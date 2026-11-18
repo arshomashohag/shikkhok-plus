@@ -166,6 +166,12 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
         "Instructions to delete the image files of a photo that was taken "
         "down or deleted; they name nobody"
     ),
+    "review": (
+        "A review you wrote of a class on the public hub, with its star rating"
+    ),
+    "review_reply": (
+        "A teacher's reply to a review on the public hub, removed with the review"
+    ),
     "hub_moderation_event": (
         "A record that moderation acted on a hub listing or report; it holds "
         "no free text and names nobody"
@@ -350,7 +356,8 @@ def centre_listing_disclosure() -> str:
         "**A coaching centre's public listing stays with the centre.** If "
         "you are a manager of a coaching centre and delete your account, "
         "what the centre published on the public hub -- its own page, "
-        "its class pages and their photos -- and its answers to whether "
+        "its class pages and their photos, and its replies to reviews -- "
+        "and its answers to whether "
         "the hub brought it students are kept, because they belong to the "
         "centre and not to you, and the centre's other managers may still "
         "run it. "

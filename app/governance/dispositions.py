@@ -724,6 +724,31 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "to the centre, so they stay when a manager's account is deleted."
         ),
     ),
+    "review": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A review a guardian wrote of a class on the public hub: a star "
+            "rating, optional text, and which of their child's places in the "
+            "class showed they could write it. It goes when that guardian "
+            "deletes their account, and also when a solo teacher deletes "
+            "theirs, because it is deleted with the teacher's listing of the "
+            "class. The public sees it only once moderated, by month, and "
+            "only once the class has three published reviews, never with a "
+            "name."
+        ),
+    ),
+    "review_reply": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A teacher's or coaching centre's one reply to a review. It goes "
+            "with the review it answers, whoever's deletion removes that. A "
+            "coaching centre's reply belongs to the centre, so it stays when "
+            "the manager who wrote it deletes their account, and no longer "
+            "says who wrote it."
+        ),
+    ),
     "media_object_task": TableGovernance(
         disposition=Disposition.NOT_PERSONAL,
         retention=RetentionClass.DAYS_7,

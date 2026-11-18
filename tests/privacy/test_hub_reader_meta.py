@@ -52,7 +52,16 @@ def test_app_role_may_become_hub_reader(restricted_session: Session) -> None:
 
 @pytest.mark.parametrize(
     "table",
-    ["profile", "enrollment", "payment_method", "account", "student", "batch"],
+    [
+        "profile",
+        "enrollment",
+        "payment_method",
+        "account",
+        "student",
+        "batch",
+        "review",
+        "review_reply",
+    ],
 )
 def test_hub_reader_cannot_read_private_tables(
     restricted_session: Session, table: str

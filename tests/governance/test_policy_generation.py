@@ -608,7 +608,18 @@ def test_no_raw_table_name_appears_in_the_generated_region() -> None:
     region = render()
     # `student` since 0018: the policy has always said "a student's place
     # in a class", and the table took the word rather than the reverse.
-    english_words = {"session", "account", "exam", "mark", "batch", "owner", "student"}
+    # `review` since 0045: a parent reads "a review you wrote"; the table
+    # took the word. `review_reply` is still checked.
+    english_words = {
+        "session",
+        "account",
+        "exam",
+        "mark",
+        "batch",
+        "owner",
+        "student",
+        "review",
+    }
 
     for table in DISPOSITIONS:
         if table in english_words:

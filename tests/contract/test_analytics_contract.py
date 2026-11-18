@@ -232,8 +232,9 @@ def test_d5_adds_no_migration_and_no_governance_entry() -> None:
     ``pending_signup``, 45 since ``0035`` added ``bd_area``, 49 since
     ``0036`` added the hub tables and 50 since ``0038`` added
     ``username_hold``, 51 since ``0041`` added ``cdn_invalidation``,
-    52 since ``0042`` added ``hub_feedback`` and 54 since ``0043`` added
-    ``listing_media`` and ``media_object_task``; D5 itself added none.
+    52 since ``0042`` added ``hub_feedback``, 54 since ``0043`` added
+    ``listing_media`` and ``media_object_task`` and 56 since ``0045``
+    added ``review`` and ``review_reply``; D5 itself added none.
     Stated as an absence because a
     materialised rollup is the obvious optimisation and it would
     contradict BR1.4 outright.
@@ -242,9 +243,9 @@ def test_d5_adds_no_migration_and_no_governance_entry() -> None:
     """
     from app.governance.dispositions import DISPOSITIONS
 
-    assert len(DISPOSITIONS) == 54, (
+    assert len(DISPOSITIONS) == 56, (
         f"the governance manifest holds {len(DISPOSITIONS)} entries, not "
-        "54. D5 creates no table, so it adds no disposition [BR4.2]."
+        "56. D5 creates no table, so it adds no disposition [BR4.2]."
     )
 
 

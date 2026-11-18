@@ -303,6 +303,22 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
             "Their bucket objects and `/m/` paths are queued first."
         ),
     ),
+    "review": _Target(
+        scope=Scope.ACCOUNT_COLUMN,
+        column="author_account_id",
+        note=(
+            "A guardian's own review. Also deleted with a solo teacher's batch "
+            "listing, by its `ON DELETE CASCADE`; its reply cascades with it."
+        ),
+    ),
+    "review_reply": _Target(
+        scope=Scope.VIA_CASCADE,
+        column=None,
+        note=(
+            "Cascades from `review`. A centre's reply survives a manager's "
+            "deletion, its writer cleared by its foreign key."
+        ),
+    ),
     "media_object_task": _Target(
         scope=Scope.NOT_PERSONAL,
         column=None,
