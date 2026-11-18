@@ -335,10 +335,8 @@ def test_media_role_scoped_to_four_prefixes() -> None:
             ["s3:GetObject"],
             [f"{bucket}/staged/*", f"{bucket}/archive/*"],
         ),
-        "CopyApproved": (
-            ["s3:PutObject"],
-            [f"{bucket}/public/*", f"{bucket}/archive/*"],
-        ),
+        "FreezeToArchive": (["s3:PutObject"], [f"{bucket}/archive/*"]),
+        "PublishFromArchive": (["s3:PutObject"], [f"{bucket}/public/*"]),
         "DeleteObjects": (
             ["s3:DeleteObject"],
             [f"{bucket}/{prefix}*" for prefix in PREFIXES],
@@ -346,22 +344,26 @@ def test_media_role_scoped_to_four_prefixes() -> None:
         "ListOwnPrefixes": (["s3:ListBucket"], [bucket]),
     }
     assert "Deny" not in policy and "NotAction" not in policy
-    # A write to public/ or archive/ must be a copy from staged/ or archive/
-    # [final review minor 5]: a compromised container could otherwise put
-    # arbitrary, unmoderated bytes where CloudFront serves them.
-    copy = statements["CopyApproved"]
-    assert re.search(r"StringLike\s*=", copy)
-    source = re.search(r'"s3:x-amz-copy-source"\s*=\s*\[([^\]]*)\]', copy)
-    assert source is not None
+    # A write to archive/ or public/ must be a copy, and from one prefix only
+    # [final review minor 5, I1]: completion freezes staged/ into archive/,
+    # and public/ is filled from archive/ alone. A compromised container can
+    # put no bytes of its own where CloudFront serves them, nor copy
+    # unfrozen staged/ bytes there.
     name = "${aws_s3_bucket.media.bucket}"
-    assert sorted(re.findall(r'"([^"]*)"', source.group(1))) == sorted(
-        f"{lead}{name}/{folder}/*"
-        for lead in ("", "/")
-        for folder in ("staged", "archive")
-    )
+    for sid, source_folder in (
+        ("FreezeToArchive", "staged"),
+        ("PublishFromArchive", "archive"),
+    ):
+        copy = statements[sid]
+        assert re.search(r"StringLike\s*=", copy), sid
+        source = re.search(r'"s3:x-amz-copy-source"\s*=\s*\[([^\]]*)\]', copy)
+        assert source is not None, sid
+        assert sorted(re.findall(r'"([^"]*)"', source.group(1))) == sorted(
+            f"{lead}{name}/{source_folder}/*" for lead in ("", "/")
+        ), sid
     # No other statement grants a write to either prefix.
     for sid, (actions, resources) in granted.items():
-        if sid in ("CopyApproved", "DeleteObjects"):
+        if sid in ("FreezeToArchive", "PublishFromArchive", "DeleteObjects"):
             continue
         assert not any(
             r.startswith((f"{bucket}/public/", f"{bucket}/archive/"))

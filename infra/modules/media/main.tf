@@ -5,7 +5,8 @@
 #
 #   owner's browser --presigned POST--> quarantine/{media_id}     (1 day)
 #   sanitiser Lambda (Task 3, lambda.tf) --> staged/{media_id}/   (30 days)
-#   API on approval --copy--> public/{public_key}/ and archive/{media_id}/
+#   API on complete --pinned copy--> archive/{media_id}/  (frozen, never expire)
+#   API on approval --copy archive/--> public/{public_key}/
 #   site distribution /m/{public_key}/{w}.webp --OAC--> public/  (never expire)
 #
 # **The bytes never touch the API.** The browser posts straight to the
@@ -235,27 +236,39 @@ resource "aws_iam_role_policy" "media" {
         ]
       },
       {
-        # Approval copies staged -> public and archive; a restore copies
-        # archive -> public. A copy is a GetObject on the source (granted
-        # above) and a PutObject on the destination -- and only a copy: a
-        # PutObject carrying no x-amz-copy-source from staged/ or archive/
-        # is refused, so a compromised container cannot put unmoderated
-        # bytes where CloudFront serves them. AWS documents the condition
-        # value as "bucket/key", which botocore sends; the "/bucket/key"
-        # spelling the header also allows is admitted too.
-        Sid    = "CopyApproved"
-        Effect = "Allow"
-        Action = ["s3:PutObject"]
-        Resource = [
-          "${aws_s3_bucket.media.arn}/public/*",
-          "${aws_s3_bucket.media.arn}/archive/*",
-        ]
+        # Completion freezes the variants it read: staged/ -> archive/
+        # [I1]. A copy is a GetObject on the source (granted above) and a
+        # PutObject on the destination -- and only a copy from staged/: a
+        # PutObject carrying no such x-amz-copy-source is refused. AWS
+        # documents the condition value as "bucket/key", which botocore
+        # sends; the "/bucket/key" spelling the header also allows is
+        # admitted too.
+        Sid      = "FreezeToArchive"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
+        Resource = ["${aws_s3_bucket.media.arn}/archive/*"]
         Condition = {
           StringLike = {
             "s3:x-amz-copy-source" = [
               "${aws_s3_bucket.media.bucket}/staged/*",
-              "${aws_s3_bucket.media.bucket}/archive/*",
               "/${aws_s3_bucket.media.bucket}/staged/*",
+            ]
+          }
+        }
+      },
+      {
+        # Approval and a restore publish the frozen variants: archive/ ->
+        # public/, the only prefix CloudFront serves. Only a copy, and only
+        # from archive/: a compromised container can neither put its own
+        # bytes there nor copy unfrozen staged/ bytes there.
+        Sid      = "PublishFromArchive"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
+        Resource = ["${aws_s3_bucket.media.arn}/public/*"]
+        Condition = {
+          StringLike = {
+            "s3:x-amz-copy-source" = [
+              "${aws_s3_bucket.media.bucket}/archive/*",
               "/${aws_s3_bucket.media.bucket}/archive/*",
             ]
           }
