@@ -36,7 +36,7 @@ from app.batches.service import _owned_batch
 from app.db.models import ListingMedia
 from app.errors import ConflictError, TransientError, ValidationError
 from app.hub.media import objects, quota
-from app.hub.media.shared import clean_alt, owned_media
+from app.hub.media.shared import clean_alt, media_not_found, owned_media
 from app.hub.media.storage import (
     MAX_UPLOAD_BYTES,
     RESULT_DEADLINE,
@@ -79,6 +79,8 @@ def init_upload(
     :return: The presigned POST
     :raises ValidationError: The type or size is not allowed
     :raises BatchNotFound: The batch is absent or another owner's
+    :raises AuthorizationError: ``NO_TEACHER_LENS``: the owner's account was
+        deleted while this waited for the owner row [R13]; nothing written
     :raises ConflictError: The gallery is full, or today's 30 uploads are
         spent; nothing is counted or written
     :raises TransientError: The bucket cannot be signed for right now;
@@ -93,7 +95,9 @@ def init_upload(
     if batch_id is not None:
         _owned_batch(session, lens=lens, batch_id=batch_id)
 
-    quota.lock_owner(session, lens.owner_id)
+    if not quota.lock_owner(session, lens.owner_id):
+        session.rollback()
+        raise quota.owner_departed()
     try:
         quota.require_room(session, lens.owner_id, batch_id)
         CeilingChecker(session).consume_hub_media(lens.owner_id, now)
@@ -181,11 +185,17 @@ def complete(
     :return: The photo
     :raises ValidationError: An alt text is blank, too long or carries a
         phone number; or the upload is unreadable (``MEDIA_UNREADABLE``)
-    :raises AuthorizationError: No such photo, another owner's, or withdrawn
+    :raises AuthorizationError: No such photo, another owner's, withdrawn, or
+        its solo owner's account deleted [R13]
     :raises ConflictError: The sanitiser has not written its result yet
     :raises TransientError: The bucket cannot be read right now
     """
     texts = clean_alt("alt_en", alt_en), clean_alt("alt_bn", alt_bn)
+    # The owner first, then the photo, as an upload, an approval and an
+    # account deletion take them [R13].
+    if not quota.lock_owner(session, lens.owner_id):
+        session.rollback()
+        raise media_not_found()
     media = owned_media(session, lens, media_id)
     if media.status == "rejected" and media.rejection_code == UNREADABLE:
         session.rollback()

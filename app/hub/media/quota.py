@@ -11,6 +11,15 @@ count, so the second waits until the first has committed its row and then
 counts it. The daily ceiling is consumed in the same transaction, without
 committing (:meth:`~app.auth.ceilings.CeilingChecker.consume_hub_media`),
 so nothing releases the lock early.
+
+**The lock is also where a departed owner is noticed** [R13]. Account
+deletion keeps a solo teacher's ``owner`` row and clears its
+``account_id``, under the same lock. A photo write that passed its lens
+check and then waited for the lock would otherwise create or publish a photo
+nobody owns, which no later deletion would ever reach. :func:`lock_owner`
+re-reads the row under the lock and reports whether a solo owner still has
+its account; every caller refuses, writing nothing, when it does not. A
+centre's owner row has no account by design and is always live.
 """
 
 from __future__ import annotations
@@ -22,7 +31,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.db.models import ListingMedia, Owner
-from app.errors import ConflictError
+from app.errors import AuthorizationError, ConflictError
 
 __all__ = [
     "BATCH_LIMIT",
@@ -31,6 +40,7 @@ __all__ = [
     "counted",
     "limit_reached",
     "lock_owner",
+    "owner_departed",
     "require_room",
 ]
 
@@ -54,14 +64,37 @@ def limit_reached() -> ConflictError:
     )
 
 
-def lock_owner(session: Session, owner_id: uuid.UUID) -> None:
-    """Lock the owner row until the caller's transaction ends.
+def lock_owner(session: Session, owner_id: uuid.UUID) -> bool:
+    """Lock the owner row until the caller's transaction ends, and check it.
 
-    :param session: The upload's session
+    The result is the check, read under the lock: a caller that ignores it
+    can write a photo for an owner whose account was deleted while it waited.
+
+    :param session: The caller's session
     :param owner_id: The owner
-    :return: None
+    :return: True when the owner may still have photos written for it: a
+        centre, or a solo teacher whose account still exists. False when the
+        row is gone or is a solo teacher's whose account was deleted.
     """
-    session.execute(sa.select(Owner.id).where(Owner.id == owner_id).with_for_update())
+    row = session.execute(
+        sa.select(Owner.kind, Owner.account_id)
+        .where(Owner.id == owner_id)
+        .with_for_update()
+    ).one_or_none()
+    return row is not None and (row.kind != "teacher" or row.account_id is not None)
+
+
+def owner_departed() -> AuthorizationError:
+    """Build the refusal a teacher gets when its owner's account is gone.
+
+    The same answer a request without a teacher lens gets, because that is
+    what the request now is.
+
+    :return: The error
+    """
+    return AuthorizationError(
+        code="NO_TEACHER_LENS", message_key="authz.lens.not_available"
+    )
 
 
 def counted(session: Session, owner_id: uuid.UUID, batch_id: uuid.UUID | None) -> int:

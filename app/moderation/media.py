@@ -434,7 +434,8 @@ def decide(
     :raises ValidationError: A code with an approval, or a rejection without
         one of the five codes
     :raises AuthorizationError: No such photo, or nothing to review: an
-        upload still in flight, or a withdrawn photo
+        upload still in flight, or a withdrawn photo; or an approval for a
+        solo owner whose account has been deleted [R13]
     :raises ConflictError: The photo is already approved or rejected
     :raises TransientError: The bucket could not copy the variants; nothing
         changed
@@ -447,8 +448,13 @@ def decide(
     )
     if owner_id is None:
         raise admin_not_found()
-    lock_owner(session, owner_id)
+    live = lock_owner(session, owner_id)
     media = _locked(session, media_id)
+    if approve and not live:
+        # A solo owner whose account was deleted while this waited [R13]:
+        # nothing is copied out. A rejection still goes ahead, because it
+        # only deletes.
+        media = None
     if media is None or media.status not in DECIDABLE:
         session.rollback()
         if media is not None and media.status in _DECIDED:
@@ -493,7 +499,8 @@ def settle_report(
     In the decision's transaction, committing nothing on success. Upheld: a
     photo waiting, approved or held is removed with the code mapped from
     the reason. Dismissed: a held photo is restored under a fresh key once
-    no other open holding report names it. Anything else is left alone.
+    no other open holding report names it, and never for a solo owner whose
+    account has been deleted [R13]. Anything else is left alone.
 
     :param session: The decision's session, the report locked
     :param store: The bucket; needed only to restore
@@ -514,7 +521,7 @@ def settle_report(
     )
     if owner_id is None:
         return
-    lock_owner(session, owner_id)
+    live = lock_owner(session, owner_id)
     media = _locked(session, media_id)
     if media is None:
         return
@@ -525,7 +532,13 @@ def settle_report(
         _remove(session, media, code, now)
         event = "media_rejected"
     else:
-        if media.status != "held" or _still_held(session, media_id, report_id):
+        # A departed solo owner's photo is never restored [R13]; the
+        # dismissal itself still stands.
+        if (
+            not live
+            or media.status != "held"
+            or _still_held(session, media_id, report_id)
+        ):
             return
         if store is None:
             raise ValueError("restoring a held photo needs the bucket")
