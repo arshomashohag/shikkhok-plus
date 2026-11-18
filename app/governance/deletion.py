@@ -16,7 +16,10 @@ second commit point, on the branch where no account exists):
    number that no longer answers. ``0010`` set ``owner.account_id`` to
    ``SET NULL``, so the account's removal unlinks rather than destroys.
 2. **Delete the rows this account owns** that the manifest marks
-   ``HARD_DELETE``.
+   ``HARD_DELETE``. A solo teacher's photos are read first, and every
+   bucket prefix they may have and every ``/m/`` path they were served
+   at is queued for deletion in this transaction: the rows are the only
+   record of which objects exist [H3 Review Focus 5].
 3. **Delete the account row.** Everything else follows from the database
    constraints: ``SET NULL`` on the references ``0007`` fixed, so the
    enrollments, payment claims and queued submissions survive with their
@@ -66,6 +69,13 @@ from app.accounts.identifier import Channel, Identifier
 from app.accounts.usernames import place_hold
 from app.db.advisory import account_key, contact_key, lock_keys, username_key
 from app.governance.dispositions import DISPOSITIONS, Disposition
+from app.hub.media import objects
+from app.hub.media.storage import (
+    archive_prefix,
+    public_prefix,
+    quarantine_key,
+    staged_prefix,
+)
 from app.hub.public import invalidation
 from app.students.service import block_relinking
 from app.teaching.unassign import unassign_member
@@ -289,7 +299,8 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
         column="owner_id",
         note=(
             "A solo teacher's hub photos. `owner` is retained, so no cascade "
-            "fires; deleted by owner, and a centre's photos survive a manager."
+            "fires; deleted by owner, and a centre's photos survive a manager. "
+            "Their bucket objects and `/m/` paths are queued first."
         ),
     ),
     "media_object_task": _Target(
@@ -398,6 +409,23 @@ _NAMING_CENTRE_SLUGS: Final = sa.text(
     "WHERE m.account_id = :account_id AND m.revoked_at IS NULL "
     "AND m.decision = 'accepted' AND m.public_name_consent_at IS NOT NULL "
     "AND l.status = 'published' AND l.slug IS NOT NULL ORDER BY l.slug"
+)
+
+#: The solo owners' rows, locked before their photos as an upload and an
+#: approval lock them, so no photo is added or approved between the read
+#: below and the delete.
+_LOCK_SOLO_OWNERS: Final = sa.text(
+    "SELECT id FROM owner WHERE account_id = :account_id AND kind = 'teacher' "
+    "ORDER BY id FOR UPDATE"
+)
+
+#: The solo owners' photos, read and locked before the rows go: a row is
+#: the only record of which objects and which ``/m/`` path a photo has.
+_SOLO_MEDIA: Final = sa.text(
+    "SELECT m.id, m.status::text AS status, m.public_key, m.created_at "
+    "FROM listing_media m JOIN owner o ON o.id = m.owner_id "
+    "WHERE o.account_id = :account_id AND o.kind = 'teacher' "
+    "ORDER BY m.id FOR UPDATE OF m"
 )
 
 #: The live memberships whose future classes a deletion frees first.
@@ -593,6 +621,9 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
         invalidation.enqueue(
             session, invalidation.owner_paths(slug), dt.datetime.now(tz=dt.UTC)
         )
+    # Its photos' objects and `/m/` paths, read before the rows go and
+    # queued in this transaction [H3 Review Focus 5].
+    _enqueue_solo_media(session, account_id, dt.datetime.now(tz=dt.UTC))
     for table, target in sorted(HARD_DELETE_SCOPES.items()):
         if target.scope is Scope.SOLO_OWNER:
             rows_deleted[table] = _delete_solo_owner_rows(
@@ -618,6 +649,50 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
 
     session.commit()
     return DeletionResult(existed=True, rows_deleted=rows_deleted)
+
+
+def _enqueue_solo_media(
+    session: Session, account_id: uuid.UUID, now: dt.datetime
+) -> None:
+    """Queue the deletion of every object the account's solo photos have.
+
+    Runs before ``listing_media`` is deleted, because the rows are the only
+    record of the prefixes. Every photo has ``quarantine/``, ``staged/`` and
+    ``archive/`` queued whatever its status -- a held photo has no key but
+    still has its variants and its archive, and a prefix with no object
+    under it costs the drain one empty listing. An approved photo also has
+    ``public/{key}/`` queued and ``/m/{key}/*`` evicted. A photo still
+    uploading has ``quarantine/`` and ``staged/`` queued again for when its
+    upload window closes, as a withdrawal does, so a late upload is removed.
+
+    The owner rows are locked first, then the photos, in the order an
+    upload and an approval take them, so no photo appears or gains a key
+    between this read and the delete. Commits nothing.
+
+    :param session: The deletion's session, inside its transaction
+    :param account_id: The account being deleted
+    :param now: The moment of the deletion
+    :return: None
+    """
+    session.execute(_LOCK_SOLO_OWNERS, {"account_id": account_id})
+    photos = session.execute(_SOLO_MEDIA, {"account_id": account_id}).all()
+    prefixes: list[str] = []
+    paths: list[str] = []
+    for photo in photos:
+        prefixes += [
+            quarantine_key(photo.id),
+            staged_prefix(photo.id),
+            archive_prefix(photo.id),
+        ]
+        if photo.public_key is not None:
+            prefixes.append(public_prefix(photo.public_key))
+            paths += invalidation.media_paths(photo.public_key)
+    objects.enqueue(session, prefixes, now)
+    for photo in photos:
+        if photo.status in objects.IN_FLIGHT:
+            objects.enqueue_upload_window(session, photo.id, photo.created_at, now)
+    if paths:
+        invalidation.enqueue(session, paths, now)
 
 
 def _delete_solo_owner_rows(

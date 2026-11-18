@@ -217,7 +217,7 @@ These records are about how the service itself is running, not about any person.
 
 **A coaching centre's public listing stays with the centre.** If you are a manager of a coaching centre and delete your account, what the centre published on the public hub -- its own page, its class pages and their photos -- and its answers to whether the hub brought it students are kept, because they belong to the centre and not to you, and the centre's other managers may still run it. Your own account is removed as described above. A solo teacher's public listing is not kept: it is deleted with their account.
 
-<!-- governance manifest digest: 5f96a5da182a066d20ef91abaccc54d308bc38152028f6c819a8041122b94920
+<!-- governance manifest digest: 068fe6d228584315d23fd2f5bae1aababb6adcafdb74a92fe711ec34180c1623
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

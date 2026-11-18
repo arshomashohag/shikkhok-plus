@@ -719,9 +719,9 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         basis=(
             "Photos a solo teacher uploaded for their public hub page or "
             "their class pages, with the descriptions they wrote for them. "
-            "They go when that teacher deletes their account. A coaching "
-            "centre's photos belong to the centre, so they stay when a "
-            "manager's account is deleted."
+            "They go when that teacher deletes their account, and so do the "
+            "image files stored for them. A coaching centre's photos belong "
+            "to the centre, so they stay when a manager's account is deleted."
         ),
     ),
     "media_object_task": TableGovernance(
