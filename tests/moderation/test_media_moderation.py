@@ -1,9 +1,9 @@
 """Photo moderation: an administrator's decision, and the report-driven hold.
 
-**Approval publishes and archives.** The variants are copied to
-``public/{key}/`` under a fresh 128-bit key and to ``archive/{id}/``, the
-copy that outlives ``staged/``'s thirty days; any later approval -- after an
-alt-text edit or a hold -- copies from the archive, never from ``staged/``.
+**Approval publishes from the archive.** ``complete`` froze the variants
+into ``archive/{id}/`` [I1]; every approval -- the first, and any after an
+alt-text edit or a hold -- copies them from there to ``public/{key}/`` under
+a fresh 128-bit key, and never reads ``staged/``.
 
 **A child-safety or personal-information report hides the photo at once**,
 in the report's own transaction [Review Focus 3]: rolling the report back
@@ -195,14 +195,14 @@ def _drop_staged(store: FakeMediaStore, media_id: uuid.UUID) -> None:
         del store.objects[key]
 
 
-def test_approve_copies_to_public_and_archive_and_sets_key(
+def test_approve_copies_the_archive_to_public_and_sets_key(
     owner_session: Session,
     restricted_session: Session,
     store: FakeMediaStore,
     tutor: Owner,
     admin: PlatformAdminLens,
 ) -> None:
-    """Both copies, a 32-hex key, the next free slot and the event."""
+    """The frozen variants in public/, a 32-hex key, the next free slot, the event."""
     taken = media_row(owner_session, tutor.lens.owner_id, status="approved")
     media_id = _pending(owner_session, store, tutor.lens.owner_id)
 
@@ -221,7 +221,8 @@ def test_approve_copies_to_public_and_archive_and_sets_key(
     for width in WIDTHS:
         public = store.objects[f"public/{key}/{width}.webp"]
         archived = store.objects[f"archive/{media_id}/{width}.webp"]
-        assert public.content_type == archived.content_type == "image/webp"
+        assert public == archived
+        assert public.content_type == "image/webp"
     assert _events(owner_session) == [
         ("media_approved", "media", None, admin.account_id)
     ]
@@ -274,7 +275,7 @@ def test_reapproval_after_alt_edit_copies_from_archive(
     row = _row(owner_session, media_id)
     assert (row.status, row.public_key) == ("approved", second)
     assert second != first
-    # The archive is written once, at the first approval.
+    # The archive was frozen once, at completion; approvals only read it.
     assert row.archived_at == FROZEN
     assert all(f"public/{second}/{w}.webp" in store.objects for w in WIDTHS)
 

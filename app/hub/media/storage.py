@@ -7,9 +7,10 @@ in-memory fake and **boto3 is imported here and nowhere else**, which
 
 **The bucket's layout** [0043, H3 deviation 3]. An upload lands at
 ``quarantine/{media_id}``; the sanitiser Lambda writes WebP variants and a
-``result.json`` under ``staged/{media_id}/``; approval copies the variants
-to ``public/{public_key}/`` (the only prefix CloudFront serves) and
-``archive/{media_id}/``. The four helpers below build those names, and
+``result.json`` under ``staged/{media_id}/``; completion freezes the
+variants it read into ``archive/{media_id}/``, pinned to their ETags, and
+approval copies them from there to ``public/{public_key}/`` (the only prefix
+CloudFront serves) [I1]. The four helpers below build those names, and
 :data:`OBJECT_PREFIX` is the one shape check, mirroring
 ``ck_media_object_task_prefix``: no prefix wider than one photo's objects is
 ever deleted.
@@ -161,7 +162,7 @@ def staged_prefix(media_id: uuid.UUID) -> str:
 
 
 def archive_prefix(media_id: uuid.UUID) -> str:
-    """Name the folder approval archives the variants in.
+    """Name the folder completion freezes the variants in [I1].
 
     :param media_id: The photo
     :return: ``archive/{media_id}/``
@@ -578,8 +579,8 @@ class S3MediaStore:
     ) -> dict[int, str] | None:
         """Read the ETag of each staged variant, one HEAD per width.
 
-        Recorded when a photo is completed, so an approval copies exactly
-        those bytes [I1].
+        Read when a photo is completed and used at once to pin the freeze
+        copy into ``archive/``, so the archive holds exactly those bytes [I1].
 
         :param media_id: The photo
         :param widths: The variant widths
