@@ -11,15 +11,18 @@ the caller's transaction and commits nothing, so a takedown that rolls back
 leaves no row and one that commits cannot lose its row [Review Focus 2].
 
 **Sent by the host, never by the container** [R8, OPS-4]. No process in the
-application container calls AWS. A host cron runs
+application container calls CloudFront: the container's only AWS client is
+the photo bucket's, in ``app/hub/media/storage.py``, under a role with no
+CloudFront permission. A host cron runs
 ``app.hub.public.commands claim`` inside the running container, sends what it
 prints with the host's own AWS CLI, and reports back with ``ack`` or ``fail``.
 
 **No caller writes a path by hand.** CloudFront accepts ``*`` only as a
-path's last character, so the paths come from :func:`owner_paths` and
-:func:`batch_paths`, one per locale, and :func:`enqueue` refuses anything
-else. Every enqueue also carries :data:`SITEMAP_PATH`, which lists what the
-takedown removed. A path holds only public slugs.
+path's last character, so the paths come from :func:`owner_paths`,
+:func:`batch_paths` and :func:`media_paths`, and :func:`enqueue` refuses
+anything else. Every enqueue also carries :data:`SITEMAP_PATH`, which lists
+what the takedown removed. A path holds only public slugs and public photo
+keys.
 
 The outbox is written through a lightweight table construct rather than the
 ORM model: this package may not import ``app.db.models``.
@@ -28,6 +31,7 @@ ORM model: this package may not import ``app.db.models``.
 from __future__ import annotations
 
 import datetime as dt
+import re
 from collections.abc import Sequence
 from typing import Final
 
@@ -42,11 +46,15 @@ __all__ = [
     "SITEMAP_PATH",
     "batch_paths",
     "enqueue",
+    "media_paths",
     "owner_paths",
 ]
 
 #: The sitemap, which every takedown changes.
 SITEMAP_PATH: Final[str] = "/hub/sitemap.xml"
+
+#: A photo's public key: 32 lower-case hex digits [0043].
+_PUBLIC_KEY: Final = re.compile(r"[0-9a-f]{32}")
 
 #: The ``path`` column's width.
 MAX_PATH: Final[int] = 300
@@ -80,6 +88,21 @@ def batch_paths(owner_slug: str, batch_slug: str) -> list[str]:
     :return: One exact path per locale
     """
     return [f"/hub/{locale}/t/{owner_slug}/{batch_slug}" for locale in LOCALES]
+
+
+def media_paths(public_key: str) -> list[str]:
+    """Build the path that evicts one photo's variants at ``/m/``.
+
+    One wildcard, which counts toward a claim's wildcard cap like any
+    other; the photo's variants share no path with a page.
+
+    :param public_key: The photo's public key, as it was while approved
+    :return: The one prefix path, ending in ``*``
+    :raises ValueError: The key is not 32 lower-case hex digits
+    """
+    if not _PUBLIC_KEY.fullmatch(public_key):
+        raise ValueError("a photo key is 32 lower-case hex digits")
+    return [f"/m/{public_key}/*"]
 
 
 def _require_valid(path: str) -> None:

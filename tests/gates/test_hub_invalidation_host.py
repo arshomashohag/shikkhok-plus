@@ -1,7 +1,8 @@
 """The hub's CDN invalidations are sent by the HOST, never the container [R8].
 
 The container cannot reach the instance's credentials (IMDS hop limit 1,
-OPS-4) and the image carries no AWS SDK. So a host script,
+OPS-4), and its only AWS client is the photo bucket's, under a role with no
+CloudFront permission [H3 deviation 1]. So a host script,
 ``/usr/local/bin/shikkhokplus-hub-invalidate``, asks the running container
 which rows to send (``claim``), calls CloudFront with the host's AWS CLI,
 and reports back (``ack`` or ``fail``). This file checks the boot template
@@ -115,16 +116,15 @@ def test_the_root_hands_the_site_distribution_to_the_app_host() -> None:
     )
 
 
-def test_no_aws_sdk_reaches_the_container() -> None:
-    # The whole point of R8: nothing the image installs or imports can call
-    # AWS, so the hop-limit decision [OPS-4] keeps holding.
-    for manifest in ("pyproject.toml", "requirements.txt"):
-        text = (ROOT / manifest).read_text().lower()
-        assert "boto3" not in text, manifest
-        assert "botocore" not in text, manifest
+def test_the_invalidation_sender_holds_no_aws_sdk() -> None:
+    # R8 still holds for the edge cache: the host sends invalidations, and
+    # nothing in the outbox's package can. H3 brought boto3 into the image
+    # for the photo bucket alone, confined to app/hub/media/storage.py with
+    # no CloudFront client anywhere (tests/gates/test_boto3_confined.py),
+    # and the container still cannot reach the instance role [OPS-4].
     offenders = [
         str(path.relative_to(ROOT))
-        for path in (ROOT / "app").rglob("*.py")
+        for path in (ROOT / "app" / "hub" / "public").rglob("*.py")
         if re.search(r"^\s*(import|from)\s+(boto3|botocore)\b", path.read_text(), re.M)
     ]
     assert offenders == []

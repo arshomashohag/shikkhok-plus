@@ -474,6 +474,24 @@ def test_host_refreshes_media_creds_every_15_minutes_and_at_boot() -> None:
     assert re.search(r'media_role_arn\s*=\s*try\(var\.media_role\.arn,\s*""\)', main_tf)
 
 
+def test_the_object_drain_runs_inside_the_running_container() -> None:
+    # Every two minutes, as the CDN sender does; inside the running
+    # container (`exec`, never `run --rm` on a 2 GB host), where the media
+    # credentials are mounted; never two at once; into a log that exists
+    # before the first run, since the job runs as ubuntu.
+    rendered = _rendered()
+    boot = "\n".join(_shell_bodies(rendered)[0].lines)
+    log = "/var/log/shikkhokplus-hub-media-objects.log"
+    entry = (
+        "*/2 * * * * ubuntu cd /srv/shikkhokplus && flock -n "
+        "/run/lock/shikkhokplus-hub-media-objects.lock docker compose exec -T api "
+        f"python -m app.hub.media.commands drain >> {log} 2>&1"
+    )
+
+    assert entry in rendered
+    assert re.search(rf"install\b[^\n]*-o ubuntu[^\n]*{re.escape(log)}", boot)
+
+
 def test_the_credentials_group_is_the_containers() -> None:
     # The container runs as `app`, uid 10001, whose own group useradd
     # creates with the same id; the file is group-readable by that id.

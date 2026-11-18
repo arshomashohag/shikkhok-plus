@@ -1,0 +1,204 @@
+"""Upload sessions: sign an upload under the quotas, then complete it.
+
+**The bytes never touch the API.** :func:`init_upload` checks the declared
+type and size, holds the owner's quota, inserts an ``awaiting_upload`` row
+and returns a presigned POST that may write only ``quarantine/{media_id}``.
+The client posts the file straight to the bucket; the sanitiser Lambda
+re-encodes it and writes ``staged/{media_id}/result.json``.
+
+**Completing reads that result** (:func:`complete`). Before it exists the
+answer is ``MEDIA_NOT_UPLOADED`` and nothing changes, so a double tap or a
+slow Lambda is retried rather than lost [Review Focus 2]. An unreadable
+upload is rejected with ``rejection_code='unreadable'`` and its objects are
+enqueued for deletion. A readable one moves to ``pending_review`` carrying
+its size and variant widths -- what an approved photo must have
+(``ck_listing_media_approved_dimensions``) -- and both alt texts, which are
+required, at most 200 characters and phone-scanned like every public text.
+
+**No result after twenty minutes is unreadable** [R7c]. The Lambda never
+retries, so a timeout or an out-of-memory kill writes nothing, and the API
+is the only party that can give the photo an end. Twenty minutes is the
+ten-minute POST signature, the Lambda's thirty seconds, and a margin.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import uuid
+from typing import Final
+
+from sqlalchemy.orm import Session
+
+from app.auth.ceilings import CeilingChecker
+from app.authz.lenses import TeacherLens
+from app.batches.service import _owned_batch
+from app.db.models import ListingMedia
+from app.errors import ConflictError, TransientError, ValidationError
+from app.hub.media import objects, quota
+from app.hub.media.shared import clean_alt, owned_media
+from app.hub.media.storage import (
+    MAX_UPLOAD_BYTES,
+    UPLOAD_TYPES,
+    MediaStore,
+    UploadTicket,
+    quarantine_key,
+    staged_prefix,
+)
+
+__all__ = ["RESULT_DEADLINE", "UNREADABLE", "UploadTicket", "complete", "init_upload"]
+
+#: How long after the upload started a missing result means unreadable.
+RESULT_DEADLINE: Final[dt.timedelta] = dt.timedelta(minutes=20)
+
+#: The rejection code for an upload the sanitiser could not decode.
+UNREADABLE: Final[str] = "unreadable"
+
+#: The statuses an upload can be completed from.
+_IN_FLIGHT: Final[tuple[str, ...]] = ("awaiting_upload", "processing")
+
+
+def init_upload(
+    session: Session,
+    store: MediaStore,
+    lens: TeacherLens,
+    *,
+    batch_id: uuid.UUID | None,
+    content_type: str,
+    byte_size: int,
+    now: dt.datetime,
+) -> UploadTicket:
+    """Start one upload: check, count, insert and sign, then commit.
+
+    :param session: The session
+    :param store: The bucket
+    :param lens: The owner's lens
+    :param batch_id: The batch whose page the photo is for; None for the
+        owner's own page
+    :param content_type: The declared type
+    :param byte_size: The declared size in bytes
+    :param now: The moment the upload starts
+    :return: The presigned POST
+    :raises ValidationError: The type or size is not allowed
+    :raises BatchNotFound: The batch is absent or another owner's
+    :raises ConflictError: The gallery is full, or today's 30 uploads are
+        spent; nothing is counted or written
+    :raises TransientError: The bucket cannot be signed for right now;
+        nothing is counted or written
+    """
+    if content_type not in UPLOAD_TYPES:
+        raise ValidationError(
+            code="MEDIA_TYPE_NOT_ALLOWED", message_key="hub.media.type_not_allowed"
+        )
+    if not 1 <= byte_size <= MAX_UPLOAD_BYTES:
+        raise ValidationError(code="MEDIA_TOO_LARGE", message_key="hub.media.too_large")
+    if batch_id is not None:
+        _owned_batch(session, lens=lens, batch_id=batch_id)
+
+    quota.lock_owner(session, lens.owner_id)
+    try:
+        quota.require_room(session, lens.owner_id, batch_id)
+        CeilingChecker(session).consume_hub_media(lens.owner_id, now)
+        media = ListingMedia(
+            id=uuid.uuid4(),
+            owner_id=lens.owner_id,
+            batch_id=batch_id,
+            status="awaiting_upload",
+            content_type=content_type,
+            byte_size=byte_size,
+            created_at=now,
+        )
+        session.add(media)
+        session.flush()
+        ticket = store.presign_upload(media.id, content_type)
+    except (ConflictError, TransientError):
+        # The count, the row and the lock go together.
+        session.rollback()
+        raise
+    session.commit()
+    return ticket
+
+
+def _reject_unreadable(
+    session: Session, media: ListingMedia, now: dt.datetime
+) -> ValidationError:
+    """Reject an upload the sanitiser could not decode, and commit.
+
+    Its quarantined original and anything staged are enqueued for deletion
+    in the same commit.
+
+    :param session: The session
+    :param media: The locked photo
+    :param now: The moment of the decision
+    :return: The refusal for the caller to raise
+    """
+    media.status = "rejected"
+    media.rejection_code = UNREADABLE
+    objects.enqueue(session, [quarantine_key(media.id), staged_prefix(media.id)], now)
+    session.commit()
+    return _unreadable()
+
+
+def _unreadable() -> ValidationError:
+    """Build the refusal for an upload that is not a readable image.
+
+    :return: The error
+    """
+    return ValidationError(code="MEDIA_UNREADABLE", message_key="hub.media.unreadable")
+
+
+def complete(
+    session: Session,
+    store: MediaStore,
+    lens: TeacherLens,
+    media_id: uuid.UUID,
+    *,
+    alt_en: str,
+    alt_bn: str,
+    now: dt.datetime,
+) -> ListingMedia:
+    """Submit an uploaded photo for review once the sanitiser has read it.
+
+    Idempotent: a photo already past upload is returned unchanged, and one
+    already found unreadable is refused again without a second enqueue.
+
+    :param session: The session
+    :param store: The bucket
+    :param lens: The owner's lens
+    :param media_id: The photo
+    :param alt_en: English alt text
+    :param alt_bn: Bangla alt text
+    :param now: The moment of the call, measured against the upload's start
+    :return: The photo
+    :raises ValidationError: An alt text is blank, too long or carries a
+        phone number; or the upload is unreadable (``MEDIA_UNREADABLE``)
+    :raises AuthorizationError: No such photo, another owner's, or withdrawn
+    :raises ConflictError: The sanitiser has not written its result yet
+    :raises TransientError: The bucket cannot be read right now
+    """
+    texts = clean_alt("alt_en", alt_en), clean_alt("alt_bn", alt_bn)
+    media = owned_media(session, lens, media_id)
+    if media.status == "rejected" and media.rejection_code == UNREADABLE:
+        session.rollback()
+        raise _unreadable()
+    if media.status not in _IN_FLIGHT:
+        session.commit()
+        return media
+
+    result = store.read_result(media.id)
+    if result is None:
+        if now - media.created_at > RESULT_DEADLINE:
+            raise _reject_unreadable(session, media, now)
+        session.rollback()
+        raise ConflictError(
+            code="MEDIA_NOT_UPLOADED", message_key="hub.media.not_uploaded"
+        )
+    if not result.ok:
+        raise _reject_unreadable(session, media, now)
+
+    media.status = "pending_review"
+    media.width = result.width
+    media.height = result.height
+    media.widths = list(result.widths)
+    media.alt_en, media.alt_bn = texts
+    session.commit()
+    return media

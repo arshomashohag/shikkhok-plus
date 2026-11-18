@@ -124,6 +124,7 @@ __all__ = [
     "DEL_PER_NUMBER_HOURLY",
     "GLOBAL_DAILY",
     "HUB_LISTING_OWNER_DAILY",
+    "HUB_MEDIA_OWNER_DAILY",
     "HUB_PUBLIC_READ_IP_MINUTE",
     "HUB_REPORT_ACCOUNT_DAILY",
     "LOOKUP_GLOBAL_HOURLY",
@@ -397,6 +398,12 @@ USERNAME_FAILURES_TO_BLOCK_A_NETWORK: Final = 3
 #: written a handful of times; a loop rewriting it is not an editor.
 HUB_LISTING_OWNER_DAILY: Final = 50
 
+#: Public-hub photo uploads one owner may start in a day [H3 global
+#: constraints]. Counted when an upload is signed, not when it completes,
+#: so a client that signs and abandons uploads still runs out: each
+#: signature is a quarantine object and a sanitiser invocation.
+HUB_MEDIA_OWNER_DAILY: Final = 30
+
 #: Public-hub reports one account may file in a day. A reader reports a
 #: handful of listings at most; a loop filing more is probing or flooding
 #: the moderation queue, and the cap also bounds target-existence probing.
@@ -494,6 +501,10 @@ class ScopeKind(enum.Enum):
     # minute. Its refusal is never shown as an error envelope: the page
     # routes answer it with their own 429 page.
     HUB_PUBLIC_READ_MINUTE = "hub_read_min"
+    # The public hub's photo uploads, one counter per owner per day.
+    # Consumed only by the NON-committing consume, inside the upload's own
+    # transaction, so the owner-row lock is held until the row is written.
+    HUB_MEDIA_DAILY = "hub_media_day"
     # Email and passwords [0032], inside `String(16)` like the rest.
     EMAIL_GLOBAL_DAILY = "em_global_day"
     PASSWORD_FAIL_ID_HOURLY = "pw_fail_id_hour"  # noqa: S105 -- a name, not a password
@@ -741,6 +752,13 @@ class CeilingBreach(ConflictError):
             super().__init__(
                 code="HUB_REPORT_CEILING",
                 message_key="hub.report_ceiling",
+            )
+        elif scope is ScopeKind.HUB_MEDIA_DAILY:
+            # The photo editor's own code, shared with the 12 and 8 photo
+            # quotas: the owner's next step is the same for all three.
+            super().__init__(
+                code="MEDIA_LIMIT_REACHED",
+                message_key="hub.media.limit_reached",
             )
         else:
             super().__init__(
@@ -1457,6 +1475,37 @@ class CeilingChecker:
         """
         scope = _Scope(ScopeKind.HUB_REPORT_DAILY, HUB_REPORT_ACCOUNT_DAILY, _DAY)
         self._consume([(scope, str(account_id))], now)
+
+    def consume_hub_media(
+        self, owner_id: uuid.UUID, now: dt.datetime | None = None
+    ) -> None:
+        """Count one photo upload, WITHOUT committing.
+
+        The second non-committing consume, on
+        :meth:`consume_contact_change`'s reasoning: :meth:`_consume` commits,
+        which inside an upload would release the owner-row lock the 12 / 8
+        quota check holds and let a racing upload count the same rows. Here
+        the counter, the quota check and the new row commit together or not
+        at all; a breach raises and the caller rolls back, so a refused
+        upload is never counted.
+
+        :param owner_id: The owner uploading
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: This would be the owner's 31st upload today
+        """
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        scope = _Scope(ScopeKind.HUB_MEDIA_DAILY, HUB_MEDIA_OWNER_DAILY, _DAY)
+        count = self.session.execute(
+            _UPSERT,
+            {
+                "kind": scope.kind.value,
+                "value": str(owner_id),
+                "window": _window_start(moment, scope.window),
+            },
+        ).scalar_one()
+        if count > scope.limit:
+            raise CeilingBreach(scope.kind)
 
     def check_and_consume_hub_public_read(
         self, ip_prefix: str, now: dt.datetime | None = None

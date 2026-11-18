@@ -303,6 +303,16 @@ HUB_INVALIDATION_JOB = "hub_cdn_invalidation"
 #: silently leave that decision without its evidence.
 HUB_FEEDBACK_JOB = "hub_feedback_question"
 
+#: H3's drain of the photo bucket's deletion outbox, ``media_object_task``
+#: [0043]. Every withdrawal, rejection, takedown and account deletion
+#: enqueues the prefixes to delete in its own transaction; a two-minute
+#: cron entry runs ``app.hub.media.commands drain`` inside the running
+#: container. The heartbeat moves only on progress [R8a]: a drain with
+#: nothing to do, or one that deleted at least one prefix. A drain that
+#: stopped, or whose every delete fails, would leave a taken-down photo's
+#: public objects in the bucket.
+HUB_MEDIA_OBJECT_JOB = "hub_media_objects"
+
 #: Every job the host is expected to run [audit C-01]. The freshness check
 #: reports each of these even when it has no heartbeat row: enumerating
 #: rows alone protected only jobs that had already run once, and the
@@ -317,6 +327,7 @@ EXPECTED_JOBS: frozenset[str] = frozenset(
         HUB_BADGE_JOB,
         HUB_INVALIDATION_JOB,
         HUB_FEEDBACK_JOB,
+        HUB_MEDIA_OBJECT_JOB,
     }
 )
 
@@ -417,6 +428,7 @@ __all__ = [
     "HUB_BADGE_JOB",
     "HUB_FEEDBACK_JOB",
     "HUB_INVALIDATION_JOB",
+    "HUB_MEDIA_OBJECT_JOB",
     "HUB_SEARCH_NORM_FUNCTION",
     "HUB_TAGS_TEXT_FUNCTION",
     "LEDGER_KIND_VALUES",
@@ -4254,6 +4266,12 @@ class ListingMedia(Base):
         CheckConstraint(
             "widths IS NULL OR widths <@ ARRAY[320, 960, 1600]::smallint[]",
             name=conv("ck_listing_media_widths"),
+        ),
+        # A public page renders an approved photo from these three.
+        CheckConstraint(
+            "status <> 'approved' OR (width IS NOT NULL AND height IS NOT NULL "
+            "AND widths IS NOT NULL AND cardinality(widths) > 0)",
+            name=conv("ck_listing_media_approved_dimensions"),
         ),
         Index("ix_listing_media_owner_id", "owner_id"),
         Index("ix_listing_media_batch_id", "batch_id"),

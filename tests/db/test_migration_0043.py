@@ -57,6 +57,7 @@ def _media(
     batch_id: uuid.UUID | None = None,
     public_key: str | None = None,
     position: int = 0,
+    dimensions: bool | None = None,
 ) -> uuid.UUID:
     """Insert one ``listing_media`` row.
 
@@ -66,15 +67,19 @@ def _media(
     :param batch_id: Its batch, or None for an owner-level photo
     :param public_key: Its public key; required exactly when approved
     :param position: Its place in the gallery
+    :param dimensions: Whether to store a width, height and widths; by
+        default exactly when approved, which requires them
     :return: The media id
     """
     media_id = uuid.uuid4()
+    sized = status == "approved" if dimensions is None else dimensions
     session.execute(
         sa.text(
             "INSERT INTO listing_media (id, owner_id, batch_id, status, "
-            "content_type, byte_size, public_key, position) VALUES "
+            "content_type, byte_size, public_key, position, width, height, "
+            "widths) VALUES "
             "(:id, :o, :b, CAST(:st AS media_status), 'image/jpeg', 1024, "
-            ":key, :pos)"
+            ":key, :pos, :w, :h, :ws)"
         ),
         {
             "id": media_id,
@@ -83,6 +88,9 @@ def _media(
             "st": status,
             "key": public_key,
             "pos": position,
+            "w": 1200 if sized else None,
+            "h": 800 if sized else None,
+            "ws": [320, 960] if sized else None,
         },
     )
     return media_id
@@ -238,6 +246,45 @@ def test_public_key_iff_approved(owner_session: Session, status: str) -> None:
 
     right_key = _key() if status == "approved" else None
     _media(owner_session, teacher.owner_id, status=status, public_key=right_key)
+    owner_session.commit()
+
+
+@pytest.mark.parametrize(
+    ("width", "height", "widths"),
+    [(None, 800, [320]), (1200, None, [320]), (1200, 800, None), (1200, 800, [])],
+)
+def test_approved_needs_dimensions_and_a_variant(
+    owner_session: Session,
+    width: int | None,
+    height: int | None,
+    widths: list[int] | None,
+) -> None:
+    """A public page renders an approved photo from its size and variants.
+
+    :param owner_session: An arranging session
+    :param width: The width to store
+    :param height: The height to store
+    :param widths: The variant widths to store
+    :return: None
+    """
+    teacher = make_teacher(owner_session)
+    media_id = _media(
+        owner_session, teacher.owner_id, status="approved", public_key=_key()
+    )
+    owner_session.commit()
+
+    with pytest.raises(IntegrityError, match="ck_listing_media_approved_dimensions"):
+        owner_session.execute(
+            sa.text(
+                "UPDATE listing_media SET width = :w, height = :h, widths = :ws "
+                "WHERE id = :m"
+            ),
+            {"w": width, "h": height, "ws": widths, "m": media_id},
+        )
+    owner_session.rollback()
+
+    # Any other status may lack them: an upload has no size until decoded.
+    _media(owner_session, teacher.owner_id, status="pending_review", dimensions=False)
     owner_session.commit()
 
 

@@ -15,7 +15,9 @@ admin decides.
 digits of randomness naming the photo's public objects (``public/{key}/``)
 and URL (``/m/{key}/{w}.webp``); a CHECK ties it to the status both ways,
 so a photo that leaves ``approved`` cannot keep its URL in the row. A
-restore after a hold mints a fresh key, so no cached URL comes back.
+restore after a hold mints a fresh key, so no cached URL comes back. An
+approved photo also carries its width, height and at least one variant
+width, which the public page's ``<img>`` is built from.
 
 **Approved positions are unique per gallery** -- the owner's gallery and
 each batch's -- through a partial index over ``coalesce(batch_id, nil)``,
@@ -82,6 +84,14 @@ _UUID: Final[str] = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 PREFIX_CHECK: Final[str] = (
     f"prefix ~ '^(quarantine/{_UUID}|(staged|archive)/{_UUID}/"
     "|public/[0-9a-f]{32}/)$'"
+)
+
+#: An approved photo carries its decoded dimensions and at least one variant.
+#: ``widths IS NOT NULL`` is spelled out: ``cardinality(NULL) > 0`` is NULL,
+#: and a CHECK that evaluates to NULL passes.
+APPROVED_DIMENSIONS_CHECK: Final[str] = (
+    "status <> 'approved' OR (width IS NOT NULL AND height IS NOT NULL "
+    "AND widths IS NOT NULL AND cardinality(widths) > 0)"
 )
 
 #: The batch-owner guard's function, as ``0036``'s guards for batch_listing.
@@ -176,6 +186,13 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "widths IS NULL OR widths <@ ARRAY[320, 960, 1600]::smallint[]",
             name=conv("ck_listing_media_widths"),
+        ),
+        # An approved photo is rendered as an <img> with width, height and a
+        # srcset of the stored widths; without them a public page would be
+        # built from a photo it cannot describe.
+        sa.CheckConstraint(
+            APPROVED_DIMENSIONS_CHECK,
+            name=conv("ck_listing_media_approved_dimensions"),
         ),
     )
     op.create_index("ix_listing_media_owner_id", "listing_media", ["owner_id"])

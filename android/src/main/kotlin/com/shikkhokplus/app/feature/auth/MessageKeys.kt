@@ -88,6 +88,14 @@ object MessageKeys {
         "hub.report_already_decided" to R.string.hub_report_already_decided,
         "hub.admin_target_not_found" to R.string.hub_admin_target_not_found,
         "hub.report_reason_invalid" to R.string.hub_report_reason_invalid,
+        // H3: the hub photo editor.
+        "hub.media.type_not_allowed" to R.string.hub_media_type_not_allowed,
+        "hub.media.too_large" to R.string.hub_media_too_large,
+        "hub.media.limit_reached" to R.string.hub_media_limit_reached,
+        "hub.media.not_uploaded" to R.string.hub_media_not_uploaded,
+        "hub.media.unreadable" to R.string.hub_media_unreadable,
+        "hub.media.not_found" to R.string.hub_media_not_found,
+        "hub.media.alt_invalid" to R.string.hub_media_alt_invalid,
         // Adding a phone or an email to an account.
         "account.contact.already_set" to R.string.account_contact_already_set,
         "account.contact.taken" to R.string.account_contact_taken,

@@ -308,8 +308,9 @@ def test_batch_media_hidden_when_batch_belongs_to_another_owner(
     owner_session.execute(
         sa.text(
             "INSERT INTO listing_media (id, owner_id, batch_id, status, "
-            "content_type, byte_size, public_key) VALUES (gen_random_uuid(), "
-            ":o, :b, 'approved', 'image/png', 10, :key)"
+            "content_type, byte_size, public_key, width, height, widths) "
+            "VALUES (gen_random_uuid(), :o, :b, 'approved', 'image/png', 10, "
+            ":key, 640, 480, '{320}')"
         ),
         {"o": mine, "b": theirs, "key": uuid.uuid4().hex},
     )

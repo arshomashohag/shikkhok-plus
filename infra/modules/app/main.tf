@@ -365,10 +365,13 @@ resource "aws_launch_template" "app" {
     #
     # **Hop limit 1, so no container can reach IMDS at all** [OPS-4].
     # It was 2, on the reasoning that the application runs in a
-    # container -- but nothing in the container calls AWS: the image
-    # carries no AWS SDK, and every AWS call (SSM reads, ECR pulls via
-    # the credential helper, Route53, S3, the awslogs driver in dockerd)
-    # is made by a HOST process. At 2, an SSRF in the API could fetch the
+    # container -- but nothing in the container needs the instance role:
+    # every AWS call (SSM reads, ECR pulls via the credential helper,
+    # Route53, S3, the awslogs driver in dockerd) is made by a HOST
+    # process. The container's one AWS client, the hub photo bucket's
+    # (app/hub/media/storage.py), signs with the media role's credentials,
+    # which a host job writes to a read-only mount [H3 deviation 1] -- never
+    # with anything from IMDS. At 2, an SSRF in the API could fetch the
     # instance role's credentials and the user data; at 1 the IMDSv2
     # token response dies one hop short of any container.
     http_tokens                 = "required"

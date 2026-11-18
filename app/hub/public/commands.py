@@ -1,9 +1,11 @@
 """The container's half of sending CDN invalidations: claim, ack and fail.
 
 Every takedown enqueues the paths to evict in its own transaction
-(:mod:`app.hub.public.invalidation`). **Nothing in the container calls AWS**
-[R8, OPS-4]: the image carries no AWS SDK and the container cannot reach the
-instance's credentials. So the host sends, and this module is what it asks:
+(:mod:`app.hub.public.invalidation`). **Nothing in the container calls
+CloudFront** [R8, OPS-4]: the container cannot reach the instance's
+credentials, and the one AWS client it builds -- the photo bucket's, in
+``app/hub/media/storage.py`` -- runs as a role with no CloudFront permission.
+So the host sends, and this module is what it asks:
 
 * ``claim [--limit 50]`` prints one JSON object --
   ``{"caller_reference": ..., "ids": [...], "paths": [...]}`` -- for the

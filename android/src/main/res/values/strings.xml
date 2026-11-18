@@ -1956,6 +1956,13 @@
     <string name="hub_report_already_decided">This report has already been decided.</string>
     <string name="hub_admin_target_not_found">Nothing to act on: no such report or listing.</string>
     <string name="hub_report_reason_invalid">Choose one of the listed reasons.</string>
+    <string name="hub_media_type_not_allowed">Choose a JPEG, PNG or WebP photo.</string>
+    <string name="hub_media_too_large">This photo is too large. Choose one under 8 MB.</string>
+    <string name="hub_media_limit_reached">You have reached the photo limit. Remove a photo, or try again tomorrow.</string>
+    <string name="hub_media_not_uploaded">The photo is still being processed. Try again in a moment.</string>
+    <string name="hub_media_unreadable">This file could not be read as a photo. Choose another.</string>
+    <string name="hub_media_not_found">This photo is no longer available.</string>
+    <string name="hub_media_alt_invalid">Describe the photo in English and Bangla, up to 200 characters each.</string>
     <string name="hub_batch_inactive">This batch is retired, so its listing cannot be published.</string>
     <string name="hub_owner_not_published">Publish your own listing first, then publish this batch.</string>
     <string name="hub_feedback_not_asked">This question was not asked for this listing, so there is nothing to answer.</string>

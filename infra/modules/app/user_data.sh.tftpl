@@ -759,6 +759,7 @@ install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-retention-pu
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-badge-refresh.log
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-feedback-question.log
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-invalidation.log
+install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-media-objects.log
 cat > /etc/cron.d/shikkhokplus-fee-generation <<'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -925,6 +926,26 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 */2 * * * * ubuntu /usr/local/bin/shikkhokplus-hub-invalidate >> /var/log/shikkhokplus-hub-invalidation.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/shikkhokplus-hub-invalidation
+
+# **Deleting hub photo objects, from INSIDE the running container** [0043,
+# H3 deviation 1]. Withdrawals, rejections, takedowns and account
+# deletions enqueue the bucket prefixes to delete in their own
+# transaction; this drains them every two minutes. Unlike the CDN sender
+# above it needs no host credentials: the container holds the media role's
+# (the shikkhokplus-media-creds job), scoped to the photo bucket. `exec`,
+# never a new container every two minutes on a 2 GB host; `flock` so a slow
+# run is never overlapped. A stopped container fails the run into the log
+# and the rows wait. The heartbeat moves only on progress [R8a], so a
+# drain that cannot delete goes stale in 30 minutes and alerts.
+echo "Installing the hub photo-object drain..." \
+  >> /var/log/shikkhokplus-provision.log
+cat > /etc/cron.d/shikkhokplus-hub-media-objects <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# min hour dom mon dow user command
+*/2 * * * * ubuntu cd /srv/shikkhokplus && flock -n /run/lock/shikkhokplus-hub-media-objects.lock docker compose exec -T api python -m app.hub.media.commands drain >> /var/log/shikkhokplus-hub-media-objects.log 2>&1
+CRON
+chmod 0644 /etc/cron.d/shikkhokplus-hub-media-objects
 
 # **The freshness check is NOT a second cron entry** [§ 1.4].
 #
