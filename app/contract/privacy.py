@@ -45,6 +45,7 @@ from app.authz.lenses import TeacherLens
 from app.contract.routes import (
     LENS_EXEMPT_AUTHENTICATED,
     PUBLIC_ROUTES,
+    REVIEWER_ROUTES,
     _api_routes,
 )
 
@@ -55,6 +56,8 @@ __all__ = [
     "OWN_ACCOUNT_FIELDS",
     "PUBLIC_API_EXEMPTIONS",
     "PUBLIC_FORBIDDEN_FIELDS",
+    "REVIEW_FORBIDDEN_FIELDS",
+    "REVIEW_RESPONSE_ROUTES",
     "STAFF_PRIVATE_FIELDS",
     "STAFF_ROUTE_PREFIX",
     "FieldViolation",
@@ -63,6 +66,7 @@ __all__ = [
     "is_teacher_facing",
     "lens_types_of",
     "public_field_leaks",
+    "review_field_leaks",
     "staff_field_leaks",
 ]
 
@@ -156,6 +160,38 @@ PUBLIC_FORBIDDEN_FIELDS: Final[frozenset[str]] = (
             "self_name",
         }
     )
+)
+
+#: Everything a review response must never carry [H4]: the public set,
+#: which already holds ``account_id``, ``enrollment_id`` and
+#: ``display_name``, plus who wrote, replied to or decided a review, and
+#: every exact time in its life. A review is shown with a tenure bucket and
+#: a month; an author, a seat, a join date or a timestamp is what lets a
+#: teacher who knows which family just became eligible say who wrote it.
+#: ``written_by_account_id`` and ``decided_by_account_id`` are the reply's
+#: writer and the moderator [F17].
+REVIEW_FORBIDDEN_FIELDS: Final[frozenset[str]] = PUBLIC_FORBIDDEN_FIELDS | frozenset(
+    {
+        "author_account_id",
+        "submitted_at",
+        "approved_at",
+        "edited_at",
+        "decided_at",
+        "joined_on",
+        "written_by_account_id",
+        "decided_by_account_id",
+    }
+)
+
+#: The routes whose responses :func:`review_field_leaks` walks: the
+#: reviewer's three, the teacher's three and the reviewable list.
+REVIEW_RESPONSE_ROUTES: Final[frozenset[tuple[str, str]]] = REVIEWER_ROUTES | frozenset(
+    {
+        ("GET", "/v1/hub/reviews"),
+        ("PUT", "/v1/hub/reviews/{review_id}/reply"),
+        ("DELETE", "/v1/hub/reviews/{review_id}/reply"),
+        ("GET", "/v1/hub/reviewable"),
+    }
 )
 
 #: The manager-only staff console, the one place staff fields are served.
@@ -546,4 +582,43 @@ def public_field_leaks(
             schema, view_defs, {model.__name__}, _public_field
         ):
             leaks.append((f"view:{model.__name__}", str(schema_name), field))
+    return leaks
+
+
+def _review_field(field: str) -> str | None:
+    """Report whether a field name is forbidden on a review response.
+
+    :param field: The field name
+    :return: The name when it is forbidden, else None
+    """
+    return field if field in REVIEW_FORBIDDEN_FIELDS else None
+
+
+def review_field_leaks(app: FastAPI) -> list[tuple[str, str, str]]:
+    """List forbidden fields reachable from any review route's response.
+
+    Walks the 2xx response of every route in :data:`REVIEW_RESPONSE_ROUTES`
+    the application registers; a route answering 204 has no body to walk.
+    A listed route declaring a response model whose schema cannot be found
+    fails closed, as the public walk does.
+
+    :param app: The application whose generated schema is checked
+    :return: ``(method path, component, field)`` per leak, empty when clean
+    """
+    document = app.openapi()
+    definitions: dict[str, dict[str, object]] = (
+        document.get("components", {}).get("schemas", {}) or {}
+    )
+    leaks: list[tuple[str, str, str]] = []
+    for route in _api_routes(app):
+        if route.response_model is None:
+            continue
+        for method in sorted(route.methods or ()):
+            if (method, route.path) not in REVIEW_RESPONSE_ROUTES:
+                continue
+            resolved = _response_schema(document, route.path, method)
+            for schema_name, field in _walk(
+                resolved, definitions, set(), _review_field
+            ):
+                leaks.append((f"{method} {route.path}", str(schema_name), field))
     return leaks

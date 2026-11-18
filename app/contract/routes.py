@@ -29,10 +29,12 @@ __all__ = [
     "PLATFORM_ADMIN_ROUTES",
     "PUBLIC_CACHEABLE_ROUTES",
     "PUBLIC_ROUTES",
+    "REVIEWER_ROUTES",
     "RouteViolation",
     "authenticated_cacheable_routes",
     "class_teacher_routes",
     "platform_admin_routes",
+    "reviewer_routes",
     "unlensed_routes",
 ]
 
@@ -328,6 +330,16 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # report holds the one photo it names until an administrator
         # decides [H3] -- and an account may file ten a day.
         ("POST", "/v1/hub/reports"),
+        # The batches the caller may review, is waiting to, or reviewed
+        # [H4], exempt on exactly GET /v1/invitations's reasoning: it
+        # REPORTS which reviewer lenses exist, so requiring one would mean
+        # a guardian had to already know which batch they could review in
+        # order to ask. Every row is resolved from the authenticated
+        # account id by the one eligibility statement, which takes no batch
+        # from the request, and the three per-batch my-review routes
+        # beneath it each resolve a ReviewerLens -- so the exemption covers
+        # the listing alone and nothing it links to.
+        ("GET", "/v1/hub/reviewable"),
     }
 )
 
@@ -375,6 +387,21 @@ CLASS_TEACHER_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/v1/me/exams/{exam_id}/results"),
         ("POST", "/v1/me/exams/{exam_id}/marks"),
         ("POST", "/v1/me/exams/{exam_id}/publish"),
+    }
+)
+
+
+#: Every route a :class:`~app.reviews.lens.ReviewerLens` reaches [H4]:
+#: exactly the three methods on one batch's review by the caller -- a
+#: count ``tests/contract/test_reviewer_contract.py`` pins, and asserts
+#: equal to what the application registers in both directions. A guardian
+#: reaches nothing else through this lens, so a route opened to it is a
+#: diff against this set rather than a handler that quietly appeared.
+REVIEWER_ROUTES: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("GET", "/v1/hub/batches/{batch_id}/my-review"),
+        ("PUT", "/v1/hub/batches/{batch_id}/my-review"),
+        ("DELETE", "/v1/hub/batches/{batch_id}/my-review"),
     }
 )
 
@@ -567,6 +594,32 @@ def platform_admin_routes(app: FastAPI) -> set[tuple[str, str]]:
         """
         lens = resolve_lens_type(dependant.call) if dependant.call else None
         if lens is not None and issubclass(lens, PlatformAdminLens):
+            return True
+        return any(yields(sub) for sub in dependant.dependencies)
+
+    found: set[tuple[str, str]] = set()
+    for route in _api_routes(app):
+        if yields(route.dependant):
+            found.update((method, route.path) for method in route.methods or set())
+    return found
+
+
+def reviewer_routes(app: FastAPI) -> set[tuple[str, str]]:
+    """List every route whose dependencies yield a reviewer lens.
+
+    :param app: The application to enumerate
+    :return: ``(method, path)`` per such route
+    """
+    from app.reviews.lens import ReviewerLens
+
+    def yields(dependant: Dependant) -> bool:
+        """Report whether this dependency tree yields the reviewer lens.
+
+        :param dependant: The dependency node
+        :return: True if any node returns a ``ReviewerLens``
+        """
+        lens = resolve_lens_type(dependant.call) if dependant.call else None
+        if lens is not None and issubclass(lens, ReviewerLens):
             return True
         return any(yields(sub) for sub in dependant.dependencies)
 

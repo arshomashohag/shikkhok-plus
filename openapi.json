@@ -7381,6 +7381,170 @@
         "title": "MyExamResponse",
         "type": "object"
       },
+      "MyReviewBody": {
+        "description": "The caller's own review, as its author sees it.\n\n:ivar rating: 1 to 5\n:ivar body: The words, or None\n:ivar status: Where it is in moderation\n:ivar rejection_code: Why it was rejected or removed\n:ivar tenure: The tenure bucket frozen at the first submit\n:ivar published_month: ``YYYY-MM`` once published, else None\n:ivar reply_body: The owner's reply while it is published",
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "published_month": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Month"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "integer"
+          },
+          "rejection_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Code"
+          },
+          "reply_body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply Body"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "held",
+              "pending",
+              "published",
+              "rejected",
+              "removed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tenure": {
+            "enum": [
+              "6_12m",
+              "gt_1y",
+              "lt_6m"
+            ],
+            "title": "Tenure",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "published_month",
+          "rating",
+          "rejection_code",
+          "reply_body",
+          "status",
+          "tenure"
+        ],
+        "title": "MyReviewBody",
+        "type": "object"
+      },
+      "MyReviewResponse": {
+        "description": "Where the caller stands with one batch's review.\n\n:ivar standing: ``eligible``, ``not_yet``, ``closed`` or ``author_only``\n:ivar waiting_on: What a ``not_yet`` caller still needs\n:ivar eligible_from: The day a ``not_yet`` caller's tenure is met;\n    never set on a closed window, which has no day to come [T3-b]\n:ivar can_write: Whether a write now would be accepted\n:ivar edit_until: The last day, in Bangladesh, an edit is accepted\n:ivar review: The caller's review, or None",
+        "properties": {
+          "can_write": {
+            "title": "Can Write",
+            "type": "boolean"
+          },
+          "edit_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edit Until"
+          },
+          "eligible_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eligible From"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MyReviewBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "standing": {
+            "enum": [
+              "author_only",
+              "closed",
+              "eligible",
+              "not_yet"
+            ],
+            "title": "Standing",
+            "type": "string"
+          },
+          "waiting_on": {
+            "anyOf": [
+              {
+                "enum": [
+                  "attendance",
+                  "tenure"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waiting On"
+          }
+        },
+        "required": [
+          "can_write",
+          "edit_until",
+          "eligible_from",
+          "review",
+          "standing",
+          "waiting_on"
+        ],
+        "title": "MyReviewResponse",
+        "type": "object"
+      },
       "NextExamResponse": {
         "additionalProperties": false,
         "description": "The soonest exam dated today or later [FR8.4].\n\n:ivar exam_id: The exam\n:ivar title: The teacher's name for it\n:ivar batch_name: Which class sits it\n:ivar subject_name: The subject assessed\n:ivar date: When it is sat\n:ivar days_remaining: Whole days, computed server-side [BR3.2] --\n    a client computing it would use the device clock and would\n    disagree across time zones",
@@ -7950,6 +8114,84 @@
         "title": "OwedTogetherResponse",
         "type": "object"
       },
+      "OwnerBatchRatingWire": {
+        "description": "One of the owner's published batches, with its rating over the threshold.\n\nBelow three published reviews every figure is None, the count included\n[T2-a]: such a batch reads exactly like one nobody has reviewed.\n\n:ivar batch_id: The batch\n:ivar batch_title: Its public title\n:ivar review_count: Published reviews, or None below the threshold\n:ivar average_tenths: The average in tenths (43 is 4.3), or None\n:ivar average_label: The average as shown, ``\"4.3\"``, or None;\n    clients show this and never format ``average_tenths`` [F13]. Not\n    named ``*_display``: that suffix is reserved for the rendering of a\n    money amount, and the money gate refuses one without its amount\n:ivar distribution: Reviews per star from one to five, or None",
+        "properties": {
+          "average_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Label"
+          },
+          "average_tenths": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Tenths"
+          },
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "batch_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Title"
+          },
+          "distribution": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distribution"
+          },
+          "review_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Count"
+          }
+        },
+        "required": [
+          "average_label",
+          "average_tenths",
+          "batch_id",
+          "batch_title",
+          "distribution",
+          "review_count"
+        ],
+        "title": "OwnerBatchRatingWire",
+        "type": "object"
+      },
       "OwnerListingResponse": {
         "description": "The owner's listing, with what publishing still needs.\n\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment, or None while a draft\n:ivar public_name: The name shown publicly\n:ivar public_name_latin: The owner's Latin spelling of the name\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly\n:ivar consent_version: The consent text the owner last agreed to\n:ivar published_at: When it was last published\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met\n:ivar runs_classes: Whether the owner earns the Runs classes badge\n:ivar consent_version_current: The consent text version to agree to now\n:ivar is_centre: Whether the owner is a coaching centre, the only kind\n    that may show a street address",
         "properties": {
@@ -8343,6 +8585,153 @@
           }
         },
         "title": "OwnerListingUpdateRequest",
+        "type": "object"
+      },
+      "OwnerReviewWire": {
+        "description": "One published review of the owner's batch, with the owner's reply.\n\n:ivar id: The review, to reply to\n:ivar batch_id: The batch\n:ivar rating: 1 to 5\n:ivar body: The words, or None\n:ivar tenure: The author's tenure bucket\n:ivar published_month: ``YYYY-MM``\n:ivar reply_body: The reply as the public sees it, while published\n:ivar reply_month: ``YYYY-MM`` the reply was published in, or None\n:ivar my_reply_status: The owner's reply's status, or None without one\n:ivar my_reply_body: The owner's reply's words in any status\n:ivar my_reply_rejection_code: Why the reply was rejected or removed",
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "my_reply_body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "My Reply Body"
+          },
+          "my_reply_rejection_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "My Reply Rejection Code"
+          },
+          "my_reply_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "held",
+                  "pending",
+                  "published",
+                  "rejected",
+                  "removed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "My Reply Status"
+          },
+          "published_month": {
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Published Month",
+            "type": "string"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "integer"
+          },
+          "reply_body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply Body"
+          },
+          "reply_month": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply Month"
+          },
+          "tenure": {
+            "enum": [
+              "6_12m",
+              "gt_1y",
+              "lt_6m"
+            ],
+            "title": "Tenure",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_id",
+          "body",
+          "id",
+          "my_reply_body",
+          "my_reply_rejection_code",
+          "my_reply_status",
+          "published_month",
+          "rating",
+          "reply_body",
+          "reply_month",
+          "tenure"
+        ],
+        "title": "OwnerReviewWire",
+        "type": "object"
+      },
+      "OwnerReviewsResponse": {
+        "description": "The owner's published batches' ratings and their reviews.\n\n:ivar batches: One row per published batch listing, reviewed or not\n:ivar reviews: Published reviews over the threshold, newest month first",
+        "properties": {
+          "batches": {
+            "items": {
+              "$ref": "#/components/schemas/OwnerBatchRatingWire"
+            },
+            "title": "Batches",
+            "type": "array"
+          },
+          "reviews": {
+            "items": {
+              "$ref": "#/components/schemas/OwnerReviewWire"
+            },
+            "title": "Reviews",
+            "type": "array"
+          }
+        },
+        "required": [
+          "batches",
+          "reviews"
+        ],
+        "title": "OwnerReviewsResponse",
         "type": "object"
       },
       "PasswordChangeRequest": {
@@ -10113,6 +10502,23 @@
         "title": "ReminderResponse",
         "type": "object"
       },
+      "ReplyWrite": {
+        "additionalProperties": false,
+        "description": "Write or replace the owner's reply to a review.\n\n:ivar body: 1 to 1000 characters once stripped",
+        "properties": {
+          "body": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "ReplyWrite",
+        "type": "object"
+      },
       "ReviewChildResponse": {
         "additionalProperties": false,
         "description": "One child a payment covers, in child order.\n\n:ivar claim_id: The child's claim\n:ivar enrollment_id: The child's seat\n:ivar display_name: The teacher-typed name\n:ivar period: The period the claim resolved to\n:ivar owed: What the seat owes now\n:ivar approved_amount: What the decision approved, or null",
@@ -10158,6 +10564,83 @@
           "period"
         ],
         "title": "ReviewChildResponse",
+        "type": "object"
+      },
+      "ReviewWrite": {
+        "additionalProperties": false,
+        "description": "Write or edit the caller's review of a batch.\n\n:ivar rating: 1 to 5\n:ivar body: Optional words, at most 1000 characters once stripped; a\n    blank body is stored as none",
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "rating": {
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rating",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rating"
+        ],
+        "title": "ReviewWrite",
+        "type": "object"
+      },
+      "ReviewableBatch": {
+        "description": "One batch the caller may review, is waiting to, or has reviewed.\n\n:ivar batch_id: The batch\n:ivar batch_title: Its public title\n:ivar owner_public_name: Its owner's public name\n:ivar state: ``eligible``, ``not_yet``, or ``reviewed`` once the caller\n    wrote a review, whatever their standing now\n:ivar eligible_from: The day a ``not_yet`` caller's tenure is met, when\n    it is still to come; None otherwise",
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "batch_title": {
+            "title": "Batch Title",
+            "type": "string"
+          },
+          "eligible_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eligible From"
+          },
+          "owner_public_name": {
+            "title": "Owner Public Name",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "eligible",
+              "not_yet",
+              "reviewed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_id",
+          "batch_title",
+          "eligible_from",
+          "owner_public_name",
+          "state"
+        ],
+        "title": "ReviewableBatch",
         "type": "object"
       },
       "RoomCreateRequest": {
@@ -23606,6 +24089,287 @@
         ]
       }
     },
+    "/v1/hub/batches/{batch_id}/my-review": {
+      "delete": {
+        "description": "Delete the caller's review of this batch, with its reply and reports.\n\nNever switch-gated, and quiet when there is nothing to delete.\n\n:param lens: The caller's reviewer lens for the batch\n:param session: The request-scoped session\n:return: An empty 204",
+        "operationId": "delete_my_review_v1_hub_batches__batch_id__my_review_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NOT_AVAILABLE: not a member of this batch nor the author of a review of it; a batch that does not exist answers the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Delete My Review",
+        "tags": [
+          "hub"
+        ]
+      },
+      "get": {
+        "description": "Read where the caller stands with this batch's review.\n\nNot switch-gated: while reviews are off ``can_write`` is false.\n\n:param lens: The caller's reviewer lens for the batch\n:param session: The request-scoped session\n:return: The state",
+        "operationId": "get_my_review_v1_hub_batches__batch_id__my_review_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NOT_AVAILABLE: not a member of this batch nor the author of a review of it; a batch that does not exist answers the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Get My Review",
+        "tags": [
+          "hub"
+        ]
+      },
+      "put": {
+        "description": "Write the caller's review of this batch, or edit it.\n\nA first review needs an eligible standing; an edit needs the window\nopen. An edit goes back to moderation.\n\n:param body: The rating and the optional words\n:param lens: The caller's reviewer lens for the batch\n:param session: The request-scoped session\n:return: The state after the write",
+        "operationId": "put_my_review_v1_hub_batches__batch_id__my_review_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "REVIEW_CONTAINS_CONTACT: the words carry a phone number or a web address; details name the field."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NOT_AVAILABLE: not a member of this batch nor the author of a review of it; a batch that does not exist answers the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_REVIEWS_OFF: reviews are switched off."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "REVIEW_NOT_YET_ELIGIBLE: a first review by a member not yet, or no longer, eligible (hub.review.not_yet_eligible with eligible_from, hub.review.needs_attendance, hub.review.window_closed). REVIEW_EDIT_CLOSED: the edit window has passed. HUB_REVIEW_CEILING: today's changing writes are spent."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Put My Review",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
     "/v1/hub/feedback": {
       "post": {
         "description": "Answer \"Did the hub bring you a student?\"; answering again overwrites.\n\nThe question answered is the workspace's own: a centre manager names the\ncentre with ``X-Workspace-Id``, as the inbox item's ``source_id`` gives\nit. A day this owner was never asked is refused with\n``HUB_FEEDBACK_NOT_ASKED`` (409).\n\n:param body: The day of the question and the answer\n:param lens: The answering manager's lens on the owner\n:param session: The request-scoped session\n:return: An empty 204",
@@ -24961,6 +25725,333 @@
           }
         },
         "summary": "File Report",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/reviewable": {
+      "get": {
+        "description": "List the batches the caller may review, is waiting to, or reviewed.\n\nNot switch-gated: while reviews are off it lists only the batches the\ncaller already reviewed, so a review can still be found and deleted.\n\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: The rows, by batch title",
+        "operationId": "list_reviewable_v1_hub_reviewable_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReviewableBatch"
+                  },
+                  "title": "Response List Reviewable V1 Hub Reviewable Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "List Reviewable",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/reviews": {
+      "get": {
+        "description": "Read the owner's batches' ratings and their published reviews.\n\nExactly what the public sees of them: below three published reviews a\nbatch shows no review and no figure [T2-a].\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: Every published batch's rating, and the reviews",
+        "operationId": "get_owner_reviews_v1_hub_reviews_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerReviewsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_REVIEWS_OFF: reviews are switched off."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Get Owner Reviews",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/reviews/{review_id}/reply": {
+      "delete": {
+        "description": "Delete the owner's reply to a review, and every report on it.\n\nNever switch-gated, never refused for a suspension or the review's\nvisibility, and quiet when there is nothing of the owner's to delete.\n\n:param review_id: The review\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: An empty 204",
+        "operationId": "delete_reply_v1_hub_reviews__review_id__reply_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Delete Reply",
+        "tags": [
+          "hub"
+        ]
+      },
+      "put": {
+        "description": "Write or replace the owner's reply to a review; it is pre-moderated.\n\n:param review_id: The review\n:param body: The reply\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The review with the reply as it now stands",
+        "operationId": "put_reply_v1_hub_reviews__review_id__reply_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerReviewWire"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "REVIEW_CONTAINS_CONTACT: the reply carries a phone number or a web address; details name the field."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_REVIEWS_OFF: reviews are switched off. REVIEW_NOT_FOUND: no published review of yours by that id; another owner's review answers the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_LISTING_SUSPENDED: your listing is suspended. HUB_WRITE_CEILING: today's listing edits are spent."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Put Reply",
         "tags": [
           "hub"
         ]

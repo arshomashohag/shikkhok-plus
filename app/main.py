@@ -110,6 +110,7 @@ def _register_routes(app: FastAPI) -> None:
     from app.api.hub import router as hub_router
     from app.api.hub_media import router as hub_media_router
     from app.api.hub_public import router as hub_public_router
+    from app.api.hub_reviews import router as hub_reviews_router
     from app.api.marks import router as marks_router
     from app.api.me import router as me_router
     from app.api.mfa import router as mfa_router
@@ -147,6 +148,7 @@ def _register_routes(app: FastAPI) -> None:
         hub_router,
         hub_media_router,
         hub_public_router,
+        hub_reviews_router,
         marks_router,
         me_router,
         mfa_router,

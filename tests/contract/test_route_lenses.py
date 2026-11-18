@@ -215,6 +215,11 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             # alone; only a published listing is reportable and every other
             # target refuses identically.
             ("POST", "/v1/hub/reports"),
+            # The batches the caller may review or has reviewed [H4]: it
+            # REPORTS which reviewer lenses exist, on /v1/invitations's
+            # reasoning; the per-batch my-review routes each resolve a
+            # ReviewerLens.
+            ("GET", "/v1/hub/reviewable"),
             # The caller's own two-step verification settings [0028].
             ("GET", "/v1/me/mfa"),
             ("POST", "/v1/me/mfa/setup"),
