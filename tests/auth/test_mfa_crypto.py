@@ -8,6 +8,7 @@ onto another account's row does not decrypt.
 from __future__ import annotations
 
 import base64
+import hashlib
 import os
 import uuid
 
@@ -123,7 +124,10 @@ def test_a_retired_key_still_decrypts_after_rotation(
         ("k1:not-base64!", "k1"),
         (f"k1:{base64.b64encode(b'short').decode()}", "k1"),
         ("nocolon", "k1"),
-        ("k1:" + base64.b64encode(os.urandom(32)).decode(), "k9"),
+        # A valid key under the wrong kid. Fixed bytes, not random: the
+        # value is part of the test's id, and parallel workers must all
+        # collect the same ids.
+        ("k1:" + base64.b64encode(b"k" * 32).decode(), "k9"),
     ],
 )
 def test_a_bad_keyring_refuses_to_encrypt(
@@ -176,6 +180,32 @@ def test_a_recovery_code_matches_however_it_is_typed() -> None:
     assert recovery_code_matches(code.lower().replace("-", " "), digest, salt)
     assert not recovery_code_matches(new_recovery_codes()[0], digest, salt)
     assert not recovery_code_matches("short", digest, salt)
+
+
+def test_a_recovery_code_is_hashed_at_the_production_cost(
+    production_scrypt: None,
+) -> None:
+    """Production's scrypt cost runs, and is what the stored hash is.
+
+    Every other test hashes at a test-only cost (tests/conftest.py). A
+    recovery-code hash records no parameters, so the cost is pinned by
+    recomputing it with production's stated values.
+
+    :param production_scrypt: Restores production's scrypt costs
+    :return: None
+    """
+    code = new_recovery_codes()[0]
+    digest, salt = hash_recovery_code(code)
+    assert recovery_code_matches(code, digest, salt)
+    expected = hashlib.scrypt(
+        normalise_recovery_code(code).encode("ascii"),
+        salt=salt,
+        n=2**14,
+        r=8,
+        p=1,
+        dklen=32,
+    )
+    assert digest == expected
 
 
 def test_hashes_are_salted() -> None:

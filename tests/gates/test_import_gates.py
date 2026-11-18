@@ -275,28 +275,27 @@ class TestGate3ErrorHandlerIsIOFree:
                     offenders.append(f"{source.name} imports {module}")
         assert not offenders, "\n".join(offenders)
 
-    def test_the_gate_fires_on_a_violation(self) -> None:
+    def test_the_gate_fires_on_a_violation(self, tmp_path: Path) -> None:
         """The gate demonstrably catches an I/O import.
 
         Asserted against a synthetic source rather than by trusting the
         clean result above: a check that has never fired is a check nobody
-        knows works.
+        knows works. Written to ``tmp_path``, never into the repository,
+        where a parallel worker's gate could read it mid-test.
 
+        :param tmp_path: A scratch directory for the probe
         :return: None
         """
-        probe = FIXTURES / "_handler_io_probe.py"
+        probe = tmp_path / "_handler_io_probe.py"
         probe.write_text(
             '"""Probe: an error handler that reaches the database."""\n'
             "from sqlalchemy import select\n",
             encoding="utf-8",
         )
-        try:
-            imported = _imported_modules(probe)
-            assert any(
-                module.startswith(HANDLER_FORBIDDEN_PREFIXES) for module in imported
-            ), "the gate examined nothing"
-        finally:
-            probe.unlink(missing_ok=True)
+        imported = _imported_modules(probe)
+        assert any(
+            module.startswith(HANDLER_FORBIDDEN_PREFIXES) for module in imported
+        ), "the gate examined nothing"
 
     def test_no_dynamic_imports_in_the_error_package(self) -> None:
         """A computed import would defeat the static check above.
