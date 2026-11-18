@@ -15,6 +15,7 @@ host script that writes the credentials is run against stand-ins for
 
 from __future__ import annotations
 
+import math
 import os
 import pathlib
 import re
@@ -329,7 +330,7 @@ def test_media_role_scoped_to_four_prefixes() -> None:
             [f"{bucket}/staged/*", f"{bucket}/archive/*"],
         ),
         "CopyApproved": (
-            ["s3:GetObject", "s3:PutObject"],
+            ["s3:PutObject"],
             [f"{bucket}/public/*", f"{bucket}/archive/*"],
         ),
         "DeleteObjects": (
@@ -339,6 +340,28 @@ def test_media_role_scoped_to_four_prefixes() -> None:
         "ListOwnPrefixes": (["s3:ListBucket"], [bucket]),
     }
     assert "Deny" not in policy and "NotAction" not in policy
+    # A write to public/ or archive/ must be a copy from staged/ or archive/
+    # [final review minor 5]: a compromised container could otherwise put
+    # arbitrary, unmoderated bytes where CloudFront serves them.
+    copy = statements["CopyApproved"]
+    assert re.search(r"StringLike\s*=", copy)
+    source = re.search(r'"s3:x-amz-copy-source"\s*=\s*\[([^\]]*)\]', copy)
+    assert source is not None
+    name = "${aws_s3_bucket.media.bucket}"
+    assert sorted(re.findall(r'"([^"]*)"', source.group(1))) == sorted(
+        f"{lead}{name}/{folder}/*"
+        for lead in ("", "/")
+        for folder in ("staged", "archive")
+    )
+    # No other statement grants a write to either prefix.
+    for sid, (actions, resources) in granted.items():
+        if sid in ("CopyApproved", "DeleteObjects"):
+            continue
+        assert not any(
+            r.startswith((f"{bucket}/public/", f"{bucket}/archive/"))
+            for r in resources
+            if "s3:PutObject" in actions
+        ), sid
     listing = statements["ListOwnPrefixes"]
     condition = re.search(r'"s3:prefix"\s*=\s*\[([^\]]*)\]', listing)
     assert condition is not None
@@ -748,13 +771,35 @@ def test_cost_breakdown_has_media_lines() -> None:
     root = ROOT_TF.read_text()
     breakdown = _block(root, r"cost_breakdown\s*=")
 
-    media = re.search(r"((?:\s*#[^\n]*\n)+)\s*media\s*=\s*0\.05\n", breakdown)
+    media = re.search(r"((?:\s*#[^\n]*\n)+)\s*media\s*=\s*0\.09\n", breakdown)
     image_lambda = re.search(
         r"((?:\s*#[^\n]*\n)+)\s*image_lambda\s*=\s*0\.00\n", breakdown
     )
-    assert media is not None, "no `media = 0.05` line with its arithmetic above it"
+    assert media is not None, "no `media = 0.09` line with its arithmetic above it"
     assert image_lambda is not None, "no `image_lambda = 0.00` line with its reasoning"
-    # The comments state the arithmetic, not just the total.
-    assert "1.5 GB" in media.group(1)
-    assert "0.023" in media.group(1)
     assert "free tier" in image_lambda.group(1).lower()
+
+    # The comment states the arithmetic, and a number in a comment is a
+    # claim (project.md): every figure it states is recomputed here.
+    comment = " ".join(
+        line.strip().lstrip("#").strip() for line in media.group(1).splitlines()
+    )
+    for figure in (
+        "3 x 12 x 0.3 MB x 300 = 1,080 MB per copy",
+        "about 3.2 GB",
+        "USD 0.023/GB-month = USD 0.0745",
+        "2,000 write-class",
+        "USD 0.005 per 1,000 = USD 0.01",
+        "5,000 at USD 0.0004 per 1,000 = USD 0.002",
+        "USD 0.0865, rounded up",
+    ):
+        assert figure in comment, figure
+    per_copy_mb = 12 * 0.3 * 300
+    assert math.isclose(per_copy_mb, 1080)
+    held_gb = 3 * per_copy_mb / 1000
+    assert round(held_gb, 1) == 3.2
+    storage = held_gb * 0.023
+    assert math.isclose(storage, 0.07452, rel_tol=1e-3)
+    total = storage + 2000 * 0.005 / 1000 + 5000 * 0.0004 / 1000
+    assert math.isclose(total, 0.0865, abs_tol=0.0001)
+    assert 0 <= 0.09 - total < 0.01

@@ -141,15 +141,17 @@ locals {
     # dedicated IP and no Virtual Deliverability Manager, each of which
     # bills monthly regardless of volume. Its two alarms are in `alarms`.
     email = ceil(var.email_daily_ceiling * 30.5) * 0.10 / 1000
-    # The hub's photo bucket (modules/media), S3 Standard. Storage: about
-    # 1.5 GB held (12 owner photos of three WebP variants, about 0.3 MB a
-    # set, for a few hundred owners, plus archive/ copies and 30 days of
-    # staged/), at USD 0.023/GB-month = USD 0.0345. Requests: about 2,000
-    # write-class (upload POSTs, the sanitiser's variants, approval copies)
-    # at USD 0.005 per 1,000 = USD 0.01, and CloudFront's origin GETs, a
-    # few thousand at USD 0.0004 per 1,000 = under USD 0.002. Total about
-    # USD 0.047, rounded up. Transfer from S3 to CloudFront is free.
-    media = 0.05
+    # The hub's photo bucket (modules/media), S3 Standard. Storage: 12
+    # owner photos of three WebP variants, about 0.3 MB a set, for 300
+    # owners is 3 x 12 x 0.3 MB x 300 = 1,080 MB per copy; public/,
+    # archive/ and staged/ (30 days, counted in full) make three copies,
+    # about 3.2 GB, at USD 0.023/GB-month = USD 0.0745. Requests: about
+    # 2,000 write-class (upload POSTs, the sanitiser's variants, approval
+    # copies) at USD 0.005 per 1,000 = USD 0.01, and CloudFront's origin
+    # GETs, about 5,000 at USD 0.0004 per 1,000 = USD 0.002. Total
+    # USD 0.0865, rounded up. Transfer from S3 to CloudFront is free.
+    # tests/gates/test_media_infra.py recomputes every figure here.
+    media = 0.09
     # The image sanitiser Lambda (modules/media): about 1,000 invocations
     # a month at 1 GB for 3 s is 3,000 GB-seconds, inside Lambda's
     # permanent free tier of 400,000 GB-seconds and 1M requests: USD 0.00.

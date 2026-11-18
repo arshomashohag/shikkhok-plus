@@ -236,15 +236,30 @@ resource "aws_iam_role_policy" "media" {
       },
       {
         # Approval copies staged -> public and archive; a restore copies
-        # archive -> public. A copy is a GetObject on the source and a
-        # PutObject on the destination.
+        # archive -> public. A copy is a GetObject on the source (granted
+        # above) and a PutObject on the destination -- and only a copy: a
+        # PutObject carrying no x-amz-copy-source from staged/ or archive/
+        # is refused, so a compromised container cannot put unmoderated
+        # bytes where CloudFront serves them. AWS documents the condition
+        # value as "bucket/key", which botocore sends; the "/bucket/key"
+        # spelling the header also allows is admitted too.
         Sid    = "CopyApproved"
         Effect = "Allow"
-        Action = ["s3:GetObject", "s3:PutObject"]
+        Action = ["s3:PutObject"]
         Resource = [
           "${aws_s3_bucket.media.arn}/public/*",
           "${aws_s3_bucket.media.arn}/archive/*",
         ]
+        Condition = {
+          StringLike = {
+            "s3:x-amz-copy-source" = [
+              "${aws_s3_bucket.media.bucket}/staged/*",
+              "${aws_s3_bucket.media.bucket}/archive/*",
+              "/${aws_s3_bucket.media.bucket}/staged/*",
+              "/${aws_s3_bucket.media.bucket}/archive/*",
+            ]
+          }
+        }
       },
       {
         # Withdrawal, rejection, takedown and account deletion.
