@@ -389,16 +389,31 @@ def test_child_safety_report_holds_photo_in_same_transaction(
         {"o": tutor.lens.owner_id},
     ).one()
 
+    # ``reports.file`` commits once before the hold -- the daily ceiling's
+    # counter -- so only the commit AFTER the hold is made to fail: the
+    # wrapper runs the real hold, then arms the failure.
+    real_hold = media.hold
+    held_in_rolled_back_leg: list[uuid.UUID] = []
+
     def failing_commit() -> None:
         raise RuntimeError("the report's commit failed")
 
     with monkeypatch.context() as patch:
-        patch.setattr(restricted_session, "commit", failing_commit)
-        with pytest.raises(RuntimeError):
+
+        def hold_then_fail_commit(
+            session: Session, target: uuid.UUID, **kwargs: object
+        ) -> None:
+            real_hold(session, target, **kwargs)  # type: ignore[arg-type]
+            held_in_rolled_back_leg.append(target)
+            patch.setattr(session, "commit", failing_commit)
+
+        patch.setattr(media, "hold", hold_then_fail_commit)
+        with pytest.raises(RuntimeError, match="the report's commit failed"):
             reports.file(
                 restricted_session, reporter, "media", media_id, reason, None, NOW
             )
     restricted_session.rollback()
+    assert held_in_rolled_back_leg == [media_id]
 
     row = _row(owner_session, media_id)
     assert (row.status, row.public_key) == ("approved", key)
@@ -1145,16 +1160,30 @@ def test_an_upheld_report_that_rolls_back_leaves_nothing(
     report_id = _report_on(owner_session, restricted_session, media_id, "abusive")
     events_before = _events(owner_session)
 
+    # As for the hold: fail only the commit after the photo was settled,
+    # and prove the settlement ran in this leg.
+    real_settle = media.settle_report
+    settled_in_rolled_back_leg: list[uuid.UUID] = []
+
     def failing_commit() -> None:
         raise RuntimeError("the decision's commit failed")
 
     with monkeypatch.context() as patch:
-        patch.setattr(restricted_session, "commit", failing_commit)
-        with pytest.raises(RuntimeError):
+
+        def settle_then_fail_commit(
+            session: Session, *args: object, **kwargs: object
+        ) -> None:
+            real_settle(session, *args, **kwargs)  # type: ignore[arg-type]
+            settled_in_rolled_back_leg.append(media_id)
+            patch.setattr(session, "commit", failing_commit)
+
+        patch.setattr(media, "settle_report", settle_then_fail_commit)
+        with pytest.raises(RuntimeError, match="the decision's commit failed"):
             reports.decide(
                 restricted_session, admin, report_id, "upheld", LATER, store=store
             )
     restricted_session.rollback()
+    assert settled_in_rolled_back_leg == [media_id]
 
     row = _row(owner_session, media_id)
     assert (row.status, row.public_key) == ("approved", key)
