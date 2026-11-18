@@ -400,8 +400,8 @@ data "aws_iam_policy_document" "ci_state" {
   # platform admin UI, modules/admin).
   #
   # Scoped by THIS environment's name prefix [C-09]: this role can create
-  # and destroy `shikkhokplus-<env>-config-*`, `-web-*`, `-site-*` and
-  # `-admin-*` and nothing else, so it cannot touch the state bucket's
+  # and destroy `shikkhokplus-<env>-config-*`, `-web-*`, `-site-*`,
+  # `-admin-*` and the hub photo bucket `-media` and nothing else, so it cannot touch the state bucket's
   # siblings, the other environment's buckets, or another project's data.
   # It writes no object into the web, site or admin bucket -- the deploy
   # role uploads those builds.
@@ -444,12 +444,24 @@ data "aws_iam_policy_document" "ci_state" {
       "s3:PutBucketPublicAccessBlock",
       "s3:GetBucketObjectLockConfiguration",
       "s3:PutBucketTagging",
+      # The hub photo bucket (modules/media) is the first with CORS, a
+      # lifecycle, explicit ownership controls and an event notification
+      # (the sanitiser Lambda's trigger, modules/media/lambda.tf).
+      "s3:PutBucketCORS",
+      "s3:DeleteBucketCORS",
+      "s3:PutLifecycleConfiguration",
+      "s3:GetBucketOwnershipControls",
+      "s3:PutBucketOwnershipControls",
+      "s3:DeleteBucketOwnershipControls",
+      "s3:GetBucketNotification",
+      "s3:PutBucketNotification",
     ]
     resources = [
       "arn:aws:s3:::shikkhokplus-${each.key}-*config-*",
       "arn:aws:s3:::shikkhokplus-${each.key}-web-*",
       "arn:aws:s3:::shikkhokplus-${each.key}-site-*",
       "arn:aws:s3:::shikkhokplus-${each.key}-admin-*",
+      "arn:aws:s3:::shikkhokplus-${each.key}-media",
     ]
   }
 
@@ -678,6 +690,34 @@ resource "aws_iam_policy" "environment_boundary" {
         Effect   = "Allow"
         Action   = ["cloudfront:CreateInvalidation"]
         Resource = "arn:aws:cloudfront::${local.account_id}:distribution/*"
+      },
+      {
+        # **Hub photos** (modules/media) [H3 deviation 1]. The app host
+        # assumes this environment's media role, and nothing else in STS:
+        # its inline policy names the same role. The ceiling is by name,
+        # because the role is created by the main module after this
+        # boundary exists.
+        Sid      = "AssumeMediaRole"
+        Effect   = "Allow"
+        Action   = ["sts:AssumeRole"]
+        Resource = ["arn:aws:iam::${local.account_id}:role/shikkhokplus/shikkhokplus-${each.key}-media"]
+      },
+      {
+        # The media role and the sanitiser Lambda's role read, write and
+        # delete objects in this environment's photo bucket; each one's own
+        # policy narrows it to its prefixes. Object actions only.
+        Sid      = "MediaObjects"
+        Effect   = "Allow"
+        Action   = ["s3:*Object*"]
+        Resource = ["arn:aws:s3:::shikkhokplus-${each.key}-media/*"]
+      },
+      {
+        # Deleting a prefix lists it first; the media role's own policy
+        # conditions the listing on its four prefixes.
+        Sid      = "MediaList"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = ["arn:aws:s3:::shikkhokplus-${each.key}-media"]
       },
     ]
   })
@@ -1410,7 +1450,8 @@ resource "aws_iam_role_policy" "plan" {
       {
         # Every bucket this environment's stack manages: the config and
         # web buckets (modules/app, modules/cdn), the public site
-        # (modules/site) and the admin UI (modules/admin). Bucket ARNs
+        # (modules/site), the admin UI (modules/admin) and the hub photos
+        # (modules/media). Bucket ARNs
         # only, so no object in any of them is readable -- the refresh
         # reads bucket configuration, not contents. A bucket missing here
         # fails the plan at the first GetBucket* call, as the site and
@@ -1424,6 +1465,7 @@ resource "aws_iam_role_policy" "plan" {
           "arn:aws:s3:::shikkhokplus-${each.key}-web-*",
           "arn:aws:s3:::shikkhokplus-${each.key}-site-*",
           "arn:aws:s3:::shikkhokplus-${each.key}-admin-*",
+          "arn:aws:s3:::shikkhokplus-${each.key}-media",
         ]
       },
       {

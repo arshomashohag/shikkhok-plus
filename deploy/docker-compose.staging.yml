@@ -86,6 +86,13 @@ x-app-environment: &app-environment
   # opens {origin}/ui/hub-report. The deploy refuses to record a release
   # without it.
   SHIKKHOKPLUS_WEB_APP_URL: ${SHIKKHOKPLUS_WEB_APP_URL:-}
+  # The hub photo bucket and its region, both written by the deploy from
+  # SSM (modules/media). Empty bucket: uploads answer a transient error and
+  # deletes are logged and skipped -- the rest of the API is unaffected.
+  # Here rather than on `api` alone so `migrate` sees the same runtime env;
+  # only `api` holds credentials to use them with (below).
+  SHIKKHOKPLUS_MEDIA_BUCKET: ${SHIKKHOKPLUS_MEDIA_BUCKET:-}
+  AWS_REGION: ${AWS_REGION:-}
 
 # **Every container ships its output to CloudWatch** [OPS-11] -- the
 # API, the migrate runs and each scheduled job (`run --rm api` inherits
@@ -113,6 +120,18 @@ services:
       <<: *app-environment
       # The restricted role [OPS-5]. Never the owner.
       SHIKKHOKPLUS_DATABASE_URL: ${SHIKKHOKPLUS_DATABASE_URL:?required}
+      # **The photo bucket's credentials, and no other AWS credentials**
+      # [H3 deviation 1]. The host's shikkhokplus-media-creds job assumes
+      # the media role every 15 minutes and writes its one-hour
+      # credentials here (infra/modules/app/user_data.sh.tftpl). The
+      # container still cannot reach the instance role: IMDS hop limit 1.
+      AWS_SHARED_CREDENTIALS_FILE: /run/media-creds/credentials
+
+    # Read-only: the container can read the credentials, never replace
+    # them. The directory exists from boot even when no file has been
+    # written yet. `run --rm api` jobs inherit it.
+    volumes:
+      - /srv/shikkhokplus/media-creds:/run/media-creds:ro
 
     ports:
       # **Bound to localhost.** nginx is the only thing that talks to

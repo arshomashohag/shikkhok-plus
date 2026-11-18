@@ -161,3 +161,17 @@ variable "site_distribution_arn" {
   type        = string
   default     = null
 }
+
+variable "media_role" {
+  description = <<-EOT
+    The hub photo bucket's role (modules/media), as { arn = ... }: the one
+    role this host may assume, to write the API container's short-lived
+    media credentials. An object rather than a bare arn so its presence is
+    known at plan time while the arn is not. Null grants nothing -- the
+    rehearsal host serves no uploads.
+  EOT
+  type = object({
+    arn = string
+  })
+  default = null
+}

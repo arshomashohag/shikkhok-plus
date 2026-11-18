@@ -323,6 +323,50 @@ nothing but send from that one address.
 5. Optionally set `SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL` per environment; unset
    means 1,000.
 
+## Hub photos: the media bucket and its credentials
+
+`modules/media` holds the hub's photos in one private bucket,
+`shikkhokplus-<env>-media`, in the app's runtime region:
+
+```
+quarantine/{media_id}         presigned POST from the web app     expires after 1 day
+staged/{media_id}/            the sanitiser Lambda's WebP variants expires after 30 days
+public/{public_key}/          approved copies; the ONLY prefix CloudFront reads
+archive/{media_id}/           approved copies, for a restore after a hold
+```
+
+- **Served at `/m/*` on the site distribution** (`modules/site`), through
+  Origin Access Control, cached a year, with `nosniff`, a forced
+  `image/webp` and `Content-Security-Policy: default-src 'none'; sandbox`.
+  `functions/media-path.js` maps `/m/{key}/{w}.webp` to
+  `public/{key}/{w}.webp` and answers any other shape 404 at the edge:
+  CloudFront's origin path can only prepend, never strip `/m/`.
+- **The API container gets the media role, never the instance role.**
+  IMDS hop limit 1 still keeps the container from the instance role. The
+  host's `shikkhokplus-media-creds` job (cron, every 15 minutes, and once
+  at boot before compose starts) assumes `shikkhokplus-<env>-media` for an
+  hour and writes the credentials to
+  `/srv/shikkhokplus/media-creds/credentials` (0640, group 10001: the
+  container's `app` user), mounted read-only at `/run/media-creds`. A
+  failed refresh keeps the previous file and logs to
+  `/var/log/shikkhokplus-media-creds.log`. The role can read, write, list
+  and delete only the four prefixes above; the rehearsal host gets no role.
+- **Uploads come from the web app's origin only** (bucket CORS: `POST`
+  from `web-url` less `/ui/`), and the web and admin pages' CSP admit the
+  bucket's regional endpoint and nothing else new.
+- **Cost**: `media` and `image_lambda` in `monthly_cost_estimate`.
+
+### Manual step
+
+**Re-apply `bootstrap/` before the deploy that ships H3.** It lets the
+infrastructure role manage the bucket's CORS, lifecycle, ownership and
+event notification, lets the plan role read it, lets the deploy role read
+`media-bucket` and `media-bucket-domain`, and raises the workload boundary
+to allow the media role's object actions and the host's `sts:AssumeRole`
+on that one role. Without it the infrastructure job stops at
+`PutBucketCORS` or `CreateRole` with AccessDenied, and the release at
+"Cannot read the hub media bucket from SSM", having changed nothing.
+
 ## Reading the outputs
 
 The apply job writes `api_url`, `app_static_ip` and

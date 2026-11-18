@@ -1000,6 +1000,8 @@ def test_the_web_build_names_the_site_the_release_read() -> None:
     assert build["env"] == {
         "WEB_BASE": "/ui/",
         "VITE_SITE_URL": "${{ needs.release.outputs.site_url }}",
+        # The photo bucket's endpoint, for the CSP [H3 task 2].
+        "VITE_MEDIA_ORIGIN": "${{ needs.release.outputs.media_origin }}",
     }
     credentials = [
         i
@@ -1288,6 +1290,8 @@ _RECORD_PARAMS = {
     "ses-smtp-host": "email-smtp.us-east-1.amazonaws.com",
     "site-url": "https://site.example.test",
     "web-url": "https://app.example.test/ui/",
+    "media-bucket": "shikkhokplus-staging-media",
+    "media-bucket-domain": "shikkhokplus-staging-media.s3.us-east-1.amazonaws.com",
 }
 
 

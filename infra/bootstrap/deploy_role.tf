@@ -187,6 +187,12 @@ resource "aws_iam_role_policy" "deploy" {
         # terms -- the release copies them into the runtime env it already
         # writes, so this is no new reach -- plus three plain Strings: the
         # From address, the configuration set and the SMTP endpoint.
+        #
+        # **And the hub photo bucket** (modules/media): its name and
+        # regional endpoint, plain Strings. The release writes the name and
+        # region into the runtime env and hands the endpoint to the web and
+        # admin builds for their CSP. Names only; this role gets no access
+        # to the bucket itself.
         Sid    = "PublicUrl"
         Effect = "Allow"
         Action = ["ssm:GetParameter"]
@@ -199,6 +205,7 @@ resource "aws_iam_role_policy" "deploy" {
             "ses-smtp-username", "ses-smtp-password",
             "email-from", "ses-configuration-set", "ses-smtp-host",
             "android-cert-sha256",
+            "media-bucket", "media-bucket-domain",
           ] :
           "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/shikkhokplus-${each.key}/${name}"
         ]

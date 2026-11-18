@@ -63,3 +63,8 @@ output "database_url" {
   value       = var.managed_database ? aws_ssm_parameter.database_url[0].value : null
   sensitive   = true
 }
+
+output "instance_role_arn" {
+  description = "The host's instance role: the only principal the media role trusts (modules/media)."
+  value       = aws_iam_role.instance.arn
+}

@@ -651,6 +651,81 @@ if ! migrate python -m app.db.commands set-app-role-password; then
 fi
 unset SHIKKHOKPLUS_MIGRATION_DATABASE_URL SHIKKHOKPLUS_APP_DB_PASSWORD
 
+# **The API container's photo-bucket credentials, written by the HOST**
+# [H3 deviation 1]. The container cannot reach the instance role (hop
+# limit 1, OPS-4) and still cannot. This job assumes the media role --
+# whose every permission is on four prefixes of the photo bucket
+# (modules/media) -- and writes its one-hour credentials, as the INI file
+# the AWS SDK reads through AWS_SHARED_CREDENTIALS_FILE, into a directory
+# compose mounts read-only into `api`. Every 15 minutes, so a file is
+# never older than a quarter of its life, and once here, BEFORE compose
+# starts the api that reads it.
+#
+# Atomically: written to a temporary file in the same directory, then
+# renamed over the old one, so the container never reads half a file. A
+# failed assume-role exits non-zero and leaves the previous file in
+# place; it stays valid for up to 45 more minutes, and the next run
+# retries. Nothing secret is logged -- only the expiry.
+#
+# As root, because the file's group is the container's: `app`, uid 10001
+# in the Dockerfile, whose own group useradd creates with the same id.
+# 0640 root:10001, so the container reads it and nothing on the host but
+# root does. A host with no media role (the rehearsal host) writes
+# nothing, and its api simply has no photo credentials.
+echo "Installing the media-credentials job..." \
+  >> /var/log/shikkhokplus-provision.log
+install -d -o root -g 10001 -m 0750 /srv/shikkhokplus/media-creds
+install -o root -g root -m 0640 /dev/null /var/log/shikkhokplus-media-creds.log
+cat > /usr/local/bin/shikkhokplus-media-creds <<'MEDIACREDS'
+#!/bin/bash
+set -uo pipefail
+role_arn="${media_role_arn}"
+dir=/srv/shikkhokplus/media-creds
+say() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
+if [ -z "$role_arn" ]; then
+  say "no media role on this host; nothing written"
+  exit 0
+fi
+exec 9>/run/lock/shikkhokplus-media-creds.lock
+flock -n 9 || { say "previous run still writing; skipped"; exit 0; }
+umask 077
+err=$(mktemp) || exit 1
+tmp=$(mktemp "$dir/.credentials.XXXXXX") || { say "cannot write in $dir"; rm -f "$err"; exit 1; }
+trap 'rm -f "$err" "$tmp"' EXIT
+if ! out=$(aws sts assume-role --region "${aws_region}" --role-arn "$role_arn" \
+    --role-session-name "media-$(hostname -s)" --duration-seconds 3600 \
+    --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken,Expiration]' \
+    --output text 2>"$err"); then
+  say "assume-role failed; previous credentials kept: $(tr '\n' ' ' <"$err")"
+  exit 1
+fi
+IFS=$'\t' read -r key secret token expiry <<<"$out"
+if ! [[ "$key" =~ ^ASIA[A-Z0-9]{16}$ ]] || [ -z "$${secret:-}" ] \
+   || [ -z "$${token:-}" ] || [ -z "$${expiry:-}" ]; then
+  say "assume-role answered something unreadable; previous credentials kept"
+  exit 1
+fi
+printf '[default]\naws_access_key_id = %s\naws_secret_access_key = %s\naws_session_token = %s\n' \
+  "$key" "$secret" "$token" > "$tmp" || { say "write failed"; exit 1; }
+chgrp 10001 "$tmp" && chmod 0640 "$tmp" && mv -f "$tmp" "$dir/credentials" \
+  || { say "could not install the credentials file"; exit 1; }
+say "credentials written; they expire $expiry"
+MEDIACREDS
+chmod 0755 /usr/local/bin/shikkhokplus-media-creds
+cat > /etc/cron.d/shikkhokplus-media-creds <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# min hour dom mon dow user command
+*/15 * * * * root /usr/local/bin/shikkhokplus-media-creds >> /var/log/shikkhokplus-media-creds.log 2>&1
+CRON
+chmod 0644 /etc/cron.d/shikkhokplus-media-creds
+if ! /usr/local/bin/shikkhokplus-media-creds >> /var/log/shikkhokplus-media-creds.log 2>&1; then
+  # Not fatal: the API serves everything but photo uploads without them,
+  # and the cron entry retries in 15 minutes.
+  echo "media credentials not written at boot; see /var/log/shikkhokplus-media-creds.log" \
+    >> /var/log/shikkhokplus-provision.log
+fi
+
 sudo -u ubuntu docker compose up -d --remove-orphans
 
 # **The daily fee-cycle generation, installed by Terraform and never by

@@ -680,9 +680,13 @@ jobs:
     #
     # The API's public URL goes to the hub job, which smokes the hub pages
     # through both distributions once this release and the site have shipped.
+    #
+    # The photo bucket's regional endpoint goes to the web and admin jobs
+    # on the same terms (VITE_MEDIA_ORIGIN), for their pages' CSP.
     outputs:
       site_url: ${{ steps.record.outputs.site_url }}
       api_url: ${{ steps.smoke.outputs.api_url }}
+      media_origin: ${{ steps.record.outputs.media_origin }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -998,6 +1002,28 @@ jobs:
             echo "from a laptop. Nothing has been recorded or rolled."
             exit 1
           fi
+          # **The hub photo bucket** (infra/modules/media), on web-url's
+          # terms: missing or malformed STOPS the release, before anything
+          # is recorded or rolled. The bucket goes into the runtime env, and
+          # the region the API's SDK signs for is read off the bucket's own
+          # regional endpoint, so the two cannot disagree. The endpoint is
+          # handed to the web and admin builds, whose CSP admit exactly that
+          # host for uploads and previews; a legacy global endpoint names no
+          # region and is refused.
+          MEDIA_BUCKET=""
+          MEDIA_DOMAIN=""
+          MEDIA_BUCKET=$(ses_param media-bucket) || true
+          MEDIA_DOMAIN=$(ses_param media-bucket-domain) || true
+          if ! [[ "$MEDIA_BUCKET" =~ ^shikkhokplus-[a-z0-9-]+-media$ ]] \
+             || ! [[ "$MEDIA_DOMAIN" =~ ^${MEDIA_BUCKET}\.s3\.([a-z]{2}(-[a-z]+)+-[0-9])\.amazonaws\.com$ ]]; then
+            echo "::error::Cannot read the hub media bucket from SSM as media-bucket and its regional media-bucket-domain (got '${MEDIA_BUCKET}', '${MEDIA_DOMAIN}')."
+            echo "Either the infrastructure job has not applied infra/modules/media,"
+            echo "or the deploy role predates it: re-apply infra/bootstrap once,"
+            echo "from a laptop. Nothing has been recorded or rolled."
+            exit 1
+          fi
+          MEDIA_REGION="${BASH_REMATCH[1]}"
+          echo "media_origin=https://${MEDIA_DOMAIN}" >> "$GITHUB_OUTPUT"
           if ! [[ "$DAILY_EMAIL" =~ ^[0-9]+$ ]]; then
             echo "::error::Variable SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL must be a whole number."
             exit 1
@@ -1070,6 +1096,12 @@ jobs:
             # email's website link) and the web app (the report link).
             echo "SHIKKHOKPLUS_SITE_URL=${SITE_URL}"
             echo "SHIKKHOKPLUS_WEB_APP_URL=${WEB_APP_URL}"
+            # The hub photo bucket and the region its SDK client signs for.
+            # The credentials are not here: the host writes short-lived
+            # ones for the media role into a read-only mount every 15
+            # minutes (infra/modules/app/user_data.sh.tftpl).
+            echo "SHIKKHOKPLUS_MEDIA_BUCKET=${MEDIA_BUCKET}"
+            echo "AWS_REGION=${MEDIA_REGION}"
           } > runtime.env
 
           aws ssm put-parameter \
@@ -1261,10 +1293,14 @@ jobs:
       # the editor's "View public page" links there, and the page's CSP
       # adds it to style-src for the hub preview's stylesheet. Empty, the
       # build offers no such link and the preview shows unstyled.
+      # The photo bucket's endpoint, from the same job: the page's CSP
+      # admits it in connect-src (the upload POST) and img-src (presigned
+      # previews); the site joins img-src for approved thumbnails [R1].
       - name: Check and build for /ui/
         env:
           WEB_BASE: /ui/
           VITE_SITE_URL: ${{ needs.release.outputs.site_url }}
+          VITE_MEDIA_ORIGIN: ${{ needs.release.outputs.media_origin }}
         run: make web
 
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
@@ -1703,8 +1739,13 @@ jobs:
       # deploy is not the place to discover a red suite
       # (tests/gates/test_deploy_runs_no_tests.py). The admin build is
       # served at the admin host's root and writes web/dist-admin/.
+      #
+      # The photo bucket's endpoint joins the page's img-src, for the
+      # moderation queue's presigned previews; nothing else widens.
       - name: Build the admin UI
         working-directory: web
+        env:
+          VITE_MEDIA_ORIGIN: ${{ needs.release.outputs.media_origin }}
         run: |
           npm ci --no-audit --no-fund
           npm run build:admin

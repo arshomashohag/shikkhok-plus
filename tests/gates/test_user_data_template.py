@@ -67,6 +67,9 @@ TEMPLATE_VALUES: dict[str, str] = {
     "lifecycle_hook_name": "shikkhokplus-production-ready",
     "log_group": "/shikkhokplus/shikkhokplus-production/app",
     "site_distribution_id": "E2QWRUHAPOMQZL",
+    "media_role_arn": (
+        "arn:aws:iam::123456789012:role/shikkhokplus/shikkhokplus-production-media"
+    ),
 }
 
 
