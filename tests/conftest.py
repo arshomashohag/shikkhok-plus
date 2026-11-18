@@ -265,9 +265,12 @@ def _clean_tables(request: pytest.FixtureRequest) -> Iterator[None]:
         yield
         return
 
+    # Requested before the test runs: pytest deprecates asking for a
+    # fixture during teardown.
+    engine = request.getfixturevalue("owner_engine")
+
     yield
 
-    engine = request.getfixturevalue("owner_engine")
     with engine.begin() as connection:
         # The table list is DERIVED from the schema, not maintained by
         # hand. A hand-kept list silently stops emptying a table a
