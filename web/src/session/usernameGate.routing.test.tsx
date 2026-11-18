@@ -159,6 +159,21 @@ async function choose(username = 'nadia_k') {
   await userEvent.click(continueButton())
 }
 
+/**
+ * The gate is on screen and its mount effects have run.
+ *
+ * `findByTestId` proves only that the form was committed. React runs the
+ * effects that commit queued a moment later, and one of them attaches the
+ * gate's `visibilitychange` listener: on a busy machine an event fired in
+ * between reaches no listener, and the read the test waits for never
+ * comes. The field is focused by an effect in that same pass, so once it
+ * holds focus the listener is attached.
+ */
+async function gateMounted() {
+  await screen.findByTestId('choose-username-gate')
+  await waitFor(() => expect(field()).toHaveFocus())
+}
+
 function becomeVisible() {
   Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
   act(() => {
@@ -279,7 +294,7 @@ describe('a read that lands while Saving [W4 step 9]', () => {
     serve('GET /v1/me', me(true), visibilityRead.answer, me(false))
     serve('PUT /v1/me/username', put.answer)
     renderApp()
-    await screen.findByTestId('choose-username-gate')
+    await gateMounted()
     becomeVisible()
     await waitFor(() => expect(meReads()).toHaveLength(2))
     await choose('nadia_k')
@@ -301,7 +316,7 @@ describe('a read that lands while Saving [W4 step 9]', () => {
     serve('PUT /v1/me/username', put.answer)
     const errors = vi.spyOn(console, 'error')
     renderApp()
-    await screen.findByTestId('choose-username-gate')
+    await gateMounted()
     becomeVisible()
     await waitFor(() => expect(meReads()).toHaveLength(2))
     await choose('nadia_k')
@@ -335,7 +350,7 @@ describe('the visibility re-read [NFR8.6]', () => {
     serve('GET /v1/me', me(true), me(true), reread.answer)
     serve('PUT /v1/me/username', put.answer)
     renderApp()
-    await screen.findByTestId('choose-username-gate')
+    await gateMounted()
 
     // Hidden is not a return to the tab.
     Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
@@ -366,7 +381,7 @@ describe('the visibility re-read [NFR8.6]', () => {
     serve('GET /v1/me', me(true), visibilityRead.answer, reread.answer)
     serve('PUT /v1/me/username', ok({ username: 'nadia_k', next_change_at: null }))
     renderApp()
-    await screen.findByTestId('choose-username-gate')
+    await gateMounted()
     const watcher = watch()
     becomeVisible()
     await waitFor(() => expect(meReads()).toHaveLength(2))
