@@ -368,6 +368,28 @@ on that one role. Without it the infrastructure job stops at
 `PutBucketCORS` or `CreateRole` with AccessDenied, and the release at
 "Cannot read the hub media bucket from SSM", having changed nothing.
 
+**Also before the deploy that ships H3 (HUMAN STEPS):**
+
+1. **Bootstrap additionally gives** the deploy role
+   `lambda:UpdateFunctionCode` and `lambda:GetFunctionConfiguration` on the
+   image sanitiser (and no other function), and the plan role
+   `lambda:GetFunctionEventInvokeConfig`. Without the first, the deploy
+   stops at "image sanitiser"; without the second, `terraform plan` fails
+   refreshing the Lambda. (The media role and the image Lambda themselves
+   are created by the infrastructure job once bootstrap allows it.)
+2. **Check Lambda concurrency headroom**: `aws lambda get-account-settings`.
+   The sanitiser reserves 2 concurrent executions, and AWS requires the
+   account to keep at least 10 unreserved. If `UnreservedConcurrentExecutions`
+   would fall below 10, request a quota increase before applying.
+3. **After the first deploy, upload one real photo to staging from the
+   Android debug build and one from the web app**, and see each reach
+   "pending review". The two clients send different multipart forms and
+   only S3 can confirm it accepts both.
+4. **Moderation checklist line**: before the first production publish of
+   H3, approve one photo, open its `/m/` URL, then hold it and see the URL
+   stop answering. The deploy smoke only proves that unapproved paths are
+   refused.
+
 ## Reading the outputs
 
 The apply job writes `api_url`, `app_static_ip` and

@@ -187,6 +187,39 @@ centre and lose the answering manager. Form category: user-generated
 content or app interactions (whichever the form's wording fits), from
 teachers only; purpose: analytics.
 
+**4. New: listing photos [H3].** A teacher or centre can add photos to
+their public listing. **Review the Play Data Safety form against this
+list before the release that ships them.**
+
+- **Who uploads.** Teachers and centre managers only (the owner of a
+  listing). A student or guardian cannot upload a photo, and no student
+  photo is ever published (`project.md`, Forbidden).
+- **When it is public.** Only after a platform administrator has approved
+  it. Until then a photo sits in a private bucket, visible to the uploader
+  and the moderators alone. A child-safety or personal-information report
+  on an approved photo takes it down at once, before any moderator acts.
+- **What is stored.** The image is decoded and re-encoded as WebP at three
+  sizes by a sandboxed function, so **EXIF and location data are removed**
+  and no original byte is published; the original is deleted within a day.
+  Alongside it: alt text in English and Bangla, written by the owner.
+- **How long.** Until the owner withdraws or deletes it, or deletes their
+  account. A solo teacher's account deletion removes the photos and queues
+  the deletion of every image file; a centre's photos belong to the centre
+  and stay (`PRIVACY.md`, generated from `listing_media`).
+- **Form category:** photos, user-generated content, collected and shown
+  publicly at the user's request; purpose: app functionality. No new
+  Android permission: the app uses the system photo picker, which grants
+  access only to the photo the person picks. No new SDK, no new
+  identifier.
+
+**Families target-audience declaration.** The app's audience includes
+children, so the declaration must say the app carries **user-generated
+content** (teachers' listing text and photos, and guardians' reviews)
+that is **pre-moderated before it is public**, that only adults upload
+photos, and that a report path exists for every public page. Whoever
+submits the declaration confirms this against Play's current wording; it
+is recorded here because nothing in the repository checks it.
+
 **Not changed by the hub:** no new SDK, no new Android permission, no
 device or advertising identifier, no cookie on the public pages, and no
 script on them at all (their CSP is `default-src 'none'`). Public page

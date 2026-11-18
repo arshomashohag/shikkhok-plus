@@ -1096,6 +1096,30 @@ class _HubHost(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    def _send_media(self, path: str, behaviour: str) -> None:
+        """Answer ``/m/*`` as the site distribution would.
+
+        A well-formed absent key reaches the bucket, which answers 403 (or
+        404); a malformed path is refused by the viewer function, 404.
+
+        :param path: The request path
+        :param behaviour: What is broken
+        :return: None
+        """
+        formed = re.fullmatch(r"/m/[0-9a-f]{32}/(320|960|1600)\.webp", path)
+        if behaviour == "media-served":
+            status = 200
+        else:
+            status = 403 if formed else 404
+        payload = b"x"
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html")
+        if behaviour != "media-sniffable":
+            self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
     def do_GET(self) -> None:
         """Answer as the site distribution, or the API's, would.
 
@@ -1131,6 +1155,8 @@ class _HubHost(http.server.BaseHTTPRequestHandler):
             self._send(200, "<urlset/>", kind="application/xml")
         elif url.path == absent and behaviour == "soft-404":
             self._send(200, _landing_page())
+        elif url.path.startswith("/m/"):
+            self._send_media(url.path, behaviour)
         elif url.path == render.STYLESHEET_PATH and behaviour != "no-stylesheet":
             self._send(200, "body{}", csp=_SITE_CSP, kind="text/css; charset=utf-8")
         else:
@@ -1185,7 +1211,8 @@ def test_a_working_hub_passes_the_smoke(hub: tuple[str, str]) -> None:
     assert outcome == (
         f"the hub answers at {site}/hub/en with its own CSP, the sitemap, "
         "the stylesheet, a 400 for an unknown query key and a 404 for an "
-        "unknown teacher, and the API host refuses it"
+        "unknown teacher, the photo path refusing what is not approved, "
+        "and the API host refuses it"
     )
 
 
@@ -1200,6 +1227,8 @@ def test_a_working_hub_passes_the_smoke(hub: tuple[str, str]) -> None:
         ("query-passed", r"\?utm=x answered 200, not 400"),
         ("soft-404", r"no_such_teacher answered 200, not 404"),
         ("api-serves-hub", r"API host's .*/hub/en answered 200, not 404"),
+        ("media-served", r"/m/0{32}/320.webp answered 200, not 403 or 404"),
+        ("media-sniffable", r"/m/0{32}/320.webp .*nosniff"),
     ],
     indirect=["hub"],
 )
@@ -1208,6 +1237,33 @@ def test_a_broken_hub_fails_the_smoke(hub: tuple[str, str], reason: str) -> None
 
     with pytest.raises(RuntimeError, match=reason):
         smoke.smoke_hub(site, api, attempts=1, interval=0)
+
+
+def test_hub_smoke_checks_media_behaviour(hub: tuple[str, str]) -> None:
+    """Both /m/ paths are probed: the routed absent key and the malformed one.
+
+    :param hub: The stand-in site and API
+    :return: None
+    """
+    site, api = hub
+    seen: list[str] = []
+    real = smoke._get
+
+    def spy(url: str) -> tuple[int, dict[str, str], str]:
+        seen.append(url)
+        return real(url)
+
+    smoke._get = spy
+    try:
+        smoke.smoke_hub(site, api, attempts=1, interval=0)
+    finally:
+        smoke._get = real
+
+    media = [u.removeprefix(site) for u in seen if "/m/" in u]
+    assert media == [
+        "/m/00000000000000000000000000000000/320.webp",
+        "/m/does-not-exist/320.webp",
+    ]
 
 
 def test_the_hub_smoke_expects_the_policy_the_api_sends() -> None:

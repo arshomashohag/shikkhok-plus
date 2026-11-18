@@ -71,8 +71,9 @@ blocked by an automated check that fails our build:
 - **No device identifiers** — no IMEI, no SIM serial, no Android ID,
   no MAC or Wi-Fi address, no hardware serial.
 - **No location**, at any precision.
-- **No contacts, photos, files, camera or microphone access** beyond a
-  profile picture you choose yourself.
+- **No contacts, files, camera or microphone access**, and no access to
+  your photos beyond a picture you choose yourself: a profile picture, or,
+  for a teacher or centre, a photo you pick to add to your public listing.
 - **No analytics or crash-reporting SDK** that transmits any of the
   above.
 
@@ -96,8 +97,12 @@ central rather than incidental.
   child's attendance, marks and fees.
 - **We show no advertising**, of any kind, to anyone.
 - **We do not profile** children or build behavioural models.
-- There is no public profile, no messaging between users, and no
-  user-generated content visible to strangers.
+- There is no messaging between users. A teacher or centre may choose to
+  publish a public listing, with photos they upload; each photo is
+  reviewed by us before anyone else can see it, is re-encoded with its
+  EXIF data and location removed, and is deleted with the teacher's
+  account. **No student or guardian is ever shown on a public page, and no
+  photo of a student is published.**
 
 If you are a parent or guardian and want to see, correct or delete
 your child's data, contact us at the address above. If you believe a
