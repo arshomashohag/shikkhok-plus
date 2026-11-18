@@ -51,6 +51,7 @@ from collections.abc import Callable
 from typing import Final
 
 import sqlalchemy as sa
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.auth.ceilings import CeilingChecker
@@ -284,9 +285,10 @@ def complete(
     :param alt_en: English alt text
     :param alt_bn: Bangla alt text
     :param now: The moment of the call, measured against the upload's start
-    :param spend: Called in the transaction of a call that changes the photo's
-        state (to review, or to rejected-unreadable), just before the commit,
-        so the count and the change stand or fall together. A refusal that
+    :param spend: Called once in the transaction of a call that changes the
+        photo's state (to review, or to rejected-unreadable), so the count and
+        the change stand or fall together -- for a move to review before the
+        freeze copy, so an exhausted allowance copies nothing. A refusal that
         changes nothing, and a repeat, never call it.
     :return: The photo
     :raises ValidationError: An alt text is blank, too long or carries a
@@ -332,20 +334,23 @@ def complete(
             code="MEDIA_NOT_UPLOADED", message_key="hub.media.not_uploaded"
         )
 
+    # Spent before the freeze, in this transaction: an exhausted allowance
+    # refuses before anything is copied, so no archive is left unrecorded.
+    if spend is not None:
+        spend()
     try:
         # Freeze: archive/ now holds exactly the variants read above.
         store.copy_variants(
             staged_prefix(media.id), archive_prefix(media.id), widths, if_match=pins
         )
     except SourceChanged:
-        # The form was posted to again between the reads and the copy.
-        raise _reject_unreadable(session, media, now, spend) from None
+        # The form was posted to again between the reads and the copy. The
+        # allowance is already spent in this transaction; spend no more.
+        raise _reject_unreadable(session, media, now, None) from None
     except TransientError:
         session.rollback()
         raise
 
-    if spend is not None:
-        spend()
     media.status = "pending_review"
     media.width = result.width
     media.height = result.height
@@ -353,8 +358,33 @@ def complete(
     media.archived_at = now
     media.alt_en, media.alt_bn = texts
     _release_staged(session, media, now)
-    session.commit()
+    _commit_freeze(session, media.id, now)
     return media
+
+
+def _commit_freeze(session: Session, media_id: uuid.UUID, now: dt.datetime) -> None:
+    """Commit a freeze; if that fails, enqueue the archive it wrote.
+
+    The copy to ``archive/{id}/`` is recorded only by this commit. A commit
+    that fails -- a lost connection, the session's idle-in-transaction
+    timeout -- would leave those objects unrecorded, and ``archive/`` has
+    no lifecycle. So they are enqueued for deletion in a transaction of
+    their own and the error is raised; the photo stays in flight, and a
+    retry freezes it again.
+
+    :param session: The session, holding the completion
+    :param media_id: The photo
+    :param now: The moment of the completion
+    :return: None
+    :raises SQLAlchemyError: The commit failed; the completion is rolled back
+    """
+    try:
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+        objects.enqueue(session, [archive_prefix(media_id)], now)
+        session.commit()
+        raise
 
 
 def _release_staged(session: Session, media: ListingMedia, now: dt.datetime) -> None:

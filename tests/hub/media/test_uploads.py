@@ -1049,3 +1049,85 @@ def test_a_variant_still_missing_past_the_deadline_is_unreadable(
     assert refused.value.code == "MEDIA_UNREADABLE"
     row = _status(owner_session, media_id)
     assert (row.status, row.rejection_code) == ("rejected", "unreadable")
+
+
+# ---------------------------------------------------------------------------
+# The freeze never outlives the transaction that records it.
+# ---------------------------------------------------------------------------
+
+
+def test_an_exhausted_allowance_freezes_nothing(
+    restricted_session: Session,
+    owner_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+) -> None:
+    """The daily allowance is spent before the copy: a refusal copies nothing.
+
+    Otherwise ``archive/{id}/`` would be written with no ``archived_at`` to
+    say so, and ``archive/`` has no lifecycle.
+    """
+    media_id = _init(restricted_session, store, tutor).media_id
+    store.put_result(media_id, OK)
+
+    def exhausted() -> None:
+        raise ConflictError(code="HUB_WRITE_CEILING", message_key="hub.write_ceiling")
+
+    with pytest.raises(ConflictError, match="HUB_WRITE_CEILING"):
+        uploads.complete(
+            restricted_session,
+            store,
+            tutor.lens,
+            media_id,
+            alt_en="Our classroom",
+            alt_bn="আমাদের শ্রেণিকক্ষ",
+            now=NOW + dt.timedelta(minutes=2),
+            spend=exhausted,
+        )
+
+    assert not any(k.startswith(f"archive/{media_id}/") for k in store.objects)
+    assert _status(owner_session, media_id).status == "awaiting_upload"
+    assert tasks(owner_session) == []
+
+
+def test_a_failed_commit_after_the_freeze_deletes_the_archive(
+    restricted_session: Session,
+    owner_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The copy succeeded, the commit recording it did not: archive/ is enqueued.
+
+    The photo stays in flight and a retry freezes it again; the objects the
+    failed attempt wrote are not left unrecorded.
+    """
+    media_id = _init(restricted_session, store, tutor).media_id
+    store.put_result(media_id, OK)
+    real_commit = restricted_session.commit
+
+    def lost_link() -> None:
+        monkeypatch.setattr(restricted_session, "commit", real_commit)
+        raise sa.exc.OperationalError("COMMIT", {}, Exception("connection lost"))
+
+    copy = store.copy_variants
+
+    def copy_then_break(*args: object, **kwargs: object) -> None:
+        copy(*args, **kwargs)  # type: ignore[arg-type]
+        monkeypatch.setattr(restricted_session, "commit", lost_link)
+
+    monkeypatch.setattr(store, "copy_variants", copy_then_break)
+
+    with pytest.raises(sa.exc.OperationalError):
+        uploads.complete(
+            restricted_session,
+            store,
+            tutor.lens,
+            media_id,
+            alt_en="Our classroom",
+            alt_bn="আমাদের শ্রেণিকক্ষ",
+            now=NOW + dt.timedelta(minutes=2),
+        )
+
+    assert _status(owner_session, media_id).status == "awaiting_upload"
+    assert f"archive/{media_id}/" in tasks(owner_session)
