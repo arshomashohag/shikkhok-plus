@@ -332,7 +332,7 @@ nothing but send from that one address.
 quarantine/{media_id}         presigned POST from the web app     expires after 1 day
 staged/{media_id}/            the sanitiser Lambda's WebP variants expires after 30 days
 public/{public_key}/          approved copies; the ONLY prefix CloudFront reads
-archive/{media_id}/           approved copies, for a restore after a hold
+archive/{media_id}/           variants frozen at completion; preview and approval read only these
 ```
 
 - **Served at `/m/*` on the site distribution** (`modules/site`), through

@@ -18,12 +18,14 @@ from sqlalchemy.orm import Session
 
 from app.authz.lenses import TeacherLens
 from tests.batches.conftest import make_teacher
+from tests.hub.media.fakes import FakeMediaStore
 
 __all__ = [
     "NOW",
     "Owner",
     "arrange",
     "batch_listing",
+    "freeze",
     "invalidations",
     "media_row",
     "owner_listing",
@@ -166,3 +168,28 @@ def invalidations(session: Session) -> set[str]:
     """
     session.rollback()
     return set(session.execute(sa.text("SELECT path FROM cdn_invalidation")).scalars())
+
+
+def freeze(
+    session: Session, store: FakeMediaStore, media_id: uuid.UUID, at: dt.datetime
+) -> None:
+    """Arrange what ``complete`` leaves: the staged variants frozen in the archive.
+
+    Copies each staged variant to ``archive/{id}/`` in the fake bucket and
+    records ``archived_at`` [I1]. ``staged/`` is left in place, as it is until
+    the drain deletes it, so a test can post to it again.
+
+    :param session: The arranging session
+    :param store: The fake bucket, holding the staged variants
+    :param media_id: The photo
+    :param at: When it was completed
+    :return: None
+    """
+    for key in [k for k in store.objects if k.startswith(f"staged/{media_id}/")]:
+        if key.endswith(".webp"):
+            store.objects[key.replace("staged/", "archive/", 1)] = store.objects[key]
+    session.execute(
+        sa.text("UPDATE listing_media SET archived_at = :at WHERE id = :m"),
+        {"at": at, "m": media_id},
+    )
+    session.commit()

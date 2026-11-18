@@ -210,8 +210,14 @@ def test_deferred_rows_wait_for_the_upload_window(
     assert commands.drain(restricted_session, store, due) == 2
     assert store.deleted == [f"quarantine/{media_id}", f"staged/{media_id}/"]
 
-    # Once the window has closed there is nothing to defer.
-    objects.enqueue_upload_window(restricted_session, uuid.uuid4(), NOW, due)
+    # The late-upload backstop catches a post that lands later still.
+    backstop = NOW + objects.LATE_UPLOAD_BACKSTOP
+    assert commands.drain(restricted_session, store, backstop) == 2
+    assert store.deleted[2:] == [f"quarantine/{media_id}", f"staged/{media_id}/"]
+
+    # Past both, there is nothing to defer.
+    objects.enqueue_upload_window(restricted_session, uuid.uuid4(), NOW, backstop)
     restricted_session.commit()
-    assert len(_tasks(owner_session)) == 2
+    assert len(_tasks(owner_session)) == 4
     assert objects.UPLOAD_WINDOW == dt.timedelta(minutes=20)
+    assert objects.LATE_UPLOAD_BACKSTOP == dt.timedelta(days=1)

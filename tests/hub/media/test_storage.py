@@ -90,7 +90,7 @@ def test_a_rewritten_credentials_file_is_used_by_the_next_operation(
 
     # A rewrite in place, same inode, is picked up too.
     creds.write_text(creds.read_text().replace("SECONDKEY0", "THIRDKEY00"))
-    third = store.presign_get(f"staged/{uuid.uuid4()}/320.webp")
+    third = store.presign_get(f"archive/{uuid.uuid4()}/320.webp")
     query = urllib.parse.parse_qs(urllib.parse.urlsplit(third).query)
     assert query["X-Amz-Credential"][0].startswith("ASIATHIRDKEY00000000/")
 
@@ -144,7 +144,7 @@ def test_unset_bucket_refuses_uploads_and_deletes(
 
 def test_presign_get_is_regional_and_lasts_five_minutes(store: S3MediaStore) -> None:
     media_id = uuid.uuid4()
-    for key in (f"staged/{media_id}/320.webp", f"archive/{media_id}/1600.webp"):
+    for key in (f"archive/{media_id}/320.webp", f"archive/{media_id}/1600.webp"):
         url = store.presign_get(key)
         parts = urllib.parse.urlsplit(url)
         query = urllib.parse.parse_qs(parts.query)
@@ -157,6 +157,8 @@ def test_presign_get_is_regional_and_lasts_five_minutes(store: S3MediaStore) -> 
         f"public/{uuid.uuid4().hex}/320.webp",
         f"staged/{media_id}/result.json",
         f"staged/{media_id}/../{uuid.uuid4()}/320.webp",
+        # Never staged/, which a post to the same form can still change [I1].
+        f"staged/{media_id}/320.webp",
     ):
         with pytest.raises(ValueError, match="preview"):
             store.presign_get(key)

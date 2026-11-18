@@ -396,8 +396,8 @@ def test_preview_marks_pending_photos(
 
     Approved photos are named on the site's origin, since the preview is
     shown on the app host; pending ones through five-minute signed GETs of
-    their staged variants. Rejected, withdrawn and held photos, and batch
-    photos, are not on the owner's page.
+    the variants frozen in archive/ at completion [I1]. Rejected, withdrawn
+    and held photos, and batch photos, are not on the owner's page.
     """
     client = _client(api_client, monkeypatch)
     teacher = make_teacher(owner_session, name="Private batch name")
@@ -437,11 +437,11 @@ def test_preview_marks_pending_photos(
         assert approved["srcset"] == (
             f"{SITE}/m/{key}/320.webp 320w, {SITE}/m/{key}/960.webp 960w"
         )
-        staged = f"{URL}staged/{pending}/"
-        assert waiting["src"] == f"{staged}960.webp?X-Amz-Expires=300"
+        frozen = f"{URL}archive/{pending}/"
+        assert waiting["src"] == f"{frozen}960.webp?X-Amz-Expires=300"
         assert waiting["srcset"] == (
-            f"{staged}320.webp?X-Amz-Expires=300 320w, "
-            f"{staged}960.webp?X-Amz-Expires=300 960w"
+            f"{frozen}320.webp?X-Amz-Expires=300 320w, "
+            f"{frozen}960.webp?X-Amz-Expires=300 960w"
         )
         assert t("photo_awaiting_review", locale) == marker
         assert response.text.count(marker) == 1

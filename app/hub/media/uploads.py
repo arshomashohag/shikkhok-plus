@@ -22,14 +22,20 @@ left ``awaiting_upload`` and would hold a quota slot for ever, since
 nothing would call ``complete`` for it again. :func:`init_upload`, under
 the owner lock and before it counts, withdraws every one of the owner's
 in-flight uploads whose window has closed -- nothing can land for them any
-more -- and enqueues their quarantine and staged objects for deletion, as a
-withdrawal does. A ``complete`` for one then finds nothing.
+more -- and enqueues their quarantine, staged and archive objects for
+deletion, as a withdrawal does. A ``complete`` for one then finds nothing.
 
-**Completion pins what it read** [I1]. The presigned POST can be posted to
-again until it expires, and the sanitiser re-stages whatever lands, so
-``complete`` records each staged variant's ETag. The first approval copies
-``staged/`` only while every variant still has its recorded ETag. A result
-whose variant is missing -- being written again -- is not uploaded yet.
+**Completion freezes what it read** [I1]. The presigned POST can be
+posted to again until it expires, and the sanitiser re-stages whatever
+lands. So ``complete`` reads each staged variant's ETag and copies the
+variants to ``archive/{id}/`` with ``CopySourceIfMatch`` on them, recording
+``archived_at``. The administrator's preview and every approval read
+``archive/`` only, so nothing posted after completion reaches either. A
+variant that changed between the read and the copy fails closed as
+unreadable. ``quarantine/`` and ``staged/`` are then enqueued for deletion,
+now, when the upload window closes and at the late-upload backstop. A
+result whose variant is missing -- being written again -- is not uploaded
+yet.
 
 **No result after twenty minutes is unreadable** [R7c]. The Lambda never
 retries, so a timeout or an out-of-memory kill writes nothing, and the API
@@ -59,7 +65,9 @@ from app.hub.media.storage import (
     RESULT_DEADLINE,
     UPLOAD_TYPES,
     MediaStore,
+    SourceChanged,
     UploadTicket,
+    archive_prefix,
     quarantine_key,
     staged_prefix,
 )
@@ -205,7 +213,12 @@ def _withdraw_abandoned(
         [
             prefix
             for media in abandoned
-            for prefix in (quarantine_key(media.id), staged_prefix(media.id))
+            for prefix in (
+                quarantine_key(media.id),
+                staged_prefix(media.id),
+                # A completion whose freeze failed part-way may have left one.
+                archive_prefix(media.id),
+            )
         ],
         now,
     )
@@ -220,8 +233,9 @@ def _reject_unreadable(
 ) -> ValidationError:
     """Reject an upload the sanitiser could not decode, and commit.
 
-    Its quarantined original and anything staged are enqueued for deletion
-    in the same commit.
+    Its quarantined original, anything staged and any partial archive are
+    enqueued for deletion in the same commit, again when the upload window
+    closes and at the late-upload backstop.
 
     :param session: The session
     :param media: The locked photo
@@ -233,7 +247,8 @@ def _reject_unreadable(
         spend()
     media.status = "rejected"
     media.rejection_code = UNREADABLE
-    objects.enqueue(session, [quarantine_key(media.id), staged_prefix(media.id)], now)
+    objects.enqueue(session, [archive_prefix(media.id)], now)
+    _release_staged(session, media, now)
     session.commit()
     return _unreadable()
 
@@ -317,13 +332,44 @@ def complete(
             code="MEDIA_NOT_UPLOADED", message_key="hub.media.not_uploaded"
         )
 
+    try:
+        # Freeze: archive/ now holds exactly the variants read above.
+        store.copy_variants(
+            staged_prefix(media.id), archive_prefix(media.id), widths, if_match=pins
+        )
+    except SourceChanged:
+        # The form was posted to again between the reads and the copy.
+        raise _reject_unreadable(session, media, now, spend) from None
+    except TransientError:
+        session.rollback()
+        raise
+
     if spend is not None:
         spend()
     media.status = "pending_review"
     media.width = result.width
     media.height = result.height
     media.widths = widths
-    media.variant_etags = [pins[w] for w in widths]
+    media.archived_at = now
     media.alt_en, media.alt_bn = texts
+    _release_staged(session, media, now)
     session.commit()
     return media
+
+
+def _release_staged(session: Session, media: ListingMedia, now: dt.datetime) -> None:
+    """Enqueue an upload's quarantine and staged objects for deletion.
+
+    Now, when its upload window closes, and at the late-upload backstop
+    (:func:`~app.hub.media.objects.enqueue_upload_window`): nothing reads
+    them after completion, and a post to the same form that lands later
+    must not keep private bytes for ``staged/``'s thirty days. Commits
+    nothing.
+
+    :param session: The caller's session
+    :param media: The photo
+    :param now: The moment of the decision
+    :return: None
+    """
+    objects.enqueue(session, [quarantine_key(media.id), staged_prefix(media.id)], now)
+    objects.enqueue_upload_window(session, media.id, media.created_at, now)

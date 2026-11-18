@@ -62,6 +62,7 @@ class FakeMediaStore:
     :ivar deleted: Every prefix deleted, in order
     :ivar failing: Prefixes whose deletion raises a transient error
     :ivar delay: Seconds each presign sleeps, to widen a race window
+    :ivar copy_delay: Seconds each copy sleeps, to widen a race window
     """
 
     objects: dict[str, Stored] = field(default_factory=dict)
@@ -69,6 +70,7 @@ class FakeMediaStore:
     deleted: list[str] = field(default_factory=list)
     failing: set[str] = field(default_factory=set)
     delay: float = 0.0
+    copy_delay: float = 0.0
 
     def put_result(self, media_id: uuid.UUID, payload: dict[str, object]) -> None:
         """Arrange what the sanitiser writes, variants first, then the result.
@@ -165,6 +167,8 @@ class FakeMediaStore:
         :raises TransientError: A source object is missing
         :raises SourceChanged: A pinned source's ETag differs
         """
+        if self.copy_delay:
+            time.sleep(self.copy_delay)
         for width in widths:
             source = self.objects.get(f"{src_prefix}{width}.webp")
             if source is None:

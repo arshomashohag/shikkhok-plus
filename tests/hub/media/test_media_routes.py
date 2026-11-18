@@ -141,7 +141,8 @@ def test_upload_flow_end_to_end_with_fake_store(
     body = done.json()
     assert body["status"] == "pending_review"
     assert (body["width"], body["height"]) == (1600, 1200)
-    assert body["thumb_url"].startswith(URL + f"staged/{media_id}/320.webp")
+    # The variant frozen at completion, never staged/ [I1].
+    assert body["thumb_url"].startswith(URL + f"archive/{media_id}/320.webp")
     assert "X-Amz-Expires=300" in body["thumb_url"]
 
     listed = api_client.get(

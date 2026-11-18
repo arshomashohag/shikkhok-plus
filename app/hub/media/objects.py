@@ -39,10 +39,23 @@ from app.hub.media.storage import (
     staged_prefix,
 )
 
-__all__ = ["IN_FLIGHT", "UPLOAD_WINDOW", "enqueue", "enqueue_upload_window"]
+__all__ = [
+    "IN_FLIGHT",
+    "LATE_UPLOAD_BACKSTOP",
+    "UPLOAD_WINDOW",
+    "enqueue",
+    "enqueue_upload_window",
+]
 
 #: How long after an upload is signed its objects may still appear.
 UPLOAD_WINDOW: Final[dt.timedelta] = RESULT_DEADLINE
+
+#: How long after an upload is signed a last delete of its quarantine and
+#: staged objects falls due. A post begun before its signature expired can
+#: still be arriving after the upload window; this catches one that lands
+#: later still, rather than leaving it for ``staged/``'s thirty days. It is
+#: the ``quarantine/`` lifecycle's one day [H3 global constraints].
+LATE_UPLOAD_BACKSTOP: Final[dt.timedelta] = dt.timedelta(days=1)
 
 #: The statuses whose upload may still be landing.
 IN_FLIGHT: Final[tuple[str, ...]] = ("awaiting_upload", "processing")
@@ -94,8 +107,9 @@ def enqueue_upload_window(
     -- a withdrawal, an account deletion. The caller still enqueues the
     immediate deletes; this adds ``quarantine/{id}`` and ``staged/{id}/``
     due at ``created_at + UPLOAD_WINDOW``, so a file that lands after the
-    first drain is deleted all the same. Nothing is added once the window
-    has closed. Commits nothing.
+    first drain is deleted all the same, and again at ``created_at +
+    LATE_UPLOAD_BACKSTOP`` for one that lands later still. A due time
+    already past adds nothing. Commits nothing.
 
     :param session: The caller's session, inside its transaction
     :param media_id: The photo
@@ -103,6 +117,6 @@ def enqueue_upload_window(
     :param now: The moment of the takedown
     :return: None
     """
-    due = created_at + UPLOAD_WINDOW
-    if due > now:
-        _insert(session, [quarantine_key(media_id), staged_prefix(media_id)], due)
+    for due in (created_at + UPLOAD_WINDOW, created_at + LATE_UPLOAD_BACKSTOP):
+        if due > now:
+            _insert(session, [quarantine_key(media_id), staged_prefix(media_id)], due)

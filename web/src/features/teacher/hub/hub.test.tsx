@@ -372,7 +372,7 @@ describe('photos sections', () => {
     width: 960,
     height: 640,
     rejection_code: null,
-    thumb_url: 'https://bucket.example.test/staged/x/320.webp?sig=1',
+    thumb_url: 'https://bucket.example.test/archive/x/320.webp?sig=1',
   })
 
   it('the listing editor shows its own gallery, owner limit 12', async () => {
@@ -383,7 +383,7 @@ describe('photos sections', () => {
     expect(await screen.findByText('1 of 12 photos')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'A class' })).toHaveAttribute(
       'src',
-      'https://bucket.example.test/staged/x/320.webp?sig=1',
+      'https://bucket.example.test/archive/x/320.webp?sig=1',
     )
   })
 

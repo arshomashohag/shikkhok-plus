@@ -122,8 +122,10 @@ _VARIANT_FOLDER: Final = re.compile(
     rf"(?:staged|archive)/{_UUID}/|public/[0-9a-f]{{32}}/"
 )
 
-#: An object an administrator or owner may preview: one variant, unpublished.
-_PREVIEW_KEY: Final = re.compile(rf"(?:staged|archive)/{_UUID}/(?:320|960|1600)\.webp")
+#: An object an administrator or owner may preview: one variant frozen in
+#: the archive at completion. Never ``staged/``, which a post to the same
+#: form can still change after it was completed [I1].
+_PREVIEW_KEY: Final = re.compile(rf"archive/{_UUID}/(?:320|960|1600)\.webp")
 
 #: An AWS region name.
 _REGION: Final = re.compile(r"[a-z]{2}(?:-[a-z]+)+-[0-9]")
@@ -333,7 +335,7 @@ class MediaStore(Protocol):
     def presign_get(self, key: str) -> str:
         """Sign a preview GET of one unpublished variant.
 
-        :param key: A ``staged/`` or ``archive/`` variant
+        :param key: An ``archive/`` variant
         :return: A URL valid for :data:`PREVIEW_TTL`
         """
         ...
@@ -724,7 +726,7 @@ class S3MediaStore:
     def presign_get(self, key: str) -> str:
         """Sign a five-minute preview GET of one unpublished variant.
 
-        :param key: A ``staged/`` or ``archive/`` variant
+        :param key: An ``archive/`` variant
         :return: The URL
         :raises ValueError: Any other key
         :raises TransientError: No bucket, region or credentials

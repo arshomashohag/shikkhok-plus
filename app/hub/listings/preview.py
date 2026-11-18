@@ -20,7 +20,8 @@ photos, and photos awaiting review marked as such, in gallery order; never
 a batch's photos, which are on batch pages only, and never a rejected,
 withdrawn, held or unfinished upload. The preview is shown on the app host,
 which serves no ``/m/``, so an approved photo is named on the site's origin
-and a pending one by five-minute signed GETs of its staged variants. A
+and a pending one by five-minute signed GETs of the variants frozen in
+``archive/`` at completion, never ``staged/`` [I1]. A
 pending photo the bucket cannot sign right now is left out rather than
 failing the page, as the editor's thumbnails are.
 """
@@ -39,7 +40,7 @@ from app.authz.lenses import TeacherLens
 from app.errors import TransientError
 from app.hub.listings.names import CENTRE_FACULTY, teacher_names
 from app.hub.listings.owner import get_or_draft
-from app.hub.media.storage import MediaStore, staged_prefix
+from app.hub.media.storage import MediaStore, archive_prefix
 from app.hub.public.images import hub_image, image_alt, public_path
 from app.hub.public.messages import LOCALES, Locale, t
 from app.hub.public.settings import site_url
@@ -153,8 +154,8 @@ def _schedules(
     return slots
 
 
-def _staged_url(store: MediaStore, media_id: uuid.UUID, width: int) -> str:
-    """Sign a five-minute GET of one staged variant.
+def _frozen_url(store: MediaStore, media_id: uuid.UUID, width: int) -> str:
+    """Sign a five-minute GET of one variant frozen at completion [I1].
 
     :param store: The bucket
     :param media_id: The photo
@@ -162,7 +163,7 @@ def _staged_url(store: MediaStore, media_id: uuid.UUID, width: int) -> str:
     :return: The signed URL
     :raises TransientError: The bucket cannot sign right now
     """
-    return store.presign_get(f"{staged_prefix(media_id)}{width}.webp")
+    return store.presign_get(f"{archive_prefix(media_id)}{width}.webp")
 
 
 def _site_url(public_key: str, width: int) -> str:
@@ -190,7 +191,7 @@ def _images(
     for row in session.execute(_MEDIA, {"owner": lens.owner_id}):
         pending = row.status == "pending_review"
         url = (
-            functools.partial(_staged_url, store, row.id)
+            functools.partial(_frozen_url, store, row.id)
             if pending
             else functools.partial(_site_url, row.public_key)
         )

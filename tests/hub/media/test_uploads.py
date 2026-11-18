@@ -29,7 +29,7 @@ from app.auth.ceilings import HUB_MEDIA_OWNER_DAILY
 from app.batches.service import BatchNotFound
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.hub.media import quota, uploads
-from app.hub.media.objects import UPLOAD_WINDOW
+from app.hub.media.objects import LATE_UPLOAD_BACKSTOP, UPLOAD_WINDOW
 from app.hub.media.storage import S3MediaStore, UploadTicket
 from tests.hub.media.fakes import FakeMediaStore
 from tests.hub.media.support import NOW, Owner, arrange, media_row, tasks
@@ -458,7 +458,11 @@ def test_complete_before_result_is_not_uploaded_then_succeeds(
     )
     assert again.status == "pending_review"
     assert _status(owner_session, media_id).alt_en == "Our classroom"
-    assert tasks(owner_session) == []
+    # Completion let go of quarantine/ and staged/ (now, at the window, at
+    # the backstop) [I1]; the repeat enqueued nothing more.
+    assert sorted(tasks(owner_session)) == sorted(
+        [f"quarantine/{media_id}", f"staged/{media_id}/"] * 3
+    )
 
     # It carries what approval needs, so the approved-dimensions CHECK holds.
     owner_session.execute(
@@ -500,8 +504,11 @@ def test_complete_unreadable_marks_rejected(
         "unreadable",
         None,
     )
-    # The second call changed nothing and enqueued nothing more.
-    assert tasks(owner_session) == [f"quarantine/{media_id}", f"staged/{media_id}/"]
+    # The second call changed nothing and enqueued nothing more: everything
+    # it could have, now, at the window and at the backstop.
+    assert sorted(tasks(owner_session)) == sorted(
+        [f"archive/{media_id}/"] + [f"quarantine/{media_id}", f"staged/{media_id}/"] * 3
+    )
     # A rejected photo frees its quota slot.
     assert quota.counted(restricted_session, tutor.lens.owner_id, None) == 0
 
@@ -569,7 +576,10 @@ def test_complete_with_no_result_after_twenty_minutes_is_unreadable(
         complete(dt.timedelta(minutes=20, seconds=1))
     row = _status(owner_session, media_id)
     assert (row.status, row.rejection_code) == ("rejected", "unreadable")
-    assert tasks(owner_session) == [f"quarantine/{media_id}", f"staged/{media_id}/"]
+    # Past the window, only the backstop is still to come.
+    assert sorted(tasks(owner_session)) == sorted(
+        [f"archive/{media_id}/"] + [f"quarantine/{media_id}", f"staged/{media_id}/"] * 2
+    )
     assert uploads.RESULT_DEADLINE == dt.timedelta(minutes=20)
 
 
@@ -707,7 +717,11 @@ def test_init_withdraws_abandoned_uploads_and_takes_their_slot(
     assert sorted(tasks(owner_session)) == sorted(
         prefix
         for media_id in [*abandoned, elsewhere]
-        for prefix in (f"quarantine/{media_id}", f"staged/{media_id}/")
+        for prefix in (
+            f"quarantine/{media_id}",
+            f"staged/{media_id}/",
+            f"archive/{media_id}/",
+        )
     )
     # A completion for a withdrawn upload finds nothing.
     store.put_result(abandoned[0], OK)
@@ -802,7 +816,11 @@ def test_concurrent_inits_withdraw_an_abandoned_upload_once(
     assert len(won) == 1
     assert refused == ["MEDIA_LIMIT_REACHED"]
     assert _status(owner_session, stale).status == "withdrawn"
-    assert sorted(tasks(owner_session)) == [f"quarantine/{stale}", f"staged/{stale}/"]
+    assert sorted(tasks(owner_session)) == [
+        f"archive/{stale}/",
+        f"quarantine/{stale}",
+        f"staged/{stale}/",
+    ]
     assert quota.counted(owner_session, tutor.lens.owner_id, None) == quota.OWNER_LIMIT
 
 
@@ -874,26 +892,45 @@ def test_the_first_upload_takes_position_zero(
 # ---------------------------------------------------------------------------
 
 
-def _etags(session: Session, media_id: uuid.UUID) -> list[str] | None:
+def _due(session: Session, media_id: uuid.UUID) -> set[tuple[str, dt.datetime]]:
     session.rollback()
-    value = session.execute(
-        sa.text("SELECT variant_etags FROM listing_media WHERE id = :m"),
+    return {
+        (r.prefix, r.requested_at)
+        for r in session.execute(
+            sa.text(
+                "SELECT prefix, requested_at FROM media_object_task "
+                "WHERE prefix LIKE :p"
+            ),
+            {"p": f"%{media_id}%"},
+        )
+    }
+
+
+def _archived_at(session: Session, media_id: uuid.UUID) -> dt.datetime | None:
+    session.rollback()
+    return session.execute(
+        sa.text("SELECT archived_at FROM listing_media WHERE id = :m"),
         {"m": media_id},
     ).scalar_one()
-    return None if value is None else list(value)
 
 
-def test_complete_records_each_staged_variants_etag(
+def test_complete_freezes_the_staged_variants_and_deletes_the_rest(
     restricted_session: Session,
     owner_session: Session,
     store: FakeMediaStore,
     tutor: Owner,
 ) -> None:
-    """In ``widths`` order, as the bucket reports them at completion."""
+    """The variants read are copied to archive/, pinned; staged/ is then let go.
+
+    ``archived_at`` records the freeze. ``quarantine/`` and ``staged/`` are
+    enqueued now, again when the upload window closes and once more a day
+    after signing, so a post to the same form that lands later never
+    leaves private bytes for ``staged/``'s thirty days.
+    """
     media_id = _init(restricted_session, store, tutor).media_id
     store.put_result(media_id, OK)
-    expected = store.staged_etags(media_id, [320, 960, 1600])
-    assert expected is not None
+    staged = {w: store.objects[f"staged/{media_id}/{w}.webp"] for w in (320, 960, 1600)}
+    at = NOW + dt.timedelta(minutes=2)
 
     uploads.complete(
         restricted_session,
@@ -902,10 +939,62 @@ def test_complete_records_each_staged_variants_etag(
         media_id,
         alt_en="Our classroom",
         alt_bn="আমাদের শ্রেণিকক্ষ",
-        now=NOW + dt.timedelta(minutes=2),
+        now=at,
     )
 
-    assert _etags(owner_session, media_id) == [expected[w] for w in (320, 960, 1600)]
+    for width, stored in staged.items():
+        assert store.objects[f"archive/{media_id}/{width}.webp"] == stored
+    assert _archived_at(owner_session, media_id) == at
+    assert _due(owner_session, media_id) == {
+        (prefix, due)
+        for prefix in (f"quarantine/{media_id}", f"staged/{media_id}/")
+        for due in (at, NOW + UPLOAD_WINDOW, NOW + LATE_UPLOAD_BACKSTOP)
+    }
+
+
+def test_a_change_between_reading_and_freezing_fails_closed(
+    restricted_session: Session,
+    owner_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+) -> None:
+    """The form posted again between the HEADs and the copy: unreadable.
+
+    The pinned copy refuses the changed variant, so nothing frozen can be
+    a mixture; the photo is rejected as unreadable and everything it could
+    have, a partial archive included, is enqueued for deletion.
+    """
+    media_id = _init(restricted_session, store, tutor).media_id
+    store.put_result(media_id, OK)
+    read = store.staged_etags
+
+    def read_then_restage(mid: uuid.UUID, widths: object) -> dict[int, str] | None:
+        found = read(mid, widths)  # type: ignore[arg-type]
+        store.restage(mid, 1600, b"RIFF posted again")
+        return found
+
+    store.staged_etags = read_then_restage  # type: ignore[method-assign]
+
+    with pytest.raises(ValidationError) as refused:
+        uploads.complete(
+            restricted_session,
+            store,
+            tutor.lens,
+            media_id,
+            alt_en="Our classroom",
+            alt_bn="আমাদের শ্রেণিকক্ষ",
+            now=NOW + dt.timedelta(minutes=2),
+        )
+
+    assert refused.value.code == "MEDIA_UNREADABLE"
+    row = _status(owner_session, media_id)
+    assert (row.status, row.rejection_code) == ("rejected", "unreadable")
+    assert _archived_at(owner_session, media_id) is None
+    assert {
+        f"quarantine/{media_id}",
+        f"staged/{media_id}/",
+        f"archive/{media_id}/",
+    } <= set(tasks(owner_session))
 
 
 def test_complete_with_a_variant_missing_is_not_uploaded_yet(
@@ -932,7 +1021,7 @@ def test_complete_with_a_variant_missing_is_not_uploaded_yet(
 
     assert early.value.code == "MEDIA_NOT_UPLOADED"
     assert _status(owner_session, media_id).status == "awaiting_upload"
-    assert _etags(owner_session, media_id) is None
+    assert _archived_at(owner_session, media_id) is None
 
 
 def test_a_variant_still_missing_past_the_deadline_is_unreadable(

@@ -37,7 +37,14 @@ from app.hub.public import invalidation
 from app.moderation import media, reports
 from tests.batches.conftest import make_teacher
 from tests.hub.media.fakes import FakeMediaStore
-from tests.hub.media.support import NOW, arrange, media_row, owner_listing, tasks
+from tests.hub.media.support import (
+    NOW,
+    arrange,
+    freeze,
+    media_row,
+    owner_listing,
+    tasks,
+)
 from tests.hub.support import centre_with_manager
 
 #: The variant widths the arranged photos carry.
@@ -182,14 +189,10 @@ def _pending(
     )
     session.commit()
     store.put_result(media_id, OK)
-    # What `complete` records: each staged variant's ETag [I1].
-    pins = store.staged_etags(media_id, WIDTHS)
-    assert pins is not None
-    session.execute(
-        sa.text("UPDATE listing_media SET variant_etags = :e WHERE id = :m"),
-        {"e": [pins[w] for w in WIDTHS], "m": media_id},
-    )
-    session.commit()
+    # What `complete` leaves: the variants frozen in archive/ [I1].
+    created = row["created_at"]
+    assert isinstance(created, dt.datetime)
+    freeze(session, store, media_id, created + dt.timedelta(minutes=1))
     return media_id
 
 

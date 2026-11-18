@@ -315,10 +315,13 @@ def test_withdraw_while_uploading_deletes_a_late_upload(
 
     media_commands.drain(restricted_session, store, NOW + dt.timedelta(minutes=20))
     assert not [k for k in store.objects if str(media_id) in k]
+    # Now, when the window closes, and at the late-upload backstop.
     assert tasks(owner_session) == [
         f"quarantine/{media_id}",
         f"staged/{media_id}/",
         f"archive/{media_id}/",
+        f"quarantine/{media_id}",
+        f"staged/{media_id}/",
         f"quarantine/{media_id}",
         f"staged/{media_id}/",
     ]

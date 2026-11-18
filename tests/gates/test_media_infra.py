@@ -15,6 +15,7 @@ host script that writes the credentials is run against stand-ins for
 
 from __future__ import annotations
 
+import datetime as dt
 import math
 import os
 import pathlib
@@ -156,6 +157,11 @@ def test_media_bucket_blocks_public_access_and_expires_prefixes() -> None:
         )
     }
     assert expiries == {"quarantine/": 1, "staged/": 30}
+    # The late-upload backstop is the quarantine lifecycle's day, as the
+    # constant's comment states [I1].
+    from app.hub.media.objects import LATE_UPLOAD_BACKSTOP
+
+    assert dt.timedelta(days=expiries["quarantine/"]) == LATE_UPLOAD_BACKSTOP
     assert "public/" not in lifecycle
     assert "archive/" not in lifecycle
 

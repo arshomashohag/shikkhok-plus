@@ -1,39 +1,34 @@
 """Photo moderation: an administrator's decision, and a report's hold.
 
 **Every photo is seen before it is public** [hub spec D7]. An upload waits
-in ``pending_review`` with its sanitised variants at ``staged/{id}/`` until
-an administrator decides it (:func:`decide`), previewing it through
-five-minute signed URLs (:func:`detail`) that name no account.
+in ``pending_review`` until an administrator decides it (:func:`decide`),
+previewing it through five-minute signed URLs (:func:`detail`) that name
+no account.
 
-**Approval publishes and archives.** It mints a fresh 128-bit key, copies
-the variants to ``public/{key}/`` -- the only prefix CloudFront serves --
-and, the first time, to ``archive/{id}/``. ``staged/`` expires after thirty
-days, so the archive is what any later approval copies from: a photo sent
-back to review by an alt-text edit, or a held photo an administrator
-clears. Whether the archive exists is the row's ``archived_at``, recorded
-at the first approval rather than probed in the bucket [H3 deviation 3].
-A copy that fails changes nothing, and the key it was copying to is
-enqueued for deletion, so a partial public copy cannot linger; so is the
-key of a copy that succeeded when the commit recording it then fails
-(:func:`commit_releasing`).
+**What is reviewed is what is published** [I1]. ``complete`` froze the
+sanitised variants into ``archive/{id}/``, pinned to the ETags it read, and
+recorded ``archived_at`` (:func:`app.hub.media.uploads.complete`). The
+preview and every approval read ``archive/`` only; nothing here reads
+``staged/``, so a post to the same form after completion reaches neither
+the administrator nor the public. A photo with no freeze recorded is never
+published: an approval rejects it as ``unreadable``, in the decision's own
+transaction and under its locks.
 
-**The first approval copies exactly what was completed** [I1]. ``complete``
-records each staged variant's ETag; the first approval copies ``staged/``
-to ``archive/`` with ``CopySourceIfMatch`` on them, then ``public/`` from that
-archive. A variant that changed -- the form posted to again -- or a photo
-with no pins is refused as ``MEDIA_UNREADABLE``: rejected with code
-``unreadable``, every object it could have (the fresh key's ``public/``
-prefix and a partial archive included) enqueued for deletion, and a
-``media_rejected`` event recorded.
+**Approval publishes from the archive.** It mints a fresh 128-bit key and
+copies the frozen variants to ``public/{key}/``, the only prefix CloudFront
+serves -- the first time and after an alt-text edit or a hold alike [H3
+deviation 3]. A copy that fails changes nothing, and the key it was
+copying to is enqueued for deletion, so a partial public copy cannot
+linger; so is the key of a copy that succeeded when the commit recording
+it then fails (:func:`commit_releasing`).
 
 **And not before its upload window closes** [I1]. Until ``created_at +
 UPLOAD_WINDOW`` -- the ten-minute signature, at most five minutes in the
 sanitiser's event queue, its thirty seconds and a margin, all pinned by
 ``tests/gates/test_image_sanitiser.py`` -- a photo is left out of the queue
-and an approval is refused. The window narrows the chance of a re-staged
-variant but cannot close it: S3's event delivery and a POST started before
-its signature expired are not bounded. The pins above are what close it. A
-rejection is not held back by the window; inside it, it also deletes, once
+and an approval is refused. The freeze above is what keeps a re-staged
+variant from being published; the window is kept as a second, independent
+bound. A rejection is not held back by the window; inside it, it also deletes, once
 the window closes, whatever lands after it.
 
 **Rejection deletes everything the photo has**: the quarantined original
@@ -90,7 +85,6 @@ from app.hub.media.objects import UPLOAD_WINDOW
 from app.hub.media.quota import lock_owner
 from app.hub.media.storage import (
     MediaStore,
-    SourceChanged,
     archive_prefix,
     public_prefix,
     quarantine_key,
@@ -120,8 +114,8 @@ __all__ = [
     "waiting",
 ]
 
-#: The rejection code for a photo whose staged bytes are not what was
-#: completed [I1], as an upload the sanitiser could not read is coded.
+#: The rejection code for a photo with no frozen variants [I1], as an
+#: upload the sanitiser could not read is coded.
 UNREADABLE: Final[str] = "unreadable"
 
 #: The statuses an administrator decides: waiting for review, or held.
@@ -404,120 +398,41 @@ def _free_position(session: Session, media: ListingMedia) -> int:
 def _publish(
     session: Session, store: MediaStore, media: ListingMedia, now: dt.datetime
 ) -> str:
-    """Copy a photo's variants out under a fresh key and mark it approved.
+    """Copy a photo's frozen variants out under a fresh key; mark it approved.
 
-    The caller commits through :func:`commit_releasing` with the key, so a
-    commit that fails after the copy leaves no public copy behind.
+    Reads ``archive/{id}/`` only [I1]. The caller has checked that the photo
+    was frozen, and commits through :func:`commit_releasing` with the key, so
+    a commit that fails after the copy leaves no public copy behind.
 
     :param session: The session, the owner and the photo locked
     :param store: The bucket
-    :param media: The photo, waiting or held
+    :param media: The photo, waiting or held, frozen
     :param now: The moment of approval
     :return: The fresh key, whose ``public/{key}/`` now holds the variants
     :raises TransientError: A copy failed; the transaction is rolled back,
         and the fresh key's prefix enqueued for deletion and committed
-    :raises SourceChanged: The first approval found a staged variant no
-        longer the one completed, or no pins to check it by [I1]; the
-        transaction is rolled back, and the fresh key's prefix and the
-        archive are enqueued for deletion in a new, uncommitted one
     """
     widths = sorted(media.widths or [])
     key = secrets.token_hex(16)
-    archived = media.archived_at is not None
     try:
-        if not archived:
-            # The first approval reads staged/ once, pinned to what was
-            # completed; public/ is then copied from that archive.
-            store.copy_variants(
-                staged_prefix(media.id),
-                archive_prefix(media.id),
-                widths,
-                if_match=_pins(media, widths),
-            )
         store.copy_variants(archive_prefix(media.id), public_prefix(key), widths)
     except TransientError:
         session.rollback()
         objects.enqueue(session, [public_prefix(key)], now)
         session.commit()
         raise
-    except SourceChanged:
-        session.rollback()
-        objects.enqueue(session, [public_prefix(key), archive_prefix(media.id)], now)
-        raise
     media.position = _free_position(session, media)
     media.status = "approved"
     media.public_key = key
-    if not archived:
-        media.archived_at = now
     return key
 
 
-def _pins(media: ListingMedia, widths: list[int]) -> dict[int, str]:
-    """Read the ETags ``complete`` recorded, by width.
-
-    :param media: The photo
-    :param widths: Its variant widths, sorted
-    :return: ``{width: etag}``
-    :raises SourceChanged: None were recorded, or not one per width:
-        nothing says what was completed, so nothing can be copied as it
-    """
-    etags = list(media.variant_etags or [])
-    order = list(media.widths or [])
-    if not etags or len(etags) != len(order) or sorted(order) != widths:
-        raise SourceChanged(staged_prefix(media.id))
-    return dict(zip(order, etags, strict=True))
-
-
 def _unreadable() -> ValidationError:
-    """Build the refusal for a photo whose staged bytes changed [I1].
+    """Build the refusal for a photo with no frozen variants [I1].
 
     :return: The error
     """
     return ValidationError(code="MEDIA_UNREADABLE", message_key="hub.media.unreadable")
-
-
-def _reject_changed(
-    session: Session,
-    lens: PlatformAdminLens,
-    media_id: uuid.UUID,
-    now: dt.datetime,
-    correlation_id: str,
-) -> ValidationError:
-    """Reject, as unreadable, a photo whose staged variants changed, and commit.
-
-    Runs after :func:`_publish` rolled the approval back, in the transaction
-    holding its enqueued deletes: the owner and the photo are locked again,
-    and a photo still waiting is rejected with ``unreadable``, everything it
-    has enqueued for deletion and a ``media_rejected`` event recorded.
-
-    :param session: The session, the approval rolled back
-    :param lens: The administrator's lens
-    :param media_id: The photo
-    :param now: The moment of the decision
-    :param correlation_id: The request that caused it
-    :return: The refusal for the caller to raise
-    """
-    owner_id = session.scalar(
-        sa.select(ListingMedia.owner_id).where(ListingMedia.id == media_id)
-    )
-    if owner_id is not None:
-        lock_owner(session, owner_id)
-        media = _locked(session, media_id)
-        if media is not None and media.status in DECIDABLE:
-            _remove(session, media, UNREADABLE, now)
-            media.decided_at = now
-            session.add(
-                _event(
-                    media_id,
-                    "media_rejected",
-                    actor=lens.account_id,
-                    code=UNREADABLE,
-                    correlation_id=correlation_id,
-                    now=now,
-                )
-            )
-    session.commit()
-    return _unreadable()
 
 
 def commit_releasing(session: Session, key: str | None, now: dt.datetime) -> None:
@@ -652,13 +567,26 @@ def decide(
             # approval would undo the hold without anyone deciding it.
             session.rollback()
             raise _report_open()
+        if media.archived_at is None:
+            # Nothing froze what was completed, so nothing can be shown as
+            # reviewed [I1]. Rejected here, under the locks this decision
+            # already holds, so no other decision can have won meanwhile.
+            _remove(session, media, UNREADABLE, now)
+            media.decided_at = now
+            session.add(
+                _event(
+                    media.id,
+                    "media_rejected",
+                    actor=lens.account_id,
+                    code=UNREADABLE,
+                    correlation_id=correlation_id,
+                    now=now,
+                )
+            )
+            session.commit()
+            raise _unreadable()
         event = "media_restored" if media.status == "held" else "media_approved"
-        try:
-            key = _publish(session, store, media, now)
-        except SourceChanged:
-            raise _reject_changed(
-                session, lens, media_id, now, correlation_id
-            ) from None
+        key = _publish(session, store, media, now)
     else:
         event = "media_rejected"
         key = None
@@ -917,9 +845,9 @@ def waiting(session: Session, now: dt.datetime) -> list[WaitingMedia]:
 def detail(session: Session, store: MediaStore, media_id: uuid.UUID) -> MediaDetail:
     """Read one photo for review, with five-minute previews of its variants.
 
-    Previews come from ``archive/`` once the photo has been approved --
-    ``staged/`` may have expired -- and from ``staged/`` before. Only the
-    widths the sanitiser wrote are signed.
+    Previews come from ``archive/`` only: the variants frozen at completion,
+    which are what an approval publishes [I1]. Only the widths the sanitiser
+    wrote are signed.
 
     :param session: The session
     :param store: The bucket
@@ -931,13 +859,10 @@ def detail(session: Session, store: MediaStore, media_id: uuid.UUID) -> MediaDet
     media = session.scalar(sa.select(ListingMedia).where(ListingMedia.id == media_id))
     if media is None or media.status not in _PREVIEWABLE:
         raise admin_not_found()
-    folder = (
-        archive_prefix(media.id)
-        if media.archived_at is not None
-        else staged_prefix(media.id)
-    )
     previews = tuple(
-        MediaPreview(width=w, url=store.presign_get(f"{folder}{w}.webp"))
+        MediaPreview(
+            width=w, url=store.presign_get(f"{archive_prefix(media.id)}{w}.webp")
+        )
         for w in sorted(media.widths or [])
     )
     public_name, public_title = _titles(session, [media])[media.id]

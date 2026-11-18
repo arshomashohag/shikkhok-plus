@@ -14,6 +14,7 @@ public objects enqueued for deletion and its paths for invalidation.
 from __future__ import annotations
 
 import datetime as dt
+import threading
 import uuid
 from collections.abc import Iterator
 from typing import Final
@@ -21,7 +22,8 @@ from typing import Final
 import pytest
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from sqlalchemy import Engine
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.hub_media import media_store
 from app.authz.admin import PLATFORM_ADMIN_PHONES_ENV
@@ -32,8 +34,8 @@ from app.errors import (
     TransientError,
     ValidationError,
 )
-from app.hub.media import library
-from app.hub.media.objects import UPLOAD_WINDOW
+from app.hub.media import library, uploads
+from app.hub.media.objects import LATE_UPLOAD_BACKSTOP, UPLOAD_WINDOW
 from app.hub.public import invalidation
 from app.hub.public.db import as_hub_reader
 from app.moderation import media, reports
@@ -44,6 +46,7 @@ from tests.hub.media.support import (
     NOW,
     Owner,
     arrange,
+    freeze,
     invalidations,
     media_row,
     tasks,
@@ -66,6 +69,12 @@ LATER: Final[dt.datetime] = NOW + dt.timedelta(hours=2)
 
 #: When an arranged upload was signed: its upload window long closed by NOW.
 SIGNED: Final[dt.datetime] = NOW - dt.timedelta(hours=1)
+
+#: How long after signing an arranged upload was completed and frozen.
+COMPLETED_AFTER: Final[dt.timedelta] = dt.timedelta(minutes=1)
+
+#: When an arranged photo's variants were frozen into the archive [I1].
+FROZEN: Final[dt.datetime] = SIGNED + COMPLETED_AFTER
 
 
 @pytest.fixture
@@ -111,14 +120,8 @@ def _pending(
     )
     session.commit()
     store.put_result(media_id, OK)
-    # What `complete` records: each staged variant's ETag [I1].
-    pins = store.staged_etags(media_id, WIDTHS)
-    assert pins is not None
-    session.execute(
-        sa.text("UPDATE listing_media SET variant_etags = :e WHERE id = :m"),
-        {"e": [pins[w] for w in WIDTHS], "m": media_id},
-    )
-    session.commit()
+    # What `complete` leaves: the variants frozen in archive/ [I1].
+    freeze(session, store, media_id, created_at + COMPLETED_AFTER)
     return media_id
 
 
@@ -170,6 +173,17 @@ def _approve(
     return decided.public_key
 
 
+def _drop_archive(store: FakeMediaStore, media_id: uuid.UUID) -> None:
+    """Lose ``archive/{id}/``, as a failed copy or a bucket fault would.
+
+    :param store: The fake bucket
+    :param media_id: The photo
+    :return: None
+    """
+    for key in [k for k in store.objects if k.startswith(f"archive/{media_id}/")]:
+        del store.objects[key]
+
+
 def _drop_staged(store: FakeMediaStore, media_id: uuid.UUID) -> None:
     """Expire ``staged/{id}/`` as the bucket's 30-day lifecycle would.
 
@@ -199,7 +213,7 @@ def test_approve_copies_to_public_and_archive_and_sets_key(
     assert row.public_key == key
     assert len(key) == 32
     assert int(key, 16) >= 0
-    assert row.archived_at == NOW
+    assert row.archived_at == FROZEN
     assert row.decided_at == NOW
     # Slot 0 holds an approved photo already; the newcomer takes slot 1.
     assert _row(owner_session, taken).position == 0
@@ -261,11 +275,11 @@ def test_reapproval_after_alt_edit_copies_from_archive(
     assert (row.status, row.public_key) == ("approved", second)
     assert second != first
     # The archive is written once, at the first approval.
-    assert row.archived_at == NOW
+    assert row.archived_at == FROZEN
     assert all(f"public/{second}/{w}.webp" in store.objects for w in WIDTHS)
 
 
-def test_first_approval_without_staged_variants_changes_nothing(
+def test_an_approval_whose_copy_fails_changes_nothing(
     owner_session: Session,
     restricted_session: Session,
     store: FakeMediaStore,
@@ -274,7 +288,7 @@ def test_first_approval_without_staged_variants_changes_nothing(
 ) -> None:
     """A copy that fails leaves the photo waiting and its key unrecorded."""
     media_id = _pending(owner_session, store, tutor.lens.owner_id)
-    _drop_staged(store, media_id)
+    _drop_archive(store, media_id)
 
     with pytest.raises(TransientError):
         media.decide(
@@ -285,7 +299,7 @@ def test_first_approval_without_staged_variants_changes_nothing(
     assert (row.status, row.public_key, row.archived_at) == (
         "pending_review",
         None,
-        None,
+        FROZEN,
     )
     assert _events(owner_session) == []
     # The key that never reached the row is enqueued for deletion, so a
@@ -832,10 +846,7 @@ def test_admin_preview_carries_no_account_fields(
         owner_session, served, teacher.owner_id, batch_id=teacher.batch_id
     )
     owner_session.execute(
-        sa.text(
-            "UPDATE listing_media SET widths = :ws, "
-            "variant_etags = variant_etags[1:2] WHERE id = :m"
-        ),
+        sa.text("UPDATE listing_media SET widths = :ws WHERE id = :m"),
         {"ws": [320, 960], "m": media_id},
     )
     # The teacher's private label, which nothing administrative may read.
@@ -855,7 +866,7 @@ def test_admin_preview_carries_no_account_fields(
     assert [p["width"] for p in body["previews"]] == [320, 960]
     for preview in body["previews"]:
         assert preview["url"].endswith(
-            f"staged/{media_id}/{preview['width']}.webp?X-Amz-Expires=300"
+            f"archive/{media_id}/{preview['width']}.webp?X-Amz-Expires=300"
         )
     assert (body["alt_en"], body["alt_bn"]) == ("A classroom", "একটি শ্রেণিকক্ষ")
     assert (body["public_name"], body["public_title"]) == ("Rahim Sir", "HSC Physics")
@@ -1317,12 +1328,8 @@ def test_approval_waits_until_the_upload_window_closes(
     assert caught.value.code == "MEDIA_UPLOAD_WINDOW_OPEN"
     assert caught.value.message_key == "hub.media.not_uploaded"
     row = _row(owner_session, media_id)
-    assert (row.status, row.public_key, row.archived_at) == (
-        "pending_review",
-        None,
-        None,
-    )
-    assert not any(k.startswith(("public/", "archive/")) for k in store.objects)
+    assert (row.status, row.public_key) == ("pending_review", None)
+    assert not any(k.startswith("public/") for k in store.objects)
     assert tasks(owner_session) == []
     assert _events(owner_session) == []
 
@@ -1391,6 +1398,8 @@ def test_a_rejection_inside_the_window_deletes_what_lands_later(
         (f"archive/{media_id}/", at),
         (f"quarantine/{media_id}", closes),
         (f"staged/{media_id}/", closes),
+        (f"quarantine/{media_id}", NOW + LATE_UPLOAD_BACKSTOP),
+        (f"staged/{media_id}/", NOW + LATE_UPLOAD_BACKSTOP),
     }
 
 
@@ -1641,90 +1650,62 @@ def test_a_restore_whose_commit_fails_deletes_its_public_copy(
 
 
 # ---------------------------------------------------------------------------
-# [I1] The first approval copies exactly what was completed.
+# [I1] Frozen at completion: preview and approval read archive/ only.
 # ---------------------------------------------------------------------------
 
 
-def test_matching_pins_approve_and_the_public_copy_is_the_completed_bytes(
+def test_a_repost_after_complete_changes_neither_preview_nor_publication(
+    api_client: TestClient,
     owner_session: Session,
     restricted_session: Session,
-    store: FakeMediaStore,
-    tutor: Owner,
-    admin: PlatformAdminLens,
+    served: FakeMediaStore,
+    people: People,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    media_id = _pending(owner_session, store, tutor.lens.owner_id)
-    staged = {w: store.objects[f"staged/{media_id}/{w}.webp"] for w in WIDTHS}
+    """The form posted again after completion re-stages staged/; nothing reads it.
 
-    key = _approve(restricted_session, store, admin, media_id)
-
+    The administrator's previews are signed for ``archive/{id}/``, and the
+    approval publishes the frozen bytes, whatever ``staged/`` now holds.
+    """
+    teacher = people.teacher
+    media_id = _pending(owner_session, served, teacher.owner_id)
+    frozen = {w: served.objects[f"archive/{media_id}/{w}.webp"] for w in WIDTHS}
     for width in WIDTHS:
-        assert store.objects[f"public/{key}/{width}.webp"] == staged[width]
-        assert store.objects[f"archive/{media_id}/{width}.webp"] == staged[width]
+        served.restage(media_id, width, b"RIFF posted again after completion")
+    headers = _admin(owner_session, people, monkeypatch)
+
+    detail = api_client.get(f"/v1/admin/hub/media/{media_id}", headers=headers)
+    approved = api_client.post(
+        f"/v1/admin/hub/media/{media_id}/decision",
+        json={"decision": "approve"},
+        headers=headers,
+    )
+
+    assert detail.status_code == 200, detail.text
+    for preview in detail.json()["previews"]:
+        assert f"/archive/{media_id}/" in preview["url"]
+        assert "staged/" not in preview["url"]
+    assert approved.status_code == 200, approved.text
+    key = _row(owner_session, media_id).public_key
+    for width in WIDTHS:
+        assert served.objects[f"public/{key}/{width}.webp"] == frozen[width]
 
 
-@pytest.mark.parametrize("width", WIDTHS)
-def test_a_variant_staged_again_after_completion_is_never_published(
+def test_an_unfrozen_photo_is_never_published(
     owner_session: Session,
     restricted_session: Session,
     store: FakeMediaStore,
     tutor: Owner,
     admin: PlatformAdminLens,
-    width: int,
 ) -> None:
-    """A second post to the same form re-staged one variant: refused, removed.
+    """No freeze recorded: nothing says what was completed. Rejected, fail closed.
 
-    The approval is refused as unreadable, the photo is rejected with that
-    code, nothing is public, every object it could have -- including any
-    archive copy made before the changed variant was reached -- is
-    enqueued for deletion, and the rejection is a moderation event.
+    Decided under the same locks as any decision, so nothing else can have
+    won in between; every object the photo could have is enqueued.
     """
     media_id = _pending(owner_session, store, tutor.lens.owner_id)
-    store.restage(media_id, width, b"RIFF not what was reviewed")
-
-    with pytest.raises(ValidationError) as refused:
-        media.decide(
-            restricted_session,
-            store,
-            admin,
-            media_id,
-            approve=True,
-            code=None,
-            now=NOW,
-        )
-
-    assert refused.value.code == "MEDIA_UNREADABLE"
-    row = _row(owner_session, media_id)
-    assert (row.status, row.public_key, row.rejection_code, row.decided_at) == (
-        "rejected",
-        None,
-        "unreadable",
-        NOW,
-    )
-    assert not any(k.startswith("public/") for k in store.objects)
-    left = set(tasks(owner_session))
-    assert {
-        f"quarantine/{media_id}",
-        f"staged/{media_id}/",
-        f"archive/{media_id}/",
-    } <= left
-    (public,) = [p for p in left if p.startswith("public/")]
-    assert len(public) == len("public/") + 32 + 1
-    assert _events(owner_session) == [
-        ("media_rejected", "media", "unreadable", admin.account_id)
-    ]
-
-
-def test_an_unarchived_photo_without_pins_is_never_published(
-    owner_session: Session,
-    restricted_session: Session,
-    store: FakeMediaStore,
-    tutor: Owner,
-    admin: PlatformAdminLens,
-) -> None:
-    """Nothing recorded what was completed, so nothing can show it unchanged."""
-    media_id = _pending(owner_session, store, tutor.lens.owner_id)
     owner_session.execute(
-        sa.text("UPDATE listing_media SET variant_etags = NULL WHERE id = :m"),
+        sa.text("UPDATE listing_media SET archived_at = NULL WHERE id = :m"),
         {"m": media_id},
     )
     owner_session.commit()
@@ -1741,5 +1722,125 @@ def test_an_unarchived_photo_without_pins_is_never_published(
         )
 
     assert refused.value.code == "MEDIA_UNREADABLE"
-    assert _row(owner_session, media_id).status == "rejected"
-    assert not any(k.startswith(("public/", "archive/")) for k in store.objects)
+    row = _row(owner_session, media_id)
+    assert (row.status, row.public_key, row.rejection_code) == (
+        "rejected",
+        None,
+        "unreadable",
+    )
+    assert not any(k.startswith("public/") for k in store.objects)
+    assert {
+        f"quarantine/{media_id}",
+        f"staged/{media_id}/",
+        f"archive/{media_id}/",
+    } <= set(tasks(owner_session))
+    assert _events(owner_session) == [
+        ("media_rejected", "media", "unreadable", admin.account_id)
+    ]
+
+
+def test_concurrent_approve_and_reject_leave_one_consistent_outcome(
+    restricted_engine: Engine,
+    owner_session: Session,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+) -> None:
+    """Two administrators decide one photo at once; the owner lock orders them.
+
+    Whichever commits first, the photo ends rejected, every object it could
+    have is enqueued, and nothing published survives: an approval that won
+    is taken down by the rejection behind it, and a rejection that won
+    leaves the approval nothing to decide.
+    """
+    store = FakeMediaStore(copy_delay=0.3)
+    media_id = _pending(owner_session, store, tutor.lens.owner_id)
+    factory = sessionmaker(bind=restricted_engine, expire_on_commit=False)
+    barrier = threading.Barrier(2)
+    outcomes: dict[str, object] = {}
+    lock = threading.Lock()
+
+    def attempt(approve: bool) -> None:
+        session = factory()
+        try:
+            barrier.wait(timeout=30)
+            media.decide(
+                session,
+                store,
+                admin,
+                media_id,
+                approve=approve,
+                code=None if approve else "other",
+                now=NOW,
+            )
+            result: object = "ok"
+        except (ConflictError, AuthorizationError) as error:
+            result = error.code
+        except BaseException as error:  # noqa: BLE001  recorded, then asserted
+            result = error
+        finally:
+            session.close()
+        with lock:
+            outcomes["approve" if approve else "reject"] = result
+
+    threads = [threading.Thread(target=attempt, args=(a,)) for a in (True, False)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=60)
+
+    assert outcomes["reject"] == "ok"
+    assert outcomes["approve"] in ("ok", "MEDIA_ALREADY_DECIDED")
+    row = _row(owner_session, media_id)
+    assert (row.status, row.public_key) == ("rejected", None)
+    left = set(tasks(owner_session))
+    assert {
+        f"quarantine/{media_id}",
+        f"staged/{media_id}/",
+        f"archive/{media_id}/",
+    } <= left
+    # Any public copy the approval made is enqueued for deletion.
+    for key in {k.split("/")[1] for k in store.objects if k.startswith("public/")}:
+        assert f"public/{key}/" in left
+
+
+def test_end_to_end_a_repost_after_complete_reaches_neither_admin_nor_public(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+) -> None:
+    """Through the real upload, completion, preview and approval.
+
+    Whatever the form delivers after ``complete``, the administrator sees
+    and the approval publishes the variants frozen at completion.
+    """
+    ticket = uploads.init_upload(
+        restricted_session,
+        store,
+        tutor.lens,
+        batch_id=None,
+        content_type="image/jpeg",
+        byte_size=2048,
+        now=SIGNED,
+    )
+    store.put_result(ticket.media_id, OK)
+    completed = {w: store.objects[f"staged/{ticket.media_id}/{w}.webp"] for w in WIDTHS}
+    uploads.complete(
+        restricted_session,
+        store,
+        tutor.lens,
+        ticket.media_id,
+        alt_en="A classroom",
+        alt_bn="একটি শ্রেণিকক্ষ",
+        now=FROZEN,
+    )
+    for width in WIDTHS:
+        store.restage(ticket.media_id, width, b"RIFF posted again")
+
+    previewed = media.detail(restricted_session, store, ticket.media_id)
+    key = _approve(restricted_session, store, admin, ticket.media_id)
+
+    assert all(f"archive/{ticket.media_id}/" in p.url for p in previewed.previews)
+    for width in WIDTHS:
+        assert store.objects[f"public/{key}/{width}.webp"] == completed[width]

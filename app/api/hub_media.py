@@ -43,7 +43,7 @@ from app.db.models import ListingMedia, OwnerListing
 from app.errors import TransientError
 from app.hub.listings.shared import refuse_suspended
 from app.hub.media import library, uploads
-from app.hub.media.storage import MediaStore, S3MediaStore, staged_prefix
+from app.hub.media.storage import MediaStore, S3MediaStore, archive_prefix
 from app.hub.public.settings import site_url
 from app.schemas.errors import ErrorEnvelope
 from app.schemas.media import (
@@ -134,7 +134,8 @@ def _thumb_url(store: MediaStore, media: ListingMedia) -> str | None:
         return f"{site_url()}/m/{media.public_key}/320.webp"
     if media.status == "pending_review":
         try:
-            return store.presign_get(f"{staged_prefix(media.id)}320.webp")
+            # The variants frozen at completion, never staged/ [I1].
+            return store.presign_get(f"{archive_prefix(media.id)}320.webp")
         except TransientError:
             log.warning("media preview unavailable", extra={"media_id": str(media.id)})
     return None

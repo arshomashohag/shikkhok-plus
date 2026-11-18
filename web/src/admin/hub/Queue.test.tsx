@@ -54,7 +54,7 @@ const mediaItem = (n: number, reason: string | null = null) => ({
 
 const preview = (id: string, w: number) => ({
   width: w,
-  url: `${BUCKET}/staged/${id}/${w}.webp?X-Amz-Expires=300&X-Amz-Signature=${id}${w}`,
+  url: `${BUCKET}/archive/${id}/${w}.webp?X-Amz-Expires=300&X-Amz-Signature=${id}${w}`,
 })
 
 const mediaDetail = (n: number, status = 'pending_review') => ({
