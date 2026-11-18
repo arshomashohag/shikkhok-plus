@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
+from collections.abc import Callable
 from typing import Final
 
 from sqlalchemy.orm import Session
@@ -117,7 +118,10 @@ def init_upload(
 
 
 def _reject_unreadable(
-    session: Session, media: ListingMedia, now: dt.datetime
+    session: Session,
+    media: ListingMedia,
+    now: dt.datetime,
+    spend: Callable[[], None] | None,
 ) -> ValidationError:
     """Reject an upload the sanitiser could not decode, and commit.
 
@@ -127,8 +131,11 @@ def _reject_unreadable(
     :param session: The session
     :param media: The locked photo
     :param now: The moment of the decision
+    :param spend: Called before the commit, to count the change; or None
     :return: The refusal for the caller to raise
     """
+    if spend is not None:
+        spend()
     media.status = "rejected"
     media.rejection_code = UNREADABLE
     objects.enqueue(session, [quarantine_key(media.id), staged_prefix(media.id)], now)
@@ -153,6 +160,7 @@ def complete(
     alt_en: str,
     alt_bn: str,
     now: dt.datetime,
+    spend: Callable[[], None] | None = None,
 ) -> ListingMedia:
     """Submit an uploaded photo for review once the sanitiser has read it.
 
@@ -166,6 +174,10 @@ def complete(
     :param alt_en: English alt text
     :param alt_bn: Bangla alt text
     :param now: The moment of the call, measured against the upload's start
+    :param spend: Called in the transaction of a call that changes the photo's
+        state (to review, or to rejected-unreadable), just before the commit,
+        so the count and the change stand or fall together. A refusal that
+        changes nothing, and a repeat, never call it.
     :return: The photo
     :raises ValidationError: An alt text is blank, too long or carries a
         phone number; or the upload is unreadable (``MEDIA_UNREADABLE``)
@@ -185,14 +197,16 @@ def complete(
     result = store.read_result(media.id)
     if result is None:
         if now - media.created_at > RESULT_DEADLINE:
-            raise _reject_unreadable(session, media, now)
+            raise _reject_unreadable(session, media, now, spend)
         session.rollback()
         raise ConflictError(
             code="MEDIA_NOT_UPLOADED", message_key="hub.media.not_uploaded"
         )
     if not result.ok:
-        raise _reject_unreadable(session, media, now)
+        raise _reject_unreadable(session, media, now, spend)
 
+    if spend is not None:
+        spend()
     media.status = "pending_review"
     media.width = result.width
     media.height = result.height

@@ -24406,7 +24406,7 @@
     },
     "/v1/hub/media/{media_id}/complete": {
       "post": {
-        "description": "Submit an uploaded photo for review once the file has been read.\n\nSafe to repeat: before the file has been processed the answer is 409\n``MEDIA_NOT_UPLOADED`` and nothing changes.\n\n:param media_id: The photo\n:param body: Both alt texts\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param store: The bucket\n:return: The photo",
+        "description": "Submit an uploaded photo for review once the file has been read.\n\nSafe to repeat, and safe to poll: before the file has been processed the\nanswer is 409 ``MEDIA_NOT_UPLOADED``, and a repeat on a photo already in\nreview changes nothing. Neither spends the daily edit allowance; only a\ncall that moves the photo to review or rejects it as unreadable does, in\nthat call's own transaction.\n\n:param media_id: The photo\n:param body: Both alt texts\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param store: The bucket\n:return: The photo",
         "operationId": "complete_upload_v1_hub_media__media_id__complete_post",
         "parameters": [
           {

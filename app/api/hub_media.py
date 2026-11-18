@@ -198,8 +198,11 @@ def complete_upload(
 ) -> MediaResponse:
     """Submit an uploaded photo for review once the file has been read.
 
-    Safe to repeat: before the file has been processed the answer is 409
-    ``MEDIA_NOT_UPLOADED`` and nothing changes.
+    Safe to repeat, and safe to poll: before the file has been processed the
+    answer is 409 ``MEDIA_NOT_UPLOADED``, and a repeat on a photo already in
+    review changes nothing. Neither spends the daily edit allowance; only a
+    call that moves the photo to review or rejects it as unreadable does, in
+    that call's own transaction.
 
     :param media_id: The photo
     :param body: Both alt texts
@@ -208,7 +211,7 @@ def complete_upload(
     :param store: The bucket
     :return: The photo
     """
-    _begin_write(session, lens)
+    _refuse_suspended_owner(session, lens)
     media = uploads.complete(
         session,
         store,
@@ -217,6 +220,9 @@ def complete_upload(
         alt_en=body.alt_en,
         alt_bn=body.alt_bn,
         now=dt.datetime.now(tz=dt.UTC),
+        spend=lambda: CeilingChecker(session).consume_hub_listing_in_transaction(
+            lens.owner_id
+        ),
     )
     return _response(store, media)
 

@@ -367,3 +367,61 @@ def test_media_response_has_no_private_fields() -> None:
         "thumb_url",
     }
     assert not {"owner_id", "account_id", "phone", "display_name"} & fields
+
+
+def _spent(session: Session, owner_id: uuid.UUID) -> int:
+    session.rollback()
+    return int(
+        session.execute(
+            sa.text(
+                "SELECT coalesce(sum(count), 0) FROM rate_limit_counter "
+                "WHERE scope_kind = 'hub_owner_day' AND scope_value = :o"
+            ),
+            {"o": str(owner_id)},
+        ).scalar_one()
+    )
+
+
+def test_polling_complete_spends_one_unit_on_success(
+    api_client: TestClient, owner_session: Session, store: FakeMediaStore
+) -> None:
+    """R10: three NOT_UPLOADED polls spend nothing; the success spends one."""
+    headers, owner_id, _ = _auth(owner_session)
+    ticket = api_client.post(
+        "/v1/hub/media/uploads",
+        json={"content_type": "image/png", "byte_size": 10},
+        headers=headers,
+    ).json()
+    url = f"/v1/hub/media/{ticket['media_id']}/complete"
+
+    for _ in range(3):
+        assert api_client.post(url, json=ALT, headers=headers).status_code == 409
+    assert _spent(owner_session, owner_id) == 0
+
+    store.put_result(uuid.UUID(ticket["media_id"]), OK)
+    assert api_client.post(url, json=ALT, headers=headers).status_code == 200
+    assert _spent(owner_session, owner_id) == 1
+
+    assert api_client.post(url, json=ALT, headers=headers).status_code == 200
+    assert _spent(owner_session, owner_id) == 1
+
+
+def test_unreadable_complete_spends_one_unit(
+    api_client: TestClient, owner_session: Session, store: FakeMediaStore
+) -> None:
+    headers, owner_id, _ = _auth(owner_session)
+    ticket = api_client.post(
+        "/v1/hub/media/uploads",
+        json={"content_type": "image/png", "byte_size": 10},
+        headers=headers,
+    ).json()
+    store.put_result(
+        uuid.UUID(ticket["media_id"]), {"ok": False, "reason": "unreadable"}
+    )
+
+    bad = api_client.post(
+        f"/v1/hub/media/{ticket['media_id']}/complete", json=ALT, headers=headers
+    )
+
+    assert bad.status_code == 400
+    assert _spent(owner_session, owner_id) == 1

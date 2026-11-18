@@ -1462,6 +1462,33 @@ class CeilingChecker:
         scope = _Scope(ScopeKind.HUB_OWNER_DAILY, HUB_LISTING_OWNER_DAILY, _DAY)
         self._consume([(scope, str(owner_id))], now)
 
+    def consume_hub_listing_in_transaction(
+        self, owner_id: uuid.UUID, now: dt.datetime | None = None
+    ) -> None:
+        """Count one listing edit, WITHOUT committing.
+
+        For a write that spends the allowance only when it changes state: the
+        count and the change commit together, and a breach raises so the
+        caller's transaction is rolled back with nothing counted.
+
+        :param owner_id: The owner editing
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: This would exceed today's allowance
+        """
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        scope = _Scope(ScopeKind.HUB_OWNER_DAILY, HUB_LISTING_OWNER_DAILY, _DAY)
+        count = self.session.execute(
+            _UPSERT,
+            {
+                "kind": scope.kind.value,
+                "value": str(owner_id),
+                "window": _window_start(moment, scope.window),
+            },
+        ).scalar_one()
+        if count > scope.limit:
+            raise CeilingBreach(scope.kind)
+
     def check_and_consume_hub_report(
         self, account_id: uuid.UUID, now: dt.datetime | None = None
     ) -> None:
