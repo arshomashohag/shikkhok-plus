@@ -23885,7 +23885,7 @@
     },
     "/v1/hub/listing/preview": {
       "get": {
-        "description": "Show the owner their own public page before it is public.\n\nBuilt from the owner's own rows by a separate, owner-scoped builder,\ninto the same registered page model and through the same template as\nthe public page, with a banner saying it is not public. Never cached:\nit is one owner's unpublished draft.\n\n:param lens: The owner's lens; the page is always this owner's\n:param session: The request-scoped session\n:param locale: ``en`` or ``bn``\n:return: The page",
+        "description": "Show the owner their own public page before it is public.\n\nBuilt from the owner's own rows by a separate, owner-scoped builder,\ninto the same registered page model and through the same template as\nthe public page, with a banner saying it is not public. Never cached:\nit is one owner's unpublished draft.\n\n:param lens: The owner's lens; the page is always this owner's\n:param session: The request-scoped session\n:param store: The photo bucket, which signs photos awaiting review\n:param locale: ``en`` or ``bn``\n:return: The page",
         "operationId": "preview_listing_v1_hub_listing_preview_get",
         "parameters": [
           {

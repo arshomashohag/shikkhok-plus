@@ -1,0 +1,21 @@
+{#- A page's photos: the owner's own on the owner page, a batch's on its
+    page. Relative /m/ URLs on a public page, which img-src 'self' covers;
+    the preview's are absolute (app/hub/public/images.py). The box is
+    reserved by width and height, so nothing moves as photos arrive. The
+    sizes match .gallery in hub.css: one column on a phone, three across
+    the 880-pixel page. -#}
+{% if view.images %}
+<h2>{{ m("photos") }}</h2>
+<ul class="gallery">
+{% for image in view.images %}
+<li class="photo">
+<img src="{{ image.src }}" srcset="{{ image.srcset }}" sizes="(min-width: 600px) 280px, calc(100vw - 32px)" width="{{ image.width }}" height="{{ image.height }}" alt="{{ image.alt }}" loading="lazy">
+{% if image.awaiting_review %}
+<p class="pending">{{ m("photo_awaiting_review") }}</p>
+{% else %}
+<p><a href="{{ report_photo(image) }}">{{ m("report_photo") }}</a></p>
+{% endif %}
+</li>
+{% endfor %}
+</ul>
+{% endif %}

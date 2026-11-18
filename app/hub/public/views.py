@@ -1,6 +1,6 @@
 """The view models public hub pages render, each registered with the gate.
 
-Every model here is filled only from the four public views, as the hub
+Every model here is filled only from the five public views, as the hub
 reader, by :mod:`app.hub.public.queries`. Registering each top-level model
 lets :func:`app.contract.privacy.public_field_leaks` walk it, nested models
 included, against the public forbidden set.
@@ -11,7 +11,8 @@ teachers named on a batch are ``teacher_names``.
 
 ``report_id`` is the id ``POST /v1/hub/reports`` expects for the target
 [R2]: the owner id on an owner card, the batch id on a batch card. Neither
-is an account, enrollment or student id.
+is an account, enrollment or student id. A photo's ``media_id`` is the same
+for a ``media`` report.
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ __all__ = [
     "CityAreas",
     "HubBatchCard",
     "HubBatchPage",
+    "HubImage",
     "HubOwnerCard",
     "HubOwnerPage",
     "HubSearchFilters",
@@ -138,6 +140,36 @@ class HubBatchCard(BaseModel):
 
 
 @register_view
+class HubImage(BaseModel):
+    """One approved photo, as an ``<img>`` renders it.
+
+    The URLs name the stored WebP variants, ``/m/{public_key}/{w}.webp``,
+    and only those the sanitiser wrote. :attr:`src` is the 960 variant, else
+    the largest; :attr:`width` and :attr:`height` are that variant's own
+    pixels, so the page reserves the photo's box before it arrives.
+
+    :ivar media_id: The photo's id, for the report link
+    :ivar src: The fallback URL
+    :ivar srcset: Every variant's URL with its pixel width
+    :ivar width: :attr:`src`'s width in pixels
+    :ivar height: :attr:`src`'s height in pixels
+    :ivar alt: The alt text in the page's locale, else the other locale's
+    :ivar awaiting_review: Set only in the owner's own preview, for a photo
+        moderation has not yet approved; a public page has none
+    """
+
+    model_config = _FROZEN
+
+    media_id: uuid.UUID
+    src: str
+    srcset: str
+    width: int
+    height: int
+    alt: str
+    awaiting_review: bool = False
+
+
+@register_view
 class HubOwnerPage(BaseModel):
     """An owner's public page, in one locale.
 
@@ -152,6 +184,8 @@ class HubOwnerPage(BaseModel):
     :ivar street_address: A centre's address; always None for a tutor
     :ivar public_contact_phone: The number the owner chose to publish
     :ivar batches: The owner's published batches
+    :ivar images: The owner's own approved photos, by position; never a
+        batch's, which are on that batch's page only
     """
 
     model_config = _FROZEN
@@ -164,6 +198,7 @@ class HubOwnerPage(BaseModel):
     street_address: str | None
     public_contact_phone: str | None
     batches: list[HubBatchCard]
+    images: list[HubImage]
 
 
 @register_view
@@ -177,6 +212,7 @@ class HubBatchPage(BaseModel):
     :ivar batch: The batch card
     :ivar description: The description
     :ivar syllabus: The syllabus
+    :ivar images: The batch's approved photos, by position
     """
 
     model_config = _FROZEN
@@ -185,6 +221,7 @@ class HubBatchPage(BaseModel):
     batch: HubBatchCard
     description: str | None
     syllabus: str | None
+    images: list[HubImage]
 
 
 class AreaOption(BaseModel):

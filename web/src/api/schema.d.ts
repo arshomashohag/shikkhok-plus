@@ -3082,6 +3082,7 @@ export interface paths {
      *
      *     :param lens: The owner's lens; the page is always this owner's
      *     :param session: The request-scoped session
+     *     :param store: The photo bucket, which signs photos awaiting review
      *     :param locale: ``en`` or ``bn``
      *     :return: The page
      */

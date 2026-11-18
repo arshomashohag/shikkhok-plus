@@ -49,6 +49,37 @@ def test_no_canary_on_any_cacheable_public_page(
     assert canary_leaks(bodies, world) == []
 
 
+def test_canary_alt_of_unapproved_photos_never_public(
+    owner_session: Session, api_client: TestClient
+) -> None:
+    """A pending, held or rejected photo is on no public page or the sitemap.
+
+    Each carries canary alt texts and its id is a canary; the approved
+    photo beside them is on its owner page, in that page's language, so a
+    walk that rendered no photos at all could not pass.
+
+    :param owner_session: A session able to arrange the seeded world
+    :param api_client: A client over the real application
+    :return: None
+    """
+    world = seed_canaries(owner_session)
+
+    bodies = walk_cacheable_routes(api_client, world, PUBLIC_CACHEABLE_ROUTES)
+
+    # Three photos, each two alt texts and its id in two spellings.
+    assert len(world.unapproved_photo_strings) == 12
+    assert "/hub/sitemap.xml" in bodies
+    leaked = [
+        (path, canary)
+        for path, canary in canary_leaks(bodies, world)
+        if canary in world.unapproved_photo_strings
+    ]
+    assert leaked == []
+    for locale, alt in (("en", world.approved_alt_en), ("bn", world.approved_alt_bn)):
+        owner_page = bodies[f"/hub/{locale}/t/{world.owner_slug}"]
+        assert f'alt="{alt}"' in owner_page
+
+
 def test_canary_probe_fires_on_planted_page(owner_session: Session) -> None:
     """A page echoing a seeded ``collection_number`` is caught.
 

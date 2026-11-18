@@ -4,11 +4,15 @@ The only code that reads the public views. Each function drops to the hub
 reader before its first statement, so a query here that named any other
 relation would fail on a missing grant rather than return a row; and each
 reads only ``hub_public_owner``, ``hub_public_batch``,
-``hub_public_teacher_name`` and ``hub_public_area``.
+``hub_public_teacher_name``, ``hub_public_area`` and ``hub_public_media``.
 
 The views already apply every visibility rule -- the owner published, the
-batch listing published, the batch active -- so nothing here repeats them
-and nothing here can loosen them.
+batch listing published, the batch active, a photo approved -- so nothing
+here repeats them and nothing here can loosen them.
+
+**Photos.** The owner page shows the owner's own photos only, those with
+no batch; a batch's photos are on that batch's page alone, which is why a
+hold on a batch photo invalidates only the batch page [Task 6].
 
 The fee crosses from the database as text and becomes a ``Money`` through
 the money module's own constructor, so no decimal is handled here.
@@ -16,6 +20,7 @@ the money module's own constructor, so no decimal is handled here.
 
 from __future__ import annotations
 
+import functools
 import math
 import re
 import uuid
@@ -26,6 +31,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.hub.public.db import as_hub_reader
+from app.hub.public.images import hub_image, image_alt, public_path
 from app.hub.public.messages import LOCALES, Locale, t
 from app.hub.public.normalise import query_terms
 from app.hub.public.settings import site_url
@@ -35,6 +41,7 @@ from app.hub.public.views import (
     CityAreas,
     HubBatchCard,
     HubBatchPage,
+    HubImage,
     HubOwnerCard,
     HubOwnerPage,
     HubSearchFilters,
@@ -107,6 +114,16 @@ _BATCH_SELECT: Final[str] = (
     "b.admissions::text AS admissions, b.fee::text AS fee, b.schedule, "
     "b.description_en, b.description_bn, b.syllabus_en, b.syllabus_bn "
     "FROM hub_public_batch b"
+)
+
+#: A gallery's approved photos, in the owner's order. ``:batch`` is NULL
+#: for the owner's own gallery, which ``IS NOT DISTINCT FROM`` matches to
+#: the owner-level rows only.
+_MEDIA: Final[str] = (
+    "SELECT media_id, public_key, width, height, widths, alt_en, alt_bn "
+    "FROM hub_public_media WHERE owner_slug = :owner "
+    "AND batch_slug IS NOT DISTINCT FROM CAST(:batch AS text) "
+    "ORDER BY position, media_id"
 )
 
 #: Every district, for the search form's district choice.
@@ -331,6 +348,33 @@ def _batch_card(
     )
 
 
+def _images(
+    session: Session, locale: Locale, owner_slug: str, batch_slug: str | None
+) -> list[HubImage]:
+    """Read one gallery's approved photos.
+
+    :param session: A session already reading as the hub reader
+    :param locale: The page's locale
+    :param owner_slug: The owner's slug
+    :param batch_slug: The batch's slug, or None for the owner's own photos
+    :return: The photos, by position
+    """
+    rows = session.execute(
+        sa.text(_MEDIA), {"owner": owner_slug, "batch": batch_slug}
+    ).all()
+    return [
+        hub_image(
+            media_id=row.media_id,
+            widths=row.widths,
+            width=row.width,
+            height=row.height,
+            alt=image_alt(row.alt_en, row.alt_bn, locale),
+            url=functools.partial(public_path, row.public_key),
+        )
+        for row in rows
+    ]
+
+
 def _clean(value: str | None) -> str | None:
     """Strip a filter value, treating blank as absent.
 
@@ -536,6 +580,7 @@ def owner_page(
         street_address=row.street_address,
         public_contact_phone=row.public_contact_phone,
         batches=[_batch_card(b, owner, names, locale) for b in batches],
+        images=_images(session, locale, owner_slug, None),
     )
 
 
@@ -567,6 +612,7 @@ def batch_page(
         batch=_batch_card(batch, owner, names, locale),
         description=_localised(batch, "description", locale),
         syllabus=_localised(batch, "syllabus", locale),
+        images=_images(session, locale, owner_slug, batch_slug),
     )
 
 

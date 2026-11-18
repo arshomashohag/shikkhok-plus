@@ -66,6 +66,13 @@ class CanaryWorld:
         and the centre, which no other owner's preview may show
     :ivar consented_name: The consented centre member's name, which a
         public page SHOULD show
+    :ivar approved_alt_en: The solo owner's approved photo's English alt
+        text, which the English owner page SHOULD show
+    :ivar approved_alt_bn: Its Bangla alt text, for the Bangla owner page
+    :ivar unapproved_photo_strings: The alt texts and ids of the solo
+        owner's pending, held and rejected photos; all are canaries
+    :ivar pending_photo_strings: The pending photo's share of them, which
+        the owner's own preview SHOULD show, marked as awaiting review
     """
 
     strings: frozenset[str]
@@ -83,6 +90,10 @@ class CanaryWorld:
     member_phone: str
     other_owner_strings: frozenset[str]
     consented_name: str
+    approved_alt_en: str
+    approved_alt_bn: str
+    unapproved_photo_strings: frozenset[str]
+    pending_photo_strings: frozenset[str]
 
 
 def _canary(label: str) -> str:
@@ -105,6 +116,10 @@ def _digits(width: int) -> str:
 
 #: The centre member who agreed to be named: a page SHOULD show this.
 CONSENTED_NAME = "Consented Canary Sir"
+
+#: The approved photo's alt texts: the owner page SHOULD show these.
+APPROVED_ALT_EN = "Canary approved classroom photo"
+APPROVED_ALT_BN = "ক্যানারি অনুমোদিত শ্রেণিকক্ষের ছবি"
 
 
 @dataclass(frozen=True)
@@ -137,6 +152,101 @@ class _Centre:
     member_name: str
     member_phone: str
     strings: frozenset[str]
+
+
+@dataclass(frozen=True)
+class _Photos:
+    """The solo owner's seeded photos.
+
+    :ivar unapproved: Every unapproved photo's alt texts and id
+    :ivar pending: The pending photo's alt texts and id
+    """
+
+    unapproved: frozenset[str]
+    pending: frozenset[str]
+
+
+def _photo(
+    session: Session,
+    owner_id: uuid.UUID,
+    *,
+    status: str,
+    alt_en: str,
+    alt_bn: str,
+    batch_id: uuid.UUID | None = None,
+) -> uuid.UUID:
+    """Insert one photo with its variants and dimensions recorded.
+
+    :param session: An arranging session
+    :param owner_id: The owner
+    :param status: Its status; only ``approved`` gets a public key
+    :param alt_en: Its English alt text
+    :param alt_bn: Its Bangla alt text
+    :param batch_id: Its batch, or None for the owner's own gallery
+    :return: The media id
+    """
+    media_id = uuid.uuid4()
+    session.execute(
+        sa.text(
+            "INSERT INTO listing_media (id, owner_id, batch_id, status, "
+            "content_type, byte_size, public_key, width, height, widths, "
+            "alt_en, alt_bn) VALUES (:id, :o, :b, CAST(:st AS media_status), "
+            "'image/jpeg', 2048, :key, 1200, 800, '{320,960}', :en, :bn)"
+        ),
+        {
+            "id": media_id,
+            "o": owner_id,
+            "b": batch_id,
+            "st": status,
+            "key": uuid.uuid4().hex if status == "approved" else None,
+            "en": alt_en,
+            "bn": alt_bn,
+        },
+    )
+    return media_id
+
+
+def _seed_photos(session: Session, owner_id: uuid.UUID, batch_id: uuid.UUID) -> _Photos:
+    """Seed one approved photo and three that must never be public.
+
+    The approved photo's alt texts are public. A pending and a held photo
+    sit in the owner's own gallery and a rejected one in the batch's, each
+    with canary alt texts: only the status keeps them off the owner page
+    and the batch page, which the view must therefore be checking.
+
+    :param session: An arranging session
+    :param owner_id: The solo owner
+    :param batch_id: The solo owner's published batch
+    :return: The canaries the unapproved photos carry
+    """
+    _photo(
+        session,
+        owner_id,
+        status="approved",
+        alt_en=APPROVED_ALT_EN,
+        alt_bn=APPROVED_ALT_BN,
+    )
+    strings: dict[str, frozenset[str]] = {}
+    for status, batch in (
+        ("pending_review", None),
+        ("held", None),
+        ("rejected", batch_id),
+    ):
+        alt_en, alt_bn = _canary(f"{status}-alt-en"), _canary(f"{status}-alt-bn")
+        media_id = _photo(
+            session,
+            owner_id,
+            status=status,
+            alt_en=alt_en,
+            alt_bn=alt_bn,
+            batch_id=batch,
+        )
+        strings[status] = frozenset({alt_en, alt_bn, str(media_id), media_id.hex})
+    session.commit()
+    return _Photos(
+        unapproved=frozenset().union(*strings.values()),
+        pending=strings["pending_review"],
+    )
 
 
 def _seed_draft(session: Session, now: dt.datetime) -> _Draft:
@@ -366,6 +476,7 @@ def seed_canaries(session: Session) -> CanaryWorld:
     )
     session.commit()
 
+    photos = _seed_photos(session, owner.id, batch.id)
     draft = _seed_draft(session, now)
     centre = _seed_centre(session, now)
 
@@ -381,6 +492,7 @@ def seed_canaries(session: Session) -> CanaryWorld:
                 batch_name,
                 str(enrollment.id),
                 enrollment.id.hex,
+                *photos.unapproved,
                 *draft.strings,
                 *centre.strings,
             }
@@ -399,6 +511,10 @@ def seed_canaries(session: Session) -> CanaryWorld:
         member_phone=centre.member_phone,
         other_owner_strings=frozenset({*draft.strings, *centre.strings}),
         consented_name=CONSENTED_NAME,
+        approved_alt_en=APPROVED_ALT_EN,
+        approved_alt_bn=APPROVED_ALT_BN,
+        unapproved_photo_strings=photos.unapproved,
+        pending_photo_strings=photos.pending,
     )
 
 

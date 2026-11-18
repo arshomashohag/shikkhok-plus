@@ -111,8 +111,15 @@ MESSAGES: Final[dict[str, dict[Locale, str]]] = {
         "en": "All batches of {name}",
         "bn": "{name}-এর সব ব্যাচ",
     },
+    # Photos.
+    "photos": {"en": "Photos", "bn": "ছবি"},
+    "photo_awaiting_review": {
+        "en": "Awaiting review",
+        "bn": "পর্যালোচনার অপেক্ষায়",
+    },
     # Reporting, preview, and the two fixed pages.
     "report_page": {"en": "Report this page", "bn": "এই পাতাটি রিপোর্ট করুন"},
+    "report_photo": {"en": "Report this photo", "bn": "এই ছবিটি রিপোর্ট করুন"},
     "preview_banner": {
         "en": "Preview — not public yet",
         "bn": "প্রিভিউ — এখনও প্রকাশিত নয়",

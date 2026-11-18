@@ -43,6 +43,7 @@ from app.hub.public.views import (
     CityAreas,
     HubBatchCard,
     HubBatchPage,
+    HubImage,
     HubOwnerCard,
     HubOwnerPage,
     HubSearchPage,
@@ -228,14 +229,32 @@ def _links(path: str, locale: Locale) -> tuple[str, tuple[tuple[str, str], ...]]
 
 
 def _report_href(kind: str, report_id: object) -> str:
-    """Build the report form's URL for one listing.
+    """Build the report form's URL for one listing or photo.
 
-    :param kind: ``owner_listing`` or ``batch_listing``
+    :param kind: ``owner_listing``, ``batch_listing`` or ``media``
     :param report_id: The id ``POST /v1/hub/reports`` expects [R2]
     :return: The URL on the web app
     """
     query = urlencode({"kind": kind, "id": str(report_id)})
     return f"{web_app_url()}/ui/hub-report?{query}"
+
+
+def _ld_image(images: Sequence[HubImage]) -> str | None:
+    """Name a page's first approved photo for its structured data.
+
+    Its ``src`` -- the 960 variant, else the largest -- on the site's
+    origin: a public page names it relative to the site, and the preview
+    already names it there. A photo awaiting review, which only the preview
+    shows, is never named.
+
+    :param images: The page's photos, in order
+    :return: The absolute URL, or None when there is no approved photo
+    """
+    for image in images:
+        if not image.awaiting_review:
+            src = image.src
+            return site_url() + src if src.startswith("/") else src
+    return None
 
 
 def _owner_ld(view: HubOwnerPage, url: str, locale: Locale) -> dict[str, Any]:
@@ -254,6 +273,9 @@ def _owner_ld(view: HubOwnerPage, url: str, locale: Locale) -> dict[str, Any]:
     }
     if view.headline:
         data["description"] = view.headline
+    image = _ld_image(view.images)
+    if image:
+        data["image"] = image
     if view.public_contact_phone:
         data["telephone"] = view.public_contact_phone
     area = _area(view.owner, locale)
@@ -322,6 +344,9 @@ def _meta(view: BaseModel, locale: Locale, *, preview: bool) -> _Meta:
         }
         if view.description:
             course["description"] = view.description
+        image = _ld_image(view.images)
+        if image:
+            course["image"] = image
         json_ld = _json_ld(course)
         report = _report_href("batch_listing", batch.report_id)
         noindex = preview
@@ -414,6 +439,14 @@ def _helpers(locale: Locale) -> dict[str, Any]:
         """
         return sorted(options, key=lambda item: area_name(_option_of(item)))
 
+    def report_photo(image: HubImage) -> str:
+        """Build the report form's URL for one photo.
+
+        :param image: The photo
+        :return: The URL, ``kind=media`` with the photo's id
+        """
+        return _report_href("media", image.media_id)
+
     def title(batch: HubBatchCard) -> str:
         """Name a batch by its public title, never by ``batch.name``.
 
@@ -430,6 +463,7 @@ def _helpers(locale: Locale) -> dict[str, Any]:
         "area": area,
         "area_name": area_name,
         "by_name": by_name,
+        "report_photo": report_photo,
         "title": title,
     }
 
