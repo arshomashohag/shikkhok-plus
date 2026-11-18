@@ -409,7 +409,7 @@ describe('photos sections', () => {
     expect(await screen.findByText('1 of 12 photos')).toBeInTheDocument()
     expect(screen.queryByLabelText('Add a photo')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Move photo 1 down' })).not.toBeInTheDocument()
-    // The server never refuses removing a photo: its public link outlives a suspension.
+    // A suspension does not block a delete: the photo's public link outlives it.
     expect(screen.getByRole('button', { name: 'Delete photo 1' })).toBeInTheDocument()
   })
 })

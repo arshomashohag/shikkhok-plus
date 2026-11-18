@@ -386,7 +386,7 @@ class HubPhotosRouteTest {
 
     @Test
     fun `a read-only gallery still deletes a photo, through the route`() {
-        // The server never refuses a delete for a suspension: a suspended
+        // The server does not refuse a delete for a suspension: a suspended
         // listing's photo keeps its public link until its owner removes it.
         gallery = "[${photo(PHOTO_A, 1, batchId = BATCH)}]"
         host(Destination.HubPhotos.of(BATCH, readOnly = true))

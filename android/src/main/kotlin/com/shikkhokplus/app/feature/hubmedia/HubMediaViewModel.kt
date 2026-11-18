@@ -80,7 +80,8 @@ sealed interface PhotoUpload {
  * @property batchId The batch whose gallery this is; null for the owner's own
  * @property readOnly Whether the listing is suspended, so nothing can change
  *   but a delete: a suspended listing's photo keeps its public link until
- *   its owner removes it, and the server never refuses that
+ *   its owner removes it, and the server does not refuse a delete for a
+ *   suspension (only the daily edit allowance can)
  * @property photos The server's list, or null until it has been read
  * @property loadFailure Why the list could not be read, or null
  * @property altEn The English alt text as typed
@@ -405,7 +406,8 @@ class HubMediaViewModel(
 
     /**
      * Ask to delete a photo; nothing is deleted until [confirmDelete].
-     * Allowed in a read-only gallery too: removing a photo is never refused.
+     * Allowed in a read-only gallery too: a suspension does not block a
+     * delete, though the server's daily edit allowance can.
      *
      * @param photo The photo
      */

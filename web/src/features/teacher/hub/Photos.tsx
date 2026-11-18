@@ -23,8 +23,9 @@
  * photos; the server keeps the rest after them.
  *
  * `readOnly` (a suspended listing) hides adding and reordering but keeps
- * delete: the server never refuses removing a photo, and a suspended
- * listing's approved photo keeps its public link until its owner removes it.
+ * delete: the server does not refuse a delete for a suspension (only the
+ * daily edit allowance can), and a suspended listing's approved photo keeps
+ * its public link until its owner removes it.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {

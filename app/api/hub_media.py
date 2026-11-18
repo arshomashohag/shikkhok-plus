@@ -17,6 +17,11 @@ leaves an approved photo's ``/m/`` URL live, so its owner must still be
 able to take it down. It still consumes the allowance. Starting an
 upload consumes the daily *upload* allowance instead, inside the service,
 so it is counted once. Reading the library is never refused.
+
+A delete can therefore still be refused by the daily allowance: a
+takedown the owner cannot make today waits for tomorrow, and an
+administrator's rejection reaches the photo meanwhile. The allowance is
+kept on deletes because the plan has every media write consume it.
 """
 
 from __future__ import annotations
@@ -320,7 +325,8 @@ def delete_photo(
     :param session: The request-scoped session
     :return: An empty 204
     """
-    # No suspension check [I2]: taking a photo down is always allowed.
+    # No suspension check [I2]: a suspension never blocks a takedown. The
+    # daily listing allowance still applies, as to every media write.
     CeilingChecker(session).check_and_consume_hub_listing(lens.owner_id)
     library.withdraw(session, lens, media_id, now=dt.datetime.now(tz=dt.UTC))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
