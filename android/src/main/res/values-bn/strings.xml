@@ -1884,6 +1884,12 @@
     <string name="hub_batch_flags_required">এই তালিকা সংরক্ষণের আগে ফি এবং সময়সূচি জনসাধারণের জন্য দেখানো হবে কি না জানান।</string>
     <string name="hub_write_ceiling">আজ আপনি তালিকায় অনেকবার পরিবর্তন করেছেন। কাল আবার চেষ্টা করুন।</string>
     <string name="hub_review_off">রিভিউ এখন পাওয়া যাচ্ছে না।</string>
+    <string name="hub_review_ceiling">আজ আপনি অনেকবার রিভিউ পরিবর্তন করেছেন। কাল আবার চেষ্টা করুন।</string>
+    <string name="hub_review_contains_contact">আপনার রিভিউ থেকে ফোন নম্বর ও ওয়েব ঠিকানা সরিয়ে দিন।</string>
+    <string name="hub_review_edit_closed">এই রিভিউ আর পরিবর্তন করা যাবে না।</string>
+    <string name="hub_review_needs_attendance">আপনার সন্তান 4টি ক্লাসে উপস্থিত থাকার পর আপনি এই ব্যাচের রিভিউ দিতে পারবেন।</string>
+    <string name="hub_review_not_yet_eligible">আপনার সন্তান 30 দিন ভর্তি থাকার পর আপনি এই ব্যাচের রিভিউ দিতে পারবেন।</string>
+    <string name="hub_review_window_closed">সন্তান ব্যাচ ছাড়ার 180 দিন পর আর রিভিউ দেওয়া যায় না।</string>
     <string name="hub_report_target_not_found">এই তালিকাটি আর রিপোর্ট করা যাবে না।</string>
     <string name="hub_report_already_filed">আপনি এটি আগেই রিপোর্ট করেছেন।</string>
     <string name="hub_report_ceiling">আজ আপনি অনেকগুলো রিপোর্ট পাঠিয়েছেন। কাল আবার চেষ্টা করুন।</string>
