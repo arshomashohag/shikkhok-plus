@@ -506,6 +506,12 @@ def test_restore_from_hold_uses_fresh_key(
     # The drain deletes the old public copy, as it would in production.
     for key in [k for k in store.objects if k.startswith(f"public/{old}/")]:
         del store.objects[key]
+    # A direct approval of a held photo needs no open holding report: here
+    # the reporter deleted their account, and the report went with it.
+    owner_session.execute(
+        sa.text("DELETE FROM hub_report WHERE target_id = :m"), {"m": media_id}
+    )
+    owner_session.commit()
 
     new = _approve(restricted_session, store, admin, media_id, LATER)
 
@@ -1457,3 +1463,57 @@ def test_the_admin_route_rejects_an_approved_photo(
     assert rejected.status_code == 200, rejected.text
     assert rejected.json() == {"media_id": str(media_id), "status": "rejected"}
     assert f"public/{key}/" in tasks(owner_session)
+
+
+# ---------------------------------------------------------------------------
+# A held photo is approved only once no report holds it.
+# ---------------------------------------------------------------------------
+
+
+def test_approving_a_held_photo_waits_for_its_open_holding_report(
+    owner_session: Session,
+    restricted_session: Session,
+    store: FakeMediaStore,
+    tutor: Owner,
+    admin: PlatformAdminLens,
+) -> None:
+    """The direct approval checks what dismissing the report checks.
+
+    While a child-safety or personal-information report on the photo is
+    open, an approval would put back what the report took down without
+    anyone deciding the report; it is refused, and nothing changes. Once
+    the report is decided the photo is decided the usual way.
+    """
+    media_id, old = _published(owner_session, restricted_session, store, tutor, admin)
+    report_id = _report_on(owner_session, restricted_session, media_id, "child_safety")
+    before = _row(owner_session, media_id)
+    tasks_before = tasks(owner_session)
+
+    with pytest.raises(ConflictError) as caught:
+        media.decide(
+            restricted_session,
+            store,
+            admin,
+            media_id,
+            approve=True,
+            code=None,
+            now=LATER,
+        )
+
+    assert caught.value.code == "MEDIA_REPORT_OPEN"
+    assert caught.value.message_key == "hub.media.report_open"
+    assert _row(owner_session, media_id) == before
+    assert tasks(owner_session) == tasks_before
+    assert ("media_restored", "media", None, admin.account_id) not in _events(
+        owner_session
+    )
+
+    # Once the report is decided, the approval goes ahead. (A rejection
+    # never waits: test_rejecting_a_held_photo_leaves_nothing_public.)
+    owner_session.execute(
+        sa.text("UPDATE hub_report SET status = 'dismissed' WHERE id = :r"),
+        {"r": report_id},
+    )
+    owner_session.commit()
+    key = _approve(restricted_session, store, admin, media_id, LATER)
+    assert key != old

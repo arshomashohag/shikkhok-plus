@@ -124,6 +124,7 @@
     "hub.media.limit_reached",
     "hub.media.not_found",
     "hub.media.not_uploaded",
+    "hub.media.report_open",
     "hub.media.too_large",
     "hub.media.type_not_allowed",
     "hub.media.unreadable",

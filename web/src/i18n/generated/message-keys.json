@@ -140,6 +140,7 @@
   "hub.media.limit_reached": "hub_media_limit_reached",
   "hub.media.not_found": "hub_media_not_found",
   "hub.media.not_uploaded": "hub_media_not_uploaded",
+  "hub.media.report_open": "hub_media_report_open",
   "hub.media.too_large": "hub_media_too_large",
   "hub.media.type_not_allowed": "hub_media_type_not_allowed",
   "hub.media.unreadable": "hub_media_unreadable",

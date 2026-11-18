@@ -820,6 +820,7 @@
   "hub_media_limit_reached": "You have reached the photo limit. Remove a photo, or try again tomorrow.",
   "hub_media_not_found": "This photo is no longer available.",
   "hub_media_not_uploaded": "The photo is still being processed. Try again in a moment.",
+  "hub_media_report_open": "A report about this photo is still open. Decide the report first.",
   "hub_media_too_large": "This photo is too large. Choose one under 8 MB.",
   "hub_media_type_not_allowed": "Choose a JPEG, PNG or WebP photo.",
   "hub_media_unreadable": "This file could not be read as a photo. Choose another.",

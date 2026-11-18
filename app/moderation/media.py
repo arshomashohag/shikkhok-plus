@@ -336,6 +336,14 @@ def _window_open() -> ConflictError:
     )
 
 
+def _report_open() -> ConflictError:
+    """Build the refusal for approving a photo a report still holds.
+
+    :return: The error
+    """
+    return ConflictError(code="MEDIA_REPORT_OPEN", message_key="hub.media.report_open")
+
+
 def settled(media: ListingMedia, now: dt.datetime) -> bool:
     """Say whether nothing can write a photo's staged variants any more.
 
@@ -478,7 +486,9 @@ def decide(
         solo owner whose account has been deleted [R13]
     :raises ConflictError: An approval of a photo already approved, or any
         decision on one already rejected; or an approval while its upload
-        window is still open (``MEDIA_UPLOAD_WINDOW_OPEN``) [I1]
+        window is still open (``MEDIA_UPLOAD_WINDOW_OPEN``) [I1]; or of a
+        held photo an open child-safety or personal-information report
+        still holds (``MEDIA_REPORT_OPEN``)
     :raises TransientError: The bucket could not copy the variants; nothing
         changed
     """
@@ -511,6 +521,11 @@ def decide(
         if not settled(media, now):
             session.rollback()
             raise _window_open()
+        if media.status == "held" and _still_held(session, media.id, None):
+            # Dismissing the report is what restores a held photo; an
+            # approval would undo the hold without anyone deciding it.
+            session.rollback()
+            raise _report_open()
         event = "media_restored" if media.status == "held" else "media_approved"
         _publish(session, store, media, now)
     else:
@@ -607,27 +622,27 @@ def settle_report(
     )
 
 
-def _still_held(session: Session, media_id: uuid.UUID, report_id: uuid.UUID) -> bool:
-    """Say whether another open report keeps a photo held.
+def _still_held(
+    session: Session, media_id: uuid.UUID, report_id: uuid.UUID | None
+) -> bool:
+    """Say whether an open report keeps a photo held.
 
     :param session: The session
     :param media_id: The photo
-    :param report_id: The report being dismissed, left out
+    :param report_id: The report being dismissed, left out; or None to
+        consider every open report
     :return: True when an open child-safety or personal-information report
-        other than this one names the photo
+        (other than ``report_id``) names the photo
     """
-    other = session.scalar(
-        sa.select(HubReport.id)
-        .where(
-            HubReport.target_kind == "media",
-            HubReport.target_id == media_id,
-            HubReport.status == "open",
-            HubReport.reason.in_(sorted(HOLD_REASONS)),
-            HubReport.id != report_id,
-        )
-        .limit(1)
+    query = sa.select(HubReport.id).where(
+        HubReport.target_kind == "media",
+        HubReport.target_id == media_id,
+        HubReport.status == "open",
+        HubReport.reason.in_(sorted(HOLD_REASONS)),
     )
-    return other is not None
+    if report_id is not None:
+        query = query.where(HubReport.id != report_id)
+    return session.scalar(query.limit(1)) is not None
 
 
 def _titles(

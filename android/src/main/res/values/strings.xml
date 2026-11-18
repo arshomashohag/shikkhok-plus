@@ -1964,6 +1964,7 @@
     <string name="hub_media_not_found">This photo is no longer available.</string>
     <string name="hub_media_alt_invalid">Describe the photo in English and Bangla, up to 200 characters each.</string>
     <string name="hub_media_already_decided">This photo has already been decided.</string>
+    <string name="hub_media_report_open">A report about this photo is still open. Decide the report first.</string>
     <string name="hub_batch_inactive">This batch is retired, so its listing cannot be published.</string>
     <string name="hub_owner_not_published">Publish your own listing first, then publish this batch.</string>
     <string name="hub_feedback_not_asked">This question was not asked for this listing, so there is nothing to answer.</string>

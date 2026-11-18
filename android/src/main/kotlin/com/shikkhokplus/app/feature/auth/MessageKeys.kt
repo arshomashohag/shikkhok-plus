@@ -97,6 +97,7 @@ object MessageKeys {
         "hub.media.not_found" to R.string.hub_media_not_found,
         "hub.media.alt_invalid" to R.string.hub_media_alt_invalid,
         "hub.media.already_decided" to R.string.hub_media_already_decided,
+        "hub.media.report_open" to R.string.hub_media_report_open,
         // Client-side only: the bucket refused the presigned form. It answers
         // in XML, outside the error envelope, so the server never sends this.
         "hub.media.upload_failed" to R.string.hub_photo_upload_failed,
