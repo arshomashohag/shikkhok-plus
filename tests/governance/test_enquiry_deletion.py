@@ -1,0 +1,343 @@
+"""Join requests go totally with either party (Call 12; Review Focus 4).
+
+**A guardian's deletion forgets every request they sent**, and **a solo
+owner's deletion forgets every request they received**: the row, the owners'
+``hub_enquiry_received`` items and the guardian's ``hub_enquiry_answered``
+item, whoever they were addressed to. The ``owner`` row is retained, so its
+``ON DELETE CASCADE`` never fires; the solo owner's requests are collected
+explicitly, in the transaction that deletes the listing.
+
+**A coaching centre's requests outlive a manager**: they belong to the
+centre, and its other managers still answer them.
+
+The deletion runs as the application role, and the switch never gates it.
+Two accounts deleted at once, each holding a request of the other's, lock
+the requests in one statement in id order, so neither waits on the other in
+a cycle and neither needs the deadlock retry.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import threading
+import time
+import uuid
+from collections.abc import Callable
+
+import pytest
+import sqlalchemy as sa
+from fastapi.testclient import TestClient
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.authz.lenses import TeacherLens
+from app.governance.deletion import delete_account
+from app.hub.enquiries import owner, sending
+from tests.enquiries.support import EnquirableWorld, enquirable_owner, guardian
+
+NOW = dt.datetime(2026, 11, 19, 4, 0, tzinfo=dt.UTC)
+
+
+def _send(
+    session: Session, account: uuid.UUID, world: EnquirableWorld
+) -> sending.MyEnquiry:
+    """Send a request about the world's batch, sharing contact.
+
+    :param session: A restricted session
+    :param account: The sender
+    :param world: The owner asked
+    :return: The request as its sender sees it
+    """
+    return sending.send(
+        session,
+        account,
+        world.owner_slug,
+        student_name="Nadia Rahman",
+        class_level="class_8",
+        message="Wants Physics",
+        batch_id=world.batch_id,
+        share_contact=True,
+        now=NOW,
+    )
+
+
+def _phone(session: Session, account_id: uuid.UUID) -> str:
+    """Read an account's number.
+
+    :param session: An arranging session
+    :param account_id: The account
+    :return: Its phone number
+    """
+    return str(
+        session.execute(
+            sa.text("SELECT phone FROM account WHERE id = :a"), {"a": account_id}
+        ).scalar_one()
+    )
+
+
+def _traces(session: Session, enquiry_id: uuid.UUID) -> tuple[int, int]:
+    """Count what remains of a request: its row and its inbox items.
+
+    :param session: An arranging session
+    :param enquiry_id: The request
+    :return: ``(rows, notifications)``
+    """
+    session.rollback()
+    rows = session.execute(
+        sa.text("SELECT count(*) FROM listing_enquiry WHERE id = :e"),
+        {"e": enquiry_id},
+    ).scalar_one()
+    items = session.execute(
+        sa.text("SELECT count(*) FROM notification WHERE source_id = :e"),
+        {"e": enquiry_id},
+    ).scalar_one()
+    return int(rows), int(items)
+
+
+def _listings(session: Session, owner_id: uuid.UUID) -> int:
+    """Count an owner's listings.
+
+    :param session: An arranging session
+    :param owner_id: The owner
+    :return: 0 or 1
+    """
+    session.rollback()
+    return int(
+        session.execute(
+            sa.text("SELECT count(*) FROM owner_listing WHERE owner_id = :o"),
+            {"o": owner_id},
+        ).scalar_one()
+    )
+
+
+def test_guardian_deletion_removes_their_enquiries_and_owner_inbox_items(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    centre = enquirable_owner(owner_session, centre=True)
+    solo = enquirable_owner(owner_session)
+    caller = guardian(owner_session)
+    other = guardian(owner_session, phone="01812345678")
+    answered = _send(restricted_session, caller, centre)
+    owner.close(restricted_session, centre.lens, answered.id, "not_now", NOW)
+    pending = _send(restricted_session, caller, solo)
+    kept = _send(restricted_session, other, centre)
+
+    result = delete_account(restricted_session, _phone(owner_session, caller))
+
+    assert result.rows_deleted["listing_enquiry"] == 2
+    assert _traces(owner_session, answered.id) == (0, 0)
+    assert _traces(owner_session, pending.id) == (0, 0)
+    # Another guardian's request, and the managers' items about it, stay.
+    assert _traces(owner_session, kept.id) == (1, len(centre.manager_ids))
+    assert [e.id for e in owner.list_for(restricted_session, centre.lens)] == [kept.id]
+    assert owner.list_for(restricted_session, solo.lens) == []
+
+
+def test_solo_owner_deletion_removes_received_enquiries_and_guardian_inbox_items(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    solo = enquirable_owner(owner_session)
+    elsewhere = enquirable_owner(owner_session)
+    first = guardian(owner_session)
+    second = guardian(owner_session, phone="01812345678")
+    answered = _send(restricted_session, first, solo)
+    owner.close(restricted_session, solo.lens, answered.id, "not_now", NOW)
+    pending = _send(restricted_session, second, solo)
+    # The solo owner also asked another owner, as a guardian would.
+    asked = _send(restricted_session, solo.lens.account_id, elsewhere)
+    kept = _send(restricted_session, first, elsewhere)
+
+    result = delete_account(
+        restricted_session, _phone(owner_session, solo.lens.account_id)
+    )
+
+    assert result.rows_deleted["listing_enquiry"] == 3
+    assert result.rows_deleted["owner_listing"] == 1
+    for gone in (answered, pending, asked):
+        assert _traces(owner_session, gone.id) == (0, 0)
+    assert _traces(owner_session, kept.id) == (1, 1)
+    assert _listings(owner_session, solo.lens.owner_id) == 0
+    # The guardians see nothing of the deleted owner, not even a request
+    # with no owner name left on it.
+    assert [e.id for e in sending.mine(restricted_session, first)] == [kept.id]
+    assert sending.mine(restricted_session, second) == []
+    assert [e.id for e in owner.list_for(restricted_session, elsewhere.lens)] == [
+        kept.id
+    ]
+
+
+def test_centre_enquiries_survive_manager_deletion(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    centre = enquirable_owner(owner_session, centre=True)
+    caller = guardian(owner_session)
+    sent = _send(restricted_session, caller, centre)
+    leaving = centre.lens.account_id
+    (staying,) = [m for m in centre.manager_ids if m != leaving]
+
+    result = delete_account(restricted_session, _phone(owner_session, leaving))
+
+    assert result.rows_deleted["listing_enquiry"] == 0
+    # The leaving manager's own item went with their inbox; the other's stays.
+    assert _traces(owner_session, sent.id) == (1, 1)
+    remaining = owner_session.execute(
+        sa.text("SELECT account_id FROM notification WHERE source_id = :e"),
+        {"e": sent.id},
+    ).scalar_one()
+    assert remaining == staying
+    lens = TeacherLens(account_id=staying, owner_id=centre.lens.owner_id)
+    assert [e.id for e in owner.list_for(restricted_session, lens)] == [sent.id]
+    assert [e.id for e in sending.mine(restricted_session, caller)] == [sent.id]
+
+
+@pytest.mark.usefixtures("enquiries_off")
+@pytest.mark.parametrize("who", ["guardian", "solo_owner"])
+def test_deletion_works_with_switch_off(
+    owner_session: Session, restricted_session: Session, who: str
+) -> None:
+    """The switch never gates a deletion (Global Constraints)."""
+    solo = enquirable_owner(owner_session)
+    caller = guardian(owner_session)
+    sent = _send(restricted_session, caller, solo)
+    owner.close(restricted_session, solo.lens, sent.id, "not_now", NOW)
+    leaving = caller if who == "guardian" else solo.lens.account_id
+
+    result = delete_account(restricted_session, _phone(owner_session, leaving))
+
+    assert result.rows_deleted["listing_enquiry"] == 1
+    assert _traces(owner_session, sent.id) == (0, 0)
+
+
+@pytest.mark.parametrize("who", ["guardian", "solo_owner"])
+def test_external_deletion_path_also_forgets(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    outbound: list[tuple[str, str]],
+    who: str,
+) -> None:
+    """The ``/account-deletion`` route reaches the same deletion [BR3.1]."""
+    solo = enquirable_owner(owner_session)
+    caller = guardian(owner_session)
+    sent = _send(restricted_session, caller, solo)
+    owner.close(restricted_session, solo.lens, sent.id, "not_now", NOW)
+    phone = _phone(owner_session, caller if who == "guardian" else solo.lens.account_id)
+    owner_session.rollback()
+
+    asked = api_client.post("/account-deletion", json={"phone": phone})
+    assert asked.status_code == 200, asked.text
+    body = next(text for to, text in reversed(outbound) if to == phone)
+    code = next(part for part in body.split() if part.isdigit() and len(part) == 6)
+    deleted = api_client.post("/account-deletion", json={"phone": phone, "code": code})
+
+    assert deleted.status_code == 200, deleted.text
+    assert deleted.json()["status"] == "deleted"
+    assert _traces(owner_session, sent.id) == (0, 0)
+
+
+def _wait_for_waiters(session: Session, count: int) -> None:
+    """Block until ``count`` backends wait on a lock, or fail.
+
+    ``pg_locks`` rather than ``pg_stat_activity``, which hides other roles'
+    wait events.
+
+    :param session: Any session
+    :param count: How many lock waiters to wait for
+    :return: None
+    :raises AssertionError: Fewer waited within ten seconds
+    """
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        waiting = session.execute(
+            sa.text("SELECT count(DISTINCT pid) FROM pg_locks WHERE NOT granted")
+        ).scalar_one()
+        session.rollback()
+        if waiting >= count:
+            return
+        time.sleep(0.05)
+    raise AssertionError(f"fewer than {count} transactions waited on a lock")
+
+
+def _in_thread(
+    errors: list[BaseException], work: Callable[[], None]
+) -> threading.Thread:
+    """Start a thread that records any exception instead of losing it.
+
+    :param errors: Where an exception goes
+    :param work: A zero-argument callable
+    :return: The started thread
+    """
+
+    def run() -> None:
+        try:
+            work()
+        except BaseException as error:  # noqa: BLE001 -- asserted by the test
+            errors.append(error)
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    return thread
+
+
+def test_mutual_deletion_cannot_deadlock(
+    owner_session: Session,
+    restricted_session: Session,
+    restricted_engine: Engine,
+) -> None:
+    """H4 T10-a: two solo owners, each holding the other's request, leave at once.
+
+    Each deletion collects both requests: the one it sent and the one it
+    received. Were the two kinds locked by separate statements, each
+    deletion would lock its own sent request first and then wait on the
+    other's: a cycle, which PostgreSQL ends by failing one side with
+    ``40P01``. A third session holds the lower-id request, and the deletion
+    that SENT it starts first, so it waits holding nothing; the other then
+    starts. Sent-first locking would have the second take its own request
+    and wait on the held one, and on release the two would wait on each
+    other. Locked in one statement in id order, both queue on the same
+    first row: one finishes, and the other then finds nothing left to lock.
+    ``delete_account`` is called directly, outside the routes' retry, so a
+    deadlock would surface here as an error.
+    """
+    a = enquirable_owner(owner_session)
+    b = enquirable_owner(owner_session)
+    a_asked_b = _send(restricted_session, a.lens.account_id, b)
+    b_asked_a = _send(restricted_session, b.lens.account_id, a)
+    owner.close(restricted_session, a.lens, b_asked_a.id, "not_now", NOW)
+    # The sender of the held, lower-id request is deleted first.
+    first, second = (a, b) if a_asked_b.id < b_asked_a.id else (b, a)
+    phones = [_phone(owner_session, w.lens.account_id) for w in (first, second)]
+    owner_session.rollback()
+    factory = sessionmaker(bind=restricted_engine, expire_on_commit=False)
+    errors: list[BaseException] = []
+
+    def delete(phone: str) -> Callable[[], None]:
+        def work() -> None:
+            with factory() as session:
+                delete_account(session, phone)
+
+        return work
+
+    owner_session.execute(
+        sa.text("SELECT id FROM listing_enquiry WHERE id = :e FOR UPDATE"),
+        {"e": min(a_asked_b.id, b_asked_a.id)},
+    ).all()
+    with factory() as watcher:
+        threads = []
+        for waiters, phone in enumerate(phones, start=1):
+            threads.append(_in_thread(errors, delete(phone)))
+            _wait_for_waiters(watcher, waiters)
+    owner_session.commit()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    assert errors == []
+    for gone in (a_asked_b, b_asked_a):
+        assert _traces(owner_session, gone.id) == (0, 0)
+    assert (
+        owner_session.execute(
+            sa.text("SELECT count(*) FROM account WHERE id = ANY(:ids)"),
+            {"ids": [a.lens.account_id, b.lens.account_id]},
+        ).scalar_one()
+        == 0
+    )

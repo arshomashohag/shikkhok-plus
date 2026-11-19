@@ -19,7 +19,9 @@ second commit point, on the branch where no account exists):
    ``HARD_DELETE``. Reviews go first and go whole: every review the
    account wrote, and every review of a solo teacher's listed classes,
    with its reply and every report on either, whoever filed it, so no
-   report is left naming nothing [T7-f]. A solo teacher's photos are
+   report is left naming nothing [T7-f]. Join requests go the same way:
+   every request the account sent and every request its solo owner
+   received, with both parties' inbox items [H5]. A solo teacher's photos are
    read first, and every bucket prefix they may have and every ``/m/``
    path they were served at is queued for deletion in this transaction:
    the rows are the only record of which objects exist [H3 Review
@@ -73,6 +75,7 @@ from app.accounts.identifier import Channel, Identifier
 from app.accounts.usernames import place_hold
 from app.db.advisory import account_key, contact_key, lock_keys, username_key
 from app.governance.dispositions import DISPOSITIONS, Disposition
+from app.hub.enquiries import forget as enquiries
 from app.hub.media import objects
 from app.hub.media.storage import (
     archive_prefix,
@@ -653,6 +656,16 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
         session, account_id, dt.datetime.now(tz=dt.UTC)
     ) + _forget_solo_owner_reviews(session, account_id, dt.datetime.now(tz=dt.UTC))
 
+    # Join requests, sent and received, are forgotten whole -- the row and
+    # both parties' inbox items -- before the loop below deletes this
+    # account's own inbox, so the requests are locked before any item about
+    # them, as a close and a withdrawal lock them [F7]. One statement in id
+    # order, so two deletions holding each other's requests never wait in a
+    # cycle [H4 T10-a]. The solo owner's received requests are collected
+    # here because `owner` is retained and its cascade never fires; they go
+    # in this transaction, with the listing [H5 Task 3 review].
+    enquiries_forgotten = enquiries.for_account(session, account_id)
+
     for table, target in sorted(HARD_DELETE_SCOPES.items()):
         if target.scope is not Scope.ACCOUNT_COLUMN or table == "account":
             continue
@@ -662,6 +675,8 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
     # A review its author wrote after the lock above can only be pending,
     # so nobody could report it; the loop's own statement removed it.
     rows_deleted["review"] += reviews_forgotten
+    # The loop found none of them: they were forgotten above.
+    rows_deleted["listing_enquiry"] += enquiries_forgotten
 
     # The deletion hold [U1: BR7.5]: 30 days, a keyed digest only, and no
     # releasing account, so nobody -- this person included -- can take the
