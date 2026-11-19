@@ -12,12 +12,17 @@
  * 2. **No service worker, no manifest, no install.** Nothing of the admin
  *    app is cached for offline use and it is not installable.
  * 3. **Base `/`, always**, and the page is written as `index.html`.
- * 4. **Local development** (`npm run dev:admin`) proxies `/v1/admin` to
+ * 4. **One other image host: the hub photo bucket** (`VITE_MEDIA_ORIGIN`,
+ *    its regional S3 endpoint, fixed at build time as in the main app).
+ *    The moderation queue previews photos awaiting review through
+ *    presigned GETs that expire in five minutes. It joins `img-src` only;
+ *    `connect-src` stays `'self'`.
+ * 5. **Local development** (`npm run dev:admin`) proxies `/v1/admin` to
  *    the API on :8000 and adds the `X-Admin-Edge` header the admin
  *    CloudFront distribution adds in a deployment, taken from
  *    `SHIKKHOKPLUS_ADMIN_EDGE_SECRET` — the same variable the API reads.
  */
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { readFileSync } from 'node:fs'
 
@@ -33,19 +38,26 @@ const DEV_API_TARGET = process.env.SHIKKHOKPLUS_API ?? 'http://localhost:8000'
 /** The header the admin edge adds; the API refuses admin routes without it. */
 const EDGE_HEADER = 'X-Admin-Edge'
 
+/** The photo bucket's regional S3 endpoint, exactly; as in vite.config.ts. */
+const MEDIA_ORIGIN = /^https:\/\/[a-z0-9][a-z0-9.-]*\.s3\.[a-z]{2}(-[a-z]+)+-[0-9]\.amazonaws\.com$/
+
 /**
  * The admin page's Content-Security-Policy: same-origin connections only.
  *
+ * @param mediaOrigin The photo bucket's endpoint, for previews; empty when
+ *   the build names none
  * @param dev Whether this is the dev server, which needs its HMR socket
  *   and the React dev runtime's inline preamble
  */
-function contentSecurityPolicy(dev: boolean): Plugin {
+function contentSecurityPolicy(mediaOrigin: string, dev: boolean): Plugin {
+  const img = ["'self'"]
+  if (mediaOrigin) img.push(mediaOrigin)
   const policy = [
     "default-src 'self'",
     dev ? "connect-src 'self' ws:" : "connect-src 'self'",
     dev ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self'",
+    `img-src ${img.join(' ')}`,
     "font-src 'self'",
     "manifest-src 'none'",
     "worker-src 'none'",
@@ -92,7 +104,13 @@ function adminIndex(): Plugin {
   }
 }
 
-export default defineConfig(({ command }) => {
+export default defineConfig(({ mode, command }) => {
+  const mediaOrigin = loadEnv(mode, process.cwd(), 'VITE_').VITE_MEDIA_ORIGIN ?? ''
+  if (mediaOrigin && !MEDIA_ORIGIN.test(mediaOrigin)) {
+    throw new Error(
+      `VITE_MEDIA_ORIGIN must be the bucket's regional S3 endpoint, got '${mediaOrigin}'`,
+    )
+  }
   const edgeSecret = process.env.SHIKKHOKPLUS_ADMIN_EDGE_SECRET ?? ''
   if (command === 'serve' && !edgeSecret) {
     console.warn(
@@ -104,7 +122,7 @@ export default defineConfig(({ command }) => {
   return {
     base: '/',
     define: { __APP_VERSION__: JSON.stringify(VERSION) },
-    plugins: [react(), contentSecurityPolicy(command === 'serve'), adminIndex()],
+    plugins: [react(), contentSecurityPolicy(mediaOrigin, command === 'serve'), adminIndex()],
     server: {
       port: 5174,
       strictPort: true,

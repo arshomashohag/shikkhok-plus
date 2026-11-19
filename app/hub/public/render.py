@@ -25,6 +25,7 @@ from __future__ import annotations
 import functools
 import hashlib
 import json
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -43,8 +44,10 @@ from app.hub.public.views import (
     CityAreas,
     HubBatchCard,
     HubBatchPage,
+    HubImage,
     HubOwnerCard,
     HubOwnerPage,
+    HubReview,
     HubSearchPage,
     HubSitemap,
 )
@@ -122,6 +125,8 @@ class _Meta:
     :ivar noindex: Whether crawlers are asked not to index the page
     :ivar json_ld: The escaped JSON-LD block, or None
     :ivar report_href: The report form's URL for this page, or None
+    :ivar enquiry_href: The join-request form's URL for this page, or None
+        unless the page's view says it is open to requests
     """
 
     title: str
@@ -133,6 +138,7 @@ class _Meta:
     noindex: bool
     json_ld: Markup | None
     report_href: str | None
+    enquiry_href: str | None
 
 
 def _require_registered(view: BaseModel) -> None:
@@ -189,8 +195,9 @@ def _summary(text: str | None, fallback: str) -> str:
 def _search_query(view: HubSearchPage, page_number: int) -> str:
     """Build a search page's query string from what the search applied.
 
-    Only the six allowlisted keys, in a fixed order, and only those set,
-    so one search has one URL.
+    Only the allowlisted keys, in a fixed order, and only those set, so
+    one search has one URL. ``sort`` is written only when it is ``rating``,
+    which a search reports only while reviews are on.
 
     :param view: The search page
     :param page_number: The page to link to
@@ -204,6 +211,7 @@ def _search_query(view: HubSearchPage, page_number: int) -> str:
             ("upazila", view.filters.upazila),
             ("subject", view.filters.subject),
             ("level", view.filters.level),
+            ("sort", "rating" if view.sort == "rating" else None),
             ("page", str(page_number) if page_number > 1 else None),
         )
         if value
@@ -228,14 +236,46 @@ def _links(path: str, locale: Locale) -> tuple[str, tuple[tuple[str, str], ...]]
 
 
 def _report_href(kind: str, report_id: object) -> str:
-    """Build the report form's URL for one listing.
+    """Build the report form's URL for one listing, photo, review or reply.
 
-    :param kind: ``owner_listing`` or ``batch_listing``
+    :param kind: ``owner_listing``, ``batch_listing``, ``media``, ``review``
+        or ``reply``; a reply is reported by its review's id
     :param report_id: The id ``POST /v1/hub/reports`` expects [R2]
     :return: The URL on the web app
     """
     query = urlencode({"kind": kind, "id": str(report_id)})
     return f"{web_app_url()}/ui/hub-report?{query}"
+
+
+def _enquiry_href(owner_slug: str, batch_id: uuid.UUID | None) -> str:
+    """Build the join-request form's URL for an owner, or one of its batches.
+
+    :param owner_slug: The owner's public slug
+    :param batch_id: The batch the request is for, or None for the owner
+    :return: The URL on the web app, ``owner`` then any ``batch``
+    """
+    pairs = [("owner", owner_slug)]
+    if batch_id is not None:
+        pairs.append(("batch", str(batch_id)))
+    return f"{web_app_url()}/ui/hub-enquiry?{urlencode(pairs)}"
+
+
+def _ld_image(images: Sequence[HubImage]) -> str | None:
+    """Name a page's first approved photo for its structured data.
+
+    Its ``src`` -- the 960 variant, else the largest -- on the site's
+    origin: a public page names it relative to the site, and the preview
+    already names it there. A photo awaiting review, which only the preview
+    shows, is never named.
+
+    :param images: The page's photos, in order
+    :return: The absolute URL, or None when there is no approved photo
+    """
+    for image in images:
+        if not image.awaiting_review:
+            src = image.src
+            return site_url() + src if src.startswith("/") else src
+    return None
 
 
 def _owner_ld(view: HubOwnerPage, url: str, locale: Locale) -> dict[str, Any]:
@@ -254,6 +294,9 @@ def _owner_ld(view: HubOwnerPage, url: str, locale: Locale) -> dict[str, Any]:
     }
     if view.headline:
         data["description"] = view.headline
+    image = _ld_image(view.images)
+    if image:
+        data["image"] = image
     if view.public_contact_phone:
         data["telephone"] = view.public_contact_phone
     area = _area(view.owner, locale)
@@ -289,6 +332,7 @@ def _meta(view: BaseModel, locale: Locale, *, preview: bool) -> _Meta:
     hub = m("hub_name")
     json_ld: Markup | None = None
     report: str | None = None
+    enquiry: str | None = None
     if isinstance(view, HubOwnerPage):
         owner = view.owner
         path = f"/t/{owner.slug}"
@@ -298,6 +342,8 @@ def _meta(view: BaseModel, locale: Locale, *, preview: bool) -> _Meta:
         description = _summary(view.headline or view.bio, fallback)
         json_ld = _json_ld(_owner_ld(view, canonical, locale))
         report = _report_href("owner_listing", owner.report_id)
+        if view.enquiry_open:
+            enquiry = _enquiry_href(owner.slug, None)
         noindex = preview
     elif isinstance(view, HubBatchPage):
         owner, batch = view.owner, view.batch
@@ -322,8 +368,13 @@ def _meta(view: BaseModel, locale: Locale, *, preview: bool) -> _Meta:
         }
         if view.description:
             course["description"] = view.description
+        image = _ld_image(view.images)
+        if image:
+            course["image"] = image
         json_ld = _json_ld(course)
         report = _report_href("batch_listing", batch.report_id)
+        if view.enquiry_open:
+            enquiry = _enquiry_href(owner.slug, batch.report_id)
         noindex = preview
     elif isinstance(view, HubSearchPage):
         path = _search_query(view, view.page)
@@ -344,6 +395,7 @@ def _meta(view: BaseModel, locale: Locale, *, preview: bool) -> _Meta:
         noindex=noindex,
         json_ld=json_ld,
         report_href=report,
+        enquiry_href=enquiry,
     )
 
 
@@ -414,6 +466,30 @@ def _helpers(locale: Locale) -> dict[str, Any]:
         """
         return sorted(options, key=lambda item: area_name(_option_of(item)))
 
+    def report_photo(image: HubImage) -> str:
+        """Build the report form's URL for one photo.
+
+        :param image: The photo
+        :return: The URL, ``kind=media`` with the photo's id
+        """
+        return _report_href("media", image.media_id)
+
+    def report_review(review: HubReview) -> str:
+        """Build the report form's URL for one review.
+
+        :param review: The review
+        :return: The URL, ``kind=review`` with the review's id
+        """
+        return _report_href("review", review.review_id)
+
+    def report_reply(review: HubReview) -> str:
+        """Build the report form's URL for a review's reply.
+
+        :param review: The review the reply answers
+        :return: The URL, ``kind=reply`` with the review's id
+        """
+        return _report_href("reply", review.review_id)
+
     def title(batch: HubBatchCard) -> str:
         """Name a batch by its public title, never by ``batch.name``.
 
@@ -430,6 +506,9 @@ def _helpers(locale: Locale) -> dict[str, Any]:
         "area": area,
         "area_name": area_name,
         "by_name": by_name,
+        "report_photo": report_photo,
+        "report_review": report_review,
+        "report_reply": report_reply,
         "title": title,
     }
 
@@ -461,7 +540,16 @@ def _search_context(view: HubSearchPage, locale: Locale) -> dict[str, Any]:
         for key, value in applied.items()
         if value not in shown.get(key, set())
     ]
-    clear = base + ("?" + urlencode({"q": view.query}) if view.query else "")
+    # Clearing the filters keeps what was typed and how it is sorted.
+    kept = [
+        (key, value)
+        for key, value in (
+            ("q", view.query),
+            ("sort", "rating" if view.sort == "rating" else None),
+        )
+        if value
+    ]
+    clear = base + ("?" + urlencode(kept) if kept else "")
     # Past the end, "previous" is the last page that has results.
     previous = min(view.page - 1, view.pages) if view.page > 1 else None
     following = view.page + 1 if view.page < view.pages else None

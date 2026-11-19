@@ -102,3 +102,6 @@ terraform.tfvars
 
 # Git worktrees Claude Code creates for parallel agents; scratch checkouts, never content.
 .claude/worktrees/
+
+# The image sanitiser package, built by `make lambda-image`.
+/dist/

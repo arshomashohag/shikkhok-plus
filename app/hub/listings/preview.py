@@ -14,10 +14,34 @@ timetable only where the listing shows it; a centre's teachers only where
 they agreed to be named, otherwise "Centre faculty"; a street address for a
 centre only. A batch listing that could not be public whatever its status
 -- hidden, suspended, or on an inactive batch -- is left out.
+
+**Ratings** [F19]. While reviews are on, the owner card and each batch
+card carry the rating the public pages would show, read from the same
+public views (``hub_public_rating``, granted to the application role) by
+:mod:`app.hub.public.ratings`, so a draft batch -- which the views do not
+hold -- has none. The preview has no review section and no review text: an
+owner reads their reviews in the app, not on their own preview.
+
+**The "Ask to join" link** [H5 Task 6] comes from the owner's own row, so a
+draft shows the link it would carry once published: join requests are
+switched on, the owner accepts them, and the listing has a slug for the
+link to name.
+
+**Photos.** The owner's own gallery, as the owner page shows it: approved
+photos, and photos awaiting review marked as such, in gallery order; never
+a batch's photos, which are on batch pages only, and never a rejected,
+withdrawn, held or unfinished upload. The preview is shown on the app host,
+which serves no ``/m/``, so an approved photo is named on the site's origin
+and a pending one by five-minute signed GETs of the variants frozen in
+``archive/`` at completion, never ``staged/`` [I1]. A
+pending photo the bucket cannot sign right now is left out rather than
+failing the page, as the editor's thumbnails are.
 """
 
 from __future__ import annotations
 
+import functools
+import logging
 import uuid
 from typing import Any, Final
 
@@ -25,19 +49,28 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import TeacherLens
+from app.errors import TransientError
 from app.hub.listings.names import CENTRE_FACULTY, teacher_names
 from app.hub.listings.owner import get_or_draft
+from app.hub.media.storage import MediaStore, archive_prefix
+from app.hub.public.images import hub_image, image_alt, public_path
 from app.hub.public.messages import LOCALES, Locale, t
+from app.hub.public.ratings import batch_ratings, owner_rating_of_batches
+from app.hub.public.settings import enquiries_enabled, site_url
 from app.hub.public.views import (
     AreaNames,
     HubBatchCard,
+    HubImage,
     HubOwnerCard,
     HubOwnerPage,
     PublicSlot,
+    RatingSummary,
 )
 from app.money import Money
 
 __all__ = ["owner_page"]
+
+log = logging.getLogger(__name__)
 
 _KIND: Final = sa.text("SELECT kind::text FROM owner WHERE id = :owner")
 
@@ -57,6 +90,17 @@ _BATCHES: Final = sa.text(
     "WHERE bl.owner_id = :owner AND bt.owner_id = :owner AND bt.active "
     "AND bl.status IN ('draft', 'published') "
     "ORDER BY bl.public_title NULLS LAST, bl.slug NULLS LAST, bl.batch_id"
+)
+
+#: The owner's own gallery as a publish would show it, plus what awaits
+#: review, in the editor's order. Every row is this owner's.
+_MEDIA: Final = sa.text(
+    "SELECT id, status::text AS status, public_key, width, height, widths, "
+    "alt_en, alt_bn FROM listing_media "
+    "WHERE owner_id = :owner AND batch_id IS NULL "
+    "AND status IN ('approved', 'pending_review') "
+    "AND widths IS NOT NULL AND width IS NOT NULL AND height IS NOT NULL "
+    "ORDER BY position, created_at, id"
 )
 
 _SLOTS: Final = sa.text(
@@ -124,12 +168,71 @@ def _schedules(
     return slots
 
 
+def _frozen_url(store: MediaStore, media_id: uuid.UUID, width: int) -> str:
+    """Sign a five-minute GET of one variant frozen at completion [I1].
+
+    :param store: The bucket
+    :param media_id: The photo
+    :param width: The variant's target width
+    :return: The signed URL
+    :raises TransientError: The bucket cannot sign right now
+    """
+    return store.presign_get(f"{archive_prefix(media_id)}{width}.webp")
+
+
+def _site_url(public_key: str, width: int) -> str:
+    """Name one approved variant on the site's origin.
+
+    :param public_key: The photo's public key
+    :param width: The variant's target width
+    :return: The absolute URL
+    """
+    return site_url() + public_path(public_key, width)
+
+
+def _images(
+    session: Session, lens: TeacherLens, locale: Locale, store: MediaStore
+) -> list[HubImage]:
+    """Build the owner's own gallery as the preview shows it.
+
+    :param session: The session
+    :param lens: The owner's lens
+    :param locale: The page's locale
+    :param store: The bucket, for the pending photos' signed URLs
+    :return: The photos, in gallery order
+    """
+    images: list[HubImage] = []
+    for row in session.execute(_MEDIA, {"owner": lens.owner_id}):
+        pending = row.status == "pending_review"
+        url = (
+            functools.partial(_frozen_url, store, row.id)
+            if pending
+            else functools.partial(_site_url, row.public_key)
+        )
+        try:
+            images.append(
+                hub_image(
+                    media_id=row.id,
+                    widths=row.widths,
+                    width=row.width,
+                    height=row.height,
+                    alt=image_alt(row.alt_en, row.alt_bn, locale),
+                    url=url,
+                    awaiting_review=pending,
+                )
+            )
+        except TransientError:
+            log.warning("media preview unavailable", extra={"media_id": str(row.id)})
+    return images
+
+
 def _batch_card(
     row: Any,
     owner_slug: str,
     teachers: list[str],
     schedule: list[PublicSlot] | None,
     locale: Locale,
+    rating: RatingSummary | None,
 ) -> HubBatchCard:
     """Build one batch's card from the owner's own listing row.
 
@@ -138,6 +241,7 @@ def _batch_card(
     :param teachers: The names the card may show
     :param schedule: The weekly times, or None when not shown
     :param locale: The page's locale
+    :param rating: The batch's public rating, or None while reviews are off
     :return: The card
     """
     fee = None if row.fee is None else Money(row.fee)
@@ -158,10 +262,13 @@ def _batch_card(
             t("centre_faculty", locale) if name == CENTRE_FACULTY else name
             for name in teachers
         ],
+        rating=rating,
     )
 
 
-def owner_page(session: Session, lens: TeacherLens, locale: Locale) -> HubOwnerPage:
+def owner_page(
+    session: Session, lens: TeacherLens, locale: Locale, store: MediaStore
+) -> HubOwnerPage:
     """Build the owner's page as it would read once published.
 
     Drafts the owner listing on first use, as the editor's own read does.
@@ -169,10 +276,14 @@ def owner_page(session: Session, lens: TeacherLens, locale: Locale) -> HubOwnerP
     :param session: The request-scoped session, as the application role
     :param lens: The owner's lens; every row read is this owner's
     :param locale: The page's locale
+    :param store: The photo bucket, which signs the pending photos' URLs
     :return: The page, in the public page's own model
     """
     listing = get_or_draft(session, lens)
     kind: str = session.execute(_KIND, {"owner": lens.owner_id}).scalar_one()
+    rows = session.execute(_BATCHES, {"owner": lens.owner_id}).all()
+    batch_ids = [row.batch_id for row in rows]
+    ratings = batch_ratings(session, batch_ids)
     owner = HubOwnerCard(
         report_id=lens.owner_id,
         slug=listing.slug or "",
@@ -180,9 +291,8 @@ def owner_page(session: Session, lens: TeacherLens, locale: Locale) -> HubOwnerP
         kind="organisation" if kind == "organisation" else "teacher",
         area_names=_area_names(session, listing.district_code, listing.upazila_code),
         runs_classes=listing.runs_classes,
+        rating=owner_rating_of_batches(session, batch_ids),
     )
-    rows = session.execute(_BATCHES, {"owner": lens.owner_id}).all()
-    batch_ids = [row.batch_id for row in rows]
     names = teacher_names(session, lens.owner_id, batch_ids)
     schedules = _schedules(session, [row.batch_id for row in rows if row.show_schedule])
     return HubOwnerPage(
@@ -202,7 +312,12 @@ def owner_page(session: Session, lens: TeacherLens, locale: Locale) -> HubOwnerP
                 names[row.batch_id],
                 schedules.get(row.batch_id) if row.show_schedule else None,
                 locale,
+                ratings.get(row.batch_id),
             )
             for row in rows
         ],
+        images=_images(session, lens, locale, store),
+        enquiry_open=enquiries_enabled()
+        and listing.accepts_enquiries
+        and bool(listing.slug),
     )

@@ -1,5 +1,6 @@
 /**
- * More: who is signed in, with Edit; the inbox; invitations and children
+ * More: who is signed in, with Edit; the inbox, and the join requests the
+ * reader sent while the server lists any [H5]; invitations and children
  * for a student or guardian; the help centre, with its new replies; the teacher's Getting paid and Your records;
  * settings and install; two-step verification, switching role, log out and
  * delete account.
@@ -37,6 +38,7 @@ import { helpPaths, useNewReplies } from '../help'
 import { WorkspaceSection } from './Workspaces'
 import { NameConsent } from '../teacher/hub/NameConsent'
 import { MfaEntry } from './security'
+import { useHasEnquiries } from './MyEnquiries'
 
 /** One More row: a link when there is somewhere to go, else greyed. */
 function Row({
@@ -92,6 +94,7 @@ export function More() {
   const online = useOnline()
   const unread = useUnreadCount()
   const newReplies = useNewReplies()
+  const hasEnquiries = useHasEnquiries()
   const location = useLocation()
   const saved = (location.state as { saved?: boolean } | null)?.saved === true
   const lensLabel = session.lens ? t(`lens_${session.lens}`) : t('web_role_none')
@@ -146,6 +149,15 @@ export function More() {
               ) : null
             }
           />
+          {/* Any lens: a teacher may ask another teacher about their own child. */}
+          {hasEnquiries ? (
+            <Row
+              to={accountPaths.myEnquiries()}
+              icon={<MailIcon />}
+              title={t('hub_enquiry_mine_title')}
+              sub={t('hub_enquiry_mine_sub')}
+            />
+          ) : null}
         </ul>
       </Section>
 

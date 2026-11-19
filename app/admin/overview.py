@@ -1,13 +1,23 @@
 """The platform at a glance: aggregate counts, no individual records.
 
-Every number here is a ``count(*)`` or a ``count(DISTINCT ...)``. None of
-the statements selects a name, a phone number, an id or a row a teacher
-wrote, so the administrator boundary holds by construction: there is
-nothing individual in the result to leak [TC-14, D-6].
+Every number here is a ``count(*)`` or a ``count(DISTINCT ...)``, and the
+one flag is a comparison of two of them. None of the statements returns a
+name, a phone number, an id or a row a teacher wrote, so the administrator
+boundary holds by construction: there is nothing individual in the result
+to leak [TC-14, D-6].
 
 Each count is a single indexed or small-table scan; at the hundred-
 teacher target the whole overview is a few milliseconds, and it is read
 by one person on demand rather than on a schedule.
+
+**The "Pull reviews" measure** (spec section 9, Call 17) is three figures
+over a trailing :data:`REVIEW_WINDOW`, all computed in SQL: the reviews
+public at some point in the window -- published or held now, or removed
+inside it -- the distinct ones among them reported inside it, and whether
+the reported exceed 5% of the public (``reported * 100 > public * 5``). A
+report on a reply is not a report on the review, and a review never public
+(pending, approved, rejected) is in neither figure, so the share is of what
+readers could see and report.
 """
 
 from __future__ import annotations
@@ -21,7 +31,11 @@ from sqlalchemy.orm import Session
 
 from app.accounts.clients import PLATFORMS, Platform
 
+#: The "quarter" the pull-reviews bar is measured over (Call 17).
+REVIEW_WINDOW: Final = dt.timedelta(days=91)
+
 __all__ = [
+    "REVIEW_WINDOW",
     "AppVersion",
     "Overview",
     "PlatformUsage",
@@ -83,6 +97,9 @@ class Overview:
     :ivar help_open: Tickets waiting on support
     :ivar help_answered: Tickets waiting on the requester
     :ivar help_closed: Closed tickets
+    :ivar hub_reviews_public: Reviews public at some point in the window
+    :ivar hub_reviews_reported: Of those, the ones reported in the window
+    :ivar hub_reviews_pull_bar: Whether reported exceed 5% of public
     """
 
     generated_at: dt.datetime
@@ -105,6 +122,9 @@ class Overview:
     help_open: int
     help_answered: int
     help_closed: int
+    hub_reviews_public: int
+    hub_reviews_reported: int
+    hub_reviews_pull_bar: bool
 
 
 _COUNTS: Final = sa.text(
@@ -141,6 +161,28 @@ _COUNTS: Final = sa.text(
     "(SELECT count(*) FROM help_ticket WHERE status = 'closed') AS help_closed"
 )
 
+_REVIEW_FIGURES: Final = sa.text(
+    """
+    WITH shown AS (
+        SELECT r.id,
+               EXISTS (
+                   SELECT 1 FROM hub_report h
+                   WHERE h.target_kind = 'review' AND h.target_id = r.id
+                     AND h.created_at > :d91
+               ) AS reported
+        FROM review r
+        WHERE r.status IN ('published', 'held')
+           OR (r.status = 'removed' AND r.decided_at > :d91)
+    ), figures AS (
+        SELECT count(*) AS public,
+               count(*) FILTER (WHERE reported) AS reported
+        FROM shown
+    )
+    SELECT public, reported, reported * 100 > public * 5 AS pull_bar
+    FROM figures
+    """
+)
+
 _PLATFORMS: Final = sa.text(
     "SELECT platform, count(*) AS accounts, "
     "count(*) FILTER (WHERE last_seen_at > :d7) AS active_7, "
@@ -169,6 +211,7 @@ def overview(session: Session, now: dt.datetime | None = None) -> Overview:
         "d30": moment - dt.timedelta(days=30),
     }
     counts = session.execute(_COUNTS, windows).one()
+    figures = session.execute(_REVIEW_FIGURES, {"d91": moment - REVIEW_WINDOW}).one()
     usage = {r.platform: r for r in session.execute(_PLATFORMS, windows)}
     platforms = tuple(
         PlatformUsage(
@@ -204,4 +247,7 @@ def overview(session: Session, now: dt.datetime | None = None) -> Overview:
         help_open=counts.help_open,
         help_answered=counts.help_answered,
         help_closed=counts.help_closed,
+        hub_reviews_public=figures.public,
+        hub_reviews_reported=figures.reported,
+        hub_reviews_pull_bar=figures.pull_bar,
     )

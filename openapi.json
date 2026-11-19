@@ -211,6 +211,8 @@
         "properties": {
           "key": {
             "enum": [
+              "alt_bn",
+              "alt_en",
               "area_bn",
               "area_en",
               "bio_bn",
@@ -223,6 +225,9 @@
               "public_name",
               "public_title",
               "qualifications",
+              "reply_body",
+              "review_body",
+              "review_rating",
               "street_address",
               "subject_tags",
               "syllabus_bn",
@@ -243,9 +248,221 @@
         "title": "AdminHubField",
         "type": "object"
       },
-      "AdminHubQueueItem": {
-        "description": "One row of the moderation queue.\n\n:ivar kind: ``report`` or ``listing``\n:ivar report_id: The report, for a report row\n:ivar target_kind: What was reported or suspended\n:ivar target_id: The target's id\n:ivar owner_id: The owner the listing belongs to, when known\n:ivar title: The target's public name: an owner's public name or a\n    batch's public title\n:ivar fields: Everything the owner submitted for display on the target\n:ivar reason: The report reason or the suspension reason code\n:ivar note: The reporter's note, for a report row\n:ivar reporter_ref: The opaque reporter label, for a report row\n:ivar waited_hours: Whole hours since the report or the suspension",
+      "AdminHubMediaDecided": {
+        "description": "A photo after its decision.\n\n:ivar media_id: The photo\n:ivar status: ``approved`` or ``rejected``",
         "properties": {
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "media_id",
+          "status"
+        ],
+        "title": "AdminHubMediaDecided",
+        "type": "object"
+      },
+      "AdminHubMediaDecisionRequest": {
+        "additionalProperties": false,
+        "description": "An administrator's decision on a photo.\n\n:ivar decision: ``approve`` or ``reject``\n:ivar code: Why, for a rejection; omitted for an approval",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "identifiable_child",
+                  "low_quality",
+                  "not_relevant",
+                  "other",
+                  "personal_info"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "AdminHubMediaDecisionRequest",
+        "type": "object"
+      },
+      "AdminHubMediaDetail": {
+        "description": "One photo as an administrator reviews it.\n\nNames the page it is for -- the owner's public name, the batch's public\ntitle -- and nothing about the account that uploaded it.\n\n:ivar media_id: The photo\n:ivar status: ``pending_review``, ``held`` or ``approved``\n:ivar width: The decoded width in pixels\n:ivar height: The decoded height in pixels\n:ivar previews: One signed URL per variant, narrowest first\n:ivar alt_en: English alt text\n:ivar alt_bn: Bangla alt text\n:ivar public_name: The owner listing's public name\n:ivar public_title: The batch listing's public title, for a batch photo\n:ivar report_count: How many reports name this photo",
+        "properties": {
+          "alt_bn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt Bn"
+          },
+          "alt_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt En"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "previews": {
+            "items": {
+              "$ref": "#/components/schemas/AdminHubMediaPreview"
+            },
+            "title": "Previews",
+            "type": "array"
+          },
+          "public_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Name"
+          },
+          "public_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Title"
+          },
+          "report_count": {
+            "title": "Report Count",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "held",
+              "pending_review"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "alt_bn",
+          "alt_en",
+          "height",
+          "media_id",
+          "previews",
+          "public_name",
+          "public_title",
+          "report_count",
+          "status",
+          "width"
+        ],
+        "title": "AdminHubMediaDetail",
+        "type": "object"
+      },
+      "AdminHubMediaPreview": {
+        "description": "One variant of a photo, signed for a five-minute look.\n\n:ivar width: The variant's width in pixels\n:ivar url: A signed GET of the variant in the photo bucket",
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "url",
+          "width"
+        ],
+        "title": "AdminHubMediaPreview",
+        "type": "object"
+      },
+      "AdminHubQueueItem": {
+        "description": "One row of the moderation queue.\n\n:ivar kind: ``report``, ``listing``, ``media`` or ``review``\n:ivar report_id: The report, for a report row\n:ivar target_kind: What was reported or suspended\n:ivar target_id: The target's id; a reply's is its review's\n:ivar owner_id: The owner the listing belongs to, when known\n:ivar title: The target's public name: an owner's public name or a\n    batch's public title\n:ivar fields: Everything the owner, or a review's author, submitted for\n    display on the target\n:ivar reason: The report reason, the suspension reason code, or why a\n    held photo, review or reply was held; None for one waiting for\n    review\n:ivar note: The reporter's note, for a report row\n:ivar reporter_ref: The opaque reporter label, for a report row\n:ivar waited_hours: Whole hours since the report, the suspension, the\n    hold, the upload, or a review's or reply's submit or edit\n:ivar author_ref: For a review or reply, the review author's opaque\n    reference; for a reply, the author of the review it answers\n:ivar author_role: That author's role",
+        "properties": {
+          "author_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Ref"
+          },
+          "author_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Role"
+          },
           "fields": {
             "items": {
               "$ref": "#/components/schemas/AdminHubField"
@@ -256,7 +473,9 @@
           "kind": {
             "enum": [
               "listing",
-              "report"
+              "media",
+              "report",
+              "review"
             ],
             "title": "Kind",
             "type": "string"
@@ -344,6 +563,8 @@
           }
         },
         "required": [
+          "author_ref",
+          "author_role",
           "fields",
           "kind",
           "note",
@@ -372,7 +593,9 @@
           "kind": {
             "enum": [
               "listing",
-              "report"
+              "media",
+              "report",
+              "review"
             ],
             "title": "Kind",
             "type": "string"
@@ -407,6 +630,218 @@
           "status"
         ],
         "title": "AdminHubReportDecided",
+        "type": "object"
+      },
+      "AdminHubReviewDecided": {
+        "description": "A review or reply after its decision.\n\n:ivar review_id: The review; a reply's id is its review's\n:ivar target: ``review`` or ``reply``\n:ivar status: ``approved`` (a review, awaiting the weekly publication),\n    ``published``, ``rejected`` or ``removed``",
+        "properties": {
+          "review_id": {
+            "format": "uuid",
+            "title": "Review Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "published",
+              "rejected",
+              "removed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target": {
+            "enum": [
+              "reply",
+              "review"
+            ],
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "review_id",
+          "status",
+          "target"
+        ],
+        "title": "AdminHubReviewDecided",
+        "type": "object"
+      },
+      "AdminHubReviewDecisionRequest": {
+        "additionalProperties": false,
+        "description": "An administrator's decision on a review or a reply.\n\n:ivar target: ``review`` or ``reply``\n:ivar decision: ``approve`` or ``reject``\n:ivar code: Why, for a rejection; omitted for an approval",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "abusive",
+                  "identifiable_child",
+                  "off_topic",
+                  "other",
+                  "personal_info"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "target": {
+            "enum": [
+              "reply",
+              "review"
+            ],
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "target"
+        ],
+        "title": "AdminHubReviewDecisionRequest",
+        "type": "object"
+      },
+      "AdminHubReviewDetail": {
+        "description": "One review or reply as an administrator moderates it.\n\nNames the batch and its owner's public name, and the review's author\nonly by role and reference.\n\n:ivar target_kind: ``review`` or ``reply``\n:ivar review_id: The review; a reply's id is its review's\n:ivar rating: The review's rating, 1 to 5\n:ivar body: The review's words, or None\n:ivar tenure: The review author's tenure bucket\n:ivar author_role: The review author's role\n:ivar author_ref: The review author's opaque reference\n:ivar status: The target's status\n:ivar batch_title: The batch's public title\n:ivar owner_public_name: The owner listing's public name\n:ivar reply_body: The reply's words, in any status, or None\n:ivar open_reports: Open reports naming the target\n:ivar waited_hours: Whole hours waited, while pending or held",
+        "properties": {
+          "author_ref": {
+            "title": "Author Ref",
+            "type": "string"
+          },
+          "author_role": {
+            "enum": [
+              "guardian",
+              "student"
+            ],
+            "title": "Author Role",
+            "type": "string"
+          },
+          "batch_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Title"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "open_reports": {
+            "title": "Open Reports",
+            "type": "integer"
+          },
+          "owner_public_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Public Name"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "integer"
+          },
+          "reply_body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply Body"
+          },
+          "review_id": {
+            "format": "uuid",
+            "title": "Review Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "held",
+              "pending",
+              "published",
+              "rejected",
+              "removed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_kind": {
+            "enum": [
+              "reply",
+              "review"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          },
+          "tenure": {
+            "enum": [
+              "6_12m",
+              "gt_1y",
+              "lt_6m"
+            ],
+            "title": "Tenure",
+            "type": "string"
+          },
+          "waited_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waited Hours"
+          }
+        },
+        "required": [
+          "author_ref",
+          "author_role",
+          "batch_title",
+          "body",
+          "open_reports",
+          "owner_public_name",
+          "rating",
+          "reply_body",
+          "review_id",
+          "status",
+          "target_kind",
+          "tenure",
+          "waited_hours"
+        ],
+        "title": "AdminHubReviewDetail",
         "type": "object"
       },
       "AdminHubSuspensionRequest": {
@@ -534,7 +969,7 @@
       },
       "AdminOverviewResponse": {
         "additionalProperties": false,
-        "description": "The platform at a glance. Every figure is an aggregate.\n\n:ivar generated_at: When these figures were read\n:ivar accounts: Accounts that have signed in at least once\n:ivar new_7_days: First signed in during the last 7 days\n:ivar new_30_days: First signed in during the last 30 days\n:ivar active_7_days: Seen on any app in the last 7 days\n:ivar active_30_days: Seen on any app in the last 30 days\n:ivar teachers: Accounts owning a solo-tutor workspace\n:ivar centres: Coaching centres\n:ivar centre_members: Accounts holding a live centre membership\n:ivar students: Accounts holding an accepted student seat\n:ivar guardians: Accounts holding an accepted guardian seat\n:ivar batches: Active batches\n:ivar seats: Accepted student seats in active batches\n:ivar platforms: Usage per app\n:ivar both_platforms: Accounts seen on both apps\n:ivar no_platform: Signed-in accounts no app has reported yet, such\n    as those last seen on an app build that predates reporting\n:ivar versions: App versions seen in the last 30 days\n:ivar help_open: Tickets waiting on support\n:ivar help_answered: Tickets waiting on the requester\n:ivar help_closed: Closed tickets",
+        "description": "The platform at a glance. Every figure is an aggregate.\n\n:ivar generated_at: When these figures were read\n:ivar accounts: Accounts that have signed in at least once\n:ivar new_7_days: First signed in during the last 7 days\n:ivar new_30_days: First signed in during the last 30 days\n:ivar active_7_days: Seen on any app in the last 7 days\n:ivar active_30_days: Seen on any app in the last 30 days\n:ivar teachers: Accounts owning a solo-tutor workspace\n:ivar centres: Coaching centres\n:ivar centre_members: Accounts holding a live centre membership\n:ivar students: Accounts holding an accepted student seat\n:ivar guardians: Accounts holding an accepted guardian seat\n:ivar batches: Active batches\n:ivar seats: Accepted student seats in active batches\n:ivar platforms: Usage per app\n:ivar both_platforms: Accounts seen on both apps\n:ivar no_platform: Signed-in accounts no app has reported yet, such\n    as those last seen on an app build that predates reporting\n:ivar versions: App versions seen in the last 30 days\n:ivar help_open: Tickets waiting on support\n:ivar help_answered: Tickets waiting on the requester\n:ivar help_closed: Closed tickets\n:ivar hub_reviews_public: Reviews public at some point in the trailing 91\n    days: published or held now, or removed inside the window\n:ivar hub_reviews_reported: Of those, the ones reported inside the window\n:ivar hub_reviews_pull_bar: Whether reported reviews exceed 5% of public\n    ones, the spec's \"Pull reviews\" bar (section 9)",
         "properties": {
           "accounts": {
             "title": "Accounts",
@@ -583,6 +1018,18 @@
           },
           "help_open": {
             "title": "Help Open",
+            "type": "integer"
+          },
+          "hub_reviews_public": {
+            "title": "Hub Reviews Public",
+            "type": "integer"
+          },
+          "hub_reviews_pull_bar": {
+            "title": "Hub Reviews Pull Bar",
+            "type": "boolean"
+          },
+          "hub_reviews_reported": {
+            "title": "Hub Reviews Reported",
             "type": "integer"
           },
           "new_30_days": {
@@ -637,6 +1084,9 @@
           "help_answered",
           "help_closed",
           "help_open",
+          "hub_reviews_public",
+          "hub_reviews_pull_bar",
+          "hub_reviews_reported",
           "new_30_days",
           "new_7_days",
           "no_platform",
@@ -3743,6 +4193,143 @@
         "title": "DuplicatePaymentResponse",
         "type": "object"
       },
+      "EnquiryClose": {
+        "additionalProperties": false,
+        "description": "Answer a join request.\n\n:ivar outcome: One of the request's ``outcomes_allowed``",
+        "properties": {
+          "outcome": {
+            "enum": [
+              "added",
+              "call_us",
+              "not_now"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "title": "EnquiryClose",
+        "type": "object"
+      },
+      "EnquiryTargetResponse": {
+        "description": "What the request form shows before the guardian sends.\n\n:ivar owner_public_name: Whoever would receive the request\n:ivar batch_title: The batch's public title, or None for the owner\n:ivar contact_kind: What \"share\" would share: ``phone`` when the\n    account has one, else ``email``\n:ivar already_open: The caller already has a request open with this\n    owner, so a send would answer ``ENQUIRY_ALREADY_OPEN``",
+        "properties": {
+          "already_open": {
+            "title": "Already Open",
+            "type": "boolean"
+          },
+          "batch_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Title"
+          },
+          "contact_kind": {
+            "enum": [
+              "email",
+              "phone"
+            ],
+            "title": "Contact Kind",
+            "type": "string"
+          },
+          "owner_public_name": {
+            "title": "Owner Public Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "already_open",
+          "batch_title",
+          "contact_kind",
+          "owner_public_name"
+        ],
+        "title": "EnquiryTargetResponse",
+        "type": "object"
+      },
+      "EnquiryWrite": {
+        "additionalProperties": false,
+        "description": "Ask an owner, or one of its batches, to take a student.\n\n:ivar student_name: 1 to 80 characters once stripped\n:ivar class_level: One of the hub class levels\n:ivar message: At most 300 characters once stripped; a blank message\n    is stored as none\n:ivar batch_id: The listed batch asked about, or None for the owner\n:ivar share_contact: Whether the people who run the listing may see\n    the account's phone, or its email when it has no phone. Required\n:ivar declares_adult_guardian: The sender declares they are the\n    student's parent or guardian and an adult; only ``true`` is\n    accepted. Not stored",
+        "properties": {
+          "batch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "class_level": {
+            "enum": [
+              "a_level",
+              "admission",
+              "class_1",
+              "class_10",
+              "class_11",
+              "class_12",
+              "class_2",
+              "class_3",
+              "class_4",
+              "class_5",
+              "class_6",
+              "class_7",
+              "class_8",
+              "class_9",
+              "hsc",
+              "o_level",
+              "other",
+              "ssc"
+            ],
+            "title": "Class Level",
+            "type": "string"
+          },
+          "declares_adult_guardian": {
+            "const": true,
+            "title": "Declares Adult Guardian",
+            "type": "boolean"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "share_contact": {
+            "title": "Share Contact",
+            "type": "boolean"
+          },
+          "student_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Student Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "class_level",
+          "declares_adult_guardian",
+          "share_contact",
+          "student_name"
+        ],
+        "title": "EnquiryWrite",
+        "type": "object"
+      },
       "EnrollmentCreateRequest": {
         "additionalProperties": false,
         "description": "Add a student to a batch [AC2.2.2, AC2.2.5].\n\n``fee_amount`` is nullable and null means **inherit** the batch\ndefault. Zero is a real fee of zero, which is a waiver -- a\nnon-nullable column defaulting to zero would make the two\nindistinguishable and silently charge nothing.\n\n:ivar display_name: The teacher-typed name for this seat\n:ivar student_phone: The student's number, typed by the teacher\n:ivar guardian_phone: The guardian's number, if one is recorded\n:ivar fee_amount: This seat's fee, or null to inherit\n:ivar joined_on: When the student joined\n:ivar client_mutation_id: The retry key; a resend under it returns the\n    seat the first request created",
@@ -5649,7 +6236,7 @@
       },
       "HubReportRequest": {
         "additionalProperties": false,
-        "description": "A reader's report about one hub target.\n\n:ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,\n    ``review`` or ``reply``\n:ivar target_id: The target's id: an owner id for an owner listing, a\n    batch id for a batch listing\n:ivar reason: A closed reason\n:ivar note: An optional note; it may not carry a phone number",
+        "description": "A reader's report about one hub target.\n\n:ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,\n    ``review`` or ``reply``\n:ivar target_id: The target's id: an owner id for an owner listing, a\n    batch id for a batch listing, a media id for a photo\n:ivar reason: A closed reason\n:ivar note: An optional note; it may not carry a phone number",
         "properties": {
           "note": {
             "anyOf": [
@@ -6101,6 +6688,284 @@
           }
         },
         "title": "MeResponse",
+        "type": "object"
+      },
+      "MediaComplete": {
+        "additionalProperties": false,
+        "description": "Submit an uploaded photo for review.\n\n:ivar alt_en: English alt text, at most 200 characters\n:ivar alt_bn: Bangla alt text, at most 200 characters",
+        "properties": {
+          "alt_bn": {
+            "maxLength": 200,
+            "title": "Alt Bn",
+            "type": "string"
+          },
+          "alt_en": {
+            "maxLength": 200,
+            "title": "Alt En",
+            "type": "string"
+          }
+        },
+        "required": [
+          "alt_bn",
+          "alt_en"
+        ],
+        "title": "MediaComplete",
+        "type": "object"
+      },
+      "MediaOrder": {
+        "additionalProperties": false,
+        "description": "Put one gallery's photos in order.\n\n:ivar batch_id: The batch; None for the owner's own gallery\n:ivar ids: The photos in their new order, at most 12: the ones that\n    count against the quota; any left out follow them in their order",
+        "properties": {
+          "batch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "title": "MediaOrder",
+        "type": "object"
+      },
+      "MediaResponse": {
+        "description": "One of the owner's photos.\n\n:ivar id: The photo\n:ivar batch_id: The batch it is for; None for the owner's own page\n:ivar status: Where it is in upload and review\n:ivar alt_en: English alt text\n:ivar alt_bn: Bangla alt text\n:ivar position: Its place in its gallery\n:ivar width: The decoded width in pixels\n:ivar height: The decoded height in pixels\n:ivar rejection_code: Why it was rejected, if it was\n:ivar thumb_url: A 320-pixel preview: the public URL once approved, a\n    five-minute signed URL while it awaits review, otherwise None",
+        "properties": {
+          "alt_bn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt Bn"
+          },
+          "alt_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt En"
+          },
+          "batch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "rejection_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Code"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "awaiting_upload",
+              "held",
+              "pending_review",
+              "processing",
+              "rejected",
+              "withdrawn"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "thumb_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumb Url"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "alt_bn",
+          "alt_en",
+          "batch_id",
+          "height",
+          "id",
+          "position",
+          "rejection_code",
+          "status",
+          "thumb_url",
+          "width"
+        ],
+        "title": "MediaResponse",
+        "type": "object"
+      },
+      "MediaUpdate": {
+        "additionalProperties": false,
+        "description": "Change a photo's alt text; an omitted field is left alone.\n\n:ivar alt_en: New English alt text\n:ivar alt_bn: New Bangla alt text",
+        "properties": {
+          "alt_bn": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt Bn"
+          },
+          "alt_en": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt En"
+          }
+        },
+        "title": "MediaUpdate",
+        "type": "object"
+      },
+      "MediaUploadInit": {
+        "additionalProperties": false,
+        "description": "Start an upload.\n\n``content_type`` and ``byte_size`` are checked by the service, not the\nschema, so a disallowed type or size answers ``MEDIA_TYPE_NOT_ALLOWED``\nor ``MEDIA_TOO_LARGE`` -- a message key the client can localize -- and\nnot a generic 422. The type set is still published as an enum.\n\n:ivar batch_id: The batch the photo is for; None for the owner's page\n:ivar content_type: ``image/jpeg``, ``image/png`` or ``image/webp``\n:ivar byte_size: The file's size in bytes, at most 8 MiB",
+        "properties": {
+          "batch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "byte_size": {
+            "maximum": 2147483647.0,
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "content_type": {
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ],
+            "maxLength": 32,
+            "title": "Content Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "byte_size",
+          "content_type"
+        ],
+        "title": "MediaUploadInit",
+        "type": "object"
+      },
+      "MediaUploadTicket": {
+        "description": "What the client needs to post the file straight to the bucket.\n\n:ivar media_id: The photo the upload is for\n:ivar url: The POST target\n:ivar fields: The form fields to send, in order, before the file\n:ivar expires_at: When the signature stops being accepted",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "object"
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expires_at",
+          "fields",
+          "media_id",
+          "url"
+        ],
+        "title": "MediaUploadTicket",
         "type": "object"
       },
       "MemberInviteRequest": {
@@ -6853,6 +7718,136 @@
         "title": "MyClassResponse",
         "type": "object"
       },
+      "MyEnquiryWire": {
+        "description": "One of the caller's own join requests.\n\n:ivar id: The request, to withdraw it\n:ivar owner_public_name: The listing's public name, or None once the\n    listing itself is gone\n:ivar batch_title: The batch's public title, or None\n:ivar student_name: As sent\n:ivar class_level: One of the hub class levels\n:ivar message: As sent, or None\n:ivar share_contact: Whether the caller shared their contact\n:ivar status: ``open`` or ``closed``\n:ivar outcome: How the owner answered, or None while open\n:ivar sent_on: The day it was sent, in Bangladesh\n:ivar owner_contact_phone: The owner's published number, only on a\n    ``call_us`` answer and only while the owner is public",
+        "properties": {
+          "batch_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Title"
+          },
+          "class_level": {
+            "enum": [
+              "a_level",
+              "admission",
+              "class_1",
+              "class_10",
+              "class_11",
+              "class_12",
+              "class_2",
+              "class_3",
+              "class_4",
+              "class_5",
+              "class_6",
+              "class_7",
+              "class_8",
+              "class_9",
+              "hsc",
+              "o_level",
+              "other",
+              "ssc"
+            ],
+            "title": "Class Level",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "enum": [
+                  "added",
+                  "call_us",
+                  "not_now"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "owner_contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Contact Phone"
+          },
+          "owner_public_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Public Name"
+          },
+          "sent_on": {
+            "format": "date",
+            "title": "Sent On",
+            "type": "string"
+          },
+          "share_contact": {
+            "title": "Share Contact",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "closed",
+              "open"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "student_name": {
+            "title": "Student Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_title",
+          "class_level",
+          "id",
+          "message",
+          "outcome",
+          "owner_contact_phone",
+          "owner_public_name",
+          "sent_on",
+          "share_contact",
+          "status",
+          "student_name"
+        ],
+        "title": "MyEnquiryWire",
+        "type": "object"
+      },
       "MyExamResponse": {
         "description": "One exam the caller marks [C4].\n\n:ivar exam_id: The exam\n:ivar centre_name: Its centre\n:ivar batch_name: Its batch\n:ivar subject_name: Its subject\n:ivar title: Its name\n:ivar date: When it was sat\n:ivar total_marks: The denominator\n:ivar published: Whether its results have been published\n:ivar cancelled: Whether it was cancelled",
         "properties": {
@@ -6907,6 +7902,170 @@
           "total_marks"
         ],
         "title": "MyExamResponse",
+        "type": "object"
+      },
+      "MyReviewBody": {
+        "description": "The caller's own review, as its author sees it.\n\n:ivar rating: 1 to 5\n:ivar body: The words, or None\n:ivar status: Where it is in moderation\n:ivar rejection_code: Why it was rejected or removed\n:ivar tenure: The tenure bucket frozen at the first submit\n:ivar published_month: ``YYYY-MM`` once published, else None\n:ivar reply_body: The owner's reply while it is published",
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "published_month": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Month"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "integer"
+          },
+          "rejection_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Code"
+          },
+          "reply_body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply Body"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "held",
+              "pending",
+              "published",
+              "rejected",
+              "removed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tenure": {
+            "enum": [
+              "6_12m",
+              "gt_1y",
+              "lt_6m"
+            ],
+            "title": "Tenure",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "published_month",
+          "rating",
+          "rejection_code",
+          "reply_body",
+          "status",
+          "tenure"
+        ],
+        "title": "MyReviewBody",
+        "type": "object"
+      },
+      "MyReviewResponse": {
+        "description": "Where the caller stands with one batch's review.\n\n:ivar standing: ``eligible``, ``not_yet``, ``closed`` or ``author_only``\n:ivar waiting_on: What a ``not_yet`` caller still needs\n:ivar eligible_from: The day a ``not_yet`` caller's tenure is met,\n    sent only when tenure alone is unmet [FR-c]: never while classes\n    are also needed, nor on a closed window [T3-b]\n:ivar can_write: Whether a write now would be accepted\n:ivar edit_until: The last day, in Bangladesh, an edit is accepted\n:ivar review: The caller's review, or None",
+        "properties": {
+          "can_write": {
+            "title": "Can Write",
+            "type": "boolean"
+          },
+          "edit_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edit Until"
+          },
+          "eligible_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eligible From"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MyReviewBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "standing": {
+            "enum": [
+              "author_only",
+              "closed",
+              "eligible",
+              "not_yet"
+            ],
+            "title": "Standing",
+            "type": "string"
+          },
+          "waiting_on": {
+            "anyOf": [
+              {
+                "enum": [
+                  "attendance",
+                  "tenure"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waiting On"
+          }
+        },
+        "required": [
+          "can_write",
+          "edit_until",
+          "eligible_from",
+          "review",
+          "standing",
+          "waiting_on"
+        ],
+        "title": "MyReviewResponse",
         "type": "object"
       },
       "NextExamResponse": {
@@ -7076,8 +8235,12 @@
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
+              "hub_enquiry_answered",
+              "hub_enquiry_received",
               "hub_feedback_question",
               "hub_listing_suspended",
+              "hub_review_outcome",
+              "hub_reviews_published",
               "marks_available",
               "notice",
               "payment_approved",
@@ -7190,7 +8353,7 @@
       },
       "NotificationResponse": {
         "additionalProperties": false,
-        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any; for a\n    ``hub_feedback_question``, the question's day, ``60`` or ``90``,\n    which the answer sends back\n:ivar class_date: For a class change, the day the class is now on, or\n    was on if cancelled\n:ivar class_time: For a class change, its start time that day\n:ivar moved_from_date: For a reschedule, the day it was moved from\n:ivar moved_from_time: For a reschedule, the start time it was moved from",
+        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any; for a\n    ``hub_feedback_question``, the question's day, ``60`` or ``90``,\n    which the answer sends back; for a ``hub_review_outcome``,\n    ``published``, ``rejected`` or ``removed``; for a\n    ``hub_reviews_published``, how many reviews of the batch were just\n    published, in Latin digits; for a ``hub_enquiry_received``, None,\n    since nothing a guardian typed is ever in an inbox; for a\n    ``hub_enquiry_answered``, the outcome, ``added``, ``not_now`` or\n    ``call_us``\n:ivar class_date: For a class change, the day the class is now on, or\n    was on if cancelled\n:ivar class_time: For a class change, its start time that day\n:ivar moved_from_date: For a reschedule, the day it was moved from\n:ivar moved_from_time: For a reschedule, the start time it was moved from",
         "properties": {
           "amount": {
             "anyOf": [
@@ -7266,8 +8429,12 @@
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
+              "hub_enquiry_answered",
+              "hub_enquiry_received",
               "hub_feedback_question",
               "hub_listing_suspended",
+              "hub_review_outcome",
+              "hub_reviews_published",
               "marks_available",
               "notice",
               "payment_approved",
@@ -7478,9 +8645,242 @@
         "title": "OwedTogetherResponse",
         "type": "object"
       },
-      "OwnerListingResponse": {
-        "description": "The owner's listing, with what publishing still needs.\n\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment, or None while a draft\n:ivar public_name: The name shown publicly\n:ivar public_name_latin: The owner's Latin spelling of the name\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly\n:ivar consent_version: The consent text the owner last agreed to\n:ivar published_at: When it was last published\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met\n:ivar runs_classes: Whether the owner earns the Runs classes badge\n:ivar consent_version_current: The consent text version to agree to now\n:ivar is_centre: Whether the owner is a coaching centre, the only kind\n    that may show a street address",
+      "OwnerBatchRatingWire": {
+        "description": "One of the owner's published batches, with its rating over the threshold.\n\nBelow three published reviews every figure is None, the count included\n[T2-a]: such a batch reads exactly like one nobody has reviewed.\n\n:ivar batch_id: The batch\n:ivar batch_title: Its public title\n:ivar review_count: Published reviews, or None below the threshold\n:ivar average_tenths: The average in tenths (43 is 4.3), or None\n:ivar average_label: The average as shown, ``\"4.3\"``, or None;\n    clients show this and never format ``average_tenths`` [F13]. Not\n    named ``*_display``: that suffix is reserved for the rendering of a\n    money amount, and the money gate refuses one without its amount\n:ivar distribution: Reviews per star from one to five, or None",
         "properties": {
+          "average_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Label"
+          },
+          "average_tenths": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Tenths"
+          },
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "batch_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Title"
+          },
+          "distribution": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distribution"
+          },
+          "review_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Count"
+          }
+        },
+        "required": [
+          "average_label",
+          "average_tenths",
+          "batch_id",
+          "batch_title",
+          "distribution",
+          "review_count"
+        ],
+        "title": "OwnerBatchRatingWire",
+        "type": "object"
+      },
+      "OwnerEnquiryWire": {
+        "description": "One join request, as the people who run the listing read it.\n\n:ivar id: The request\n:ivar batch_id: The batch asked about, or None for the owner as a whole\n:ivar batch_title: That batch's public title, or None\n:ivar student_name: As the guardian typed it\n:ivar class_level: One of the hub class levels\n:ivar message: As typed, or None\n:ivar status: ``open`` or ``closed``\n:ivar outcome: How it was answered, or None while open\n:ivar received_at: When it was sent\n:ivar guardian_phone: The guardian's phone, only when they shared\n    their contact\n:ivar guardian_email: The guardian's email, only when they shared\n    their contact and have no phone\n:ivar outcomes_allowed: What a close would accept now; empty once\n    closed. Clients offer exactly these",
+        "properties": {
+          "batch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "batch_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Title"
+          },
+          "class_level": {
+            "enum": [
+              "a_level",
+              "admission",
+              "class_1",
+              "class_10",
+              "class_11",
+              "class_12",
+              "class_2",
+              "class_3",
+              "class_4",
+              "class_5",
+              "class_6",
+              "class_7",
+              "class_8",
+              "class_9",
+              "hsc",
+              "o_level",
+              "other",
+              "ssc"
+            ],
+            "title": "Class Level",
+            "type": "string"
+          },
+          "guardian_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Email"
+          },
+          "guardian_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Phone"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "enum": [
+                  "added",
+                  "call_us",
+                  "not_now"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "outcomes_allowed": {
+            "items": {
+              "enum": [
+                "added",
+                "call_us",
+                "not_now"
+              ],
+              "type": "string"
+            },
+            "title": "Outcomes Allowed",
+            "type": "array"
+          },
+          "received_at": {
+            "format": "date-time",
+            "title": "Received At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "closed",
+              "open"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "student_name": {
+            "title": "Student Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_id",
+          "batch_title",
+          "class_level",
+          "guardian_email",
+          "guardian_phone",
+          "id",
+          "message",
+          "outcome",
+          "outcomes_allowed",
+          "received_at",
+          "status",
+          "student_name"
+        ],
+        "title": "OwnerEnquiryWire",
+        "type": "object"
+      },
+      "OwnerListingResponse": {
+        "description": "The owner's listing, with what publishing still needs.\n\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment, or None while a draft\n:ivar public_name: The name shown publicly\n:ivar public_name_latin: The owner's Latin spelling of the name\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly\n:ivar consent_version: The consent text the owner last agreed to\n:ivar published_at: When it was last published\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met\n:ivar runs_classes: Whether the owner earns the Runs classes badge\n:ivar consent_version_current: The consent text version to agree to now\n:ivar is_centre: Whether the owner is a coaching centre, the only kind\n    that may show a street address\n:ivar accepts_enquiries: Whether the owner agreed to receive join\n    requests\n:ivar enquiries_offered: Whether join requests are switched on, so the\n    editor offers the choice; false whatever the owner chose while off",
+        "properties": {
+          "accepts_enquiries": {
+            "title": "Accepts Enquiries",
+            "type": "boolean"
+          },
           "bio_bn": {
             "anyOf": [
               {
@@ -7535,6 +8935,10 @@
               }
             ],
             "title": "District Code"
+          },
+          "enquiries_offered": {
+            "title": "Enquiries Offered",
+            "type": "boolean"
           },
           "headline_bn": {
             "anyOf": [
@@ -7676,12 +9080,14 @@
           }
         },
         "required": [
+          "accepts_enquiries",
           "bio_bn",
           "bio_en",
           "checklist",
           "consent_version",
           "consent_version_current",
           "district_code",
+          "enquiries_offered",
           "headline_bn",
           "headline_en",
           "is_centre",
@@ -7703,8 +9109,19 @@
       },
       "OwnerListingUpdateRequest": {
         "additionalProperties": false,
-        "description": "Edit the owner's listing; an omitted field is left alone.\n\nAn empty string clears a nullable text field.\n\n:ivar slug: The public path segment\n:ivar public_name: The name shown publicly\n:ivar public_name_latin: The owner's own Latin spelling of the name,\n    so a search typed in English finds a Bangla name\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code; must lie in the district\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly",
+        "description": "Edit the owner's listing; an omitted field is left alone.\n\nAn empty string clears a nullable text field.\n\n:ivar slug: The public path segment\n:ivar public_name: The name shown publicly\n:ivar public_name_latin: The owner's own Latin spelling of the name,\n    so a search typed in English finds a Bangla name\n:ivar headline_en: The English headline\n:ivar headline_bn: The Bangla headline\n:ivar bio_en: The English biography\n:ivar bio_bn: The Bangla biography\n:ivar qualifications: Qualifications\n:ivar teaching_mode: How the owner teaches\n:ivar district_code: The district's BBS code\n:ivar upazila_code: The upazila's BBS code; must lie in the district\n:ivar street_address: A centre's street address\n:ivar public_contact_phone: The one number shown publicly\n:ivar accepts_enquiries: Whether the owner agrees to receive join\n    requests; stored even while join requests are switched off",
         "properties": {
+          "accepts_enquiries": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepts Enquiries"
+          },
           "bio_bn": {
             "anyOf": [
               {
@@ -7871,6 +9288,153 @@
           }
         },
         "title": "OwnerListingUpdateRequest",
+        "type": "object"
+      },
+      "OwnerReviewWire": {
+        "description": "One published review of the owner's batch, with the owner's reply.\n\n:ivar id: The review, to reply to\n:ivar batch_id: The batch\n:ivar rating: 1 to 5\n:ivar body: The words, or None\n:ivar tenure: The author's tenure bucket\n:ivar published_month: ``YYYY-MM``\n:ivar reply_body: The reply as the public sees it, while published\n:ivar reply_month: ``YYYY-MM`` the reply was published in, or None\n:ivar my_reply_status: The owner's reply's status, or None without one\n:ivar my_reply_body: The owner's reply's words in any status\n:ivar my_reply_rejection_code: Why the reply was rejected or removed",
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "my_reply_body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "My Reply Body"
+          },
+          "my_reply_rejection_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "My Reply Rejection Code"
+          },
+          "my_reply_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "held",
+                  "pending",
+                  "published",
+                  "rejected",
+                  "removed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "My Reply Status"
+          },
+          "published_month": {
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Published Month",
+            "type": "string"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "integer"
+          },
+          "reply_body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply Body"
+          },
+          "reply_month": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply Month"
+          },
+          "tenure": {
+            "enum": [
+              "6_12m",
+              "gt_1y",
+              "lt_6m"
+            ],
+            "title": "Tenure",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_id",
+          "body",
+          "id",
+          "my_reply_body",
+          "my_reply_rejection_code",
+          "my_reply_status",
+          "published_month",
+          "rating",
+          "reply_body",
+          "reply_month",
+          "tenure"
+        ],
+        "title": "OwnerReviewWire",
+        "type": "object"
+      },
+      "OwnerReviewsResponse": {
+        "description": "The owner's published batches' ratings and their reviews.\n\n:ivar batches: One row per published batch listing, reviewed or not\n:ivar reviews: Published reviews over the threshold, newest month first",
+        "properties": {
+          "batches": {
+            "items": {
+              "$ref": "#/components/schemas/OwnerBatchRatingWire"
+            },
+            "title": "Batches",
+            "type": "array"
+          },
+          "reviews": {
+            "items": {
+              "$ref": "#/components/schemas/OwnerReviewWire"
+            },
+            "title": "Reviews",
+            "type": "array"
+          }
+        },
+        "required": [
+          "batches",
+          "reviews"
+        ],
+        "title": "OwnerReviewsResponse",
         "type": "object"
       },
       "PasswordChangeRequest": {
@@ -9641,6 +11205,23 @@
         "title": "ReminderResponse",
         "type": "object"
       },
+      "ReplyWrite": {
+        "additionalProperties": false,
+        "description": "Write or replace the owner's reply to a review.\n\n:ivar body: 1 to 1000 characters once stripped",
+        "properties": {
+          "body": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "ReplyWrite",
+        "type": "object"
+      },
       "ReviewChildResponse": {
         "additionalProperties": false,
         "description": "One child a payment covers, in child order.\n\n:ivar claim_id: The child's claim\n:ivar enrollment_id: The child's seat\n:ivar display_name: The teacher-typed name\n:ivar period: The period the claim resolved to\n:ivar owed: What the seat owes now\n:ivar approved_amount: What the decision approved, or null",
@@ -9686,6 +11267,83 @@
           "period"
         ],
         "title": "ReviewChildResponse",
+        "type": "object"
+      },
+      "ReviewWrite": {
+        "additionalProperties": false,
+        "description": "Write or edit the caller's review of a batch.\n\n:ivar rating: 1 to 5\n:ivar body: Optional words, at most 1000 characters once stripped; a\n    blank body is stored as none",
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "rating": {
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rating",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rating"
+        ],
+        "title": "ReviewWrite",
+        "type": "object"
+      },
+      "ReviewableBatch": {
+        "description": "One batch the caller may review, is waiting to, or has reviewed.\n\n:ivar batch_id: The batch\n:ivar batch_title: Its public title\n:ivar owner_public_name: Its owner's public name\n:ivar state: ``eligible``, ``not_yet``, or ``reviewed`` once the caller\n    wrote a review, whatever their standing now\n:ivar eligible_from: The day a ``not_yet`` caller's tenure is met,\n    sent only when tenure alone is unmet [FR-c]; None otherwise",
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "batch_title": {
+            "title": "Batch Title",
+            "type": "string"
+          },
+          "eligible_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eligible From"
+          },
+          "owner_public_name": {
+            "title": "Owner Public Name",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "eligible",
+              "not_yet",
+              "reviewed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_id",
+          "batch_title",
+          "eligible_from",
+          "owner_public_name",
+          "state"
+        ],
+        "title": "ReviewableBatch",
         "type": "object"
       },
       "RoomCreateRequest": {
@@ -13200,7 +14858,7 @@
     },
     "/hub/{locale}": {
       "get": {
-        "description": "Serve the landing page, or a page of search results.\n\n:param locale: ``en`` or ``bn``\n:param request: The incoming request, whose six keys are read\n:param allowed: Whether this read was within the ceiling\n:return: The page, the 404 page, or the 429 page",
+        "description": "Serve the landing page, or a page of search results.\n\n:param locale: ``en`` or ``bn``\n:param request: The incoming request, whose seven keys are read\n:param allowed: Whether this read was within the ceiling\n:return: The page, the 404 page, or the 429 page",
         "operationId": "hub_search_hub__locale__get",
         "parameters": [
           {
@@ -13255,6 +14913,14 @@
           {
             "in": "query",
             "name": "page",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
             "required": false,
             "schema": {
               "type": "string"
@@ -14301,6 +15967,144 @@
         ]
       }
     },
+    "/v1/admin/hub/media/{media_id}": {
+      "get": {
+        "description": "Read one photo for review, with five-minute previews of its variants.\n\n:param media_id: The photo\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param store: The photo bucket\n:return: The photo, its page's public name and title, and no account",
+        "operationId": "hub_media_v1_admin_hub_media__media_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHubMediaDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Media",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/hub/media/{media_id}/decision": {
+      "post": {
+        "description": "Approve or reject a photo waiting for review or held after a report.\n\n:param media_id: The photo\n:param body: The decision, and the code for a rejection\n:param request: The incoming request\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param store: The photo bucket\n:return: The photo and its new status",
+        "operationId": "decide_media_v1_admin_hub_media__media_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminHubMediaDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHubMediaDecided"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Decide Media",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/v1/admin/hub/owners/{owner_id}/suspension": {
       "put": {
         "description": "Suspend or restore an owner's public listing.\n\n:param owner_id: The owner\n:param body: Whether to suspend, and why\n:param request: The incoming request\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:return: The owner and whether the listing is suspended now",
@@ -14377,7 +16181,7 @@
     },
     "/v1/admin/hub/queue": {
       "get": {
-        "description": "List open reports, or suspended listings, oldest first.\n\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param kind: ``report`` or ``listing``\n:return: The queue; a reporter appears only as an opaque label",
+        "description": "List open reports, suspended listings, photos or reviews to decide.\n\nOldest first. ``kind=review`` answers ``HUB_REVIEWS_OFF`` while reviews\nare off.\n\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param kind: ``report``, ``listing``, ``media`` or ``review``\n:return: The queue; a reporter or a review's author appears only as an\n    opaque label",
         "operationId": "hub_queue_v1_admin_hub_queue_get",
         "parameters": [
           {
@@ -14388,7 +16192,9 @@
               "default": "report",
               "enum": [
                 "listing",
-                "report"
+                "media",
+                "report",
+                "review"
               ],
               "title": "Kind",
               "type": "string"
@@ -14405,6 +16211,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_REVIEWS_OFF: reviews are switched off. Only kind=review answers it; the other kinds are never gated."
           },
           "422": {
             "content": {
@@ -14445,7 +16261,7 @@
     },
     "/v1/admin/hub/reports/{report_id}/decision": {
       "post": {
-        "description": "Uphold or dismiss a report.\n\n:param report_id: The report\n:param body: The decision\n:param request: The incoming request\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:return: The report and its new status",
+        "description": "Uphold or dismiss a report; a photo report's decision reaches the photo.\n\n:param report_id: The report\n:param body: The decision\n:param request: The incoming request\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param store: The photo bucket, for restoring a held photo\n:return: The report and its new status",
         "operationId": "decide_report_v1_admin_hub_reports__report_id__decision_post",
         "parameters": [
           {
@@ -14512,6 +16328,198 @@
           }
         },
         "summary": "Decide Report",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/hub/reviews/{review_id}": {
+      "get": {
+        "description": "Read one review, or its reply, for moderation.\n\n:param review_id: The review; a reply's id is its review's\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param target: ``review`` or ``reply``\n:return: The item, its batch's public title and owner's public name, and\n    its author only as a role and an opaque reference",
+        "operationId": "hub_review_v1_admin_hub_reviews__review_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": false,
+            "schema": {
+              "default": "review",
+              "enum": [
+                "reply",
+                "review"
+              ],
+              "title": "Target",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHubReviewDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_REVIEWS_OFF: reviews are switched off. HUB_ADMIN_TARGET_NOT_FOUND: no such review, or no reply to it."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Review",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/hub/reviews/{review_id}/decision": {
+      "post": {
+        "description": "Approve or reject a review or reply waiting for review or held.\n\n:param review_id: The review; a reply's id is its review's\n:param body: The target, the decision, and the code for a rejection\n:param request: The incoming request\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:return: The item and its new status",
+        "operationId": "decide_review_v1_admin_hub_reviews__review_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminHubReviewDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHubReviewDecided"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "REVIEW_CODE_INVALID: a code with an approval, or a rejection without one."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_REVIEWS_OFF: reviews are switched off. HUB_ADMIN_TARGET_NOT_FOUND: no such review, or no reply to it."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "REVIEW_ALREADY_DECIDED: the item is neither pending nor held. REVIEW_REPORT_OPEN: an approval of a pending or held item while an open child-safety or personal-information report, filed by someone who does not run the batch, still names it; deciding that report is what releases it."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Decide Review",
         "tags": [
           "admin"
         ]
@@ -22995,6 +25003,581 @@
         ]
       }
     },
+    "/v1/hub/batches/{batch_id}/my-review": {
+      "delete": {
+        "description": "Delete the caller's review of this batch, with its reply and reports.\n\nNever switch-gated, and quiet when there is nothing to delete.\n\n:param lens: The caller's reviewer lens for the batch\n:param session: The request-scoped session\n:return: An empty 204",
+        "operationId": "delete_my_review_v1_hub_batches__batch_id__my_review_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NOT_AVAILABLE: not a member of this batch nor the author of a review of it; a batch that does not exist answers the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Delete My Review",
+        "tags": [
+          "hub"
+        ]
+      },
+      "get": {
+        "description": "Read where the caller stands with this batch's review.\n\nNot switch-gated: while reviews are off ``can_write`` is false.\n\n:param lens: The caller's reviewer lens for the batch\n:param session: The request-scoped session\n:return: The state",
+        "operationId": "get_my_review_v1_hub_batches__batch_id__my_review_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NOT_AVAILABLE: not a member of this batch nor the author of a review of it; a batch that does not exist answers the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Get My Review",
+        "tags": [
+          "hub"
+        ]
+      },
+      "put": {
+        "description": "Write the caller's review of this batch, or edit it.\n\nA first review needs an eligible standing; an edit needs the window\nopen. An edit goes back to moderation.\n\n:param body: The rating and the optional words\n:param lens: The caller's reviewer lens for the batch\n:param session: The request-scoped session\n:return: The state after the write",
+        "operationId": "put_my_review_v1_hub_batches__batch_id__my_review_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "REVIEW_CONTAINS_CONTACT: the words carry a phone number or a web address; details name the field."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NOT_AVAILABLE: not a member of this batch nor the author of a review of it; a batch that does not exist answers the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_REVIEWS_OFF: reviews are switched off."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "REVIEW_NOT_YET_ELIGIBLE: a first review by a member not yet, or no longer, eligible (hub.review.not_yet_eligible with eligible_from, hub.review.needs_attendance, hub.review.window_closed). REVIEW_EDIT_CLOSED: the edit window has passed. HUB_REVIEW_CEILING: today's changing writes are spent."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Put My Review",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/enquiries": {
+      "get": {
+        "description": "List the owner's requests, open first, then newest.\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The requests",
+        "operationId": "list_owner_enquiries_v1_hub_enquiries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OwnerEnquiryWire"
+                  },
+                  "title": "Response List Owner Enquiries V1 Hub Enquiries Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_ENQUIRIES_OFF: join requests are switched off."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "List Owner Enquiries",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/enquiries/{enquiry_id}": {
+      "get": {
+        "description": "Read one of the owner's requests.\n\n:param enquiry_id: The request\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The request",
+        "operationId": "get_owner_enquiry_v1_hub_enquiries__enquiry_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enquiry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enquiry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerEnquiryWire"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_NOT_FOUND: no request of this owner's by that id; another owner's request answers the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Get Owner Enquiry",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/enquiries/{enquiry_id}/close": {
+      "post": {
+        "description": "Answer a request; its guardian is told the outcome and nothing else.\n\n:param enquiry_id: The request\n:param body: The outcome, one of the request's ``outcomes_allowed``\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The closed request",
+        "operationId": "close_owner_enquiry_v1_hub_enquiries__enquiry_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enquiry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enquiry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnquiryClose"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerEnquiryWire"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "ENQUIRY_OUTCOME_INVALID: an outcome not in the request's outcomes_allowed."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_NOT_FOUND: no request of this owner's by that id; another owner's request answers the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "ENQUIRY_ALREADY_CLOSED: the request was already answered."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Close Owner Enquiry",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
     "/v1/hub/feedback": {
       "post": {
         "description": "Answer \"Did the hub bring you a student?\"; answering again overwrites.\n\nThe question answered is the workspace's own: a centre manager names the\ncentre with ``X-Workspace-Id``, as the inbox item's ``source_id`` gives\nit. A day this owner was never asked is refused with\n``HUB_FEEDBACK_NOT_ASKED`` (409).\n\n:param body: The day of the question and the answer\n:param lens: The answering manager's lens on the owner\n:param session: The request-scoped session\n:return: An empty 204",
@@ -23274,7 +25857,7 @@
     },
     "/v1/hub/listing/preview": {
       "get": {
-        "description": "Show the owner their own public page before it is public.\n\nBuilt from the owner's own rows by a separate, owner-scoped builder,\ninto the same registered page model and through the same template as\nthe public page, with a banner saying it is not public. Never cached:\nit is one owner's unpublished draft.\n\n:param lens: The owner's lens; the page is always this owner's\n:param session: The request-scoped session\n:param locale: ``en`` or ``bn``\n:return: The page",
+        "description": "Show the owner their own public page before it is public.\n\nBuilt from the owner's own rows by a separate, owner-scoped builder,\ninto the same registered page model and through the same template as\nthe public page, with a banner saying it is not public. Never cached:\nit is one owner's unpublished draft.\n\n:param lens: The owner's lens; the page is always this owner's\n:param session: The request-scoped session\n:param store: The photo bucket, which signs photos awaiting review\n:param locale: ``en`` or ``bn``\n:return: The page",
         "operationId": "preview_listing_v1_hub_listing_preview_get",
         "parameters": [
           {
@@ -23564,9 +26147,908 @@
         ]
       }
     },
+    "/v1/hub/media": {
+      "get": {
+        "description": "List one gallery: the owner's own, or one batch's.\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param store: The bucket\n:param batch_id: The batch; omit for the owner's own gallery\n:return: The photos in gallery order; withdrawn ones, and uploads\n    abandoned past their window, excluded",
+        "operationId": "list_photos_v1_hub_media_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "batch_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaResponse"
+                  },
+                  "title": "Response List Photos V1 Hub Media Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such photo or batch of yours."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "List Photos",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/media/order": {
+      "put": {
+        "description": "Put a gallery's photos in the given order.\n\n:param body: The gallery and the photo ids, first to last\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param store: The bucket\n:return: The gallery in its new order",
+        "operationId": "put_order_v1_hub_media_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaResponse"
+                  },
+                  "title": "Response Put Order V1 Hub Media Order Put",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such photo or batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Put Order",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/media/uploads": {
+      "post": {
+        "description": "Start an upload and sign it.\n\nCounts against the owner's daily uploads, not their daily edits.\n\n:param body: The declared type, size and the batch\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param store: The bucket\n:return: The presigned POST",
+        "operationId": "start_upload_v1_hub_media_uploads_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUploadInit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaUploadTicket"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such photo or batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Start Upload",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/media/{media_id}": {
+      "delete": {
+        "description": "Withdraw a photo; its stored files are deleted, even while suspended.\n\n:param media_id: The photo\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: An empty 204",
+        "operationId": "delete_photo_v1_hub_media__media_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such photo or batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Delete Photo",
+        "tags": [
+          "hub"
+        ]
+      },
+      "patch": {
+        "description": "Change a photo's alt text.\n\nChanging an approved photo's text sends it back to review, because the\nnew text has not been moderated.\n\n:param media_id: The photo\n:param body: The new text; an omitted field is left alone\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param store: The bucket\n:return: The photo",
+        "operationId": "patch_photo_v1_hub_media__media_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such photo or batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Patch Photo",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/media/{media_id}/complete": {
+      "post": {
+        "description": "Submit an uploaded photo for review once the file has been read.\n\nSafe to repeat, and safe to poll: before the file has been processed the\nanswer is 409 ``MEDIA_NOT_UPLOADED``, and a repeat on a photo already in\nreview changes nothing. Neither spends the daily edit allowance; only a\ncall that moves the photo to review or rejects it as unreadable does, in\nthat call's own transaction.\n\n:param media_id: The photo\n:param body: Both alt texts\n:param lens: The owner's lens\n:param session: The request-scoped session\n:param store: The bucket\n:return: The photo",
+        "operationId": "complete_upload_v1_hub_media__media_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaComplete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No such photo or batch of yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Complete Upload",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/owners/{owner_slug}/enquiries": {
+      "post": {
+        "description": "Ask an owner, or one of its batches, to take a student.\n\nThe people who run the listing are told a request arrived, and nothing\nthe guardian typed travels with it.\n\n:param owner_slug: The owner's public slug\n:param body: The request; the declaration is checked and not stored\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: The request as the guardian sees it",
+        "operationId": "send_enquiry_v1_hub_owners__owner_slug__enquiries_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner_slug",
+            "required": true,
+            "schema": {
+              "title": "Owner Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnquiryWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyEnquiryWire"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "ENQUIRY_CONTAINS_CONTACT: the student's name or the message carries a phone number or a web address; details name the field."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_TARGET_NOT_FOUND: no published listing accepting requests by that slug, no open listed batch of it by that id, or a listing the caller runs; a slug that never existed answers the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "ENQUIRY_ALREADY_OPEN: the caller already has a request open with this owner. HUB_ENQUIRY_CEILING: today's requests are spent."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Send Enquiry",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/owners/{owner_slug}/enquiry-target": {
+      "get": {
+        "description": "Say who a request would reach and what \"share\" would share.\n\nInformed consent needs the name of whoever would receive the contact.\n\n:param owner_slug: The owner's public slug\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:param batch_id: The listed batch asked about, if any\n:return: The target as the form shows it",
+        "operationId": "get_enquiry_target_v1_hub_owners__owner_slug__enquiry_target_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner_slug",
+            "required": true,
+            "schema": {
+              "title": "Owner Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "batch_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnquiryTargetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_TARGET_NOT_FOUND: no published listing accepting requests by that slug, no open listed batch of it by that id, or a listing the caller runs; a slug that never existed answers the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Get Enquiry Target",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
     "/v1/hub/reports": {
       "post": {
-        "description": "Report a published hub listing; nothing about the listing changes.\n\n:param body: The target, the reason and an optional note\n:param request: The incoming request, for its correlation id\n:param account_id: The authenticated reporter\n:param session: The request-scoped session\n:return: An empty 202",
+        "description": "Report a published hub listing or a public photo.\n\nNothing about a listing changes. A child-safety or personal-information\nreport on a photo takes that photo down until an administrator decides.\n\n:param body: The target, the reason and an optional note\n:param request: The incoming request, for its correlation id\n:param account_id: The authenticated reporter\n:param session: The request-scoped session\n:return: An empty 202",
         "operationId": "file_report_v1_hub_reports_post",
         "requestBody": {
           "content": {
@@ -23664,6 +27146,333 @@
           }
         },
         "summary": "File Report",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/reviewable": {
+      "get": {
+        "description": "List the batches the caller may review, is waiting to, or reviewed.\n\nNot switch-gated: while reviews are off it lists only the batches the\ncaller already reviewed, so a review can still be found and deleted.\n\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: The rows, by batch title",
+        "operationId": "list_reviewable_v1_hub_reviewable_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReviewableBatch"
+                  },
+                  "title": "Response List Reviewable V1 Hub Reviewable Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "List Reviewable",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/reviews": {
+      "get": {
+        "description": "Read the owner's batches' ratings and their published reviews.\n\nExactly what the public sees of them: below three published reviews a\nbatch shows no review and no figure [T2-a].\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: Every published batch's rating, and the reviews",
+        "operationId": "get_owner_reviews_v1_hub_reviews_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerReviewsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_REVIEWS_OFF: reviews are switched off."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Get Owner Reviews",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/reviews/{review_id}/reply": {
+      "delete": {
+        "description": "Delete the owner's reply to a review, and every report on it.\n\nNever switch-gated, never refused for a suspension or the review's\nvisibility, and quiet when there is nothing of the owner's to delete.\n\n:param review_id: The review\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: An empty 204",
+        "operationId": "delete_reply_v1_hub_reviews__review_id__reply_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Delete Reply",
+        "tags": [
+          "hub"
+        ]
+      },
+      "put": {
+        "description": "Write or replace the owner's reply to a review; it is pre-moderated.\n\n:param review_id: The review\n:param body: The reply\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The review with the reply as it now stands",
+        "operationId": "put_reply_v1_hub_reviews__review_id__reply_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerReviewWire"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "REVIEW_CONTAINS_CONTACT: the reply carries a phone number or a web address; details name the field."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_REVIEWS_OFF: reviews are switched off. REVIEW_NOT_FOUND: no published review of yours by that id; another owner's review answers the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_LISTING_SUSPENDED: your listing is suspended. HUB_WRITE_CEILING: today's listing edits are spent."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Put Reply",
         "tags": [
           "hub"
         ]
@@ -26314,6 +30123,129 @@
         "summary": "Reply",
         "tags": [
           "help"
+        ]
+      }
+    },
+    "/v1/me/hub/enquiries": {
+      "get": {
+        "description": "List the caller's own requests, newest first.\n\nNot switch-gated: while join requests are off a guardian can still see\nwhat they sent, so they can withdraw it.\n\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: The requests",
+        "operationId": "list_my_enquiries_v1_me_hub_enquiries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MyEnquiryWire"
+                  },
+                  "title": "Response List My Enquiries V1 Me Hub Enquiries Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "List My Enquiries",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/me/hub/enquiries/{enquiry_id}": {
+      "delete": {
+        "description": "Withdraw one of the caller's requests, with every inbox item about it.\n\nNever switch-gated, and quiet for a missing id or another account's.\n\n:param enquiry_id: The request\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: An empty 204",
+        "operationId": "withdraw_enquiry_v1_me_hub_enquiries__enquiry_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enquiry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enquiry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Withdraw Enquiry",
+        "tags": [
+          "hub"
         ]
       }
     },

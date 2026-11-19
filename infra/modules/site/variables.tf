@@ -36,3 +36,12 @@ variable "zone_id" {
   EOT
   type        = string
 }
+
+variable "media_bucket_regional_domain" {
+  description = <<-EOT
+    The hub photo bucket's regional endpoint (modules/media). The /m/*
+    behaviour reads approved photos from its public/ prefix through Origin
+    Access Control.
+  EOT
+  type        = string
+}

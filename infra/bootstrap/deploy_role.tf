@@ -152,6 +152,22 @@ resource "aws_iam_role_policy" "deploy" {
         Resource = "arn:aws:lambda:*:${data.aws_caller_identity.current.account_id}:function:shikkhokplus-${each.key}-seeder"
       },
       {
+        # **Shipping the image sanitiser's package** (modules/media/
+        # lambda.tf), which Terraform creates from a placeholder and never
+        # updates: the deploy uploads the real zip, then reads the
+        # function's configuration until LastUpdateStatus is Successful.
+        # Unlike the seeder's, that configuration holds no secret -- the
+        # function has no environment at all -- so reading it is safe.
+        # This one function, by name.
+        Sid    = "ShipTheImageSanitiser"
+        Effect = "Allow"
+        Action = [
+          "lambda:UpdateFunctionCode",
+          "lambda:GetFunctionConfiguration",
+        ]
+        Resource = "arn:aws:lambda:*:${data.aws_caller_identity.current.account_id}:function:shikkhokplus-${each.key}-image-sanitiser"
+      },
+      {
         # The deployment state: the image tag and the runtime env,
         # written by the release and read back for the rollback; and
         # the public URL, read by the smoke and the ZAP scan. NOT the
@@ -187,6 +203,18 @@ resource "aws_iam_role_policy" "deploy" {
         # terms -- the release copies them into the runtime env it already
         # writes, so this is no new reach -- plus three plain Strings: the
         # From address, the configuration set and the SMTP endpoint.
+        #
+        # **And the hub photo bucket** (modules/media): its name and
+        # regional endpoint, plain Strings. The release writes the name and
+        # region into the runtime env and hands the endpoint to the web and
+        # admin builds for their CSP. Names only; this role gets no access
+        # to the bucket itself.
+        #
+        # **And the hub switches** (modules/app): `hub-reviews` and
+        # `hub-enquiries`, plain Strings holding `on` or `off`, which the
+        # release validates and copies into the runtime env. A release
+        # stops if it cannot read either, so adding one here is a
+        # bootstrap re-apply before the next deploy.
         Sid    = "PublicUrl"
         Effect = "Allow"
         Action = ["ssm:GetParameter"]
@@ -199,6 +227,8 @@ resource "aws_iam_role_policy" "deploy" {
             "ses-smtp-username", "ses-smtp-password",
             "email-from", "ses-configuration-set", "ses-smtp-host",
             "android-cert-sha256",
+            "media-bucket", "media-bucket-domain",
+            "hub-reviews", "hub-enquiries",
           ] :
           "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/shikkhokplus-${each.key}/${name}"
         ]

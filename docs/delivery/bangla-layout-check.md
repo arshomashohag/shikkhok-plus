@@ -161,6 +161,71 @@ rather than editing the old one.
 | U4 (web) | Failed start card with Sign out | `web` | *not yet checked* | `error_unexpected` (54) / `more_log_out` (6) | |
 | U4 (web) | Root error card (a page that failed to render) | `web` | *not yet checked* | `error_unexpected` (54) / `auth_retry` (16) | |
 | U4 (web) | Centre members: invite by phone or email; a member with an email only | `web` | *not yet checked* | `centre_member_already_invited` (43) / `centre_invite_by_help` (39) | |
+| H4 (web) | MyReviews: the guardian home's Reviews row, and the list (batch title, owner's public name, state chip with "From {date}") | `web` | *not yet checked* | `hub_reviews_empty` (38) / `hub_reviews_entry_guardian_sub` (35) / `hub_reviews_state_reviewed` beside a full Bangla batch title | |
+| H4 (web) | ReviewEditor: five labelled star radios, body with its 1000 counter, the privacy note, status chip with a reason, "edit until", the not-yet banner with its date, the read-only review with Delete, and the delete confirmation, and the "cannot be written now" banner (`hub_review_unavailable`, 36) | `web` | *not yet checked* | `hub_review_privacy_note` (116) / `hub_review_needs_attendance` (75) / `hub_review_not_yet_eligible` (69) / `hub_review_status_not_published` with `hub_review_reason_identifiable_child` (30) | |
+| H4 (web) | Teacher Reviews (the listing editor's Reviews row, per-batch rating rows including the below-threshold line, review cards with tenure and month, reply box with counter and status, Delete reply, Report) | `web` | *not yet checked* | `hub_review_tenure_gt_1y` (46) / `hub_reviews_below_threshold` (42) / `hub_reviews_reply_note` (38) / `hub_reviews_entry_owner_sub` (37) | |
+| H4 (web admin) | Admin Reviews tab (`web/src/admin/hub/Queue.tsx`, `ReviewRow.tsx`): author reference and role, tenure, rating, words, the review a reply answers, the checklist line, approve and reject with a code, the held notice | `web` | *not yet checked* | `web_admin_hub_review_check` (70) / `web_admin_hub_review_held` (31) | |
+| H4 (public) | Hub batch page review section (`app/hub/public/templates/_reviews.html`): rating summary or the below-threshold line, the "most recent" line, review cards with tenure and month, the teacher's reply, the report links | `web` | *not yet checked* | `review_by_gt_1y` (46) / `reviews_below_threshold` (42) / `reviews_most_recent` (42) in `app/hub/public/messages.py` | |
+| H4 (Android) | Guardian home's Reviews row (under every child, and on the no-children card) and MyReviews (`MyReviewsScreen`: batch title, owner's public name, state with "From {date}") | — | *not yet checked* | `hub_reviews_empty` (38) / `hub_reviews_entry_guardian_sub` (35) / `hub_reviews_state_reviewed` (19) beside a full Bangla batch title | |
+| H4 (Android) | ReviewEditor (`ReviewEditorScreen`): five labelled star rows, the words field with its 1000 counter, the privacy note, status with a reason, "edit until", the not-yet banner with its date, the read-only review with Delete, the delete dialog, and the "cannot be written now" banner (`hub_review_unavailable`, 36) | — | *not yet checked* | `hub_review_privacy_note` (116) / `hub_review_needs_attendance` (75) / `hub_review_not_yet_eligible` (69) / `hub_review_status_not_published` with `hub_review_reason_identifiable_child` | |
+| H4 (Android) | Teacher Reviews (`OwnerReviewsScreen`, and the listing editor's Reviews row): per-batch rating rows including the below-threshold line, review cards with tenure · month, reply field with note and counter, status, Send reply, Delete reply, Report | — | *not yet checked* | `hub_review_tenure_gt_1y` (46) / `hub_reviews_below_threshold` (42) / `hub_reviews_reply_note` (38) with the counter on one help line / `hub_reviews_entry_owner_sub` (37) | |
+| H5 (web) | HubEnquiry (`/hub-enquiry`): "To {owner}" with the batch title, student name, class select, message with its 300 counter, the two share options with the help line, the declaration box, the three "required" lines, the refusal banner with "See my join requests", the sent banner, the already-open banner, and the unavailable line | `web` | *not yet checked* | `hub_enquiry_share_help` (128) / `hub_enquiry_already_open` (92) / `hub_enquiry_contains_contact` (88) / `hub_enquiry_sent` (76) / `hub_enquiry_declaration` (65) beside its checkbox / `hub_enquiry_share_email` (42) with a full Bangla owner name | |
+| H5 (web) | MyEnquiries (`/hub-enquiries`, and More's "My join requests" row): owner name or the no-longer-listed fallback, batch title, student · class · "Sent {date}", the waiting chip or the answer line, "Call {number}", Withdraw on the same row, the withdraw confirmation, the failed-withdraw banner | `web` | *not yet checked* | `hub_enquiry_outcome_added` (49) / `hub_enquiry_withdraw_body` (38) / `hub_enquiry_mine_sub` (34) / `hub_enquiry_owner_unknown` (31) beside `hub_enquiry_withdraw` | |
+| H5 (web) | Enquiries (`/more/hub/enquiries`, and the listing editor's "Receive join requests" switch and "Join requests" row): student name, class · batch · received time, the status chip | `web` | *not yet checked* | `hub_enquiry_switch_help` (101) / `hub_enquiry_inbox_sub` (47) / `hub_enquiry_answered_added` (32) as a chip at the row's end | |
+| H5 (web) | EnquiryDetail (`/more/hub/enquiries/:id`), and the add-student form opened from it: the six labelled fields, "Not shared", the three answer buttons on one row, the refused-answer banner, the prefilled note and the saved-but-not-answered banner with Retry | `web` | *not yet checked* | `hub_enquiry_saved_not_closed` (85) / `hub_enquiry_prefilled` (72) / `hub_enquiry_action_add` (26) beside `hub_enquiry_action_call_us` and `hub_enquiry_action_not_now` | |
+| H5 (Android) | EnquiryForm (`EnquiryFormScreen`, opened from the "Ask to join" App Link): "To {owner}" with the batch title, student name, the class picker, message with its 300 counter, the two share options with the help line, the declaration row, the refusal banner with Retry or "See my join requests", the sent banner, the already-open banner, the unavailable banner (`hub_enquiry_off`, 35) and the invalid-link banner | — | *not yet checked* | `hub_enquiry_share_help` (128) / `hub_enquiry_already_open` (92) / `hub_enquiry_contains_contact` (88) / `hub_enquiry_sent` (76) / `hub_enquiry_declaration` (65) beside its checkbox / `hub_enquiry_share_email` (43) with a full Bangla owner name | |
+| H5 (Android) | MyEnquiries (`MyEnquiriesScreen`, and More's "My join requests" row): owner name or the no-longer-listed fallback, batch title, student · class · "Sent {date}", the waiting line or the answer line, "Call {number}", Withdraw, the withdraw dialog, the failed-withdraw banner with Retry, the "withdrawn" notice, the could-not-refresh banner above kept rows | — | *not yet checked* | `hub_enquiry_outcome_added` (49) / `hub_enquiry_withdraw_body` (38) / `hub_enquiry_mine_sub` (34) / `hub_enquiry_owner_unknown` (31) | |
+| H5 (Android) | OwnerEnquiries (`OwnerEnquiriesScreen`, and the listing editor's "Receive join requests" switch card with its failure banner and "Join requests" row): student name, class · batch · received time, the status at the row's end, the unavailable banner, the could-not-refresh banner above kept rows | — | *not yet checked* | `hub_enquiry_switch_help` (101) beside the switch / `hub_enquiry_inbox_sub` (47) / `hub_enquiry_answered_added` (32) at the row's end beside a full Bangla student name | |
+| H5 (Android) | OwnerEnquiryDetail (`OwnerEnquiryDetailScreen`), and the add-student form opened from it: the labelled fields, the call or email action or "Not shared", the answer buttons stacked full width, the refused-answer banner with Retry, the "answer sent" notice, the prefilled banner and the saved-but-not-answered banner with Retry | — | *not yet checked* | `hub_enquiry_saved_not_closed` (85) / `hub_enquiry_prefilled` (72) / `hub_enquiry_action_add` (26) | |
+
+**H5's four web rows (2026-11-20) are open, and nothing automated
+discharges them.** The Vitest tests Task 8 added (`HubEnquiry.test.tsx`,
+`MyEnquiries.test.tsx`, `Enquiries.test.tsx`) are correctness tests that
+assert what each state renders and what reaches the server; they measure no
+layout. Lengths are code points from the regenerated
+`web/src/i18n/generated/strings.bn.json`, placeholders unfilled. The row to
+check first is HubEnquiry: `hub_enquiry_share_help` (119) sits under two
+radio labels that each carry the owner's public name, and the declaration
+(65) is a checkbox label. Class levels reuse the listing editor's
+`web_hub_level_*` words. **The Bangla copy itself is awaiting the human
+Bangla review**; a reworded string re-opens its row. Task 9 adds the Android
+rows, with the same strings.
+
+**H5's four Android rows (2026-11-20) are open, and nothing automated
+discharges them.** The Robolectric tests Task 9 added
+(`HubEnquiryRouteTest`, `HubEnquiryScreensTest`, `InboxRouteTest`) assert
+what each state renders, what reached the server and which screen opened;
+they measure no layout. Lengths are code points from `values-bn/strings.xml`,
+placeholders unfilled. Task 9 reworded two shared strings,
+`hub_enquiry_contains_contact` and `hub_enquiry_share_help`, so their web row
+is re-opened with the new lengths. The Android row to check first is
+EnquiryForm: `hub_enquiry_share_help` (128) sits under two radio rows that
+each carry the owner's public name, and the declaration (65) is a checkbox
+row's label. The counter under the message takes Latin digits through
+`Numerals.count`. **The Bangla copy itself is awaiting the human Bangla
+review.**
+
+**H4's three Android rows (2026-11-19) are open, and nothing automated
+discharges them.** The Robolectric tests Task 12 added (`HubReviewsRouteTest`,
+`InboxRouteTest`) drive the routes and assert what reached the server and which
+screen opened; they measure no layout. The strings are the web rows' strings,
+shared through `strings.xml`, with the same lengths. The Android row to check
+first is the teacher Reviews card: `hub_reviews_reply_note` and the `0/1000`
+counter share one help line under the reply field, which the web draws as two
+spans on one row.
+
+**H4's five rows (2026-11-19) are open, and nothing automated discharges
+them.** The Vitest tests H4 added (`reviews.test.tsx`, `Reviews.test.tsx`)
+are correctness tests that assert what each state renders and measure no
+layout. Lengths are code points from the regenerated
+`web/src/i18n/generated/strings.bn.json`, `web/src/admin/i18n/admin.bn.json`
+and `app/hub/public/messages.py`, placeholders unfilled. The row to check
+first is ReviewEditor: `hub_review_privacy_note` (116) sits under a
+textarea and above the submit button, and the five star labels are radios
+whose Bangla adjectives are longer than the English. The admin row and the
+public row were built by Tasks 7 and 9 and are added here because this is
+the unit's edit to this file. **The Bangla copy itself is awaiting the
+human Bangla review** recorded for H4; a reworded string re-opens its row.
 
 **U4's twenty web rows (2026-11-15) are open, and nothing automated
 discharges them.** No screenshot test or browser layout harness exists in

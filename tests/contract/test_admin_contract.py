@@ -104,6 +104,24 @@ def app() -> FastAPI:
     return built
 
 
+def test_the_admin_route_count_is_pinned() -> None:
+    """Fourteen routes cross the administrator boundary, as the comment says.
+
+    H3 adds two: reading one photo with its previews, and deciding it. H4
+    adds two: reading one review or reply, and deciding it. A route added
+    or dropped moves this number in a reviewed diff.
+
+    :return: None
+    """
+    assert len(PLATFORM_ADMIN_ROUTES) == 14
+    assert {
+        ("GET", "/v1/admin/hub/media/{media_id}"),
+        ("POST", "/v1/admin/hub/media/{media_id}/decision"),
+        ("GET", "/v1/admin/hub/reviews/{review_id}"),
+        ("POST", "/v1/admin/hub/reviews/{review_id}/decision"),
+    } <= PLATFORM_ADMIN_ROUTES
+
+
 def test_exactly_the_listed_routes_take_the_admin_lens(app: FastAPI) -> None:
     """The registered set equals the allowlist, in both directions.
 

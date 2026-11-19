@@ -60,14 +60,29 @@ class RequesterIdentity:
     centre: str | None
 
 
+def _opaque_ref(prefix: bytes, account_id: uuid.UUID) -> str:
+    """Derive an opaque label for an account under one domain's prefix.
+
+    The one hash function every administrator-facing label uses. Each use
+    passes its own prefix, so two labels of one account never match and an
+    administrator cannot join what a person did in one place to what they
+    did in another [F22].
+
+    :param prefix: The domain-separating prefix, distinct per use
+    :param account_id: The account
+    :return: Ten upper-case hex characters
+    """
+    digest = hashlib.sha256(prefix + account_id.bytes).hexdigest()
+    return digest[:_REF_LENGTH].upper()
+
+
 def requester_ref(account_id: uuid.UUID) -> str:
-    """Derive the opaque label for an account.
+    """Derive the opaque label for an account asking for help.
 
     :param account_id: The account
     :return: Ten upper-case hex characters
     """
-    digest = hashlib.sha256(_REF_PREFIX + account_id.bytes).hexdigest()
-    return digest[:_REF_LENGTH].upper()
+    return _opaque_ref(_REF_PREFIX, account_id)
 
 
 _ROLES: Final = sa.text(

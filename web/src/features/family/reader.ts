@@ -38,10 +38,21 @@ export const familyPaths = {
   payments: (r: Reader, seat: string) => `${seatBase(r, seat)}/payments`,
 } as const
 
+/**
+ * A guardian's reviews [H4]: the list, and one batch's review. By batch,
+ * not by seat: two children in one batch make one review.
+ */
+export const reviewPaths = {
+  list: () => '/reviews',
+  editor: (batchId: string) => `/reviews/${id(batchId)}`,
+} as const
+
 /** Screens every signed-in person has, whatever their lens. */
 export const accountPaths = {
   inbox: () => '/inbox',
   inboxItem: (notificationId: string) => `/inbox/${id(notificationId)}`,
+  /** The caller's own join requests [H5]; every lens may have sent one. */
+  myEnquiries: () => '/hub-enquiries',
   profileEdit: () => '/profile/edit',
   myChildren: () => '/profile/children',
   deleteAccount: () => '/profile/delete',

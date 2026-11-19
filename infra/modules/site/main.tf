@@ -20,6 +20,15 @@
 # distribution answers /hub* 404 (cdn/functions/hub-block.js) so the pages
 # have exactly one public front door.
 #
+# **And /m/*: approved hub photos, from the media bucket** (modules/media).
+# A third origin, read through its own Origin Access Control, where the
+# media bucket's policy lets this distribution read public/* and nothing
+# else. GET and HEAD only, cached a year by the managed CachingOptimized
+# policy -- a photo's URL carries a fresh 128-bit key per approval, so a
+# changed photo is a new URL and a takedown deletes the object and
+# invalidates the old one. Its own response headers (below) make each
+# response inert whatever bytes it holds.
+#
 # **Cached at the edge for a year, and a release is still visible at once.**
 # The cache policy below honours whatever Cache-Control the object carries
 # (min 0, max a year). deploy.yml uploads:
@@ -66,7 +75,9 @@ locals {
   # distribution uses: nginx requires the origin secret on every request,
   # so this second door must present it too.
   hub_origin_id     = "shikkhokplus-hub-api"
-  hub_query_strings = ["q", "district", "upazila", "subject", "level", "page"]
+  hub_query_strings = ["q", "district", "upazila", "subject", "level", "page", "sort"]
+  # The hub's photo bucket (modules/media), read through OAC at /m/*.
+  media_origin_id = "shikkhokplus-media"
 }
 
 # ---------------------------------------------------------------------
@@ -256,7 +267,7 @@ resource "aws_cloudfront_function" "hub_query" {
 # header that asks for more. default_ttl applies only to a response with
 # no Cache-Control, which the hub never sends.
 #
-# Only the six allowed query strings are in the key, and hub-query.js has
+# Only the seven allowed query strings are in the key, and hub-query.js has
 # already refused everything else and collapsed repeats, so the key space
 # is bounded. No header and no cookie is in the key: in particular
 # CloudFront-Viewer-Address, which the origin policy forwards for the
@@ -381,6 +392,72 @@ resource "aws_cloudfront_response_headers_policy" "site" {
 }
 
 # ---------------------------------------------------------------------
+# Hub photos: /m/* from the media bucket
+# ---------------------------------------------------------------------
+
+resource "aws_cloudfront_origin_access_control" "media" {
+  name                              = "${var.name_prefix}-media"
+  description                       = "CloudFront reads approved hub photos"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+# /m/{key}/{w}.webp -> public/{key}/{w}.webp, and 404 for any other shape.
+# See the source; tested from functions/media-path.test.mjs. The ONLY
+# function on /m/*: the site router's redirects mean nothing to an image.
+resource "aws_cloudfront_function" "media_path" {
+  name    = "${var.name_prefix}-media-path"
+  runtime = "cloudfront-js-2.0"
+  comment = "Hub photos: /m/ to the bucket's public/ prefix, one key shape only"
+  publish = true
+  code    = file("${path.module}/functions/media-path.js")
+}
+
+# The managed policy, as the web client's /ui/ paths use: nothing in the
+# key but the path (no cookie, header or query string), a year at most. A
+# photo's URL is never reused for different bytes, so nothing here needs to
+# honour an origin Cache-Control.
+data "aws_cloudfront_cache_policy" "optimized" {
+  name = "Managed-CachingOptimized"
+}
+
+# **Every /m/* response is an inert image.** The bytes were re-encoded to
+# WebP by the sanitiser and stored as image/webp, but the headers do not
+# rely on it: nosniff stops a browser second-guessing the type, and a CSP
+# of default-src 'none' plus sandbox means that even a document somehow
+# served from here could run nothing and load nothing. Cached a
+# year and immutable in browsers too, for the reason the cache policy gives.
+resource "aws_cloudfront_response_headers_policy" "images" {
+  name    = "${var.name_prefix}-site-images"
+  comment = "Hub photos: immutable, nosniff, sandboxed"
+
+  security_headers_config {
+    content_type_options {
+      override = true
+    }
+    content_security_policy {
+      content_security_policy = "default-src 'none'; sandbox"
+      override                = true
+    }
+  }
+
+  # **No Content-Type here.** The type is the object's own: the sanitiser
+  # writes every variant as image/webp and the approval copy keeps it, each
+  # tested where it is set. Forcing it at the edge would also stamp
+  # image/webp on the site's HTML 404 page whenever a missing photo falls
+  # through to it, and CloudFront's support for overriding Content-Type
+  # in a response headers policy could not be confirmed before an apply.
+  custom_headers_config {
+    items {
+      header   = "Cache-Control"
+      value    = "public, max-age=31536000, immutable"
+      override = true
+    }
+  }
+}
+
+# ---------------------------------------------------------------------
 # The distribution
 # ---------------------------------------------------------------------
 
@@ -401,6 +478,14 @@ resource "aws_cloudfront_distribution" "site" {
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
     origin_id                = local.origin_id
     origin_access_control_id = aws_cloudfront_origin_access_control.site.id
+  }
+
+  # The media bucket, for approved hub photos only: OAC-signed, and the
+  # bucket's policy admits this distribution to public/* alone.
+  origin {
+    domain_name              = var.media_bucket_regional_domain
+    origin_id                = local.media_origin_id
+    origin_access_control_id = aws_cloudfront_origin_access_control.media.id
   }
 
   # The API, for the public hub only. https-only, with a real certificate
@@ -449,6 +534,26 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
+  # Approved hub photos. GET and HEAD only; ordered ahead of the bucket
+  # default, and disjoint from /hub*. Not compressed: WebP already is.
+  ordered_cache_behavior {
+    path_pattern           = "/m/*"
+    target_origin_id       = local.media_origin_id
+    viewer_protocol_policy = "redirect-to-https"
+
+    allowed_methods = ["GET", "HEAD"]
+    cached_methods  = ["GET", "HEAD"]
+
+    cache_policy_id            = data.aws_cloudfront_cache_policy.optimized.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.images.id
+    compress                   = false
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.media_path.arn
+    }
+  }
+
   default_cache_behavior {
     target_origin_id       = local.origin_id
     viewer_protocol_policy = "redirect-to-https"
@@ -477,10 +582,12 @@ resource "aws_cloudfront_distribution" "site" {
   # draft, missing or suspended page) is deliberately served as the site's
   # 404 page with a real 404 status: still one uniform answer, so no
   # existence oracle, and the 60 s error TTL matches the hub's own
-  # s-maxage=60 on its 404s. The cost: nginx's 403 for an origin-secret
-  # mismatch is masked the same way and surfaces as a 404 on /hub/*, which
-  # is why the deploy smoke must assert 200 on /hub/en through the site
-  # host, not merely "not a 5xx".
+  # s-maxage=60 on its 404s. A missing photo under /m/* (S3's 403 for a key
+  # it does not hold) becomes the same 404 page; a malformed /m/ path never
+  # reaches S3 (media-path.js answers it). The cost: nginx's 403 for an
+  # origin-secret mismatch is masked the same way and surfaces as a 404 on
+  # /hub/*, which is why the deploy smoke must assert 200 on /hub/en
+  # through the site host, not merely "not a 5xx".
   dynamic "custom_error_response" {
     for_each = [403, 404]
     content {

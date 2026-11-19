@@ -6,7 +6,7 @@
  */
 import type { Schemas } from '../../../api/endpoints'
 import { Money, toLatinDigits } from '../../../core/money'
-import { accountPaths, familyPaths, type Reader } from '../../family/reader'
+import { accountPaths, familyPaths, reviewPaths, type Reader } from '../../family/reader'
 import { paths } from '../../teacher/paths'
 import type { Lens } from '../../../session/session'
 
@@ -41,6 +41,10 @@ export const INBOX_KINDS = [
   'class_rescheduled',
   'hub_listing_suspended',
   'hub_feedback_question',
+  'hub_review_outcome',
+  'hub_reviews_published',
+  'hub_enquiry_received',
+  'hub_enquiry_answered',
 ] as const satisfies readonly ApiInboxKind[]
 
 export type InboxKind = (typeof INBOX_KINDS)[number]
@@ -91,6 +95,14 @@ export interface InboxMessage {
   classChange: ClassChange | null
   /** For the hub's demand question, which one: 60 or 90. */
   feedbackDay: FeedbackDay | null
+  /** For a hub review or join-request message, its line, worded from the server's `preview`. */
+  wordedLine: WordedLine | null
+}
+
+/** A string key and its arguments. */
+export interface WordedLine {
+  key: string
+  args: string[]
 }
 
 /** The days the hub's demand question is asked on. */
@@ -100,6 +112,55 @@ export type FeedbackDay = 60 | 90
 function feedbackDayOf(kind: InboxKind, preview: string | null): FeedbackDay | null {
   if (kind !== 'hub_feedback_question') return null
   return preview === '60' ? 60 : preview === '90' ? 90 : null
+}
+
+/**
+ * A review outcome's `preview` is one word, `published`, `rejected` or
+ * `removed`, worded here; never a rejection code, which only the author's
+ * own review carries. A word this client does not know says nothing.
+ */
+const REVIEW_OUTCOME_KEY: Record<string, string> = {
+  published: 'inbox_hub_review_outcome_published',
+  rejected: 'inbox_hub_review_outcome_rejected',
+  removed: 'inbox_hub_review_outcome_removed',
+}
+
+/**
+ * A join request's answer: its `preview` is the outcome code, worded as
+ * the guardian's list words it. A request received carries no preview at
+ * all, since nothing a guardian typed is ever in an inbox [H5].
+ */
+const ENQUIRY_ANSWER_KEY: Record<string, string> = {
+  added: 'hub_enquiry_outcome_added',
+  not_now: 'hub_enquiry_outcome_not_now',
+  call_us: 'hub_enquiry_outcome_call_us',
+}
+
+/** Kinds whose `preview` is a value to word, not a line to show as sent. */
+const WORDED_PREVIEW: readonly InboxKind[] = [
+  'hub_feedback_question',
+  'hub_review_outcome',
+  'hub_reviews_published',
+  'hub_enquiry_received',
+  'hub_enquiry_answered',
+]
+
+/** The line for a hub review or join-request message; null for any other kind. */
+function wordedLineOf(kind: InboxKind, preview: string | null): WordedLine | null {
+  if (kind === 'hub_enquiry_received') return { key: 'hub_enquiry_inbox_received_body', args: [] }
+  if (kind === 'hub_enquiry_answered') {
+    const key = preview ? ENQUIRY_ANSWER_KEY[preview] : undefined
+    return key ? { key, args: [] } : null
+  }
+  if (kind === 'hub_review_outcome') {
+    const key = preview ? REVIEW_OUTCOME_KEY[preview] : undefined
+    return key ? { key, args: [] } : null
+  }
+  // How many were published, in Latin digits; shown as sent.
+  if (kind === 'hub_reviews_published' && preview && /^[0-9]+$/.test(preview)) {
+    return { key: 'inbox_hub_reviews_published_body', args: [preview] }
+  }
+  return null
 }
 
 export interface InboxModel {
@@ -125,9 +186,10 @@ export function mapInbox(dto: Schemas['InboxResponse']): InboxModel {
               unread: !i.read,
               enrollmentId: i.enrollment_id ?? null,
               sourceId: i.source_id ?? null,
-              preview: i.kind === 'hub_feedback_question' ? null : (i.preview ?? null),
+              preview: WORDED_PREVIEW.includes(i.kind) ? null : (i.preview ?? null),
               classChange: classChangeOf(i),
               feedbackDay: feedbackDayOf(i.kind, i.preview ?? null),
+              wordedLine: wordedLineOf(i.kind, i.preview ?? null),
             },
           ]
         : [],
@@ -151,6 +213,10 @@ export const TITLE_KEY: Record<InboxKind, string> = {
   class_rescheduled: 'inbox_class_rescheduled_title',
   hub_listing_suspended: 'web_inbox_hub_listing_suspended_title',
   hub_feedback_question: 'inbox_hub_feedback_question_title',
+  hub_review_outcome: 'inbox_hub_review_outcome_title',
+  hub_reviews_published: 'inbox_hub_reviews_published_title',
+  hub_enquiry_received: 'hub_enquiry_inbox_received_title',
+  hub_enquiry_answered: 'hub_enquiry_inbox_answered_title',
 }
 
 /** "Child · Batch", or just the batch for the reader's own seat. */
@@ -199,6 +265,7 @@ export function inboxBody(
   const line = classLine(m.kind, m.classChange, t, when)
   if (line) return line
   if (m.feedbackDay) return t('hub_feedback_day', String(m.feedbackDay))
+  if (m.wordedLine) return t(m.wordedLine.key, ...m.wordedLine.args)
   if (m.preview) return m.preview
   if (!m.amount) return null
   const money = m.amount.format()
@@ -250,6 +317,17 @@ export function targetOf(m: InboxMessage): InboxTarget {
   if (m.kind === 'hub_feedback_question' && m.sourceId && m.feedbackDay) {
     return { to: paths.hubFeedback(m.sourceId, m.feedbackDay), lens: 'teacher' }
   }
+  // The author's own review of the batch; the owner's Reviews screen [H4].
+  if (m.kind === 'hub_review_outcome' && m.sourceId) {
+    return { to: reviewPaths.editor(m.sourceId), lens: 'guardian' }
+  }
+  if (m.kind === 'hub_reviews_published') return { to: paths.hubReviews(), lens: 'teacher' }
+  // A request to the owner opens under the current teacher workspace, as
+  // new reviews do; an answer opens the guardian's own list, under any lens.
+  if (m.kind === 'hub_enquiry_received' && m.sourceId) {
+    return { to: paths.hubEnquiry(m.sourceId), lens: 'teacher' }
+  }
+  if (m.kind === 'hub_enquiry_answered') return { to: accountPaths.myEnquiries(), lens: null }
   return { to: accountPaths.inboxItem(m.id), lens: null }
 }
 

@@ -63,18 +63,29 @@ sealed interface Destination {
      * "New student" with that roster's batch chosen.
      */
     data object NewStudent : Destination {
-        override val route: String = "students-add?batch={batchId}"
+        override val route: String = "students-add?batch={batchId}&enquiry={enquiryId}"
 
         /** The optional batch argument's name. */
         const val ARG_BATCH: String = "batchId"
 
         /**
+         * The optional join request argument's name [H5]: the form reads the
+         * request from the server and fills from it, so only its id travels.
+         */
+        const val ARG_ENQUIRY: String = "enquiryId"
+
+        /**
          * Build a concrete route.
          *
          * @param batchId A batch to start chosen, or null for none
+         * @param enquiryId A join request to fill from, or null for none
          * @return The route to navigate to
          */
-        fun of(batchId: String? = null): String = if (batchId == null) "students-add" else "students-add?batch=$batchId"
+        fun of(batchId: String? = null, enquiryId: String? = null): String {
+            val query =
+                listOfNotNull(batchId?.let { "batch=$it" }, enquiryId?.let { "enquiry=$it" }).joinToString("&")
+            return if (query.isEmpty()) "students-add" else "students-add?$query"
+        }
     }
 
     /** One of the teacher's students, with every batch they sit in. */
@@ -739,6 +750,30 @@ sealed interface Destination {
         fun of(locale: String): String = "hub/preview?locale=$locale"
     }
 
+    /**
+     * The photos of the owner's page or of one batch's page, pushed over
+     * [HubListing] or [BatchListings].
+     */
+    data object HubPhotos : Destination {
+        override val route: String = "hub/photos?batchId={batchId}&readOnly={readOnly}"
+
+        /** The batch argument's name; empty for the owner's own gallery. */
+        const val ARG_BATCH: String = "batchId"
+
+        /** The read-only argument's name: true while the listing is suspended. */
+        const val ARG_READ_ONLY: String = "readOnly"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param batchId The batch, or null for the owner's own gallery
+         * @param readOnly Whether the listing is suspended
+         * @return The route to navigate to
+         */
+        fun of(batchId: String?, readOnly: Boolean): String =
+            "hub/photos?batchId=${batchId.orEmpty()}&readOnly=$readOnly"
+    }
+
     /** "Show my name on the centre's public page", opened from More. */
     data object NameConsent : Destination {
         override val route: String = "hub/name-consent"
@@ -789,6 +824,116 @@ sealed interface Destination {
         fun of(kind: String?, id: String?): String =
             "hub/report?kind=${java.net.URLEncoder.encode(kind.orEmpty(), "UTF-8")}" +
                 "&id=${java.net.URLEncoder.encode(id.orEmpty(), "UTF-8")}"
+    }
+
+    /**
+     * A guardian's reviews [H4]: the batches they may review, are waiting
+     * to, or have reviewed. Opened from the guardian home's Reviews row.
+     */
+    data object HubMyReviews : Destination {
+        override val route: String = "hub/reviews"
+    }
+
+    /**
+     * One batch's review, as its guardian author writes, edits and
+     * deletes it; opened from [HubMyReviews] or a review-outcome inbox
+     * item. The title is the batch's public title, shown under the
+     * screen's own, and only shown.
+     */
+    data object HubReviewEditor : Destination {
+        override val route: String = "hub/reviews/{batchId}?title={title}"
+
+        /** The batch argument's name. */
+        const val ARG_BATCH: String = "batchId"
+
+        /** The title argument's name; empty when the opener did not know it. */
+        const val ARG_TITLE: String = "title"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param batchId The batch
+         * @param title The batch's public title, if known
+         * @return The route to navigate to
+         */
+        fun of(batchId: String, title: String? = null): String =
+            "hub/reviews/${pathEncode(batchId)}?title=${pathEncode(title.orEmpty())}"
+
+        /**
+         * Percent-encode one argument. `URLEncoder` writes a space as `+`,
+         * which navigation does not decode back, so it is written `%20`.
+         *
+         * @param value The argument
+         * @return Its encoded form
+         */
+        private fun pathEncode(value: String): String =
+            java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+    }
+
+    /**
+     * The owner's Reviews screen [H4], pushed over [HubListing] from its
+     * Reviews row, or opened from a new-reviews inbox item.
+     */
+    data object HubOwnerReviews : Destination {
+        override val route: String = "hub/listing/reviews"
+    }
+
+    /**
+     * Asking an owner, or one of its batches, to take a student [H5],
+     * opened from a public page's "Ask to join" App Link (`MainActivity`,
+     * [HubEnquiryLinkEffect]). The query values travel as the link carried
+     * them; the form refuses a malformed one in words.
+     */
+    data object HubEnquiryForm : Destination {
+        override val route: String = "hub/enquiry?owner={owner}&batch={batch}"
+
+        /** The owner argument's name: the owner's public slug. */
+        const val ARG_OWNER: String = "owner"
+
+        /** The batch argument's name; absent for the owner as a whole. */
+        const val ARG_BATCH: String = "batch"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param owner The link's `owner` value, if any
+         * @param batch The link's `batch` value, or null when the link named none
+         * @return The route to navigate to
+         */
+        fun of(owner: String?, batch: String?): String =
+            "hub/enquiry?owner=${queryEncode(owner.orEmpty())}" + batch?.let { "&batch=${queryEncode(it)}" }.orEmpty()
+    }
+
+    /** The caller's own join requests [H5], opened from More or an answered-request inbox item. */
+    data object HubMyEnquiries : Destination {
+        override val route: String = "hub/enquiries/mine"
+    }
+
+    /**
+     * The owner's join-request inbox [H5], pushed over [HubListing] from its
+     * "Join requests" row.
+     */
+    data object HubOwnerEnquiries : Destination {
+        override val route: String = "hub/listing/enquiries"
+    }
+
+    /**
+     * One join request for its owner [H5], opened from [HubOwnerEnquiries]
+     * or a new-request inbox item.
+     */
+    data object HubOwnerEnquiry : Destination {
+        override val route: String = "hub/listing/enquiries/{enquiryId}"
+
+        /** The request argument's name. */
+        const val ARG_ID: String = "enquiryId"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param enquiryId The request
+         * @return The route to navigate to
+         */
+        fun of(enquiryId: String): String = "hub/listing/enquiries/${queryEncode(enquiryId)}"
     }
 
     /** Adding a payment method (P2, P3). */
@@ -1106,3 +1251,12 @@ sealed interface Destination {
         fun of(ticketId: String): String = "me/help/ticket/$ticketId"
     }
 }
+
+/**
+ * Percent-encode one route argument. `URLEncoder` writes a space as `+`,
+ * which navigation does not decode back, so it is written `%20`.
+ *
+ * @param value The argument
+ * @return Its encoded form
+ */
+private fun queryEncode(value: String): String = java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20")

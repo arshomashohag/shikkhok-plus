@@ -36,6 +36,7 @@ import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.SkeletonList
+import com.shikkhokplus.app.core.designsystem.Quiet
 import com.shikkhokplus.app.core.format.YearMonth
 import com.shikkhokplus.app.core.ui.CalendarClassUi
 import com.shikkhokplus.app.core.ui.MonthCalendar
@@ -141,7 +142,7 @@ fun ColumnScope.ClassesTab(
 @Composable
 fun ColumnScope.ExamsTab(view: StudentBatchView, onOpenResult: (String) -> Unit, onOpenDetail: (String) -> Unit) {
     if (view.upcomingExams.isEmpty() && view.doneExams.isEmpty()) {
-        Quiet(stringResource(R.string.student_results_empty))
+        Quiet(stringResource(R.string.student_results_empty), small = true)
         return
     }
     // **Results first, then what is coming** (S2): a student opens the
@@ -198,6 +199,7 @@ private fun ExamRowView(exam: FamilyExam, result: ProgressRow?, tag: String, onO
                     shortDate(exam.date),
                     stringResource(R.string.batch_exam_out_of, Numerals.count(exam.totalMarks)),
                 ).joinToString(" · "),
+                small = true,
             )
         }
         result?.let { MarkText(it) }
@@ -214,7 +216,7 @@ private fun ExamRowView(exam: FamilyExam, result: ProgressRow?, tag: String, onO
 private fun MarkText(row: ProgressRow) {
     val marks = row.marks
     if (marks == null) {
-        Quiet(stringResource(MessageKeys.resolve(row.stateLabel)))
+        Quiet(stringResource(MessageKeys.resolve(row.stateLabel)), small = true)
     } else {
         // The title step, so the mark reads larger than its "/total".
         val markSize = MaterialTheme.typography.titleLarge.fontSize
@@ -239,7 +241,7 @@ private fun MarkText(row: ProgressRow) {
 @Composable
 fun ColumnScope.NoticesTab(view: StudentBatchView, onOpen: (String) -> Unit) {
     if (view.notices.isEmpty()) {
-        Quiet(stringResource(R.string.family_notices_empty))
+        Quiet(stringResource(R.string.family_notices_empty), small = true)
         return
     }
     RowsCard {
@@ -253,7 +255,7 @@ fun ColumnScope.NoticesTab(view: StudentBatchView, onOpen: (String) -> Unit) {
                     .testTag(TAG_FAMILY_NOTICE),
             ) {
                 Text(Numerals.freeText(notice.body), maxLines = 3, overflow = TextOverflow.Ellipsis)
-                Quiet(ago(notice.postedAt))
+                Quiet(ago(notice.postedAt), small = true)
             }
         }
     }
@@ -301,7 +303,7 @@ fun ColumnScope.TeacherTab(teacher: FamilyTeacher) {
     }
     Section(stringResource(R.string.family_teacher_subjects))
     if (teacher.subjects.isEmpty()) {
-        Quiet(stringResource(R.string.family_teacher_no_subjects))
+        Quiet(stringResource(R.string.family_teacher_no_subjects), small = true)
     } else {
         RowsCard {
             teacher.subjects.forEachIndexed { index, subject ->

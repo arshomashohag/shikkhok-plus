@@ -34,6 +34,7 @@ from app.db.models import (
     EXPECTED_JOBS,
     FEE_GENERATION_JOB,
     HUB_INVALIDATION_JOB,
+    HUB_MEDIA_OBJECT_JOB,
     JobHeartbeat,
 )
 from app.fees.commands import (
@@ -313,7 +314,9 @@ def test_the_invalidation_sender_goes_stale_in_half_an_hour(
     assert healthy(HUB_INVALIDATION_JOB, dt.timedelta(minutes=30)) is False
     assert healthy(FEE_GENERATION_JOB, dt.timedelta(hours=47)) is True
     assert set(JOB_STALENESS_THRESHOLDS) <= EXPECTED_JOBS
-    for job in EXPECTED_JOBS - {HUB_INVALIDATION_JOB}:
+    # The photo drain runs every two minutes too [R2].
+    assert staleness_threshold(HUB_MEDIA_OBJECT_JOB) == dt.timedelta(minutes=30)
+    for job in EXPECTED_JOBS - {HUB_INVALIDATION_JOB, HUB_MEDIA_OBJECT_JOB}:
         assert staleness_threshold(job) == STALENESS_THRESHOLD, job
 
 

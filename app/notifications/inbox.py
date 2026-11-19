@@ -32,8 +32,12 @@ __all__ = [
     "EXAM_CANCELLED",
     "EXAM_SCHEDULED",
     "FEE_REMINDER",
+    "HUB_ENQUIRY_ANSWERED",
+    "HUB_ENQUIRY_RECEIVED",
     "HUB_FEEDBACK_QUESTION",
     "HUB_LISTING_SUSPENDED",
+    "HUB_REVIEWS_PUBLISHED",
+    "HUB_REVIEW_OUTCOME",
     "INBOX_LIMIT",
     "LEGACY_KINDS",
     "MARKS_AVAILABLE",
@@ -111,6 +115,35 @@ HUB_LISTING_SUSPENDED: Final[str] = "hub_listing_suspended"
 #: ``preview`` is the question's day, ``"60"`` or ``"90"``, which the client
 #: sends back with the answer. Not legacy, for the reason above.
 HUB_FEEDBACK_QUESTION: Final[str] = "hub_feedback_question"
+
+#: What moderation did with a guardian's review, told to its author [H4].
+#: ``preview`` is ``published``, ``rejected`` or ``removed`` and nothing
+#: else: a rejection's code is never in the inbox, only in the author's own
+#: review. ``source_id`` is the batch and ``batch_name`` its public title.
+#: An approval sends nothing, because the weekly publication will. Not
+#: legacy.
+HUB_REVIEW_OUTCOME: Final[str] = "hub_review_outcome"
+
+#: The weekly publication made reviews of a batch public, told to the people
+#: who run it, and only while the batch is at or above the public threshold:
+#: below it nothing about its reviews is public, a count included.
+#: ``preview`` is how many this run published on the batch, in Latin
+#: digits; ``source_id`` is the owner, as for :data:`HUB_FEEDBACK_QUESTION`.
+#: Not legacy.
+HUB_REVIEWS_PUBLISHED: Final[str] = "hub_reviews_published"
+
+#: A guardian asked to join an owner's class [H5], told to everyone who runs
+#: the listing (``managing_accounts``). ``source_id`` is the request,
+#: ``batch_name`` the batch's public title, else the listing's public name,
+#: and ``preview`` is None: nothing the guardian typed or shared is ever in
+#: an inbox. Closing the request marks every copy read. Not legacy.
+HUB_ENQUIRY_RECEIVED: Final[str] = "hub_enquiry_received"
+
+#: The owner answered a guardian's join request [H5], told to the guardian.
+#: ``preview`` is the outcome code (``added``, ``not_now`` or ``call_us``),
+#: ``source_id`` the request and ``batch_name`` as for
+#: :data:`HUB_ENQUIRY_RECEIVED`. Not legacy.
+HUB_ENQUIRY_ANSWERED: Final[str] = "hub_enquiry_answered"
 
 #: The kinds every client knew before clients began announcing theirs
 #: [PO-10]. **Frozen: never add to it.** A client that does not say which

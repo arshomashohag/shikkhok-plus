@@ -8,14 +8,23 @@ outside the administrator boundary.
 
 What crosses the boundary is decided in ``app.admin`` and
 ``app.help.identity``; this module only presents it.
+
+**The review routes are switch-gated** [H4]: the review queue, one review or
+reply, and the decision on it answer ``HUB_REVIEWS_OFF`` while reviews are
+off. The switch is read **after** the admin lens here, unlike the
+reviewer's and teacher's routes: an administrator's lens never answers
+``NOT_AVAILABLE`` to an administrator, and the admin hostname's lock must
+answer first, so a request off that hostname learns nothing, not even that
+reviews are off.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 import logging
 import uuid
-from typing import Annotated, Literal
+from typing import Annotated, Any, Final, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
@@ -24,6 +33,7 @@ from app.admin.overview import overview
 from app.admin.teachers import workspaces
 from app.api.deps import get_session, platform_admin_lens
 from app.api.help import present_message
+from app.api.hub_media import media_store
 from app.authz.lenses import PlatformAdminLens
 from app.help.identity import RequesterIdentity
 from app.help.tickets import (
@@ -35,7 +45,10 @@ from app.help.tickets import (
     set_status,
     support_reply,
 )
-from app.moderation import reports, suspension
+from app.hub.media.storage import MediaStore
+from app.hub.public.settings import reviews_enabled
+from app.moderation import media, reports, reviews, suspension
+from app.reviews.switch import reviews_off, reviews_off_responses
 from app.schemas.admin import (
     AdminAppVersion,
     AdminOverviewResponse,
@@ -51,12 +64,20 @@ from app.schemas.admin import (
     AdminWorkspacesResponse,
 )
 from app.schemas.admin import AdminTicket as AdminTicketWire
+from app.schemas.errors import ErrorEnvelope
 from app.schemas.moderation import (
     AdminHubDecisionRequest,
     AdminHubField,
+    AdminHubMediaDecided,
+    AdminHubMediaDecisionRequest,
+    AdminHubMediaDetail,
     AdminHubQueueItem,
+    AdminHubQueueKind,
     AdminHubQueueResponse,
     AdminHubReportDecided,
+    AdminHubReviewDecided,
+    AdminHubReviewDecisionRequest,
+    AdminHubReviewDetail,
     AdminHubSuspensionRequest,
     AdminHubSuspensionState,
 )
@@ -173,6 +194,9 @@ def get_overview(
         help_open=figures.help_open,
         help_answered=figures.help_answered,
         help_closed=figures.help_closed,
+        hub_reviews_public=figures.hub_reviews_public,
+        hub_reviews_reported=figures.hub_reviews_reported,
+        hub_reviews_pull_bar=figures.hub_reviews_pull_bar,
     )
 
 
@@ -324,19 +348,45 @@ def _correlation(request: Request) -> str:
     return str(getattr(request.state, "correlation_id", "unknown"))[:64]
 
 
-@router.get("/hub/queue", response_model=AdminHubQueueResponse)
+#: The documented answer of ``kind=review`` while reviews are off.
+_REVIEWS_OFF: Final[dict[int | str, dict[str, Any]]] = reviews_off_responses(
+    "Only kind=review answers it; the other kinds are never gated."
+)
+
+#: The 404s of one review's routes.
+_REVIEW_NOT_FOUND: Final[dict[int | str, dict[str, Any]]] = reviews_off_responses(
+    "HUB_ADMIN_TARGET_NOT_FOUND: no such review, or no reply to it."
+)
+
+
+def _require_reviews_on() -> None:
+    """Refuse a review route while reviews are off, after the admin lens.
+
+    :raises AuthorizationError: ``HUB_REVIEWS_OFF``
+    """
+    if not reviews_enabled():
+        raise reviews_off()
+
+
+@router.get("/hub/queue", response_model=AdminHubQueueResponse, responses=_REVIEWS_OFF)
 def hub_queue(
     lens: Annotated[PlatformAdminLens, Depends(platform_admin_lens)],
     session: Annotated[Session, Depends(get_session)],
-    kind: Annotated[Literal["report", "listing"], Query()] = "report",
+    kind: Annotated[AdminHubQueueKind, Query()] = "report",
 ) -> AdminHubQueueResponse:
-    """List open reports, or suspended listings, oldest first.
+    """List open reports, suspended listings, photos or reviews to decide.
+
+    Oldest first. ``kind=review`` answers ``HUB_REVIEWS_OFF`` while reviews
+    are off.
 
     :param lens: The administrator's lens
     :param session: The request-scoped session
-    :param kind: ``report`` or ``listing``
-    :return: The queue; a reporter appears only as an opaque label
+    :param kind: ``report``, ``listing``, ``media`` or ``review``
+    :return: The queue; a reporter or a review's author appears only as an
+        opaque label
     """
+    if kind == "review":
+        _require_reviews_on()
     _audit(lens, f"hub_queue_{kind}")
     return AdminHubQueueResponse(
         kind=kind,
@@ -356,6 +406,8 @@ def hub_queue(
                 note=i.note,
                 reporter_ref=i.reporter_ref,
                 waited_hours=i.waited_hours,
+                author_ref=i.author_ref,
+                author_role=i.author_role,
             )
             for i in reports.queue(session, kind)
         ],
@@ -369,14 +421,16 @@ def decide_report(
     request: Request,
     lens: Annotated[PlatformAdminLens, Depends(platform_admin_lens)],
     session: Annotated[Session, Depends(get_session)],
+    store: Annotated[MediaStore, Depends(media_store)],
 ) -> AdminHubReportDecided:
-    """Uphold or dismiss a report.
+    """Uphold or dismiss a report; a photo report's decision reaches the photo.
 
     :param report_id: The report
     :param body: The decision
     :param request: The incoming request
     :param lens: The administrator's lens
     :param session: The request-scoped session
+    :param store: The photo bucket, for restoring a held photo
     :return: The report and its new status
     """
     _audit(lens, "hub_report_decision")
@@ -387,6 +441,7 @@ def decide_report(
         body.decision,
         dt.datetime.now(tz=dt.UTC),
         _correlation(request),
+        store=store,
     )
     return AdminHubReportDecided(report_id=report_id, status=body.decision)
 
@@ -419,3 +474,140 @@ def set_suspension(
         _correlation(request),
     )
     return AdminHubSuspensionState(owner_id=owner_id, suspended=body.suspended)
+
+
+@router.get("/hub/media/{media_id}", response_model=AdminHubMediaDetail)
+def hub_media(
+    media_id: uuid.UUID,
+    lens: Annotated[PlatformAdminLens, Depends(platform_admin_lens)],
+    session: Annotated[Session, Depends(get_session)],
+    store: Annotated[MediaStore, Depends(media_store)],
+) -> AdminHubMediaDetail:
+    """Read one photo for review, with five-minute previews of its variants.
+
+    :param media_id: The photo
+    :param lens: The administrator's lens
+    :param session: The request-scoped session
+    :param store: The photo bucket
+    :return: The photo, its page's public name and title, and no account
+    """
+    _audit(lens, "hub_media")
+    return AdminHubMediaDetail.model_validate(
+        dataclasses.asdict(media.detail(session, store, media_id))
+    )
+
+
+@router.post("/hub/media/{media_id}/decision", response_model=AdminHubMediaDecided)
+def decide_media(
+    media_id: uuid.UUID,
+    body: AdminHubMediaDecisionRequest,
+    request: Request,
+    lens: Annotated[PlatformAdminLens, Depends(platform_admin_lens)],
+    session: Annotated[Session, Depends(get_session)],
+    store: Annotated[MediaStore, Depends(media_store)],
+) -> AdminHubMediaDecided:
+    """Approve or reject a photo waiting for review or held after a report.
+
+    :param media_id: The photo
+    :param body: The decision, and the code for a rejection
+    :param request: The incoming request
+    :param lens: The administrator's lens
+    :param session: The request-scoped session
+    :param store: The photo bucket
+    :return: The photo and its new status
+    """
+    _audit(lens, "hub_media_decision")
+    decided = media.decide(
+        session,
+        store,
+        lens,
+        media_id,
+        approve=body.decision == "approve",
+        code=body.code,
+        now=dt.datetime.now(tz=dt.UTC),
+        correlation_id=_correlation(request),
+    )
+    return AdminHubMediaDecided(
+        media_id=decided.id,
+        status="approved" if decided.status == "approved" else "rejected",
+    )
+
+
+@router.get(
+    "/hub/reviews/{review_id}",
+    response_model=AdminHubReviewDetail,
+    responses=_REVIEW_NOT_FOUND,
+)
+def hub_review(
+    review_id: uuid.UUID,
+    lens: Annotated[PlatformAdminLens, Depends(platform_admin_lens)],
+    session: Annotated[Session, Depends(get_session)],
+    target: Annotated[Literal["review", "reply"], Query()] = "review",
+) -> AdminHubReviewDetail:
+    """Read one review, or its reply, for moderation.
+
+    :param review_id: The review; a reply's id is its review's
+    :param lens: The administrator's lens
+    :param session: The request-scoped session
+    :param target: ``review`` or ``reply``
+    :return: The item, its batch's public title and owner's public name, and
+        its author only as a role and an opaque reference
+    """
+    _require_reviews_on()
+    _audit(lens, "hub_review")
+    return AdminHubReviewDetail.model_validate(
+        dataclasses.asdict(reviews.detail(session, target, review_id))
+    )
+
+
+@router.post(
+    "/hub/reviews/{review_id}/decision",
+    response_model=AdminHubReviewDecided,
+    responses={
+        **_REVIEW_NOT_FOUND,
+        400: {
+            "model": ErrorEnvelope,
+            "description": "REVIEW_CODE_INVALID: a code with an approval, or a "
+            "rejection without one.",
+        },
+        409: {
+            "model": ErrorEnvelope,
+            "description": "REVIEW_ALREADY_DECIDED: the item is neither "
+            "pending nor held. REVIEW_REPORT_OPEN: an approval of a pending or "
+            "held item while an open child-safety or personal-information "
+            "report, filed by someone who does not run the batch, still names "
+            "it; deciding that report is what releases it.",
+        },
+    },
+)
+def decide_review(
+    review_id: uuid.UUID,
+    body: AdminHubReviewDecisionRequest,
+    request: Request,
+    lens: Annotated[PlatformAdminLens, Depends(platform_admin_lens)],
+    session: Annotated[Session, Depends(get_session)],
+) -> AdminHubReviewDecided:
+    """Approve or reject a review or reply waiting for review or held.
+
+    :param review_id: The review; a reply's id is its review's
+    :param body: The target, the decision, and the code for a rejection
+    :param request: The incoming request
+    :param lens: The administrator's lens
+    :param session: The request-scoped session
+    :return: The item and its new status
+    """
+    _require_reviews_on()
+    _audit(lens, "hub_review_decision")
+    status = reviews.decide(
+        session,
+        lens,
+        body.target,
+        review_id,
+        approve=body.decision == "approve",
+        code=body.code,
+        now=dt.datetime.now(tz=dt.UTC),
+        correlation_id=_correlation(request),
+    )
+    return AdminHubReviewDecided.model_validate(
+        {"review_id": review_id, "target": body.target, "status": status}
+    )

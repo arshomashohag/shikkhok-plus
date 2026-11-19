@@ -1,5 +1,9 @@
 /** Small pieces the hub screens share: failure text, the status chip and a checklist. */
+import { Link } from 'react-router'
+import { readOwnerReviews } from '../../../api/endpoints'
+import { listOwnerEnquiries } from './enquiries.api'
 import { ApiError } from '../../../api/errors'
+import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import { CheckCircleIcon, CircleIcon, WarningIcon } from '../../../ui/icons'
 import {
@@ -9,6 +13,7 @@ import {
   type ChecklistItem,
   type ListingStatus,
 } from './hub.mappers'
+import { paths } from '../paths'
 
 type T = (key: string, ...args: (string | number)[]) => string
 
@@ -58,5 +63,56 @@ export function FailureBanner({ text, onRetry }: { text: string; onRetry?: () =>
         </button>
       ) : null}
     </div>
+  )
+}
+
+/** The switch is off: the reviews screens draw nothing, not an error [H4]. */
+export function isReviewsOff(e: unknown): boolean {
+  return e instanceof ApiError && e.code === 'HUB_REVIEWS_OFF'
+}
+
+/**
+ * The listing editor's way to the Reviews screen, drawn only once
+ * `GET /v1/hub/reviews` has answered: with reviews switched off, or on any
+ * failure, there is no entry and no error.
+ */
+export function OwnerReviewsEntry() {
+  const { t } = useT()
+  const { resource } = useResource((signal) => readOwnerReviews(signal), [])
+  if (resource.state !== 'loaded') return null
+  return (
+    <Link
+      className="card card-link"
+      to={paths.hubReviews()}
+      style={{ display: 'flex', gap: 12, alignItems: 'center' }}
+    >
+      <div className="grow">
+        <div className="title">{t('hub_reviews_title')}</div>
+        <div className="meta">{t('hub_reviews_entry_owner_sub')}</div>
+      </div>
+    </Link>
+  )
+}
+
+/**
+ * The listing editor's way to the join-request inbox [H5], drawn only once
+ * `GET /v1/hub/enquiries` has answered: with join requests switched off
+ * (`HUB_ENQUIRIES_OFF`), or on any failure, there is no row and no error.
+ */
+export function OwnerEnquiriesEntry() {
+  const { t } = useT()
+  const { resource } = useResource((signal) => listOwnerEnquiries(signal), [])
+  if (resource.state !== 'loaded') return null
+  return (
+    <Link
+      className="card card-link"
+      to={paths.hubEnquiries()}
+      style={{ display: 'flex', gap: 12, alignItems: 'center' }}
+    >
+      <div className="grow">
+        <div className="title">{t('hub_enquiry_inbox_title')}</div>
+        <div className="meta">{t('hub_enquiry_inbox_sub')}</div>
+      </div>
+    </Link>
   )
 }

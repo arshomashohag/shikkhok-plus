@@ -54,6 +54,8 @@ import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.inbox.ClassChange
 import com.shikkhokplus.app.feature.inbox.InboxKind
 import com.shikkhokplus.app.feature.inbox.InboxMessage
+import com.shikkhokplus.app.feature.inbox.ReviewOutcome
+import com.shikkhokplus.app.feature.inbox.EnquiryAnswer
 import com.shikkhokplus.app.feature.inbox.InboxUiState
 
 /** The bell on a home screen's bar. */
@@ -269,6 +271,7 @@ private fun MessageRow(message: InboxMessage, onSelect: (InboxMessage) -> Unit) 
             val line =
                 classLine(message.kind, message.classChange)
                     ?: message.feedbackDay?.let { stringResource(R.string.hub_feedback_day, Numerals.count(it)) }
+                    ?: reviewLine(message)
                     ?: message.preview?.let(Numerals::freeText)
                     ?: body(message)
             line?.let {
@@ -324,7 +327,13 @@ private fun titleOf(kind: InboxKind): Int =
         InboxKind.CLAIM_TO_VERIFY -> R.string.inbox_claim_to_verify_title
         InboxKind.CLASS_CANCELLED -> R.string.inbox_class_cancelled_title
         InboxKind.CLASS_RESCHEDULED -> R.string.inbox_class_rescheduled_title
-        InboxKind.HUB_LISTING_SUSPENDED, InboxKind.HUB_FEEDBACK_QUESTION -> hubTitleOf(kind)
+        InboxKind.HUB_LISTING_SUSPENDED,
+        InboxKind.HUB_FEEDBACK_QUESTION,
+        InboxKind.HUB_REVIEW_OUTCOME,
+        InboxKind.HUB_REVIEWS_PUBLISHED,
+        InboxKind.HUB_ENQUIRY_RECEIVED,
+        InboxKind.HUB_ENQUIRY_ANSWERED,
+        -> hubTitleOf(kind)
     }
 
 /**
@@ -335,10 +344,56 @@ private fun titleOf(kind: InboxKind): Int =
  * @return Its string resource
  */
 private fun hubTitleOf(kind: InboxKind): Int =
-    if (kind == InboxKind.HUB_FEEDBACK_QUESTION) {
-        R.string.inbox_hub_feedback_question_title
-    } else {
-        R.string.inbox_hub_listing_suspended_title
+    when (kind) {
+        InboxKind.HUB_FEEDBACK_QUESTION -> R.string.inbox_hub_feedback_question_title
+        InboxKind.HUB_REVIEW_OUTCOME -> R.string.inbox_hub_review_outcome_title
+        InboxKind.HUB_REVIEWS_PUBLISHED -> R.string.inbox_hub_reviews_published_title
+        InboxKind.HUB_ENQUIRY_RECEIVED -> R.string.hub_enquiry_inbox_received_title
+        InboxKind.HUB_ENQUIRY_ANSWERED -> R.string.hub_enquiry_inbox_answered_title
+        else -> R.string.inbox_hub_listing_suspended_title
+    }
+
+/**
+ * A hub review or join-request message's line, worded from its outcome or
+ * its count; null for any other message, and for a word this version does
+ * not know.
+ *
+ * @param message The message
+ * @return The line, or null
+ */
+@Composable
+internal fun reviewLine(message: InboxMessage): String? =
+    enquiryLine(message) ?: message.reviewOutcome?.let { outcome ->
+        stringResource(
+            when (outcome) {
+                ReviewOutcome.PUBLISHED -> R.string.inbox_hub_review_outcome_published
+                ReviewOutcome.REJECTED -> R.string.inbox_hub_review_outcome_rejected
+                ReviewOutcome.REMOVED -> R.string.inbox_hub_review_outcome_removed
+            },
+        )
+    } ?: message.reviewsPublished?.let { stringResource(R.string.inbox_hub_reviews_published_body, it) }
+
+/**
+ * A join-request message's line [H5]: "Open it to see the request." for a
+ * request received, and the guardian's words for the answer.
+ *
+ * @param message The message
+ * @return The line, or null for any other message and an unknown answer
+ */
+@Composable
+private fun enquiryLine(message: InboxMessage): String? =
+    when {
+        message.kind == InboxKind.HUB_ENQUIRY_RECEIVED -> stringResource(R.string.hub_enquiry_inbox_received_body)
+        else ->
+            message.enquiryAnswer?.let { answer ->
+                stringResource(
+                    when (answer) {
+                        EnquiryAnswer.ADDED -> R.string.hub_enquiry_outcome_added
+                        EnquiryAnswer.NOT_NOW -> R.string.hub_enquiry_outcome_not_now
+                        EnquiryAnswer.CALL_US -> R.string.hub_enquiry_outcome_call_us
+                    },
+                )
+            }
     }
 
 /**

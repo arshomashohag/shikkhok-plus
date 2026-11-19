@@ -141,6 +141,21 @@ locals {
     # dedicated IP and no Virtual Deliverability Manager, each of which
     # bills monthly regardless of volume. Its two alarms are in `alarms`.
     email = ceil(var.email_daily_ceiling * 30.5) * 0.10 / 1000
+    # The hub's photo bucket (modules/media), S3 Standard. Storage: 12
+    # owner photos of three WebP variants, about 0.3 MB a set, for 300
+    # owners is 3 x 12 x 0.3 MB x 300 = 1,080 MB per copy; public/,
+    # archive/ and staged/ (30 days, counted in full) make three copies,
+    # about 3.2 GB, at USD 0.023/GB-month = USD 0.0745. Requests: about
+    # 2,000 write-class (upload POSTs, the sanitiser's variants, approval
+    # copies) at USD 0.005 per 1,000 = USD 0.01, and CloudFront's origin
+    # GETs, about 5,000 at USD 0.0004 per 1,000 = USD 0.002. Total
+    # USD 0.0865, rounded up. Transfer from S3 to CloudFront is free.
+    # tests/gates/test_media_infra.py recomputes every figure here.
+    media = 0.09
+    # The image sanitiser Lambda (modules/media): about 1,000 invocations
+    # a month at 1 GB for 3 s is 3,000 GB-seconds, inside Lambda's
+    # permanent free tier of 400,000 GB-seconds and 1M requests: USD 0.00.
+    image_lambda = 0.00
   }
 
   monthly_cost = sum(values(local.cost_breakdown))
@@ -245,6 +260,11 @@ module "app" {
   # The one distribution this host may invalidate: a hub takedown evicts
   # its cached pages [0041]. The rehearsal host below gets none.
   site_distribution_arn = module.site.distribution_arn
+
+  # The one role this host may assume: the photo bucket's, whose short-lived
+  # credentials it writes for the API container [H3 deviation 1]. The
+  # rehearsal host below gets none, and its API serves no uploads.
+  media_role = { arn = module.media.media_role_arn }
 
   name_prefix    = local.name_prefix
   vpc_id         = module.network.vpc_id
@@ -369,6 +389,9 @@ module "site" {
   # origin the API distribution uses, with the same origin secret.
   api_origin_fqdn = module.cdn.origin_fqdn
   origin_secret   = module.app.origin_secret
+
+  # The /m/* behaviour serves approved hub photos from the media bucket.
+  media_bucket_regional_domain = module.media.media_bucket_regional_domain
 }
 
 # **Where deploy.yml puts the site, on the same terms as the web client**
@@ -393,6 +416,48 @@ resource "aws_ssm_parameter" "site_url" {
   type        = "String"
   value       = module.site.url
   description = "The public site's origin. deploy.yml builds the site with it as SITE_URL and smokes it."
+}
+
+# ---------------------------------------------------------------------
+# Hub photos: the media bucket and the role the API's credentials carry
+# ---------------------------------------------------------------------
+#
+# modules/media carries the design. Uploads go straight from the web app
+# to quarantine/ by presigned POST, a Lambda re-encodes them into staged/,
+# an approval copies them to public/, and the site distribution serves
+# public/ at /m/*. Always on: every environment's hub takes photos.
+module "media" {
+  source = "./modules/media"
+
+  name_prefix              = local.name_prefix
+  permissions_boundary_arn = local.permissions_boundary_arn
+
+  # The primary host's instance role assumes the media role; nothing else
+  # may. The site distribution is the only reader of public/*.
+  instance_role_arn     = module.app.instance_role_arn
+  site_distribution_arn = module.site.distribution_arn
+
+  # The one origin that may POST an upload: the web app's, derived from
+  # web-url exactly as deploy.yml derives SHIKKHOKPLUS_WEB_APP_URL.
+  web_app_origin = trimsuffix(module.cdn.web_url, "/ui/")
+}
+
+# **What the release needs of the bucket, on the site's terms** [OPS-3]:
+# plain String parameters the deploy role reads instead of Terraform state.
+# The release writes the bucket and its region into the runtime env, and
+# hands the endpoint to the web and admin builds for their CSP.
+resource "aws_ssm_parameter" "media_bucket" {
+  name        = "/shikkhokplus/${local.name_prefix}/media-bucket"
+  type        = "String"
+  value       = module.media.media_bucket
+  description = "The hub photo bucket. deploy.yml writes it into the runtime env as SHIKKHOKPLUS_MEDIA_BUCKET."
+}
+
+resource "aws_ssm_parameter" "media_bucket_domain" {
+  name        = "/shikkhokplus/${local.name_prefix}/media-bucket-domain"
+  type        = "String"
+  value       = module.media.media_bucket_regional_domain
+  description = "The photo bucket's regional endpoint: the runtime env's AWS_REGION, and the web and admin CSP's upload and preview host."
 }
 
 # ---------------------------------------------------------------------

@@ -494,6 +494,104 @@ describe('class changes (PO-1, PO-10)', () => {
     expect(targetOf({ ...m, feedbackDay: null }).to).toBe('/inbox/n1')
   })
 
+  it('opens a review outcome in its editor and new reviews on the teacher Reviews screen', () => {
+    const outcome = one({
+      kind: 'hub_review_outcome',
+      batch_name: 'Physics · Batch A',
+      amount: null,
+      period: null,
+      enrollment_id: null,
+      source_id: 'batch-1',
+      preview: 'removed',
+    })
+    expect(INBOX_KINDS).toContain('hub_review_outcome')
+    // The preview is a word to translate, never a line to show as sent.
+    expect(outcome.preview).toBeNull()
+    expect(inboxBody(outcome, t, (p) => p)).toBe('inbox_hub_review_outcome_removed()')
+    expect(targetOf(outcome)).toEqual({ to: '/reviews/batch-1', lens: 'guardian' })
+    expect(targetFor(outcome, 'teacher')).toBe('/inbox/n1')
+    // An outcome this client does not know says nothing rather than a raw word.
+    expect(
+      inboxBody(
+        one({
+          ...outcome,
+          kind: 'hub_review_outcome',
+          amount: null,
+          period: null,
+          preview: 'archived',
+        }),
+        t,
+        (p) => p,
+      ),
+    ).toBeNull()
+
+    const published = one({
+      kind: 'hub_reviews_published',
+      batch_name: 'Physics · Batch A',
+      amount: null,
+      period: null,
+      enrollment_id: null,
+      source_id: 'owner-1',
+      preview: '2',
+    })
+    expect(INBOX_KINDS).toContain('hub_reviews_published')
+    expect(inboxBody(published, t, (p) => p)).toBe('inbox_hub_reviews_published_body(2)')
+    expect(targetOf(published)).toEqual({ to: '/more/hub/reviews', lens: 'teacher' })
+    for (const [key, text] of [
+      [TITLE_KEY.hub_review_outcome, 'Your review · Physics · Batch A'],
+      [TITLE_KEY.hub_reviews_published, 'New reviews · Physics · Batch A'],
+    ] as const) {
+      expect(translate('en', key, 'Physics · Batch A')).toBe(text)
+      expect(BUNDLES.bn[key]).toMatch(/[ঀ-৿]/)
+    }
+  })
+
+  it('opens a received join request for its owner and an answer on my requests [H5]', () => {
+    const received = one({
+      kind: 'hub_enquiry_received',
+      batch_name: 'Physics · Batch A',
+      amount: null,
+      period: null,
+      enrollment_id: null,
+      source_id: 'enq-1',
+      preview: null,
+    })
+    expect(INBOX_KINDS).toContain('hub_enquiry_received')
+    expect(inboxBody(received, t, (p) => p)).toBe('hub_enquiry_inbox_received_body()')
+    expect(targetOf(received)).toEqual({ to: '/more/hub/enquiries/enq-1', lens: 'teacher' })
+    // Read through another lens, the message opens on its own page instead.
+    expect(targetFor(received, 'guardian')).toBe('/inbox/n1')
+
+    const answered = (preview: string | null) =>
+      one({
+        kind: 'hub_enquiry_answered',
+        batch_name: 'Physics · Batch A',
+        amount: null,
+        period: null,
+        enrollment_id: null,
+        source_id: 'enq-1',
+        preview,
+      })
+    expect(INBOX_KINDS).toContain('hub_enquiry_answered')
+    // The preview is the outcome code, worded here and never shown as sent.
+    expect(answered('call_us').preview).toBeNull()
+    expect(inboxBody(answered('added'), t, (p) => p)).toBe('hub_enquiry_outcome_added()')
+    expect(inboxBody(answered('not_now'), t, (p) => p)).toBe('hub_enquiry_outcome_not_now()')
+    expect(inboxBody(answered('call_us'), t, (p) => p)).toBe('hub_enquiry_outcome_call_us()')
+    expect(inboxBody(answered('archived'), t, (p) => p)).toBeNull()
+    // Any lens may hold a request of its own.
+    expect(targetOf(answered('added'))).toEqual({ to: '/hub-enquiries', lens: null })
+    expect(targetFor(answered('added'), 'teacher')).toBe('/hub-enquiries')
+
+    for (const [key, text] of [
+      [TITLE_KEY.hub_enquiry_received, 'New join request · Physics · Batch A'],
+      [TITLE_KEY.hub_enquiry_answered, 'Your join request · Physics · Batch A'],
+    ] as const) {
+      expect(translate('en', key, 'Physics · Batch A')).toBe(text)
+      expect(BUNDLES.bn[key]).toMatch(/[ঀ-৿]/)
+    }
+  })
+
   it('announces every kind it can draw, so the badge counts only those', () => {
     expect(INBOX_KINDS).toContain('class_cancelled')
     expect(INBOX_KINDS).toContain('class_rescheduled')

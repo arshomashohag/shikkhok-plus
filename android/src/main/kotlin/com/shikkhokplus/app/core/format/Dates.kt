@@ -172,6 +172,36 @@ fun monthName(period: String, short: Boolean = true): String =
     }.getOrDefault(period)
 
 /**
+ * A review's month as the public reads it: `Nov 2026`, `নভেম্বর 2026`.
+ *
+ * Month and year only, never a day [H4]. The month is in the phone's
+ * language, long in Bangla as the review copy writes it; the year stays
+ * in Latin digits per the numeral rule.
+ *
+ * @param period `YYYY-MM`
+ * @return The label, or the period unchanged if unreadable
+ */
+fun monthYear(period: String): String {
+    val month = YearMonth.parseOrNull(period) ?: return period
+    val long = Locale.getDefault().language == BANGLA
+    return "${monthName(month.toString(), short = !long)} ${month.year}"
+}
+
+/**
+ * A day with its month and year, as "You can edit until" says it:
+ * `19 Dec 2026`. The month is in the phone's language; the digits are
+ * Latin per the numeral rule.
+ *
+ * @param iso `yyyy-MM-dd`
+ * @return The label, or the input if it cannot be read
+ */
+fun dayMonthYear(iso: String): String =
+    isoToUtcMillis(iso)?.let { "${shortDate(iso)} ${utcFormat("yyyy").format(it)}" } ?: iso
+
+/** The language code under which months are written in full. */
+private const val BANGLA = "bn"
+
+/**
  * A day as Today's heading says it: `Saturday, 17 Oct`.
  *
  * Weekday and month in the phone's language, the day number in Latin

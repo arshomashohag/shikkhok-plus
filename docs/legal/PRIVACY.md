@@ -1,6 +1,6 @@
 # ShikkhokPlus Privacy Policy
 
-**Last updated: 8 November 2026**
+**Last updated: 19 November 2026**
 
 ShikkhokPlus (`com.shikkhokplus.app`) helps private tutors in
 Bangladesh manage their classes — attendance, marks and fees — and
@@ -26,8 +26,24 @@ the code does cannot drift apart.
   **not** use analytics or advertising SDKs, and we do **not** sell
   or share your data with anyone.
 - A teacher **cannot** see anything a student or guardian writes
-  about themselves. That boundary is enforced by the database, not by
-  our good intentions.
+  about themselves, and the database enforces that boundary, not our
+  good intentions. Where join requests are offered, a request a
+  guardian chooses to send is the exception: it reaches the teacher or
+  centre it was sent to, and our application, not the database, keeps
+  it to them.
+- Where reviews are offered on our public hub, only a **verified
+  guardian** can review a class their child attends. A review shows a
+  star rating, any words you add, how long your child has been enrolled
+  and the month it was published — **never your name or your
+  child's** — and only after we have checked it. The words you write are
+  read by a moderator, who rejects anything that names or could identify
+  a child. You can delete it at any time.
+- Where join requests are offered on our public hub, a parent or
+  guardian can ask a teacher or coaching centre to take their child
+  into a class. Only that teacher, or the centre's managers, see the
+  request, and your phone number or email address only if you choose
+  to share it. You can withdraw it at any time, and it is deleted after
+  90 days in any case.
 - You can delete your account from inside the app, or from a web page
   without installing anything.
 
@@ -60,6 +76,9 @@ password is, and is deleted after a short period. We never log either.
 | Class name, schedule, fee amount | The teacher | The teacher, and enrolled students |
 | Attendance and marks | The teacher | The teacher, and the student concerned |
 | Fee payments and claims | The teacher and the student | Both parties to that fee |
+| A review of a class on the public hub: a star rating and any words you add | A verified guardian of a student in that class, only if they choose to | Anyone, once we have checked it and the class has at least three published reviews; never with the guardian's name (see "Reviews" below) |
+| A reply to a review | The teacher or centre that runs the class | Anyone, with the review, once we have checked it |
+| A request to join a class on the public hub: the student's name and class, and any message you add | A signed-in parent or guardian, only if they choose to | Only the teacher it was sent to, or the managers of the centre; your phone number or email address only if you choose to share it; never public, and never us (see "Join requests" below) |
 
 ### What we deliberately do not collect
 
@@ -71,8 +90,9 @@ blocked by an automated check that fails our build:
 - **No device identifiers** — no IMEI, no SIM serial, no Android ID,
   no MAC or Wi-Fi address, no hardware serial.
 - **No location**, at any precision.
-- **No contacts, photos, files, camera or microphone access** beyond a
-  profile picture you choose yourself.
+- **No contacts, files, camera or microphone access**, and no access to
+  your photos beyond a picture you choose yourself: a profile picture, or,
+  for a teacher or centre, a photo you pick to add to your public listing.
 - **No analytics or crash-reporting SDK** that transmits any of the
   above.
 
@@ -96,35 +116,158 @@ central rather than incidental.
   child's attendance, marks and fees.
 - **We show no advertising**, of any kind, to anyone.
 - **We do not profile** children or build behavioural models.
-- There is no public profile, no messaging between users, and no
-  user-generated content visible to strangers.
+- There is no messaging between users, with one exception where join
+  requests are offered on the public hub: a parent or guardian can send
+  a teacher or centre a request to join a class, with a short message of
+  their own, and the only thing that comes back is one of three fixed
+  answers, never words the teacher writes (see "Join requests" below).
+  A teacher or centre may choose to publish a public listing, with
+  photos they upload; each photo is reviewed by us before anyone else
+  can see it, is re-encoded with its EXIF data and location removed,
+  and is deleted with the teacher's account. **No student is ever shown
+  on a public page, no photo of a student is published, and a guardian
+  appears only as the unnamed author of a review they chose to write.**
 
 If you are a parent or guardian and want to see, correct or delete
 your child's data, contact us at the address above. If you believe a
 child's data is in the app without a guardian's knowledge, tell us and
 we will remove it.
 
+### Reviews
+
+Where reviews are offered on the public hub, a guardian may review a
+class their child attends. Students cannot write reviews.
+
+- **Who can write one.** Only a **verified guardian**: someone linked to
+  a student in that class, who accepted that link, whose child joined
+  the class at least 30 days ago and has attended at least four of its
+  sessions, and, if the child has left, left it no more than 180 days
+  ago. Nobody who runs or teaches the class can review it. One review per
+  guardian per class.
+- **What it holds.** A star rating from 1 to 5, and optional words of up
+  to 1,000 characters. Words containing a phone number or a web address
+  are refused.
+- **What is shown publicly.** The rating, the words, a label such as
+  "Verified guardian · enrolled 6–12 months", and the month and year it
+  was published. **Never a name or an initial, never your child's
+  school class, and never the day** it was written or published.
+  Nothing is shown — no review, no average and no count — until a class
+  has at least **three** published reviews.
+- **Checked before it appears.** We read every review before it is
+  public; our moderators see it with an opaque reference in place of
+  your name, never your name or phone number. Approved reviews are
+  published once a week, so the date cannot be matched to the day you
+  wrote it. Editing a review, which you can do for 30 days, sends it
+  back to be checked.
+- **The teacher sees it as the public does.** We never tell a teacher
+  who wrote a review. The teacher or centre that runs the class may
+  write one reply to it, which we also check before it appears. They
+  cannot hide or delete a review.
+- **Reporting.** Anyone signed in to ShikkhokPlus can report a review
+  or a reply. A report that it puts a child at risk or reveals personal
+  information takes it down at once while we look at it, unless the
+  report comes from the teacher or centre that runs the class.
+- **Deleting it.** You can delete your review at any time. Deletion is
+  total: the review, the teacher's reply to it and every report about
+  either are removed. Your reviews are also deleted with your account.
+  Reviews of a solo teacher's classes are deleted when that teacher
+  deletes their account, which deletes their public listing with them;
+  a coaching centre's listing, and the reviews on it, stay with the
+  centre.
+
+### Join requests
+
+Where join requests are offered on the public hub, a parent or guardian
+can ask a teacher or coaching centre with a public listing to take their
+child into a class. A teacher or centre chooses whether to accept
+requests at all.
+
+- **Who can send one.** Someone signed in to ShikkhokPlus who confirms,
+  on that request, that they are the child's parent or guardian and aged
+  18 or over. Nobody can send one to a listing they run. You can have
+  one open request with each teacher or centre at a time.
+- **What it holds.** The student's name as you type it, their school
+  class as you choose it from a list, a message of up to 300 characters
+  if you add one, the class it is about if you picked one, whether you
+  chose to share your contact, the account that sent it, whether it is
+  open or answered, the teacher's answer, and when it was sent and when
+  it was answered. A message or name containing a phone number or a web
+  address is refused.
+- **What the teacher sees.** The teacher, or each manager of the centre
+  and nobody else who works there, sees the student's name as you typed
+  it, their school class as you chose it, your message, the class it is
+  about, and when it was received. Never your own name, your username, your address or
+  anything in your profile.
+- **Your contact.** The teacher sees your phone number or email address
+  only if you choose **Share**, which you decide on each request. If you
+  share, they see the phone number on your account, or your email
+  address if your account has no phone number. It is read from your
+  account while the request exists, not copied into it, so it is gone
+  when the request is. If you do not share, they see neither. Once a
+  teacher has seen your number we cannot make them forget it: if they
+  add your child to a class from your request, the name and number they
+  enter become part of their own record of that class, like any a
+  teacher types ("What we keep" below), and your child's place starts
+  as an invitation you can decline.
+- **The answer.** The teacher answers with one of three fixed replies —
+  your child is being added, there is no place for now, or call the
+  number on their listing — which reaches your inbox. They cannot write
+  to you through it, and nothing in a request reaches a student's
+  account.
+- **Not public, and not seen by us.** A request is never shown on any
+  public page, and there is no administrator view of join requests: our
+  moderators never see one.
+- **Withdrawing it.** You can withdraw a request at any time, answered
+  or not, and withdrawal is total: the request and every inbox notice
+  about it, the teacher's and yours, are deleted, and your contact goes
+  with them.
+- **How long.** Every request is deleted 90 days after it was sent,
+  answered or not. It is also deleted when you delete your account, and
+  when a solo teacher you sent it to deletes theirs. If join requests
+  are switched off, you can still see and withdraw the ones you sent,
+  and they are still deleted after 90 days.
+
 ---
 
 ## Who can see what
 
-The separation below is enforced by the database itself — by row-level
-security policies and by the fact that a teacher's view of the data is
-built from different tables than a student's. It is not a filter in
-application code that someone could forget to apply.
+The separation below, except for join requests, is enforced by the
+database itself — by row-level security policies and by the fact that
+a teacher's view of the data is built from different tables than a
+student's. It is not a filter in application code that someone could
+forget to apply.
 
 **A teacher can see** their own classes, the students enrolled in
-them, and the attendance, marks and fees they themselves recorded.
+them, and the attendance, marks and fees they themselves recorded. A
+teacher or centre that runs a class also sees its published reviews,
+exactly as the public sees them, and never who wrote one.
 
 **A teacher cannot see** a student's own profile, a guardian's
 details, or anything a student or guardian writes about themselves.
 
-**A student or guardian can see** their own profile, and their own
-attendance, marks and fees.
+**A student or guardian can see** their own profile, their own
+attendance, marks and fees, and the join requests they have sent.
+
+**Join requests are kept apart differently.** Where join requests are
+offered, a request a guardian chooses to send is the one exception to
+what a teacher cannot see: the teacher or centre it is sent to sees
+what it says, and the guardian's phone number or email address only if
+they chose to share it (see "Join requests" above). That is enforced by
+our application's queries, which read a request only for the teacher or
+centre it was sent to and for the guardian who sent it, and not by the
+database's row-level security described above.
 
 **Nobody else can see anything.** There is no administrator view of
-student data. Our own operational access is limited to subscriber
-information — a teacher's name, plan and payment status.
+student data. Our own operational access is limited to information
+about teachers and coaching centres — a teacher's or centre's name,
+which of our apps its people use, when it joined and when it was last
+signed in — to the questions someone asks us in the Help centre, and to
+what someone submits for publication on the public hub: listing text,
+photos, reviews, replies and reports. Join requests are not among them:
+they are never published, and we have no view of them. The app charges
+nobody, so there is no plan or payment information to see. Our
+moderators see a review, a reply or a report with an opaque reference
+in place of its author, never a name or phone number.
 
 ---
 
@@ -147,11 +290,15 @@ actually does, and our build fails if the two stop matching.
 | A complaint you filed about something on the public hub | no time limit |
 | A place a teacher accepts payment, such as a number | no time limit |
 | A record that a teacher sent a fee reminder | 12 months |
+| A request to join a class that you sent to a teacher or centre: the student's name and class, any message, and whether you chose to share your phone number or email address | 90 days |
+| A review you wrote of a class on the public hub, with its star rating | no time limit |
 | A sign-up form you submitted, kept until you enter the code we sent | 48 hours |
 | A solo teacher's answers to whether the public hub brought them a student | no time limit |
+| A teacher's reply to a review on the public hub, removed with the review | no time limit |
 | Failed and successful sign-in attempts | 7 days |
 | Messages in your in-app inbox, such as a fee reminder | 12 months |
 | One-time sign-in codes, stored only as hashes | 7 days |
+| Photos a solo teacher uploaded for their public hub pages, and their descriptions | no time limit |
 | Questions you asked us in the Help centre | no time limit |
 | Session tokens, stored only as hashes | 30 days after it expires |
 | Test-only message records, never used in production | 7 days |
@@ -203,9 +350,10 @@ These records are about how the service itself is running, not about any person.
 | Data | Removed anyway after |
 |---|---|
 | A coaching centre's names for the places its classes meet | no time limit |
-| A record that moderation acted on a hub listing or report; it holds no free text and names nobody | 12 months |
+| A record that moderation acted on a hub listing, photo, review, reply or report; it holds no free text and names nobody | 12 months |
 | Addresses of public hub pages we asked our web cache to forget after a page was taken down; they name nobody | 7 days |
 | Counters that limit sign-in attempts | 48 hours |
+| Instructions to delete the image files of a photo that was taken down or deleted; they name nobody | 7 days |
 | The fixed list of Bangladesh divisions, districts, upazilas, city corporations and metropolitan thanas | no time limit |
 | When our scheduled jobs last ran; it names nobody | no time limit |
 
@@ -213,9 +361,9 @@ These records are about how the service itself is running, not about any person.
 
 **A teacher's classes stay with their students.** If you are a teacher and delete your account, your sign-in, your own name and address are removed, and so are your name and payment number on each of your classes. The classes themselves stay as read-only history for your students and their guardians: their record of who came to each class, their results and fee records are theirs too. No new fees fall due on those classes, and amounts already recorded as owed stay on the records, where nobody can collect them.
 
-**A coaching centre's public listing stays with the centre.** If you are a manager of a coaching centre and delete your account, what the centre published on the public hub -- its own page and its class pages -- and its answers to whether the hub brought it students are kept, because they belong to the centre and not to you, and the centre's other managers may still run it. Your own account is removed as described above. A solo teacher's public listing is not kept: it is deleted with their account.
+**A coaching centre's public listing stays with the centre.** If you are a manager of a coaching centre and delete your account, what the centre published on the public hub -- its own page, its class pages and their photos, and its replies to reviews -- and its answers to whether the hub brought it students are kept, because they belong to the centre and not to you, and the centre's other managers may still run it. Your own account is removed as described above. A solo teacher's public listing is not kept: it is deleted with their account.
 
-<!-- governance manifest digest: 19f711babbb4137c5ccdb94762205e39c6f9f1c54f04ab4b62ae2f4e9199e65d
+<!-- governance manifest digest: 5c2f99837b497fb845782175229c293be25c6b288a06dcb71f31d4462df7eaae
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

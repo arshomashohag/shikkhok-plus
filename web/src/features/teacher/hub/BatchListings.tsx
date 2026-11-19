@@ -37,6 +37,7 @@ import {
   type BatchListing,
 } from './hub.mappers'
 import { Checklist, failureText, FailureBanner, StatusChip } from './hubUi'
+import { Photos } from './Photos'
 
 function BatchEditor({
   batch,
@@ -237,6 +238,7 @@ function BatchEditor({
         </label>
         {saved.show_fee === null ? <p className="meta">{t('web_hub_batch_flags_help')}</p> : null}
       </fieldset>
+      <Photos batchId={saved.batch_id} readOnly={suspended} />
       {failure ? (
         <FailureBanner text={failure} onRetry={retry ? () => void retry() : undefined} />
       ) : null}

@@ -18,7 +18,12 @@
  *    added to `style-src` and nothing else: the owner's hub preview is the
  *    server's HTML in a sandboxed `srcdoc` frame, which inherits this
  *    policy, and it links its stylesheet on the site because this host
- *    serves no `/hub-assets/` [R11].
+ *    serves no `/hub-assets/` [R11]. The hub photo bucket's regional
+ *    endpoint (`VITE_MEDIA_ORIGIN`) is fixed the same way and added to
+ *    `connect-src` (the upload's presigned POST goes straight to it) and
+ *    `img-src` (presigned previews of photos awaiting review, which the
+ *    preview frame shows too); the site joins `img-src` because an
+ *    approved photo's thumbnail is served from the site's `/m/` [R1].
  * 3. **Local development is same-origin** through Vite's proxy, so no
  *    CORS configuration is needed on a developer's machine.
  * 4. **The path it is served under is fixed at build time** (`WEB_BASE`,
@@ -55,18 +60,36 @@ const DEV_API_TARGET = process.env.SHIKKHOKPLUS_API ?? 'http://127.0.0.1:8000'
 const BACKEND_PATHS = ['/v1', '/health', '/account-deletion', '/staging']
 
 /**
+ * The hub photo bucket's regional S3 endpoint, exactly: a bare https origin
+ * `<bucket>.s3.<region>.amazonaws.com`. The legacy global endpoint names
+ * no region and is not what the API signs for, so it is refused too.
+ * vite.admin.config.ts holds the same pattern.
+ */
+const MEDIA_ORIGIN = /^https:\/\/[a-z0-9][a-z0-9.-]*\.s3\.[a-z]{2}(-[a-z]+)+-[0-9]\.amazonaws\.com$/
+
+/**
  * Write the Content-Security-Policy into `index.html`.
  *
  * @param apiBase The API origin the build talks to; empty for same-origin
  * @param siteBase The public site's origin; empty when the build names none
+ * @param mediaOrigin The photo bucket's endpoint; empty when the build names none
  * @param dev Whether this is the dev server, which needs its HMR socket
  */
-function contentSecurityPolicy(apiBase: string, siteBase: string, dev: boolean): Plugin {
+function contentSecurityPolicy(
+  apiBase: string,
+  siteBase: string,
+  mediaOrigin: string,
+  dev: boolean,
+): Plugin {
   const connect = ["'self'"]
   if (apiBase) connect.push(new URL(apiBase).origin)
+  if (mediaOrigin) connect.push(mediaOrigin)
   if (dev) connect.push('ws:')
   const style = ["'self'", "'unsafe-inline'"]
   if (siteBase) style.push(new URL(siteBase).origin)
+  const img = ["'self'", 'data:']
+  if (mediaOrigin) img.push(mediaOrigin)
+  if (siteBase) img.push(new URL(siteBase).origin)
   const policy = [
     "default-src 'self'",
     `connect-src ${connect.join(' ')}`,
@@ -74,7 +97,7 @@ function contentSecurityPolicy(apiBase: string, siteBase: string, dev: boolean):
     // build has no inline script at all.
     dev ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'",
     `style-src ${style.join(' ')}`,
-    "img-src 'self' data:",
+    `img-src ${img.join(' ')}`,
     "font-src 'self'",
     "manifest-src 'self'",
     "worker-src 'self'",
@@ -103,13 +126,21 @@ export default defineConfig(({ mode, command }) => {
     // A bare https origin: it is written into the policy and into links.
     throw new Error(`VITE_SITE_URL must be a bare https origin, got '${siteBase}'`)
   }
+  const mediaOrigin = env.VITE_MEDIA_ORIGIN ?? ''
+  if (mediaOrigin && !MEDIA_ORIGIN.test(mediaOrigin)) {
+    // Written into connect-src and img-src: a wrong value either blocks
+    // every upload or admits a host nobody chose. Checked in dev too.
+    throw new Error(
+      `VITE_MEDIA_ORIGIN must be the bucket's regional S3 endpoint, got '${mediaOrigin}'`,
+    )
+  }
 
   return {
     base: BASE,
     define: { __APP_VERSION__: JSON.stringify(VERSION) },
     plugins: [
       react(),
-      contentSecurityPolicy(apiBase, siteBase, command === 'serve'),
+      contentSecurityPolicy(apiBase, siteBase, mediaOrigin, command === 'serve'),
       VitePWA({
         registerType: 'prompt',
         injectRegister: false,

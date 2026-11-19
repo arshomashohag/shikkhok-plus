@@ -124,7 +124,7 @@ export interface paths {
      * @description Serve the landing page, or a page of search results.
      *
      *     :param locale: ``en`` or ``bn``
-     *     :param request: The incoming request, whose six keys are read
+     *     :param request: The incoming request, whose seven keys are read
      *     :param allowed: Whether this read was within the ceiling
      *     :return: The page, the 404 page, or the 429 page
      */
@@ -538,6 +538,60 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/admin/hub/media/{media_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Media
+     * @description Read one photo for review, with five-minute previews of its variants.
+     *
+     *     :param media_id: The photo
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :param store: The photo bucket
+     *     :return: The photo, its page's public name and title, and no account
+     */
+    get: operations['hub_media_v1_admin_hub_media__media_id__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/hub/media/{media_id}/decision': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Decide Media
+     * @description Approve or reject a photo waiting for review or held after a report.
+     *
+     *     :param media_id: The photo
+     *     :param body: The decision, and the code for a rejection
+     *     :param request: The incoming request
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :param store: The photo bucket
+     *     :return: The photo and its new status
+     */
+    post: operations['decide_media_v1_admin_hub_media__media_id__decision_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/admin/hub/owners/{owner_id}/suspension': {
     parameters: {
       query?: never
@@ -574,12 +628,16 @@ export interface paths {
     }
     /**
      * Hub Queue
-     * @description List open reports, or suspended listings, oldest first.
+     * @description List open reports, suspended listings, photos or reviews to decide.
+     *
+     *     Oldest first. ``kind=review`` answers ``HUB_REVIEWS_OFF`` while reviews
+     *     are off.
      *
      *     :param lens: The administrator's lens
      *     :param session: The request-scoped session
-     *     :param kind: ``report`` or ``listing``
-     *     :return: The queue; a reporter appears only as an opaque label
+     *     :param kind: ``report``, ``listing``, ``media`` or ``review``
+     *     :return: The queue; a reporter or a review's author appears only as an
+     *         opaque label
      */
     get: operations['hub_queue_v1_admin_hub_queue_get']
     put?: never
@@ -601,16 +659,71 @@ export interface paths {
     put?: never
     /**
      * Decide Report
-     * @description Uphold or dismiss a report.
+     * @description Uphold or dismiss a report; a photo report's decision reaches the photo.
      *
      *     :param report_id: The report
      *     :param body: The decision
      *     :param request: The incoming request
      *     :param lens: The administrator's lens
      *     :param session: The request-scoped session
+     *     :param store: The photo bucket, for restoring a held photo
      *     :return: The report and its new status
      */
     post: operations['decide_report_v1_admin_hub_reports__report_id__decision_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/hub/reviews/{review_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Review
+     * @description Read one review, or its reply, for moderation.
+     *
+     *     :param review_id: The review; a reply's id is its review's
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :param target: ``review`` or ``reply``
+     *     :return: The item, its batch's public title and owner's public name, and
+     *         its author only as a role and an opaque reference
+     */
+    get: operations['hub_review_v1_admin_hub_reviews__review_id__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/hub/reviews/{review_id}/decision': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Decide Review
+     * @description Approve or reject a review or reply waiting for review or held.
+     *
+     *     :param review_id: The review; a reply's id is its review's
+     *     :param body: The target, the decision, and the code for a rejection
+     *     :param request: The incoming request
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The item and its new status
+     */
+    post: operations['decide_review_v1_admin_hub_reviews__review_id__decision_post']
     delete?: never
     options?: never
     head?: never
@@ -2942,6 +3055,129 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/hub/batches/{batch_id}/my-review': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get My Review
+     * @description Read where the caller stands with this batch's review.
+     *
+     *     Not switch-gated: while reviews are off ``can_write`` is false.
+     *
+     *     :param lens: The caller's reviewer lens for the batch
+     *     :param session: The request-scoped session
+     *     :return: The state
+     */
+    get: operations['get_my_review_v1_hub_batches__batch_id__my_review_get']
+    /**
+     * Put My Review
+     * @description Write the caller's review of this batch, or edit it.
+     *
+     *     A first review needs an eligible standing; an edit needs the window
+     *     open. An edit goes back to moderation.
+     *
+     *     :param body: The rating and the optional words
+     *     :param lens: The caller's reviewer lens for the batch
+     *     :param session: The request-scoped session
+     *     :return: The state after the write
+     */
+    put: operations['put_my_review_v1_hub_batches__batch_id__my_review_put']
+    post?: never
+    /**
+     * Delete My Review
+     * @description Delete the caller's review of this batch, with its reply and reports.
+     *
+     *     Never switch-gated, and quiet when there is nothing to delete.
+     *
+     *     :param lens: The caller's reviewer lens for the batch
+     *     :param session: The request-scoped session
+     *     :return: An empty 204
+     */
+    delete: operations['delete_my_review_v1_hub_batches__batch_id__my_review_delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/enquiries': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Owner Enquiries
+     * @description List the owner's requests, open first, then newest.
+     *
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The requests
+     */
+    get: operations['list_owner_enquiries_v1_hub_enquiries_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/enquiries/{enquiry_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Owner Enquiry
+     * @description Read one of the owner's requests.
+     *
+     *     :param enquiry_id: The request
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The request
+     */
+    get: operations['get_owner_enquiry_v1_hub_enquiries__enquiry_id__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/enquiries/{enquiry_id}/close': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Close Owner Enquiry
+     * @description Answer a request; its guardian is told the outcome and nothing else.
+     *
+     *     :param enquiry_id: The request
+     *     :param body: The outcome, one of the request's ``outcomes_allowed``
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The closed request
+     */
+    post: operations['close_owner_enquiry_v1_hub_enquiries__enquiry_id__close_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/hub/feedback': {
     parameters: {
       query?: never
@@ -3027,6 +3263,7 @@ export interface paths {
      *
      *     :param lens: The owner's lens; the page is always this owner's
      *     :param session: The request-scoped session
+     *     :param store: The photo bucket, which signs photos awaiting review
      *     :param locale: ``en`` or ``bn``
      *     :return: The page
      */
@@ -3088,6 +3325,216 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/hub/media': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Photos
+     * @description List one gallery: the owner's own, or one batch's.
+     *
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :param store: The bucket
+     *     :param batch_id: The batch; omit for the owner's own gallery
+     *     :return: The photos in gallery order; withdrawn ones, and uploads
+     *         abandoned past their window, excluded
+     */
+    get: operations['list_photos_v1_hub_media_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/media/order': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Put Order
+     * @description Put a gallery's photos in the given order.
+     *
+     *     :param body: The gallery and the photo ids, first to last
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :param store: The bucket
+     *     :return: The gallery in its new order
+     */
+    put: operations['put_order_v1_hub_media_order_put']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/media/uploads': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Start Upload
+     * @description Start an upload and sign it.
+     *
+     *     Counts against the owner's daily uploads, not their daily edits.
+     *
+     *     :param body: The declared type, size and the batch
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :param store: The bucket
+     *     :return: The presigned POST
+     */
+    post: operations['start_upload_v1_hub_media_uploads_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/media/{media_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Delete Photo
+     * @description Withdraw a photo; its stored files are deleted, even while suspended.
+     *
+     *     :param media_id: The photo
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: An empty 204
+     */
+    delete: operations['delete_photo_v1_hub_media__media_id__delete']
+    options?: never
+    head?: never
+    /**
+     * Patch Photo
+     * @description Change a photo's alt text.
+     *
+     *     Changing an approved photo's text sends it back to review, because the
+     *     new text has not been moderated.
+     *
+     *     :param media_id: The photo
+     *     :param body: The new text; an omitted field is left alone
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :param store: The bucket
+     *     :return: The photo
+     */
+    patch: operations['patch_photo_v1_hub_media__media_id__patch']
+    trace?: never
+  }
+  '/v1/hub/media/{media_id}/complete': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Complete Upload
+     * @description Submit an uploaded photo for review once the file has been read.
+     *
+     *     Safe to repeat, and safe to poll: before the file has been processed the
+     *     answer is 409 ``MEDIA_NOT_UPLOADED``, and a repeat on a photo already in
+     *     review changes nothing. Neither spends the daily edit allowance; only a
+     *     call that moves the photo to review or rejects it as unreadable does, in
+     *     that call's own transaction.
+     *
+     *     :param media_id: The photo
+     *     :param body: Both alt texts
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :param store: The bucket
+     *     :return: The photo
+     */
+    post: operations['complete_upload_v1_hub_media__media_id__complete_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/owners/{owner_slug}/enquiries': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Send Enquiry
+     * @description Ask an owner, or one of its batches, to take a student.
+     *
+     *     The people who run the listing are told a request arrived, and nothing
+     *     the guardian typed travels with it.
+     *
+     *     :param owner_slug: The owner's public slug
+     *     :param body: The request; the declaration is checked and not stored
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The request as the guardian sees it
+     */
+    post: operations['send_enquiry_v1_hub_owners__owner_slug__enquiries_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/owners/{owner_slug}/enquiry-target': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Enquiry Target
+     * @description Say who a request would reach and what "share" would share.
+     *
+     *     Informed consent needs the name of whoever would receive the contact.
+     *
+     *     :param owner_slug: The owner's public slug
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :param batch_id: The listed batch asked about, if any
+     *     :return: The target as the form shows it
+     */
+    get: operations['get_enquiry_target_v1_hub_owners__owner_slug__enquiry_target_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/hub/reports': {
     parameters: {
       query?: never
@@ -3099,7 +3546,10 @@ export interface paths {
     put?: never
     /**
      * File Report
-     * @description Report a published hub listing; nothing about the listing changes.
+     * @description Report a published hub listing or a public photo.
+     *
+     *     Nothing about a listing changes. A child-safety or personal-information
+     *     report on a photo takes that photo down until an administrator decides.
      *
      *     :param body: The target, the reason and an optional note
      *     :param request: The incoming request, for its correlation id
@@ -3109,6 +3559,98 @@ export interface paths {
      */
     post: operations['file_report_v1_hub_reports_post']
     delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/reviewable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Reviewable
+     * @description List the batches the caller may review, is waiting to, or reviewed.
+     *
+     *     Not switch-gated: while reviews are off it lists only the batches the
+     *     caller already reviewed, so a review can still be found and deleted.
+     *
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The rows, by batch title
+     */
+    get: operations['list_reviewable_v1_hub_reviewable_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/reviews': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Owner Reviews
+     * @description Read the owner's batches' ratings and their published reviews.
+     *
+     *     Exactly what the public sees of them: below three published reviews a
+     *     batch shows no review and no figure [T2-a].
+     *
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: Every published batch's rating, and the reviews
+     */
+    get: operations['get_owner_reviews_v1_hub_reviews_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/reviews/{review_id}/reply': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Put Reply
+     * @description Write or replace the owner's reply to a review; it is pre-moderated.
+     *
+     *     :param review_id: The review
+     *     :param body: The reply
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The review with the reply as it now stands
+     */
+    put: operations['put_reply_v1_hub_reviews__review_id__reply_put']
+    post?: never
+    /**
+     * Delete Reply
+     * @description Delete the owner's reply to a review, and every report on it.
+     *
+     *     Never switch-gated, never refused for a suspension or the review's
+     *     visibility, and quiet when there is nothing of the owner's to delete.
+     *
+     *     :param review_id: The review
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: An empty 204
+     */
+    delete: operations['delete_reply_v1_hub_reviews__review_id__reply_delete']
     options?: never
     head?: never
     patch?: never
@@ -4031,6 +4573,60 @@ export interface paths {
      */
     post: operations['reply_v1_me_help_tickets__ticket_id__messages_post']
     delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/hub/enquiries': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List My Enquiries
+     * @description List the caller's own requests, newest first.
+     *
+     *     Not switch-gated: while join requests are off a guardian can still see
+     *     what they sent, so they can withdraw it.
+     *
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The requests
+     */
+    get: operations['list_my_enquiries_v1_me_hub_enquiries_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/hub/enquiries/{enquiry_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Withdraw Enquiry
+     * @description Withdraw one of the caller's requests, with every inbox item about it.
+     *
+     *     Never switch-gated, and quiet for a missing id or another account's.
+     *
+     *     :param enquiry_id: The request
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: An empty 204
+     */
+    delete: operations['withdraw_enquiry_v1_me_hub_enquiries__enquiry_id__delete']
     options?: never
     head?: never
     patch?: never
@@ -5300,6 +5896,8 @@ export interface components {
        * @enum {string}
        */
       key:
+        | 'alt_bn'
+        | 'alt_en'
         | 'area_bn'
         | 'area_en'
         | 'bio_bn'
@@ -5312,6 +5910,9 @@ export interface components {
         | 'public_name'
         | 'public_title'
         | 'qualifications'
+        | 'reply_body'
+        | 'review_body'
+        | 'review_rating'
         | 'street_address'
         | 'subject_tags'
         | 'syllabus_bn'
@@ -5320,30 +5921,136 @@ export interface components {
       value: string
     }
     /**
+     * AdminHubMediaDecided
+     * @description A photo after its decision.
+     *
+     *     :ivar media_id: The photo
+     *     :ivar status: ``approved`` or ``rejected``
+     */
+    AdminHubMediaDecided: {
+      /**
+       * Media Id
+       * Format: uuid
+       */
+      media_id: string
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'approved' | 'rejected'
+    }
+    /**
+     * AdminHubMediaDecisionRequest
+     * @description An administrator's decision on a photo.
+     *
+     *     :ivar decision: ``approve`` or ``reject``
+     *     :ivar code: Why, for a rejection; omitted for an approval
+     */
+    AdminHubMediaDecisionRequest: {
+      /** Code */
+      code?:
+        ('identifiable_child' | 'low_quality' | 'not_relevant' | 'other' | 'personal_info') | null
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: 'approve' | 'reject'
+    }
+    /**
+     * AdminHubMediaDetail
+     * @description One photo as an administrator reviews it.
+     *
+     *     Names the page it is for -- the owner's public name, the batch's public
+     *     title -- and nothing about the account that uploaded it.
+     *
+     *     :ivar media_id: The photo
+     *     :ivar status: ``pending_review``, ``held`` or ``approved``
+     *     :ivar width: The decoded width in pixels
+     *     :ivar height: The decoded height in pixels
+     *     :ivar previews: One signed URL per variant, narrowest first
+     *     :ivar alt_en: English alt text
+     *     :ivar alt_bn: Bangla alt text
+     *     :ivar public_name: The owner listing's public name
+     *     :ivar public_title: The batch listing's public title, for a batch photo
+     *     :ivar report_count: How many reports name this photo
+     */
+    AdminHubMediaDetail: {
+      /** Alt Bn */
+      alt_bn: string | null
+      /** Alt En */
+      alt_en: string | null
+      /** Height */
+      height: number | null
+      /**
+       * Media Id
+       * Format: uuid
+       */
+      media_id: string
+      /** Previews */
+      previews: components['schemas']['AdminHubMediaPreview'][]
+      /** Public Name */
+      public_name: string | null
+      /** Public Title */
+      public_title: string | null
+      /** Report Count */
+      report_count: number
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'approved' | 'held' | 'pending_review'
+      /** Width */
+      width: number | null
+    }
+    /**
+     * AdminHubMediaPreview
+     * @description One variant of a photo, signed for a five-minute look.
+     *
+     *     :ivar width: The variant's width in pixels
+     *     :ivar url: A signed GET of the variant in the photo bucket
+     */
+    AdminHubMediaPreview: {
+      /** Url */
+      url: string
+      /** Width */
+      width: number
+    }
+    /**
      * AdminHubQueueItem
      * @description One row of the moderation queue.
      *
-     *     :ivar kind: ``report`` or ``listing``
+     *     :ivar kind: ``report``, ``listing``, ``media`` or ``review``
      *     :ivar report_id: The report, for a report row
      *     :ivar target_kind: What was reported or suspended
-     *     :ivar target_id: The target's id
+     *     :ivar target_id: The target's id; a reply's is its review's
      *     :ivar owner_id: The owner the listing belongs to, when known
      *     :ivar title: The target's public name: an owner's public name or a
      *         batch's public title
-     *     :ivar fields: Everything the owner submitted for display on the target
-     *     :ivar reason: The report reason or the suspension reason code
+     *     :ivar fields: Everything the owner, or a review's author, submitted for
+     *         display on the target
+     *     :ivar reason: The report reason, the suspension reason code, or why a
+     *         held photo, review or reply was held; None for one waiting for
+     *         review
      *     :ivar note: The reporter's note, for a report row
      *     :ivar reporter_ref: The opaque reporter label, for a report row
-     *     :ivar waited_hours: Whole hours since the report or the suspension
+     *     :ivar waited_hours: Whole hours since the report, the suspension, the
+     *         hold, the upload, or a review's or reply's submit or edit
+     *     :ivar author_ref: For a review or reply, the review author's opaque
+     *         reference; for a reply, the author of the review it answers
+     *     :ivar author_role: That author's role
      */
     AdminHubQueueItem: {
+      /** Author Ref */
+      author_ref: string | null
+      /** Author Role */
+      author_role: string | null
       /** Fields */
       fields: components['schemas']['AdminHubField'][]
       /**
        * Kind
        * @enum {string}
        */
-      kind: 'listing' | 'report'
+      kind: 'listing' | 'media' | 'report' | 'review'
       /** Note */
       note: string | null
       /** Owner Id */
@@ -5380,7 +6087,7 @@ export interface components {
        * Kind
        * @enum {string}
        */
-      kind: 'listing' | 'report'
+      kind: 'listing' | 'media' | 'report' | 'review'
     }
     /**
      * AdminHubReportDecided
@@ -5400,6 +6107,118 @@ export interface components {
        * @enum {string}
        */
       status: 'dismissed' | 'upheld'
+    }
+    /**
+     * AdminHubReviewDecided
+     * @description A review or reply after its decision.
+     *
+     *     :ivar review_id: The review; a reply's id is its review's
+     *     :ivar target: ``review`` or ``reply``
+     *     :ivar status: ``approved`` (a review, awaiting the weekly publication),
+     *         ``published``, ``rejected`` or ``removed``
+     */
+    AdminHubReviewDecided: {
+      /**
+       * Review Id
+       * Format: uuid
+       */
+      review_id: string
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'approved' | 'published' | 'rejected' | 'removed'
+      /**
+       * Target
+       * @enum {string}
+       */
+      target: 'reply' | 'review'
+    }
+    /**
+     * AdminHubReviewDecisionRequest
+     * @description An administrator's decision on a review or a reply.
+     *
+     *     :ivar target: ``review`` or ``reply``
+     *     :ivar decision: ``approve`` or ``reject``
+     *     :ivar code: Why, for a rejection; omitted for an approval
+     */
+    AdminHubReviewDecisionRequest: {
+      /** Code */
+      code?: ('abusive' | 'identifiable_child' | 'off_topic' | 'other' | 'personal_info') | null
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: 'approve' | 'reject'
+      /**
+       * Target
+       * @enum {string}
+       */
+      target: 'reply' | 'review'
+    }
+    /**
+     * AdminHubReviewDetail
+     * @description One review or reply as an administrator moderates it.
+     *
+     *     Names the batch and its owner's public name, and the review's author
+     *     only by role and reference.
+     *
+     *     :ivar target_kind: ``review`` or ``reply``
+     *     :ivar review_id: The review; a reply's id is its review's
+     *     :ivar rating: The review's rating, 1 to 5
+     *     :ivar body: The review's words, or None
+     *     :ivar tenure: The review author's tenure bucket
+     *     :ivar author_role: The review author's role
+     *     :ivar author_ref: The review author's opaque reference
+     *     :ivar status: The target's status
+     *     :ivar batch_title: The batch's public title
+     *     :ivar owner_public_name: The owner listing's public name
+     *     :ivar reply_body: The reply's words, in any status, or None
+     *     :ivar open_reports: Open reports naming the target
+     *     :ivar waited_hours: Whole hours waited, while pending or held
+     */
+    AdminHubReviewDetail: {
+      /** Author Ref */
+      author_ref: string
+      /**
+       * Author Role
+       * @enum {string}
+       */
+      author_role: 'guardian' | 'student'
+      /** Batch Title */
+      batch_title: string | null
+      /** Body */
+      body: string | null
+      /** Open Reports */
+      open_reports: number
+      /** Owner Public Name */
+      owner_public_name: string | null
+      /** Rating */
+      rating: number
+      /** Reply Body */
+      reply_body: string | null
+      /**
+       * Review Id
+       * Format: uuid
+       */
+      review_id: string
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'approved' | 'held' | 'pending' | 'published' | 'rejected' | 'removed'
+      /**
+       * Target Kind
+       * @enum {string}
+       */
+      target_kind: 'reply' | 'review'
+      /**
+       * Tenure
+       * @enum {string}
+       */
+      tenure: '6_12m' | 'gt_1y' | 'lt_6m'
+      /** Waited Hours */
+      waited_hours: number | null
     }
     /**
      * AdminHubSuspensionRequest
@@ -5487,6 +6306,11 @@ export interface components {
      *     :ivar help_open: Tickets waiting on support
      *     :ivar help_answered: Tickets waiting on the requester
      *     :ivar help_closed: Closed tickets
+     *     :ivar hub_reviews_public: Reviews public at some point in the trailing 91
+     *         days: published or held now, or removed inside the window
+     *     :ivar hub_reviews_reported: Of those, the ones reported inside the window
+     *     :ivar hub_reviews_pull_bar: Whether reported reviews exceed 5% of public
+     *         ones, the spec's "Pull reviews" bar (section 9)
      */
     AdminOverviewResponse: {
       /** Accounts */
@@ -5516,6 +6340,12 @@ export interface components {
       help_closed: number
       /** Help Open */
       help_open: number
+      /** Hub Reviews Public */
+      hub_reviews_public: number
+      /** Hub Reviews Pull Bar */
+      hub_reviews_pull_bar: boolean
+      /** Hub Reviews Reported */
+      hub_reviews_reported: number
       /** New 30 Days */
       new_30_days: number
       /** New 7 Days */
@@ -7188,6 +8018,96 @@ export interface components {
       submission_id: string
     }
     /**
+     * EnquiryClose
+     * @description Answer a join request.
+     *
+     *     :ivar outcome: One of the request's ``outcomes_allowed``
+     */
+    EnquiryClose: {
+      /**
+       * Outcome
+       * @enum {string}
+       */
+      outcome: 'added' | 'call_us' | 'not_now'
+    }
+    /**
+     * EnquiryTargetResponse
+     * @description What the request form shows before the guardian sends.
+     *
+     *     :ivar owner_public_name: Whoever would receive the request
+     *     :ivar batch_title: The batch's public title, or None for the owner
+     *     :ivar contact_kind: What "share" would share: ``phone`` when the
+     *         account has one, else ``email``
+     *     :ivar already_open: The caller already has a request open with this
+     *         owner, so a send would answer ``ENQUIRY_ALREADY_OPEN``
+     */
+    EnquiryTargetResponse: {
+      /** Already Open */
+      already_open: boolean
+      /** Batch Title */
+      batch_title: string | null
+      /**
+       * Contact Kind
+       * @enum {string}
+       */
+      contact_kind: 'email' | 'phone'
+      /** Owner Public Name */
+      owner_public_name: string
+    }
+    /**
+     * EnquiryWrite
+     * @description Ask an owner, or one of its batches, to take a student.
+     *
+     *     :ivar student_name: 1 to 80 characters once stripped
+     *     :ivar class_level: One of the hub class levels
+     *     :ivar message: At most 300 characters once stripped; a blank message
+     *         is stored as none
+     *     :ivar batch_id: The listed batch asked about, or None for the owner
+     *     :ivar share_contact: Whether the people who run the listing may see
+     *         the account's phone, or its email when it has no phone. Required
+     *     :ivar declares_adult_guardian: The sender declares they are the
+     *         student's parent or guardian and an adult; only ``true`` is
+     *         accepted. Not stored
+     */
+    EnquiryWrite: {
+      /** Batch Id */
+      batch_id?: string | null
+      /**
+       * Class Level
+       * @enum {string}
+       */
+      class_level:
+        | 'a_level'
+        | 'admission'
+        | 'class_1'
+        | 'class_10'
+        | 'class_11'
+        | 'class_12'
+        | 'class_2'
+        | 'class_3'
+        | 'class_4'
+        | 'class_5'
+        | 'class_6'
+        | 'class_7'
+        | 'class_8'
+        | 'class_9'
+        | 'hsc'
+        | 'o_level'
+        | 'other'
+        | 'ssc'
+      /**
+       * Declares Adult Guardian
+       * @constant
+       */
+      declares_adult_guardian: true
+      /** Message */
+      message?: string | null
+      /** Share Contact */
+      share_contact: boolean
+      /** Student Name */
+      student_name: string
+    }
+    /**
      * EnrollmentCreateRequest
      * @description Add a student to a batch [AC2.2.2, AC2.2.5].
      *
@@ -8292,7 +9212,7 @@ export interface components {
      *     :ivar target_kind: ``owner_listing``, ``batch_listing``, ``media``,
      *         ``review`` or ``reply``
      *     :ivar target_id: The target's id: an owner id for an owner listing, a
-     *         batch id for a batch listing
+     *         batch id for a batch listing, a media id for a photo
      *     :ivar reason: A closed reason
      *     :ivar note: An optional note; it may not carry a phone number
      */
@@ -8589,6 +9509,148 @@ export interface components {
       username_required: boolean
       /** Workspaces */
       workspaces?: components['schemas']['WorkspaceResponse'][]
+    }
+    /**
+     * MediaComplete
+     * @description Submit an uploaded photo for review.
+     *
+     *     :ivar alt_en: English alt text, at most 200 characters
+     *     :ivar alt_bn: Bangla alt text, at most 200 characters
+     */
+    MediaComplete: {
+      /** Alt Bn */
+      alt_bn: string
+      /** Alt En */
+      alt_en: string
+    }
+    /**
+     * MediaOrder
+     * @description Put one gallery's photos in order.
+     *
+     *     :ivar batch_id: The batch; None for the owner's own gallery
+     *     :ivar ids: The photos in their new order, at most 12: the ones that
+     *         count against the quota; any left out follow them in their order
+     */
+    MediaOrder: {
+      /** Batch Id */
+      batch_id?: string | null
+      /** Ids */
+      ids: string[]
+    }
+    /**
+     * MediaResponse
+     * @description One of the owner's photos.
+     *
+     *     :ivar id: The photo
+     *     :ivar batch_id: The batch it is for; None for the owner's own page
+     *     :ivar status: Where it is in upload and review
+     *     :ivar alt_en: English alt text
+     *     :ivar alt_bn: Bangla alt text
+     *     :ivar position: Its place in its gallery
+     *     :ivar width: The decoded width in pixels
+     *     :ivar height: The decoded height in pixels
+     *     :ivar rejection_code: Why it was rejected, if it was
+     *     :ivar thumb_url: A 320-pixel preview: the public URL once approved, a
+     *         five-minute signed URL while it awaits review, otherwise None
+     */
+    MediaResponse: {
+      /** Alt Bn */
+      alt_bn: string | null
+      /** Alt En */
+      alt_en: string | null
+      /** Batch Id */
+      batch_id: string | null
+      /** Height */
+      height: number | null
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Position */
+      position: number
+      /** Rejection Code */
+      rejection_code: string | null
+      /**
+       * Status
+       * @enum {string}
+       */
+      status:
+        | 'approved'
+        | 'awaiting_upload'
+        | 'held'
+        | 'pending_review'
+        | 'processing'
+        | 'rejected'
+        | 'withdrawn'
+      /** Thumb Url */
+      thumb_url: string | null
+      /** Width */
+      width: number | null
+    }
+    /**
+     * MediaUpdate
+     * @description Change a photo's alt text; an omitted field is left alone.
+     *
+     *     :ivar alt_en: New English alt text
+     *     :ivar alt_bn: New Bangla alt text
+     */
+    MediaUpdate: {
+      /** Alt Bn */
+      alt_bn?: string | null
+      /** Alt En */
+      alt_en?: string | null
+    }
+    /**
+     * MediaUploadInit
+     * @description Start an upload.
+     *
+     *     ``content_type`` and ``byte_size`` are checked by the service, not the
+     *     schema, so a disallowed type or size answers ``MEDIA_TYPE_NOT_ALLOWED``
+     *     or ``MEDIA_TOO_LARGE`` -- a message key the client can localize -- and
+     *     not a generic 422. The type set is still published as an enum.
+     *
+     *     :ivar batch_id: The batch the photo is for; None for the owner's page
+     *     :ivar content_type: ``image/jpeg``, ``image/png`` or ``image/webp``
+     *     :ivar byte_size: The file's size in bytes, at most 8 MiB
+     */
+    MediaUploadInit: {
+      /** Batch Id */
+      batch_id?: string | null
+      /** Byte Size */
+      byte_size: number
+      /**
+       * Content Type
+       * @enum {string}
+       */
+      content_type: 'image/jpeg' | 'image/png' | 'image/webp'
+    }
+    /**
+     * MediaUploadTicket
+     * @description What the client needs to post the file straight to the bucket.
+     *
+     *     :ivar media_id: The photo the upload is for
+     *     :ivar url: The POST target
+     *     :ivar fields: The form fields to send, in order, before the file
+     *     :ivar expires_at: When the signature stops being accepted
+     */
+    MediaUploadTicket: {
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string
+      /** Fields */
+      fields: {
+        [key: string]: string
+      }
+      /**
+       * Media Id
+       * Format: uuid
+       */
+      media_id: string
+      /** Url */
+      url: string
     }
     /**
      * MemberInviteRequest
@@ -9019,6 +10081,78 @@ export interface components {
       topic_logged: boolean
     }
     /**
+     * MyEnquiryWire
+     * @description One of the caller's own join requests.
+     *
+     *     :ivar id: The request, to withdraw it
+     *     :ivar owner_public_name: The listing's public name, or None once the
+     *         listing itself is gone
+     *     :ivar batch_title: The batch's public title, or None
+     *     :ivar student_name: As sent
+     *     :ivar class_level: One of the hub class levels
+     *     :ivar message: As sent, or None
+     *     :ivar share_contact: Whether the caller shared their contact
+     *     :ivar status: ``open`` or ``closed``
+     *     :ivar outcome: How the owner answered, or None while open
+     *     :ivar sent_on: The day it was sent, in Bangladesh
+     *     :ivar owner_contact_phone: The owner's published number, only on a
+     *         ``call_us`` answer and only while the owner is public
+     */
+    MyEnquiryWire: {
+      /** Batch Title */
+      batch_title: string | null
+      /**
+       * Class Level
+       * @enum {string}
+       */
+      class_level:
+        | 'a_level'
+        | 'admission'
+        | 'class_1'
+        | 'class_10'
+        | 'class_11'
+        | 'class_12'
+        | 'class_2'
+        | 'class_3'
+        | 'class_4'
+        | 'class_5'
+        | 'class_6'
+        | 'class_7'
+        | 'class_8'
+        | 'class_9'
+        | 'hsc'
+        | 'o_level'
+        | 'other'
+        | 'ssc'
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Message */
+      message: string | null
+      /** Outcome */
+      outcome: ('added' | 'call_us' | 'not_now') | null
+      /** Owner Contact Phone */
+      owner_contact_phone: string | null
+      /** Owner Public Name */
+      owner_public_name: string | null
+      /**
+       * Sent On
+       * Format: date
+       */
+      sent_on: string
+      /** Share Contact */
+      share_contact: boolean
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'closed' | 'open'
+      /** Student Name */
+      student_name: string
+    }
+    /**
      * MyExamResponse
      * @description One exam the caller marks [C4].
      *
@@ -9057,6 +10191,69 @@ export interface components {
       title: string
       /** Total Marks */
       total_marks: number
+    }
+    /**
+     * MyReviewBody
+     * @description The caller's own review, as its author sees it.
+     *
+     *     :ivar rating: 1 to 5
+     *     :ivar body: The words, or None
+     *     :ivar status: Where it is in moderation
+     *     :ivar rejection_code: Why it was rejected or removed
+     *     :ivar tenure: The tenure bucket frozen at the first submit
+     *     :ivar published_month: ``YYYY-MM`` once published, else None
+     *     :ivar reply_body: The owner's reply while it is published
+     */
+    MyReviewBody: {
+      /** Body */
+      body: string | null
+      /** Published Month */
+      published_month: string | null
+      /** Rating */
+      rating: number
+      /** Rejection Code */
+      rejection_code: string | null
+      /** Reply Body */
+      reply_body: string | null
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'approved' | 'held' | 'pending' | 'published' | 'rejected' | 'removed'
+      /**
+       * Tenure
+       * @enum {string}
+       */
+      tenure: '6_12m' | 'gt_1y' | 'lt_6m'
+    }
+    /**
+     * MyReviewResponse
+     * @description Where the caller stands with one batch's review.
+     *
+     *     :ivar standing: ``eligible``, ``not_yet``, ``closed`` or ``author_only``
+     *     :ivar waiting_on: What a ``not_yet`` caller still needs
+     *     :ivar eligible_from: The day a ``not_yet`` caller's tenure is met,
+     *         sent only when tenure alone is unmet [FR-c]: never while classes
+     *         are also needed, nor on a closed window [T3-b]
+     *     :ivar can_write: Whether a write now would be accepted
+     *     :ivar edit_until: The last day, in Bangladesh, an edit is accepted
+     *     :ivar review: The caller's review, or None
+     */
+    MyReviewResponse: {
+      /** Can Write */
+      can_write: boolean
+      /** Edit Until */
+      edit_until: string | null
+      /** Eligible From */
+      eligible_from: string | null
+      review: components['schemas']['MyReviewBody'] | null
+      /**
+       * Standing
+       * @enum {string}
+       */
+      standing: 'author_only' | 'closed' | 'eligible' | 'not_yet'
+      /** Waiting On */
+      waiting_on: ('attendance' | 'tenure') | null
     }
     /**
      * NextExamResponse
@@ -9150,8 +10347,12 @@ export interface components {
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
+        | 'hub_enquiry_answered'
+        | 'hub_enquiry_received'
         | 'hub_feedback_question'
         | 'hub_listing_suspended'
+        | 'hub_review_outcome'
+        | 'hub_reviews_published'
         | 'marks_available'
         | 'notice'
         | 'payment_approved'
@@ -9194,7 +10395,13 @@ export interface components {
      *     :ivar child_name: Which child it is about, for a guardian's copy
      *     :ivar preview: A short line of its content, if any; for a
      *         ``hub_feedback_question``, the question's day, ``60`` or ``90``,
-     *         which the answer sends back
+     *         which the answer sends back; for a ``hub_review_outcome``,
+     *         ``published``, ``rejected`` or ``removed``; for a
+     *         ``hub_reviews_published``, how many reviews of the batch were just
+     *         published, in Latin digits; for a ``hub_enquiry_received``, None,
+     *         since nothing a guardian typed is ever in an inbox; for a
+     *         ``hub_enquiry_answered``, the outcome, ``added``, ``not_now`` or
+     *         ``call_us``
      *     :ivar class_date: For a class change, the day the class is now on, or
      *         was on if cancelled
      *     :ivar class_time: For a class change, its start time that day
@@ -9229,8 +10436,12 @@ export interface components {
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
+        | 'hub_enquiry_answered'
+        | 'hub_enquiry_received'
         | 'hub_feedback_question'
         | 'hub_listing_suspended'
+        | 'hub_review_outcome'
+        | 'hub_reviews_published'
         | 'marks_available'
         | 'notice'
         | 'payment_approved'
@@ -9339,6 +10550,116 @@ export interface components {
       owed_together: components['schemas']['Money']
     }
     /**
+     * OwnerBatchRatingWire
+     * @description One of the owner's published batches, with its rating over the threshold.
+     *
+     *     Below three published reviews every figure is None, the count included
+     *     [T2-a]: such a batch reads exactly like one nobody has reviewed.
+     *
+     *     :ivar batch_id: The batch
+     *     :ivar batch_title: Its public title
+     *     :ivar review_count: Published reviews, or None below the threshold
+     *     :ivar average_tenths: The average in tenths (43 is 4.3), or None
+     *     :ivar average_label: The average as shown, ``"4.3"``, or None;
+     *         clients show this and never format ``average_tenths`` [F13]. Not
+     *         named ``*_display``: that suffix is reserved for the rendering of a
+     *         money amount, and the money gate refuses one without its amount
+     *     :ivar distribution: Reviews per star from one to five, or None
+     */
+    OwnerBatchRatingWire: {
+      /** Average Label */
+      average_label: string | null
+      /** Average Tenths */
+      average_tenths: number | null
+      /**
+       * Batch Id
+       * Format: uuid
+       */
+      batch_id: string
+      /** Batch Title */
+      batch_title: string | null
+      /** Distribution */
+      distribution: number[] | null
+      /** Review Count */
+      review_count: number | null
+    }
+    /**
+     * OwnerEnquiryWire
+     * @description One join request, as the people who run the listing read it.
+     *
+     *     :ivar id: The request
+     *     :ivar batch_id: The batch asked about, or None for the owner as a whole
+     *     :ivar batch_title: That batch's public title, or None
+     *     :ivar student_name: As the guardian typed it
+     *     :ivar class_level: One of the hub class levels
+     *     :ivar message: As typed, or None
+     *     :ivar status: ``open`` or ``closed``
+     *     :ivar outcome: How it was answered, or None while open
+     *     :ivar received_at: When it was sent
+     *     :ivar guardian_phone: The guardian's phone, only when they shared
+     *         their contact
+     *     :ivar guardian_email: The guardian's email, only when they shared
+     *         their contact and have no phone
+     *     :ivar outcomes_allowed: What a close would accept now; empty once
+     *         closed. Clients offer exactly these
+     */
+    OwnerEnquiryWire: {
+      /** Batch Id */
+      batch_id: string | null
+      /** Batch Title */
+      batch_title: string | null
+      /**
+       * Class Level
+       * @enum {string}
+       */
+      class_level:
+        | 'a_level'
+        | 'admission'
+        | 'class_1'
+        | 'class_10'
+        | 'class_11'
+        | 'class_12'
+        | 'class_2'
+        | 'class_3'
+        | 'class_4'
+        | 'class_5'
+        | 'class_6'
+        | 'class_7'
+        | 'class_8'
+        | 'class_9'
+        | 'hsc'
+        | 'o_level'
+        | 'other'
+        | 'ssc'
+      /** Guardian Email */
+      guardian_email: string | null
+      /** Guardian Phone */
+      guardian_phone: string | null
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Message */
+      message: string | null
+      /** Outcome */
+      outcome: ('added' | 'call_us' | 'not_now') | null
+      /** Outcomes Allowed */
+      outcomes_allowed: ('added' | 'call_us' | 'not_now')[]
+      /**
+       * Received At
+       * Format: date-time
+       */
+      received_at: string
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'closed' | 'open'
+      /** Student Name */
+      student_name: string
+    }
+    /**
      * OwnerListingResponse
      * @description The owner's listing, with what publishing still needs.
      *
@@ -9364,8 +10685,14 @@ export interface components {
      *     :ivar consent_version_current: The consent text version to agree to now
      *     :ivar is_centre: Whether the owner is a coaching centre, the only kind
      *         that may show a street address
+     *     :ivar accepts_enquiries: Whether the owner agreed to receive join
+     *         requests
+     *     :ivar enquiries_offered: Whether join requests are switched on, so the
+     *         editor offers the choice; false whatever the owner chose while off
      */
     OwnerListingResponse: {
+      /** Accepts Enquiries */
+      accepts_enquiries: boolean
       /** Bio Bn */
       bio_bn: string | null
       /** Bio En */
@@ -9378,6 +10705,8 @@ export interface components {
       consent_version_current: string
       /** District Code */
       district_code: string | null
+      /** Enquiries Offered */
+      enquiries_offered: boolean
       /** Headline Bn */
       headline_bn: string | null
       /** Headline En */
@@ -9432,8 +10761,12 @@ export interface components {
      *     :ivar upazila_code: The upazila's BBS code; must lie in the district
      *     :ivar street_address: A centre's street address
      *     :ivar public_contact_phone: The one number shown publicly
+     *     :ivar accepts_enquiries: Whether the owner agrees to receive join
+     *         requests; stored even while join requests are switched off
      */
     OwnerListingUpdateRequest: {
+      /** Accepts Enquiries */
+      accepts_enquiries?: boolean | null
       /** Bio Bn */
       bio_bn?: string | null
       /** Bio En */
@@ -9460,6 +10793,68 @@ export interface components {
       teaching_mode?: ('home_visit' | 'in_person' | 'online')[] | null
       /** Upazila Code */
       upazila_code?: string | null
+    }
+    /**
+     * OwnerReviewWire
+     * @description One published review of the owner's batch, with the owner's reply.
+     *
+     *     :ivar id: The review, to reply to
+     *     :ivar batch_id: The batch
+     *     :ivar rating: 1 to 5
+     *     :ivar body: The words, or None
+     *     :ivar tenure: The author's tenure bucket
+     *     :ivar published_month: ``YYYY-MM``
+     *     :ivar reply_body: The reply as the public sees it, while published
+     *     :ivar reply_month: ``YYYY-MM`` the reply was published in, or None
+     *     :ivar my_reply_status: The owner's reply's status, or None without one
+     *     :ivar my_reply_body: The owner's reply's words in any status
+     *     :ivar my_reply_rejection_code: Why the reply was rejected or removed
+     */
+    OwnerReviewWire: {
+      /**
+       * Batch Id
+       * Format: uuid
+       */
+      batch_id: string
+      /** Body */
+      body: string | null
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** My Reply Body */
+      my_reply_body: string | null
+      /** My Reply Rejection Code */
+      my_reply_rejection_code: string | null
+      /** My Reply Status */
+      my_reply_status: ('held' | 'pending' | 'published' | 'rejected' | 'removed') | null
+      /** Published Month */
+      published_month: string
+      /** Rating */
+      rating: number
+      /** Reply Body */
+      reply_body: string | null
+      /** Reply Month */
+      reply_month: string | null
+      /**
+       * Tenure
+       * @enum {string}
+       */
+      tenure: '6_12m' | 'gt_1y' | 'lt_6m'
+    }
+    /**
+     * OwnerReviewsResponse
+     * @description The owner's published batches' ratings and their reviews.
+     *
+     *     :ivar batches: One row per published batch listing, reviewed or not
+     *     :ivar reviews: Published reviews over the threshold, newest month first
+     */
+    OwnerReviewsResponse: {
+      /** Batches */
+      batches: components['schemas']['OwnerBatchRatingWire'][]
+      /** Reviews */
+      reviews: components['schemas']['OwnerReviewWire'][]
     }
     /**
      * PasswordChangeRequest
@@ -10336,6 +11731,16 @@ export interface components {
       skipped: number
     }
     /**
+     * ReplyWrite
+     * @description Write or replace the owner's reply to a review.
+     *
+     *     :ivar body: 1 to 1000 characters once stripped
+     */
+    ReplyWrite: {
+      /** Body */
+      body: string
+    }
+    /**
      * ReviewChildResponse
      * @description One child a payment covers, in child order.
      *
@@ -10363,6 +11768,50 @@ export interface components {
       owed: components['schemas']['Money']
       /** Period */
       period: string
+    }
+    /**
+     * ReviewWrite
+     * @description Write or edit the caller's review of a batch.
+     *
+     *     :ivar rating: 1 to 5
+     *     :ivar body: Optional words, at most 1000 characters once stripped; a
+     *         blank body is stored as none
+     */
+    ReviewWrite: {
+      /** Body */
+      body?: string | null
+      /** Rating */
+      rating: number
+    }
+    /**
+     * ReviewableBatch
+     * @description One batch the caller may review, is waiting to, or has reviewed.
+     *
+     *     :ivar batch_id: The batch
+     *     :ivar batch_title: Its public title
+     *     :ivar owner_public_name: Its owner's public name
+     *     :ivar state: ``eligible``, ``not_yet``, or ``reviewed`` once the caller
+     *         wrote a review, whatever their standing now
+     *     :ivar eligible_from: The day a ``not_yet`` caller's tenure is met,
+     *         sent only when tenure alone is unmet [FR-c]; None otherwise
+     */
+    ReviewableBatch: {
+      /**
+       * Batch Id
+       * Format: uuid
+       */
+      batch_id: string
+      /** Batch Title */
+      batch_title: string
+      /** Eligible From */
+      eligible_from: string | null
+      /** Owner Public Name */
+      owner_public_name: string
+      /**
+       * State
+       * @enum {string}
+       */
+      state: 'eligible' | 'not_yet' | 'reviewed'
     }
     /**
      * RoomCreateRequest
@@ -12265,6 +13714,7 @@ export interface operations {
         subject?: string
         level?: string
         page?: string
+        sort?: string
       }
       header?: never
       path: {
@@ -13043,6 +14493,108 @@ export interface operations {
       }
     }
   }
+  hub_media_v1_admin_hub_media__media_id__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        media_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminHubMediaDetail']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  decide_media_v1_admin_hub_media__media_id__decision_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        media_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminHubMediaDecisionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminHubMediaDecided']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
   set_suspension_v1_admin_hub_owners__owner_id__suspension_put: {
     parameters: {
       query?: never
@@ -13099,7 +14651,7 @@ export interface operations {
   hub_queue_v1_admin_hub_queue_get: {
     parameters: {
       query?: {
-        kind?: 'listing' | 'report'
+        kind?: 'listing' | 'media' | 'report' | 'review'
       }
       header?: never
       path?: never
@@ -13114,6 +14666,15 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['AdminHubQueueResponse']
+        }
+      }
+      /** @description HUB_REVIEWS_OFF: reviews are switched off. Only kind=review answers it; the other kinds are never gated. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
         }
       }
       /** @description The request could not be parsed */
@@ -13167,6 +14728,146 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['AdminHubReportDecided']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  hub_review_v1_admin_hub_reviews__review_id__get: {
+    parameters: {
+      query?: {
+        target?: 'reply' | 'review'
+      }
+      header?: never
+      path: {
+        review_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminHubReviewDetail']
+        }
+      }
+      /** @description HUB_REVIEWS_OFF: reviews are switched off. HUB_ADMIN_TARGET_NOT_FOUND: no such review, or no reply to it. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  decide_review_v1_admin_hub_reviews__review_id__decision_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        review_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminHubReviewDecisionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminHubReviewDecided']
+        }
+      }
+      /** @description REVIEW_CODE_INVALID: a code with an approval, or a rejection without one. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_REVIEWS_OFF: reviews are switched off. HUB_ADMIN_TARGET_NOT_FOUND: no such review, or no reply to it. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description REVIEW_ALREADY_DECIDED: the item is neither pending nor held. REVIEW_REPORT_OPEN: an approval of a pending or held item while an open child-safety or personal-information report, filed by someone who does not run the batch, still names it; deciding that report is what releases it. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
         }
       }
       /** @description The request could not be parsed */
@@ -19872,6 +21573,475 @@ export interface operations {
       }
     }
   }
+  get_my_review_v1_hub_batches__batch_id__my_review_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        batch_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MyReviewResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description NOT_AVAILABLE: not a member of this batch nor the author of a review of it; a batch that does not exist answers the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  put_my_review_v1_hub_batches__batch_id__my_review_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        batch_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReviewWrite']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MyReviewResponse']
+        }
+      }
+      /** @description REVIEW_CONTAINS_CONTACT: the words carry a phone number or a web address; details name the field. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description NOT_AVAILABLE: not a member of this batch nor the author of a review of it; a batch that does not exist answers the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_REVIEWS_OFF: reviews are switched off. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description REVIEW_NOT_YET_ELIGIBLE: a first review by a member not yet, or no longer, eligible (hub.review.not_yet_eligible with eligible_from, hub.review.needs_attendance, hub.review.window_closed). REVIEW_EDIT_CLOSED: the edit window has passed. HUB_REVIEW_CEILING: today's changing writes are spent. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  delete_my_review_v1_hub_batches__batch_id__my_review_delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        batch_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description NOT_AVAILABLE: not a member of this batch nor the author of a review of it; a batch that does not exist answers the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  list_owner_enquiries_v1_hub_enquiries_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OwnerEnquiryWire'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description NO_TEACHER_LENS: the caller runs no workspace, or not the one named. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_ENQUIRIES_OFF: join requests are switched off. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  get_owner_enquiry_v1_hub_enquiries__enquiry_id__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        enquiry_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OwnerEnquiryWire']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description NO_TEACHER_LENS: the caller runs no workspace, or not the one named. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_NOT_FOUND: no request of this owner's by that id; another owner's request answers the same. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  close_owner_enquiry_v1_hub_enquiries__enquiry_id__close_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        enquiry_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnquiryClose']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OwnerEnquiryWire']
+        }
+      }
+      /** @description ENQUIRY_OUTCOME_INVALID: an outcome not in the request's outcomes_allowed. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description NO_TEACHER_LENS: the caller runs no workspace, or not the one named. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_NOT_FOUND: no request of this owner's by that id; another owner's request answers the same. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description ENQUIRY_ALREADY_CLOSED: the request was already answered. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
   answer_feedback_v1_hub_feedback_post: {
     parameters: {
       query?: never
@@ -20364,6 +22534,720 @@ export interface operations {
       }
     }
   }
+  list_photos_v1_hub_media_get: {
+    parameters: {
+      query?: {
+        batch_id?: string | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MediaResponse'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such photo or batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  put_order_v1_hub_media_order_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MediaOrder']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MediaResponse'][]
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such photo or batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  start_upload_v1_hub_media_uploads_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MediaUploadInit']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MediaUploadTicket']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such photo or batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  delete_photo_v1_hub_media__media_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        media_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such photo or batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  patch_photo_v1_hub_media__media_id__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        media_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MediaUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MediaResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such photo or batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  complete_upload_v1_hub_media__media_id__complete_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        media_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MediaComplete']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MediaResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No such photo or batch of yours. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  send_enquiry_v1_hub_owners__owner_slug__enquiries_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        owner_slug: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnquiryWrite']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MyEnquiryWire']
+        }
+      }
+      /** @description ENQUIRY_CONTAINS_CONTACT: the student's name or the message carries a phone number or a web address; details name the field. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_TARGET_NOT_FOUND: no published listing accepting requests by that slug, no open listed batch of it by that id, or a listing the caller runs; a slug that never existed answers the same. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description ENQUIRY_ALREADY_OPEN: the caller already has a request open with this owner. HUB_ENQUIRY_CEILING: today's requests are spent. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  get_enquiry_target_v1_hub_owners__owner_slug__enquiry_target_get: {
+    parameters: {
+      query?: {
+        batch_id?: string | null
+      }
+      header?: never
+      path: {
+        owner_slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['EnquiryTargetResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_TARGET_NOT_FOUND: no published listing accepting requests by that slug, no open listed batch of it by that id, or a listing the caller runs; a slug that never existed answers the same. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
   file_report_v1_hub_reports_post: {
     parameters: {
       query?: never
@@ -20422,6 +23306,281 @@ export interface operations {
       }
       /** @description Valid request; current state forbids it. Refetch and decide. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  list_reviewable_v1_hub_reviewable_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ReviewableBatch'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  get_owner_reviews_v1_hub_reviews_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OwnerReviewsResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description NO_TEACHER_LENS: the caller runs no workspace, or not the one named. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_REVIEWS_OFF: reviews are switched off. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  put_reply_v1_hub_reviews__review_id__reply_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        review_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReplyWrite']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OwnerReviewWire']
+        }
+      }
+      /** @description REVIEW_CONTAINS_CONTACT: the reply carries a phone number or a web address; details name the field. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description NO_TEACHER_LENS: the caller runs no workspace, or not the one named. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_REVIEWS_OFF: reviews are switched off. REVIEW_NOT_FOUND: no published review of yours by that id; another owner's review answers the same. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_LISTING_SUSPENDED: your listing is suspended. HUB_WRITE_CEILING: today's listing edits are spent. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  delete_reply_v1_hub_reviews__review_id__reply_delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        review_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description NO_TEACHER_LENS: the caller runs no workspace, or not the one named. */
+      403: {
         headers: {
           [name: string]: unknown
         }
@@ -22525,6 +25684,109 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['HelpTicketDetailResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  list_my_enquiries_v1_me_hub_enquiries_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MyEnquiryWire'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  withdraw_enquiry_v1_me_hub_enquiries__enquiry_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        enquiry_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
         }
       }
       /** @description The request could not be parsed */

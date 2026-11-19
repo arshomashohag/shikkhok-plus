@@ -47,6 +47,7 @@ import datetime as dt
 import uuid
 
 from sqlalchemy import (
+    CHAR,
     JSON,
     BigInteger,
     Boolean,
@@ -302,6 +303,26 @@ HUB_INVALIDATION_JOB = "hub_cdn_invalidation"
 #: silently leave that decision without its evidence.
 HUB_FEEDBACK_JOB = "hub_feedback_question"
 
+#: H3's drain of the photo bucket's deletion outbox, ``media_object_task``
+#: [0043]. Every withdrawal, rejection, takedown and account deletion
+#: enqueues the prefixes to delete in its own transaction; a two-minute
+#: cron entry runs ``app.hub.media.commands drain`` inside the running
+#: container. The heartbeat moves only on progress [R8a]: a drain with
+#: nothing to do, or one that deleted at least one prefix. A drain that
+#: stopped, or whose every delete fails, would leave a taken-down photo's
+#: public objects in the bucket.
+HUB_MEDIA_OBJECT_JOB = "hub_media_objects"
+
+#: H4's publication of approved guardian reviews [0045, hub spec D7]. A
+#: moderator's approval only queues a review; ``app.reviews.commands
+#: publish`` makes public every review approved before the latest Friday
+#: 00:00 in Dhaka, so a family cannot match a review to the day it was
+#: approved. Runs daily and is idempotent, so a missed run publishes on the
+#: next one. A job that stopped would leave approved reviews unpublished
+#: and their authors unanswered. Stamped on every completed run, including
+#: while reviews are switched off.
+HUB_REVIEW_PUBLISH_JOB = "hub_review_publication"
+
 #: Every job the host is expected to run [audit C-01]. The freshness check
 #: reports each of these even when it has no heartbeat row: enumerating
 #: rows alone protected only jobs that had already run once, and the
@@ -316,6 +337,8 @@ EXPECTED_JOBS: frozenset[str] = frozenset(
         HUB_BADGE_JOB,
         HUB_INVALIDATION_JOB,
         HUB_FEEDBACK_JOB,
+        HUB_MEDIA_OBJECT_JOB,
+        HUB_REVIEW_PUBLISH_JOB,
     }
 )
 
@@ -416,9 +439,12 @@ __all__ = [
     "HUB_BADGE_JOB",
     "HUB_FEEDBACK_JOB",
     "HUB_INVALIDATION_JOB",
+    "HUB_MEDIA_OBJECT_JOB",
+    "HUB_REVIEW_PUBLISH_JOB",
     "HUB_SEARCH_NORM_FUNCTION",
     "HUB_TAGS_TEXT_FUNCTION",
     "LEDGER_KIND_VALUES",
+    "MEDIA_STATUS_VALUES",
     "MEMBER_ROLE_VALUES",
     "OWNER_KIND_VALUES",
     "PAYMENT_PURPOSE_VALUES",
@@ -451,7 +477,9 @@ __all__ = [
     "HiddenBatchPreference",
     "JobHeartbeat",
     "LedgerEntryRow",
+    "ListingMedia",
     "Mark",
+    "MediaObjectTask",
     "MfaFactor",
     "MfaRecoveryCode",
     "OtpRequest",
@@ -3618,6 +3646,26 @@ HUB_MODERATION_EVENT_VALUES: tuple[str, ...] = (
     "report_dismissed",
     "listing_suspended",
     "listing_unsuspended",
+    # [0044] What moderation did to a photo: an administrator's approval,
+    # rejection or restore after a hold, and a report's hold.
+    "media_approved",
+    "media_rejected",
+    "media_held",
+    "media_restored",
+    # [0046] What moderation did to a review or a reply: an administrator's
+    # approval, rejection, restore or removal, a report's hold, and the
+    # weekly publication of an approved review.
+    "review_approved",
+    "review_rejected",
+    "review_held",
+    "review_restored",
+    "review_removed",
+    "review_published",
+    "reply_approved",
+    "reply_rejected",
+    "reply_held",
+    "reply_restored",
+    "reply_removed",
 )
 
 _HUB_LISTING_STATUS = PgEnum(
@@ -3698,6 +3746,8 @@ class OwnerListing(Base):
         read ``enrollment`` to compute it, so the application sets it from
         ``app.hub.listings.badge`` on save, on publish and daily
     :ivar search_text: The indexed text, computed by the database
+    :ivar accepts_enquiries: Whether the owner agreed to receive join
+        requests [0047]; separate from publishing, and false until they do
     """
 
     __tablename__ = "owner_listing"
@@ -3759,6 +3809,9 @@ class OwnerListing(Base):
         String(40), nullable=True
     )
     runs_classes: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    accepts_enquiries: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
     search_text: Mapped[str | None] = mapped_column(
@@ -4143,4 +4196,568 @@ class HubFeedback(Base):
             name=conv("ck_hub_feedback_answered"),
         ),
         Index("ix_hub_feedback_answered_by_account_id", "answered_by_account_id"),
+    )
+
+
+#: A photo's statuses [0043], in lifecycle order. ``held`` is an approved
+#: photo taken down at once by a child-safety or personal-information
+#: report while an admin decides; a restore mints a fresh public key.
+MEDIA_STATUS_VALUES: tuple[str, ...] = (
+    "awaiting_upload",
+    "processing",
+    "pending_review",
+    "approved",
+    "rejected",
+    "withdrawn",
+    "held",
+)
+
+_MEDIA_STATUS = PgEnum(*MEDIA_STATUS_VALUES, name="media_status", create_type=False)
+
+#: The canonical lower-case UUID text of a media id, inside a prefix.
+_MEDIA_UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+
+
+class ListingMedia(Base):
+    """One photo an owner uploaded for their page or one batch's [0043].
+
+    Public only through ``hub_public_media``, and only while ``approved``
+    under a visible owner and, for a batch photo, a visible batch. A batch
+    photo's batch must be its owner's: a trigger refuses any other, on
+    insert and on update of either column [0043].
+
+    :ivar id: Surrogate key; also names the photo's quarantine, staged and
+        archive objects
+    :ivar owner_id: The owner whose page it illustrates
+    :ivar batch_id: The batch whose page it illustrates; NULL for the
+        owner's own page
+    :ivar status: One of :data:`MEDIA_STATUS_VALUES`
+    :ivar content_type: The declared upload type: JPEG, PNG or WebP
+    :ivar byte_size: The declared upload size, 1 byte to 8 MiB
+    :ivar public_key: 32 random hex digits naming the public objects and
+        URL; set exactly while approved
+    :ivar width: The decoded image's width in pixels
+    :ivar height: The decoded image's height in pixels
+    :ivar widths: The variant names written, a subset of 320, 960 and 1600
+    :ivar alt_en: English alt text
+    :ivar alt_bn: Bangla alt text
+    :ivar position: Its place in its gallery; unique among approved photos
+    :ivar rejection_code: Why moderation rejected it, if it did
+    :ivar created_at: When the upload was started
+    :ivar decided_at: When moderation last decided it
+    :ivar archived_at: When ``complete`` froze the variants it read into
+        ``archive/{id}/``; set once. Preview and approval read only there
+    """
+
+    __tablename__ = "listing_media"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "owner.id", ondelete="RESTRICT", name=conv("fk_listing_media_owner")
+        ),
+        nullable=False,
+    )
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "batch.id", ondelete="RESTRICT", name=conv("fk_listing_media_batch")
+        ),
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        _MEDIA_STATUS, nullable=False, server_default=text("'awaiting_upload'")
+    )
+    content_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    public_key: Mapped[str | None] = mapped_column(CHAR(32), nullable=True)
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    widths: Mapped[list[int] | None] = mapped_column(ARRAY(SmallInteger), nullable=True)
+    alt_en: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    alt_bn: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    position: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, server_default=text("0")
+    )
+    rejection_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    decided_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    archived_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint("public_key", name=conv("uq_listing_media_public_key")),
+        CheckConstraint(
+            "(status = 'approved') = (public_key IS NOT NULL)",
+            name=conv("ck_listing_media_public_key_iff_approved"),
+        ),
+        CheckConstraint(
+            "public_key IS NULL OR public_key ~ '^[0-9a-f]{32}$'",
+            name=conv("ck_listing_media_public_key"),
+        ),
+        CheckConstraint(
+            "content_type IN ('image/jpeg', 'image/png', 'image/webp')",
+            name=conv("ck_listing_media_content_type"),
+        ),
+        CheckConstraint(
+            "byte_size BETWEEN 1 AND 8388608",
+            name=conv("ck_listing_media_byte_size"),
+        ),
+        CheckConstraint(
+            "widths IS NULL OR widths <@ ARRAY[320, 960, 1600]::smallint[]",
+            name=conv("ck_listing_media_widths"),
+        ),
+        # A public page renders an approved photo from these three.
+        CheckConstraint(
+            "status <> 'approved' OR (width IS NOT NULL AND height IS NOT NULL "
+            "AND widths IS NOT NULL AND cardinality(widths) > 0)",
+            name=conv("ck_listing_media_approved_dimensions"),
+        ),
+        Index("ix_listing_media_owner_id", "owner_id"),
+        Index("ix_listing_media_batch_id", "batch_id"),
+        # One approved photo per slot per gallery. NULLs never collide in a
+        # unique index, so the owner's own gallery is keyed on the nil UUID.
+        Index(
+            "uq_listing_media_approved_position",
+            "owner_id",
+            text("coalesce(batch_id, '00000000-0000-0000-0000-000000000000'::uuid)"),
+            "position",
+            unique=True,
+            postgresql_where=text("status = 'approved'"),
+        ),
+    )
+
+
+class MediaObjectTask(Base):
+    """One bucket prefix a takedown asked the drain to delete [0043].
+
+    Written in the takedown's own transaction, like ``cdn_invalidation``.
+    The prefix names exactly one photo's objects -- ``quarantine/{id}``,
+    ``staged/{id}/``, ``archive/{id}/`` or ``public/{key}/`` -- and a CHECK
+    refuses any wider shape. Purged seven days after it is done, never
+    before: the retention window is measured from ``done_at``.
+
+    :ivar id: Surrogate key, in insertion order
+    :ivar op: ``delete``, the only operation
+    :ivar prefix: The object prefix to delete
+    :ivar requested_at: When the takedown enqueued it
+    :ivar done_at: When the drain finished it; NULL while pending
+    :ivar attempts: Failed attempts so far
+    """
+
+    __tablename__ = "media_object_task"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    op: Mapped[str] = mapped_column(String(8), nullable=False)
+    prefix: Mapped[str] = mapped_column(String(80), nullable=False)
+    requested_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    done_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    attempts: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, server_default=text("0")
+    )
+
+    __table_args__ = (
+        CheckConstraint("op IN ('delete')", name=conv("ck_media_object_task_op")),
+        CheckConstraint(
+            f"prefix ~ '^(quarantine/{_MEDIA_UUID}|(staged|archive)/{_MEDIA_UUID}/"
+            "|public/[0-9a-f]{32}/)$'",
+            name=conv("ck_media_object_task_prefix"),
+        ),
+        Index(
+            "ix_media_object_task_pending",
+            "requested_at",
+            postgresql_where=text("done_at IS NULL"),
+        ),
+    )
+
+
+#: A review's statuses [0045], in lifecycle order. ``approved`` waits for the
+#: weekly publication; ``held`` is a published review taken down by a report
+#: while an admin decides.
+HUB_REVIEW_STATUS_VALUES: tuple[str, ...] = (
+    "pending",
+    "approved",
+    "published",
+    "rejected",
+    "removed",
+    "held",
+)
+#: A reply's statuses [0045]: a reply publishes on approval, so no
+#: ``approved``.
+HUB_REPLY_STATUS_VALUES: tuple[str, ...] = (
+    "pending",
+    "published",
+    "rejected",
+    "removed",
+    "held",
+)
+#: Who may write a review. V1 accepts ``guardian`` only, by CHECK.
+HUB_REVIEW_AUTHOR_ROLE_VALUES: tuple[str, ...] = ("guardian", "student")
+#: How long the evidencing seat had been held at first submit.
+HUB_REVIEW_TENURE_VALUES: tuple[str, ...] = ("lt_6m", "6_12m", "gt_1y")
+
+_HUB_REVIEW_STATUS = PgEnum(
+    *HUB_REVIEW_STATUS_VALUES, name="hub_review_status", create_type=False
+)
+_HUB_REPLY_STATUS = PgEnum(
+    *HUB_REPLY_STATUS_VALUES, name="hub_reply_status", create_type=False
+)
+_HUB_REVIEW_AUTHOR_ROLE = PgEnum(
+    *HUB_REVIEW_AUTHOR_ROLE_VALUES, name="hub_review_author_role", create_type=False
+)
+_HUB_REVIEW_TENURE = PgEnum(
+    *HUB_REVIEW_TENURE_VALUES, name="hub_review_tenure", create_type=False
+)
+
+#: ``published_month`` exists exactly while the item is shown or held.
+_MONTH_IFF_SHOWN = (
+    "(status = 'published' OR status = 'held') = (published_month IS NOT NULL)"
+)
+#: A month is stored as its first day.
+_MONTH_IS_FIRST = "published_month IS NULL OR extract(day FROM published_month) = 1"
+#: A rejection or a removal carries its closed code.
+_REJECTION_CODE = "status NOT IN ('rejected', 'removed') OR rejection_code IS NOT NULL"
+
+
+class Review(Base):
+    """One guardian's review of one batch [0045].
+
+    Public only through ``hub_public_review`` and ``hub_public_rating``, and
+    only once the batch holds three published reviews. **Never in any
+    response:** the author, the evidencing seat, and every time finer than
+    ``published_month``. The id is minted by the server as a random UUID, so
+    order within a month says nothing about submission order.
+
+    :ivar id: Surrogate key, random
+    :ivar batch_id: The reviewed batch, through its listing
+    :ivar author_account_id: Who wrote it; the review goes with them
+    :ivar enrollment_id: The seat that evidenced eligibility; cleared if it
+        goes
+    :ivar author_role: ``guardian`` (V1, by CHECK) or ``student``
+    :ivar rating: 1 to 5
+    :ivar body: Up to 1000 characters; NULL when none was written
+    :ivar status: One of :data:`HUB_REVIEW_STATUS_VALUES`
+    :ivar tenure_bucket: One of :data:`HUB_REVIEW_TENURE_VALUES`, frozen at
+        first submit
+    :ivar rejection_code: Why it was rejected or removed
+    :ivar submitted_at: The first submit; the edit window runs from it
+    :ivar edited_at: The latest edit
+    :ivar approved_at: When a moderator approved it; set exactly while
+        ``approved``
+    :ivar published_month: The first of the month it was published in; set
+        exactly while ``published`` or ``held``
+    :ivar decided_at: When moderation last decided it
+    :ivar decided_by_account_id: The administrator who did, cleared if their
+        account goes
+    """
+
+    __tablename__ = "review"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "batch_listing.batch_id",
+            ondelete="CASCADE",
+            name=conv("fk_review_batch_id"),
+        ),
+        nullable=False,
+    )
+    author_account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="CASCADE",
+            name=conv("fk_review_author_account_id"),
+        ),
+        nullable=False,
+    )
+    enrollment_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "enrollment.id",
+            ondelete="SET NULL",
+            name=conv("fk_review_enrollment_id"),
+        ),
+        nullable=True,
+    )
+    author_role: Mapped[str] = mapped_column(_HUB_REVIEW_AUTHOR_ROLE, nullable=False)
+    rating: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(
+        _HUB_REVIEW_STATUS, nullable=False, server_default=text("'pending'")
+    )
+    tenure_bucket: Mapped[str] = mapped_column(_HUB_REVIEW_TENURE, nullable=False)
+    rejection_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    submitted_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    edited_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    approved_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    published_month: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    decided_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decided_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_review_decided_by_account_id"),
+        ),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "batch_id", "author_account_id", name=conv("uq_review_batch_author")
+        ),
+        CheckConstraint(
+            "author_role = 'guardian'", name=conv("ck_review_author_role_v1")
+        ),
+        CheckConstraint("rating BETWEEN 1 AND 5", name=conv("ck_review_rating")),
+        CheckConstraint(
+            "body IS NULL OR char_length(body) <= 1000", name=conv("ck_review_body")
+        ),
+        CheckConstraint(
+            _MONTH_IFF_SHOWN, name=conv("ck_review_published_month_iff_shown")
+        ),
+        CheckConstraint(_MONTH_IS_FIRST, name=conv("ck_review_published_month_first")),
+        CheckConstraint(_REJECTION_CODE, name=conv("ck_review_rejection_code")),
+        CheckConstraint(
+            "(status = 'approved') = (approved_at IS NOT NULL)",
+            name=conv("ck_review_approved_at_iff_approved"),
+        ),
+        # What both public views and the threshold count read.
+        Index(
+            "ix_review_batch_id_published",
+            "batch_id",
+            postgresql_where=text("status = 'published'"),
+        ),
+        Index("ix_review_author_account_id", "author_account_id"),
+        Index("ix_review_enrollment_id", "enrollment_id"),
+    )
+
+
+class ReviewReply(Base):
+    """The batch owner's one reply to one review [0045].
+
+    Pre-moderated like the review (Call 3), and public only through
+    ``hub_public_review``, only while ``published``. A centre's reply
+    survives a manager's account deletion, with ``written_by_account_id``
+    cleared.
+
+    :ivar review_id: The review answered, the key; the reply goes with it
+    :ivar body: 1 to 1000 characters
+    :ivar status: One of :data:`HUB_REPLY_STATUS_VALUES`
+    :ivar written_by_account_id: Who wrote it, cleared if their account goes
+    :ivar created_at: When it was first written
+    :ivar edited_at: The latest replacement
+    :ivar published_month: The first of the month it was published in; set
+        exactly while ``published`` or ``held``
+    :ivar decided_at: When moderation last decided it
+    :ivar decided_by_account_id: The administrator who did, cleared if their
+        account goes
+    :ivar rejection_code: Why it was rejected or removed
+    """
+
+    __tablename__ = "review_reply"
+
+    review_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "review.id", ondelete="CASCADE", name=conv("fk_review_reply_review_id")
+        ),
+        primary_key=True,
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        _HUB_REPLY_STATUS, nullable=False, server_default=text("'pending'")
+    )
+    written_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_review_reply_written_by_account_id"),
+        ),
+        nullable=True,
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    edited_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    published_month: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    decided_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decided_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="SET NULL",
+            name=conv("fk_review_reply_decided_by_account_id"),
+        ),
+        nullable=True,
+    )
+    rejection_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "char_length(body) BETWEEN 1 AND 1000", name=conv("ck_review_reply_body")
+        ),
+        CheckConstraint(
+            _MONTH_IFF_SHOWN, name=conv("ck_review_reply_published_month_iff_shown")
+        ),
+        CheckConstraint(
+            _MONTH_IS_FIRST, name=conv("ck_review_reply_published_month_first")
+        ),
+        CheckConstraint(_REJECTION_CODE, name=conv("ck_review_reply_rejection_code")),
+    )
+
+
+#: A join request's statuses [0047]: ``open`` until the owner answers.
+HUB_ENQUIRY_STATUS_VALUES: tuple[str, ...] = ("open", "closed")
+#: The owner's closed answer to a join request (Call 7).
+HUB_ENQUIRY_OUTCOME_VALUES: tuple[str, ...] = ("added", "not_now", "call_us")
+
+_HUB_ENQUIRY_STATUS = PgEnum(
+    *HUB_ENQUIRY_STATUS_VALUES, name="hub_enquiry_status", create_type=False
+)
+_HUB_ENQUIRY_OUTCOME = PgEnum(
+    *HUB_ENQUIRY_OUTCOME_VALUES, name="hub_enquiry_outcome", create_type=False
+)
+
+
+class ListingEnquiry(Base):
+    """A signed-in guardian's request to join a listed owner's class [0047].
+
+    Seen only by the people who run that listing; never public, never shown
+    to a platform administrator. **Never in any response, page or log
+    line:** ``enquirer_account_id``; ``student_name`` and ``message`` are
+    never logged. The guardian's contact is not stored here: it is read
+    live from ``account``, and only while ``share_contact`` is true.
+
+    :ivar id: Surrogate key, random
+    :ivar owner_id: The owner asked
+    :ivar batch_id: The listed class it is about, if any; cleared if that
+        listing goes
+    :ivar enquirer_account_id: The guardian who sent it; it goes with them
+    :ivar student_name: 1 to 80 characters, as the guardian typed it
+    :ivar class_level: One of :data:`HUB_CLASS_LEVELS`
+    :ivar message: 1 to 300 characters, or NULL
+    :ivar share_contact: Whether the guardian chose to share their contact;
+        no default, so it is always their stated answer
+    :ivar status: One of :data:`HUB_ENQUIRY_STATUS_VALUES`
+    :ivar outcome: One of :data:`HUB_ENQUIRY_OUTCOME_VALUES`; set exactly
+        while closed, and ``added`` only with a shared contact
+    :ivar created_at: When it was sent; the 90-day retention runs from it
+    :ivar closed_at: When the owner answered; set exactly while closed
+    """
+
+    __tablename__ = "listing_enquiry"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "owner.id", ondelete="CASCADE", name=conv("fk_listing_enquiry_owner_id")
+        ),
+        nullable=False,
+    )
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "batch_listing.batch_id",
+            ondelete="SET NULL",
+            name=conv("fk_listing_enquiry_batch_id"),
+        ),
+        nullable=True,
+    )
+    enquirer_account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="CASCADE",
+            name=conv("fk_listing_enquiry_enquirer_account_id"),
+        ),
+        nullable=False,
+    )
+    student_name: Mapped[str] = mapped_column(Text, nullable=False)
+    class_level: Mapped[str] = mapped_column(String(20), nullable=False)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    share_contact: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    status: Mapped[str] = mapped_column(
+        _HUB_ENQUIRY_STATUS, nullable=False, server_default=text("'open'")
+    )
+    outcome: Mapped[str | None] = mapped_column(_HUB_ENQUIRY_OUTCOME, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    closed_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "char_length(btrim(student_name)) BETWEEN 1 AND 80",
+            name=conv("ck_listing_enquiry_student_name"),
+        ),
+        CheckConstraint(
+            "class_level IN (" + ", ".join(repr(c) for c in HUB_CLASS_LEVELS) + ")",
+            name=conv("ck_listing_enquiry_class_level"),
+        ),
+        CheckConstraint(
+            "message IS NULL OR char_length(message) BETWEEN 1 AND 300",
+            name=conv("ck_listing_enquiry_message"),
+        ),
+        CheckConstraint(
+            "(status = 'closed') = (outcome IS NOT NULL)",
+            name=conv("ck_listing_enquiry_outcome_iff_closed"),
+        ),
+        CheckConstraint(
+            "(status = 'closed') = (closed_at IS NOT NULL)",
+            name=conv("ck_listing_enquiry_closed_at_iff_closed"),
+        ),
+        CheckConstraint(
+            "outcome IS DISTINCT FROM 'added' OR share_contact",
+            name=conv("ck_listing_enquiry_added_needs_contact"),
+        ),
+        # One open request per owner and guardian (Call 9): the send is
+        # ``ON CONFLICT DO NOTHING`` against this, never a check first.
+        Index(
+            "uq_listing_enquiry_open",
+            "owner_id",
+            "enquirer_account_id",
+            unique=True,
+            postgresql_where=text("status = 'open'"),
+        ),
+        Index("ix_listing_enquiry_owner_created", "owner_id", "created_at"),
+        Index("ix_listing_enquiry_enquirer", "enquirer_account_id"),
     )

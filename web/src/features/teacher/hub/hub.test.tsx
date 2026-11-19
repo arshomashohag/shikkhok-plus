@@ -66,6 +66,7 @@ function serve(
     if (url.endsWith('/v1/hub/listing') && (init.method ?? 'GET') === 'GET')
       return json(200, listingBody)
     if (url.includes('/v1/hub/areas')) return json(200, [])
+    if (url.includes('/v1/hub/media')) return json(200, [])
     return json(404, {
       error: { code: 'NOT_FOUND', message_key: 'error.unexpected', retryable: false },
     })
@@ -357,6 +358,59 @@ describe('BatchListings', () => {
     renderScreen(<BatchListings />)
     const title = await screen.findByText(name)
     expect(title).toHaveStyle({ overflowWrap: 'anywhere' })
+  })
+})
+
+describe('photos sections', () => {
+  const gallery = (id: string) => ({
+    id,
+    batch_id: null,
+    status: 'pending_review',
+    alt_en: 'A class',
+    alt_bn: 'ক্লাস',
+    position: 1,
+    width: 960,
+    height: 640,
+    rejection_code: null,
+    thumb_url: 'https://bucket.example.test/archive/x/320.webp?sig=1',
+  })
+
+  it('the listing editor shows its own gallery, owner limit 12', async () => {
+    serve(listing(), (url) =>
+      url.includes('/v1/hub/media') ? json(200, [gallery('p1')]) : undefined,
+    )
+    renderScreen(<HubListing />)
+    expect(await screen.findByText('1 of 12 photos')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'A class' })).toHaveAttribute(
+      'src',
+      'https://bucket.example.test/archive/x/320.webp?sig=1',
+    )
+  })
+
+  it('a batch editor shows that batch gallery, batch limit 8', async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      url.includes('/v1/hub/media') ? json(200, [gallery('p1')]) : json(200, [batch()]),
+    )
+    renderScreen(<BatchListings />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    expect(await screen.findByText('1 of 8 photos')).toBeInTheDocument()
+    expect(
+      fetchMock.mock.calls.some(([u]) =>
+        String(u).includes(`/v1/hub/media?batch_id=${batch().batch_id}`),
+      ),
+    ).toBe(true)
+  })
+
+  it('a suspended listing shows photos, offers no upload or reorder, and still deletes', async () => {
+    serve(listing({ status: 'suspended' }), (url) =>
+      url.includes('/v1/hub/media') ? json(200, [gallery('p1')]) : undefined,
+    )
+    renderScreen(<HubListing />)
+    expect(await screen.findByText('1 of 12 photos')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Add a photo')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Move photo 1 down' })).not.toBeInTheDocument()
+    // A suspension does not block a delete: the photo's public link outlives it.
+    expect(screen.getByRole('button', { name: 'Delete photo 1' })).toBeInTheDocument()
   })
 })
 

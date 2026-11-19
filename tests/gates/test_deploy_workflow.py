@@ -1000,6 +1000,8 @@ def test_the_web_build_names_the_site_the_release_read() -> None:
     assert build["env"] == {
         "WEB_BASE": "/ui/",
         "VITE_SITE_URL": "${{ needs.release.outputs.site_url }}",
+        # The photo bucket's endpoint, for the CSP [H3 task 2].
+        "VITE_MEDIA_ORIGIN": "${{ needs.release.outputs.media_origin }}",
     }
     credentials = [
         i
@@ -1040,6 +1042,15 @@ smoke = _load_smoke()
 
 #: The site's own policy, which a page served from the bucket carries.
 _SITE_CSP = "default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'"
+
+#: The query keys the site's hub-query edge function lets through, read
+#: from the function itself so the stand-in cannot drift from it.
+_ALLOWED = re.search(
+    r"var ALLOWED = \[(.*?)\];",
+    (ROOT / "infra" / "modules" / "site" / "functions" / "hub-query.js").read_text(),
+)
+assert _ALLOWED is not None, "hub-query.js no longer declares var ALLOWED"
+_EDGE_KEYS = frozenset(re.findall(r"'([a-z]+)'", _ALLOWED.group(1)))
 
 
 def _landing_page() -> str:
@@ -1094,6 +1105,30 @@ class _HubHost(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    def _send_media(self, path: str, behaviour: str) -> None:
+        """Answer ``/m/*`` as the site distribution would.
+
+        A well-formed absent key reaches the bucket, which answers 403 (or
+        404); a malformed path is refused by the viewer function, 404.
+
+        :param path: The request path
+        :param behaviour: What is broken
+        :return: None
+        """
+        formed = re.fullmatch(r"/m/[0-9a-f]{32}/(320|960|1600)\.webp", path)
+        if behaviour == "media-served":
+            status = 200
+        else:
+            status = 403 if formed else 404
+        payload = b"x"
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html")
+        if behaviour != "media-sniffable":
+            self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
     def do_GET(self) -> None:
         """Answer as the site distribution, or the API's, would.
 
@@ -1111,7 +1146,12 @@ class _HubHost(http.server.BaseHTTPRequestHandler):
         site = self.server.origin  # type: ignore[attr-defined]
         absent = f"/hub/en/t/{smoke.ABSENT_SLUG}"
         if url.path == "/hub/en" and url.query:
-            if behaviour == "query-passed":
+            # The edge function: an allowlisted key passes, any other is 400.
+            keys = {k for k, _ in urllib.parse.parse_qsl(url.query)}
+            allowed = keys <= _EDGE_KEYS and not (
+                behaviour == "sort-refused" and "sort" in keys
+            )
+            if allowed or behaviour == "query-passed":
                 self._send(200, _landing_page())
             else:
                 self._send(400, "Bad Request", csp=_SITE_CSP)
@@ -1129,6 +1169,8 @@ class _HubHost(http.server.BaseHTTPRequestHandler):
             self._send(200, "<urlset/>", kind="application/xml")
         elif url.path == absent and behaviour == "soft-404":
             self._send(200, _landing_page())
+        elif url.path.startswith("/m/"):
+            self._send_media(url.path, behaviour)
         elif url.path == render.STYLESHEET_PATH and behaviour != "no-stylesheet":
             self._send(200, "body{}", csp=_SITE_CSP, kind="text/css; charset=utf-8")
         else:
@@ -1182,8 +1224,9 @@ def test_a_working_hub_passes_the_smoke(hub: tuple[str, str]) -> None:
 
     assert outcome == (
         f"the hub answers at {site}/hub/en with its own CSP, the sitemap, "
-        "the stylesheet, a 400 for an unknown query key and a 404 for an "
-        "unknown teacher, and the API host refuses it"
+        "the stylesheet, a 200 for the sort key, a 400 for an unknown query "
+        "key and a 404 for an unknown teacher, the photo path refusing what "
+        "is not approved, and the API host refuses it"
     )
 
 
@@ -1196,8 +1239,11 @@ def test_a_working_hub_passes_the_smoke(hub: tuple[str, str]) -> None:
         ("no-stylesheet", r"stylesheet .* answered 404"),
         ("no-sitemap", r"/hub/sitemap.xml answered 404"),
         ("query-passed", r"\?utm=x answered 200, not 400"),
+        ("sort-refused", r"\?sort=rating answered 400, not 200"),
         ("soft-404", r"no_such_teacher answered 200, not 404"),
         ("api-serves-hub", r"API host's .*/hub/en answered 200, not 404"),
+        ("media-served", r"/m/0{32}/320.webp answered 200, not 403 or 404"),
+        ("media-sniffable", r"/m/0{32}/320.webp .*nosniff"),
     ],
     indirect=["hub"],
 )
@@ -1206,6 +1252,62 @@ def test_a_broken_hub_fails_the_smoke(hub: tuple[str, str], reason: str) -> None
 
     with pytest.raises(RuntimeError, match=reason):
         smoke.smoke_hub(site, api, attempts=1, interval=0)
+
+
+def test_hub_smoke_checks_sort_key(hub: tuple[str, str]) -> None:
+    """The smoke asks for ``?sort=rating`` and needs a 200 [H4].
+
+    The edge function refuses any query key it does not list with a 400, so
+    a 200 here proves the deployed function carries ``sort``. It is asked
+    whatever the reviews switch says: switched off, the page ignores the
+    key and still answers 200.
+
+    :param hub: The stand-in site and API
+    :return: None
+    """
+    assert "sort" in _EDGE_KEYS
+    site, api = hub
+    seen: list[str] = []
+    real = smoke._get
+
+    def spy(url: str) -> tuple[int, dict[str, str], str]:
+        seen.append(url)
+        return real(url)
+
+    smoke._get = spy
+    try:
+        smoke.smoke_hub(site, api, attempts=1, interval=0)
+    finally:
+        smoke._get = real
+
+    assert f"{site}/hub/en?sort=rating" in seen
+
+
+def test_hub_smoke_checks_media_behaviour(hub: tuple[str, str]) -> None:
+    """Both /m/ paths are probed: the routed absent key and the malformed one.
+
+    :param hub: The stand-in site and API
+    :return: None
+    """
+    site, api = hub
+    seen: list[str] = []
+    real = smoke._get
+
+    def spy(url: str) -> tuple[int, dict[str, str], str]:
+        seen.append(url)
+        return real(url)
+
+    smoke._get = spy
+    try:
+        smoke.smoke_hub(site, api, attempts=1, interval=0)
+    finally:
+        smoke._get = real
+
+    media = [u.removeprefix(site) for u in seen if "/m/" in u]
+    assert media == [
+        "/m/00000000000000000000000000000000/320.webp",
+        "/m/does-not-exist/320.webp",
+    ]
 
 
 def test_the_hub_smoke_expects_the_policy_the_api_sends() -> None:
@@ -1288,6 +1390,12 @@ _RECORD_PARAMS = {
     "ses-smtp-host": "email-smtp.us-east-1.amazonaws.com",
     "site-url": "https://site.example.test",
     "web-url": "https://app.example.test/ui/",
+    "media-bucket": "shikkhokplus-staging-media-123456789012",
+    "media-bucket-domain": (
+        "shikkhokplus-staging-media-123456789012.s3.us-east-1.amazonaws.com"
+    ),
+    "hub-reviews": "off",
+    "hub-enquiries": "off",
 }
 
 
@@ -1440,3 +1548,234 @@ def test_bootstrap_creates_the_parameter_the_web_deploy_reads() -> None:
     )
     assert f'region = "{region}"' in tf
     assert "for_each = var.android_cert_sha256 == null" in tf
+
+
+# ---------------------------------------------------------------------------
+# The image sanitiser's code [H3 task 3, R3, R4]. Terraform creates the
+# function from a placeholder and ignores its code afterwards, so the deploy
+# ships the real package: after the infrastructure job (which may have just
+# created the function) and before the release (whose API hands out the
+# upload forms the sanitiser answers). The step is run here against a
+# stand-in ``aws``, as the runner would run it.
+# ---------------------------------------------------------------------------
+
+_SANITISER_JOB = "image-sanitiser"
+_SANITISER_FUNCTION = "shikkhokplus-staging-image-sanitiser"
+_SANITISER_ZIP = "dist/image_sanitiser.zip"
+
+#: A stand-in ``aws``: Lambda's three answers, steered by the environment.
+#: ``STORED_SHA`` is what UpdateFunctionCode reports storing (default: the
+#: zip's real digest); ``FINAL_STATUS`` is where the update ends;
+#: ``RUNNING_SHA`` is the code the configuration then reports running.
+_FAKE_AWS_LAMBDA = """#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "$AWS_LOG"
+zip="" query="" prev=""
+for arg in "$@"; do
+  [ "$prev" = "--zip-file" ] && zip="${arg#fileb://}"
+  [ "$prev" = "--query" ] && query="$arg"
+  prev="$arg"
+done
+case "$1 $2" in
+  "lambda update-function-code")
+    [ -f "$zip" ] || { echo "Error parsing parameter: $zip not found" >&2; exit 252; }
+    sha="${STORED_SHA:-$(openssl dgst -sha256 -binary "$zip" | base64)}"
+    printf '%s\\n' "$sha" > "$STATE_DIR/stored"
+    printf '%s\\n' "$sha" ;;
+  "lambda wait")
+    [ "$FINAL_STATUS" = "Successful" ] || {
+      echo "Waiter FunctionUpdated failed: terminal failure state" >&2
+      exit 255; } ;;
+  "lambda get-function-configuration")
+    if [ "$query" = "LastUpdateStatusReason" ]; then
+      echo "Unable to import module 'handler'"
+    else
+      printf '%s\\t%s\\n' "$FINAL_STATUS" "${RUNNING_SHA:-$(cat "$STATE_DIR/stored")}"
+    fi ;;
+  *) echo "unexpected call: $*" >&2; exit 2 ;;
+esac
+"""
+
+
+def _sanitiser_ship_step() -> dict[str, object]:
+    """Return the step that uploads the sanitiser's package.
+
+    :return: The step
+    """
+    named = [
+        s
+        for s in _steps(_SANITISER_JOB)
+        if "update-function-code" in str(s.get("run", ""))
+    ]
+    assert len(named) == 1
+    return named[0]
+
+
+def _run_sanitiser_ship(
+    tmp_path: pathlib.Path, **steer: str
+) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+    """Run the ship step against the stand-in, from a checkout with a zip.
+
+    :param tmp_path: A scratch directory, used as the checkout
+    :param steer: ``STORED_SHA``, ``FINAL_STATUS`` or ``RUNNING_SHA``
+    :return: The process and each ``aws`` call
+    """
+    step = _sanitiser_ship_step()
+    env = step["env"]
+    assert isinstance(env, dict)
+    # The step's own values, the expression rendered for staging.
+    assert env["FUNCTION"] == "shikkhokplus-${{ inputs.environment }}-image-sanitiser"
+    assert env["PACKAGE"] == _SANITISER_ZIP
+    package = tmp_path / _SANITISER_ZIP
+    package.parent.mkdir(parents=True)
+    package.write_bytes(b"PK\x03\x04 the package make lambda-image built")
+    bin_dir = tmp_path / "bin"
+    state = tmp_path / "state"
+    for directory in (bin_dir, state):
+        directory.mkdir()
+    fake = bin_dir / "aws"
+    fake.write_text(_FAKE_AWS_LAMBDA)
+    fake.chmod(0o755)
+    log = tmp_path / "aws.log"
+    log.write_text("")
+    finished = subprocess.run(  # noqa: S603 -- a fixed interpreter and our own script
+        [  # noqa: S607 -- bash from PATH, as the runner finds it
+            "bash",
+            "--noprofile",
+            "--norc",
+            "-eo",
+            "pipefail",
+            "-c",
+            str(step["run"]),
+        ],
+        cwd=tmp_path,
+        env={
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "FUNCTION": _SANITISER_FUNCTION,
+            "PACKAGE": _SANITISER_ZIP,
+            "AWS_LOG": str(log),
+            "STATE_DIR": str(state),
+            "FINAL_STATUS": "Successful",
+            **steer,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    return finished, log.read_text().splitlines()
+
+
+def test_the_sanitiser_ships_the_built_zip_and_waits_for_success(
+    tmp_path: pathlib.Path,
+) -> None:
+    finished, calls = _run_sanitiser_ship(tmp_path)
+
+    assert finished.returncode == 0, finished.stdout + finished.stderr
+    assert calls == [
+        f"lambda update-function-code --function-name {_SANITISER_FUNCTION} "
+        f"--zip-file fileb://{_SANITISER_ZIP} --query CodeSha256 --output text",
+        f"lambda wait function-updated --function-name {_SANITISER_FUNCTION}",
+        f"lambda get-function-configuration --function-name {_SANITISER_FUNCTION} "
+        "--query [LastUpdateStatus, CodeSha256] --output text",
+    ]
+    assert "LastUpdateStatus Successful" in finished.stdout
+
+
+def test_a_failed_sanitiser_update_fails_the_deploy(tmp_path: pathlib.Path) -> None:
+    finished, calls = _run_sanitiser_ship(tmp_path, FINAL_STATUS="Failed")
+
+    assert finished.returncode != 0
+    assert "did not reach LastUpdateStatus Successful" in finished.stdout
+    # Lambda's own reason is printed, so the failure says what broke.
+    assert "Unable to import module 'handler'" in finished.stdout
+    assert calls[-1].endswith("--query LastUpdateStatusReason --output text")
+
+
+def test_a_package_lambda_stored_differently_fails_before_waiting(
+    tmp_path: pathlib.Path,
+) -> None:
+    finished, calls = _run_sanitiser_ship(tmp_path, STORED_SHA="c29tZXRoaW5nIGVsc2U=")
+
+    assert finished.returncode != 0
+    assert "the package built here is" in finished.stdout
+    assert [c.split()[1] for c in calls] == ["update-function-code"]
+
+
+def test_a_successful_update_running_other_code_fails(tmp_path: pathlib.Path) -> None:
+    finished, _ = _run_sanitiser_ship(tmp_path, RUNNING_SHA="b2xkIGNvZGU=")
+
+    assert finished.returncode != 0
+    assert "running b2xkIGNvZGU=" in finished.stdout
+
+
+def test_the_sanitiser_ships_after_infrastructure_and_before_release() -> None:
+    jobs = yaml.safe_load(DEPLOY.read_text())["jobs"]
+
+    assert "infrastructure" in jobs[_SANITISER_JOB]["needs"]
+    assert _SANITISER_JOB in jobs["release"]["needs"]
+    # Nothing that starts the release can run before the code is in place.
+    assert not jobs[_SANITISER_JOB].get("continue-on-error")
+
+    steps = _steps(_SANITISER_JOB)
+    build = _first_index(steps, lambda s: s.get("run") == "make lambda-image")
+    credentials = _first_index(
+        steps, lambda s: "configure-aws-credentials" in str(s.get("uses", ""))
+    )
+    ship = steps.index(_sanitiser_ship_step())
+    # Built before any credential exists; shipped with the deploy role.
+    assert build < credentials < ship
+    assert "AWS_DEPLOY_ROLE_ARN" in str(steps[credentials]["with"])
+    assert not steps[ship].get("continue-on-error")
+
+
+@pytest.mark.parametrize("value", ["on", "off"])
+def test_deploy_writes_the_reviews_switch(tmp_path: pathlib.Path, value: str) -> None:
+    finished, _, runtime = _run_record_step(tmp_path, **{"hub-reviews": value})
+
+    assert finished.returncode == 0, finished.stdout + finished.stderr
+    assert runtime["SHIKKHOKPLUS_HUB_REVIEWS"] == value
+
+
+@pytest.mark.parametrize("value", ["ON", "true", "1", "", "yes", "on off", None])
+def test_deploy_validates_switch_value_and_writes_it(
+    tmp_path: pathlib.Path, value: str | None
+) -> None:
+    finished, log, runtime = _run_record_step(tmp_path, **{"hub-reviews": value})
+
+    assert finished.returncode != 0
+    assert "Nothing has been recorded or rolled" in finished.stdout
+    assert runtime == {}
+    assert not any("put-parameter" in line for line in log)
+
+
+@pytest.mark.parametrize("value", ["on", "off"])
+def test_deploy_writes_the_enquiries_switch(tmp_path: pathlib.Path, value: str) -> None:
+    finished, _, runtime = _run_record_step(tmp_path, **{"hub-enquiries": value})
+
+    assert finished.returncode == 0, finished.stdout + finished.stderr
+    assert runtime["SHIKKHOKPLUS_HUB_ENQUIRIES"] == value
+
+
+def test_deploy_writes_the_enquiries_switch_independently_of_reviews(
+    tmp_path: pathlib.Path,
+) -> None:
+    finished, _, runtime = _run_record_step(
+        tmp_path, **{"hub-reviews": "on", "hub-enquiries": "off"}
+    )
+
+    assert finished.returncode == 0, finished.stdout + finished.stderr
+    assert runtime["SHIKKHOKPLUS_HUB_REVIEWS"] == "on"
+    assert runtime["SHIKKHOKPLUS_HUB_ENQUIRIES"] == "off"
+
+
+@pytest.mark.parametrize("value", ["ON", "true", "1", "", "yes", "on off", None])
+def test_deploy_refuses_an_invalid_enquiries_switch_and_writes_nothing(
+    tmp_path: pathlib.Path, value: str | None
+) -> None:
+    finished, log, runtime = _run_record_step(tmp_path, **{"hub-enquiries": value})
+
+    assert finished.returncode != 0
+    assert "Cannot read the hub join requests switch" in finished.stdout
+    assert "Nothing has been recorded or rolled" in finished.stdout
+    assert runtime == {}
+    assert not any("put-parameter" in line for line in log)

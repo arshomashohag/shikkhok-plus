@@ -93,6 +93,9 @@ const val TAG_GUARDIAN_BATCH: String = "guardian_batch"
 /** A payment being checked. */
 const val TAG_GUARDIAN_WAITING: String = "guardian_waiting"
 
+/** The Reviews row, drawn only while the server lists a batch to review [H4]. */
+const val TAG_GUARDIAN_REVIEWS: String = "guardian_reviews"
+
 /**
  * What the home's buttons do.
  *
@@ -102,6 +105,9 @@ const val TAG_GUARDIAN_WAITING: String = "guardian_waiting"
  * @property onResult Open a batch's progress, by its seat
  * @property onBatch Open a child's batch screen, by its seat
  * @property onRetry Read again
+ * @property onRefresh Re-read on a pull, or null where pulling is not offered
+ * @property onReviews Open the guardian's reviews; null while the server
+ *   lists no batch to review, and then the row is not drawn [H4]
  */
 data class GuardianActions(
     val onSelect: (Int) -> Unit = {},
@@ -111,6 +117,7 @@ data class GuardianActions(
     val onBatch: (String) -> Unit = {},
     val onRetry: () -> Unit = {},
     val onRefresh: (() -> Unit)? = null,
+    val onReviews: (() -> Unit)? = null,
 )
 
 /**
@@ -161,7 +168,7 @@ fun GuardianHomeScreen(
             when (shown) {
                 GuardianUiState.Idle -> Unit
                 GuardianUiState.Loading -> SkeletonList(modifier = Modifier.testTag(TAG_GUARDIAN_LOADING))
-                is GuardianUiState.Empty ->
+                is GuardianUiState.Empty -> {
                     EmptyState(
                         title = stringResource(R.string.guardian_none_title),
                         body =
@@ -169,6 +176,8 @@ fun GuardianHomeScreen(
                                 ?: stringResource(R.string.guardian_empty_body),
                         modifier = Modifier.testTag(TAG_GUARDIAN_EMPTY),
                     )
+                    actions.onReviews?.let { ReviewsRow(it) }
+                }
                 is GuardianUiState.Failed ->
                     ErrorCard(
                         title = stringResource(MessageKeys.resolve(shown.messageKey)),
@@ -249,6 +258,27 @@ private fun ColumnScope.Loaded(state: GuardianUiState.Loaded, actions: GuardianA
                 BatchRow(batch) { actions.onBatch(batch.enrollmentId) }
             }
         }
+    }
+    // Reviews are by batch, not by child: one row, under every child.
+    actions.onReviews?.let { ReviewsRow(it) }
+}
+
+/**
+ * "Reviews": the batches the guardian may review, opened as one list.
+ *
+ * @param onOpen Called to open the list
+ */
+@Composable
+private fun ReviewsRow(onOpen: () -> Unit) {
+    Card(
+        Modifier
+            .clickable(onClick = onOpen)
+            .heightIn(min = 64.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .testTag(TAG_GUARDIAN_REVIEWS),
+    ) {
+        Text(stringResource(R.string.hub_reviews_title), style = MaterialTheme.typography.titleMedium)
+        Quiet(stringResource(R.string.hub_reviews_entry_guardian_sub))
     }
 }
 

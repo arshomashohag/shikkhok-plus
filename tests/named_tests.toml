@@ -1052,3 +1052,263 @@ id = "test_every_app_module_reads_the_clock_through_a_dt_alias"
 file = "tests/seed/test_clock.py"
 criterion = "no app module imports datetime in a form the seeder's simulated clock cannot reach"
 rule = "a seeded history stamped with the real clock would be silently wrong"
+
+# --- H4 Task 3: review eligibility and the ReviewerLens [spec §6] ---
+
+[[test]]
+id = "test_day_29_not_yet_with_eligible_from"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A guardian who joined 29 days ago is not_yet, waiting on tenure, with eligible_from = joined + 30"
+rule = "spec §6"
+
+[[test]]
+id = "test_day_30_eligible"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A guardian who joined exactly 30 days ago, with 4 attended classes, is eligible"
+rule = "spec §6"
+
+[[test]]
+id = "test_joined_on_null_uses_created_at_in_dhaka"
+file = "tests/reviews/test_eligibility.py"
+criterion = "With no joined_on, a seat created at 20:00 UTC counts from the next Dhaka day, so UTC day today-30 is still not_yet"
+rule = "spec §6"
+
+[[test]]
+id = "test_three_attended_not_yet_attendance"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Three attended classes leave a member not_yet, waiting on attendance, with no eligible_from"
+rule = "spec §6"
+
+[[test]]
+id = "test_four_attended_eligible"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Four attended, non-cancelled classes of the batch make a tenured member eligible"
+rule = "spec §6"
+
+[[test]]
+id = "test_absent_and_cancelled_sessions_do_not_count"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Absent rows and present rows at cancelled classes add nothing to three attended classes"
+rule = "spec §6"
+
+[[test]]
+id = "test_attendance_in_another_batch_does_not_count"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Neither the seat's rows at another batch's classes nor a sibling seat's attendance elsewhere count toward this batch"
+rule = "spec §6"
+
+[[test]]
+id = "test_tenure_and_attendance_unmet_waits_on_attendance_without_a_date"
+file = "tests/reviews/test_eligibility.py"
+criterion = "With tenure and attendance both unmet the member waits on attendance and gets no eligible_from (FR-c, revising F20)"
+rule = "spec §6, ruling FR-c"
+
+[[test]]
+id = "test_inactive_180_days_eligible"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A seat inactive from exactly 180 days ago still qualifies"
+rule = "spec §6"
+
+[[test]]
+id = "test_inactive_181_days_closed"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A seat inactive from 181 days ago is closed, with no waiting_on and no eligible_from"
+rule = "spec §6"
+
+[[test]]
+id = "test_pending_declined_or_blocked_guardian_is_not_member"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A pending, declined or relink-blocked guardian link assesses to None however long and well attended the seat"
+rule = "spec §6"
+
+[[test]]
+id = "test_student_link_is_not_member"
+file = "tests/reviews/test_eligibility.py"
+criterion = "An accepted, attending student link assesses to None: V1 reviewers are guardians only"
+rule = "spec §6"
+
+[[test]]
+id = "test_invisible_batch_is_not_member"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A draft or hidden batch listing, a suspended or draft owner listing, or an inactive batch assesses to None"
+rule = "spec §6"
+
+[[test]]
+id = "test_owner_or_manager_of_the_batch_is_not_member"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A solo owner or an accepted, unrevoked centre manager seating their own eligible child in the batch assesses to None"
+rule = "spec §6, ruling T3-c"
+
+[[test]]
+id = "test_class_teacher_of_the_batch_is_not_member"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A live centre member assigned to the batch by weekly slot or by one class assesses to None for their own eligible child"
+rule = "spec §6, ruling T3-c"
+
+[[test]]
+id = "test_former_or_unassigned_staff_may_review"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Revoked or declined managers and teachers, teachers of another batch, and a colleague of this batch's teacher are eligible like any guardian"
+rule = "spec §6, ruling T3-c"
+
+[[test]]
+id = "test_siblings_one_eligible_grants_with_that_enrollment"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Of three sibling seats, the evidence is the earliest-joined ELIGIBLE seat, not the earlier ineligible one, and tenure is measured from it"
+rule = "spec §6"
+
+[[test]]
+id = "test_closed_sibling_does_not_mask_a_live_one"
+file = "tests/reviews/test_eligibility.py"
+criterion = "A sibling seat closed by recency does not close a batch where a newer sibling is not_yet"
+rule = "spec §6"
+
+[[test]]
+id = "test_waiting_siblings_prefer_the_seat_waiting_only_on_tenure"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Among waiting siblings, the seat lacking only tenure stands, with waiting_on tenure and its eligible_from, over earlier undated or attendance-short seats"
+rule = "spec §6, ruling T3-d"
+
+[[test]]
+id = "test_siblings_all_needing_classes_are_given_no_date"
+file = "tests/reviews/test_eligibility.py"
+criterion = "Siblings who all still need classes wait on attendance with no eligible_from, whatever their tenure (FR-c)"
+rule = "spec §6, rulings T3-d and FR-c"
+
+[[test]]
+id = "test_author_keeps_lens_after_losing_membership"
+file = "tests/reviews/test_eligibility.py"
+criterion = "An author whose seat is declined or whose batch listing is hidden assesses as author_only with the review id and no seat"
+rule = "spec §6"
+
+[[test]]
+id = "test_member_never_carries_another_authors_review"
+file = "tests/reviews/test_eligibility.py"
+criterion = "An eligible member of a batch another guardian reviewed assesses with review_id None, never the other author's review"
+rule = "spec §6"
+
+[[test]]
+id = "test_tenure_buckets_at_boundaries"
+file = "tests/reviews/test_eligibility.py"
+criterion = "j+6m-1d is lt_6m, j+6m is 6_12m, j+12m-1d is 6_12m, j+12m is gt_1y"
+rule = "spec §6"
+
+[[test]]
+id = "test_reviewable_lists_open_and_reviewed_omits_closed"
+file = "tests/reviews/test_eligibility.py"
+criterion = "The list holds eligible, not_yet and every reviewed batch, ordered by public title, and omits a closed batch never reviewed"
+rule = "spec §6"
+
+[[test]]
+id = "test_reviewable_off_lists_only_reviewed"
+file = "tests/reviews/test_eligibility.py"
+criterion = "With include_open False the list holds only batches the account reviewed"
+rule = "spec §6"
+
+[[test]]
+id = "test_reviewer_lens_refusal_is_identical_for_nonmember_and_missing_batch"
+file = "tests/reviews/test_reviewer_lens.py"
+criterion = "A non-member of a real batch and a caller naming a nonexistent batch get the same 403 status and body bytes"
+rule = "spec §6"
+
+[[test]]
+id = "test_no_date_on_the_wire_while_classes_are_still_needed"
+file = "tests/reviews/test_review_routes.py"
+criterion = "A member short of tenure and classes gets no eligible_from on GET my-review, GET reviewable or the refused PUT (needs_attendance, no details)"
+rule = "spec §6, ruling FR-c"
+
+[[test]]
+id = "test_an_edit_does_not_take_a_held_item_past_its_open_report"
+file = "tests/moderation/test_review_moderation.py"
+criterion = "A held review edited, or a held reply replaced, back to pending is refused approval with REVIEW_REPORT_OPEN until its holding report is settled"
+rule = "ruling T7-c, final fix I-1"
+
+[[test]]
+id = "test_class_teacher_report_holds_nothing_and_keeps_nothing_held"
+file = "tests/moderation/test_review_moderation.py"
+criterion = "A centre teacher assigned to the batch by slot or class files child-safety reports that hold nothing, keep nothing held and block no approval; a stranger's report still holds"
+rule = "ruling F10 with T3-c, final fix I-2"
+
+[[test]]
+id = "test_unenquirable_targets_answer_identically"
+file = "tests/enquiries/test_target.py"
+criterion = "A draft, hidden or suspended owner, an owner not accepting requests, a closed, unpublished, inactive, unknown or other owner's batch, a centre manager and a solo owner's own account each get the same 404 status and body bytes as a slug that never existed, from resolve, send and describe, with no row, counter or notification written"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_contact_in_text_refused_both_ways"
+file = "tests/enquiries/test_sending.py"
+criterion = "A phone number in Bangla or spaced digits, a country-code number, or a web address in the student name or message is refused with ENQUIRY_CONTAINS_CONTACT naming the field, storing and counting nothing"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_contact_in_text_refused_both_ways_passes_ordinary_text"
+file = "tests/enquiries/test_sending.py"
+criterion = "Ordinary text is not a contact: a class and subject, a time such as 4.30 pm, and fee amounts and years are each stored as sent"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_concurrent_sends_make_one_open_enquiry"
+file = "tests/enquiries/test_sending.py"
+criterion = "Two simultaneous first sends to one owner leave exactly one open request, one ENQUIRY_ALREADY_OPEN, one counted send and one delivery"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_mine_lists_only_own_rows"
+file = "tests/enquiries/test_sending.py"
+criterion = "With two guardians each asking two owners, a guardian's list holds only their own requests, newest first, and carries no account id"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_withdraw_is_total"
+file = "tests/enquiries/test_forget.py"
+criterion = "Withdrawing an answered request with the switch off leaves no listing_enquiry row and no notification with its source_id for any manager or the guardian, and leaves another guardian's request and items untouched"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_resolve_refuses_exactly_the_managing_accounts"
+file = "tests/enquiries/test_target.py"
+criterion = "Across solo and centre worlds with accepted, pending, declined and revoked managers and class teachers, the accounts resolve refuses equal managing_accounts(owner)"
+rule = "H5 ruling F8"
+
+[[test]]
+id = "test_close_and_withdraw_race_without_deadlock"
+file = "tests/enquiries/test_forget.py"
+criterion = "The owner's real close and a withdrawal racing in either order, each stopped while holding the request row, both finish without a deadlock and leave no request and no inbox item; the close reports a closed request only when it went first"
+rule = "H5 ruling F7"
+
+[[test]]
+id = "test_contact_shared_only_with_consent"
+file = "tests/enquiries/test_owner.py"
+criterion = "On list_for and get, an account with phone and email that did not share shows neither, one that shared shows the phone and no email, and an email-only account that shared shows the email; no inbox item of either party carries the contact"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_other_owner_cannot_list_read_or_close"
+file = "tests/enquiries/test_owner.py"
+criterion = "Teacher B's get and close with each outcome on teacher A's request answer the same 404 ENQUIRY_NOT_FOUND bytes as a random id and change nothing; B's list_for holds only B's own request"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_call_us_invalid_while_listing_not_public"
+file = "tests/enquiries/test_owner.py"
+criterion = "With a public contact phone stored but the owner listing hidden or suspended, call_us is absent from outcomes_allowed and close refuses it with ENQUIRY_OUTCOME_INVALID, changing nothing, while not_now still closes"
+rule = "H5 ruling F11"
+
+[[test]]
+id = "test_student_added_from_enquiry_starts_pending"
+file = "tests/enquiries/test_add_from_enquiry.py"
+criterion = "A student created from a shared request's prefill and closed as added has a seat whose guardian link is the guardian, pending; the guardian holds that invitation and no GuardianLens until accept_seat"
+rule = "H5 Review Focus 5"
+
+[[test]]
+id = "test_enquiry_changes_no_seat"
+file = "tests/enquiries/test_add_from_enquiry.py"
+criterion = "Sending, closing with each outcome and withdrawing, including requests from guardians already seated with the owner, leave every enrollment row byte-identical"
+rule = "H5 Review Focus 5"
+
+[[test]]
+id = "test_enquiries_package_imports_nothing_private"
+file = "tests/gates/test_enquiries_imports.py"
+criterion = "No module under app/hub/enquiries imports app.students, app.fees, app.marks, app.guardians, app.authz.invitations or app.accounts.decisions, and the walk reaches owner.py, sending.py, forget.py and target.py"
+rule = "H5 Task 4"

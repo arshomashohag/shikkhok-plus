@@ -9,12 +9,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -27,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
@@ -92,6 +95,21 @@ const val TAG_HUB_PREVIEW: String = "hub_preview"
 /** "View public page", shown only while the listing is published. */
 const val TAG_HUB_VIEW_PUBLIC: String = "hub_view_public"
 
+/** "Photos": opens the page's photo gallery. */
+const val TAG_HUB_PHOTOS: String = "hub_photos"
+
+/** "Reviews": opens the owner's Reviews screen; drawn only once the server answered. */
+const val TAG_HUB_REVIEWS: String = "hub_reviews"
+
+/** "Receive join requests"; drawn only while the server offers the choice [H5]. */
+const val TAG_HUB_ENQUIRIES_SWITCH: String = "hub_enquiries_switch"
+
+/** Retry after the switch failed to save. */
+const val TAG_HUB_ENQUIRIES_SWITCH_RETRY: String = "hub_enquiries_switch_retry"
+
+/** "Join requests": opens the owner's inbox; drawn only once the server answered. */
+const val TAG_HUB_ENQUIRIES: String = "hub_enquiries"
+
 /** How long a confirmation stays up. */
 private const val NOTICE_MILLIS: Long = 3_000
 
@@ -115,9 +133,17 @@ private const val NOTICE_MILLIS: Long = 3_000
  * @property onRetry Repeats what last failed
  * @property onDismissNotice Forgets the confirmation
  * @property onBatches Opens the batch listings
+ * @property onPhotos Opens the page's photos; true when the listing is
+ *   suspended, so the gallery opens read-only
  * @property onPreview Opens "Preview as public"
  * @property onViewPublic Opens the published page for a slug in the browser; null
  *   when the build names no public site, and then the action is not offered
+ * @property onReviews Opens the owner's Reviews screen; null when `GET /v1/hub/reviews`
+ *   did not answer, switched off included, and then the row is not drawn [T11-d]
+ * @property onEnquiries Opens the owner's join-request inbox; null when `GET /v1/hub/enquiries`
+ *   did not answer, switched off included, and then the row is not drawn [H5]
+ * @property onAcceptsEnquiries Turns join requests on or off, saved at once
+ * @property onRetrySwitch Saves the switch again after a failure
  * @property onAppeal Opens Help to appeal a suspension
  * @property onBack Leaves the screen
  */
@@ -139,8 +165,13 @@ data class HubListingActions(
     val onRetry: () -> Unit = {},
     val onDismissNotice: () -> Unit = {},
     val onBatches: () -> Unit = {},
+    val onPhotos: (Boolean) -> Unit = {},
     val onPreview: () -> Unit = {},
     val onViewPublic: ((String) -> Unit)? = null,
+    val onReviews: (() -> Unit)? = null,
+    val onEnquiries: (() -> Unit)? = null,
+    val onAcceptsEnquiries: (Boolean) -> Unit = {},
+    val onRetrySwitch: () -> Unit = {},
     val onAppeal: () -> Unit = {},
     val onBack: () -> Unit = {},
 )
@@ -223,7 +254,90 @@ private fun ListingBody(
         )
     }
     PublicPageActions(state, actions)
+    TextAction(
+        stringResource(R.string.hub_photos_title),
+        { actions.onPhotos(readOnly) },
+        Modifier.fillMaxWidth().testTag(TAG_HUB_PHOTOS),
+    )
     TextAction(stringResource(R.string.hub_batches_link), actions.onBatches, Modifier.fillMaxWidth())
+    if (state.offersEnquiries) EnquiriesSwitch(state, listing.acceptsEnquiries, readOnly, actions)
+    actions.onEnquiries?.let { open ->
+        ShikkhokCard(modifier = Modifier.testTag(TAG_HUB_ENQUIRIES), onClick = open) {
+            Text(stringResource(R.string.hub_enquiry_inbox_title), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.hub_enquiry_inbox_sub),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    actions.onReviews?.let { open ->
+        ShikkhokCard(modifier = Modifier.testTag(TAG_HUB_REVIEWS), onClick = open) {
+            Text(stringResource(R.string.hub_reviews_title), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.hub_reviews_entry_owner_sub),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * "Receive join requests" [H5]: the server's value, saved the moment it is
+ * flipped and apart from the form, so nothing typed is sent with it or lost.
+ * A failure leaves it at what the server holds and offers Retry.
+ *
+ * @param state What the screen holds
+ * @param on Whether the server says the owner receives join requests
+ * @param readOnly Whether the listing is suspended
+ * @param actions What the switch calls
+ */
+@Composable
+private fun EnquiriesSwitch(state: HubListingState, on: Boolean, readOnly: Boolean, actions: HubListingActions) {
+    val enabled = !readOnly && !state.switchSaving
+    ShikkhokCard {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = on,
+                    enabled = enabled,
+                    role = Role.Switch,
+                    onValueChange = actions.onAcceptsEnquiries,
+                ).testTag(TAG_HUB_ENQUIRIES_SWITCH),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.hub_enquiry_switch), style = MaterialTheme.typography.titleMedium)
+                Text(
+                    stringResource(R.string.hub_enquiry_switch_help),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(checked = on, onCheckedChange = null, enabled = enabled, modifier = Modifier.padding(start = 12.dp))
+        }
+        state.switchFailure?.let { failure ->
+            Banner(
+                title = stringResource(R.string.hub_enquiry_switch_failed),
+                body = stringResource(MessageKeys.resolve(failure.messageKey)),
+                tone = BannerTone.ERROR,
+                action =
+                    if (failure.canRetry) {
+                        {
+                            TextAction(
+                                stringResource(R.string.auth_retry),
+                                actions.onRetrySwitch,
+                                Modifier.testTag(TAG_HUB_ENQUIRIES_SWITCH_RETRY),
+                            )
+                        }
+                    } else {
+                        null
+                    },
+            )
+        }
+    }
 }
 
 /**

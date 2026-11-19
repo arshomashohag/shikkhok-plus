@@ -21,12 +21,12 @@ import kotlinx.serialization.Serializable
 /** The server's limit on a report's note (`HubReportRequest.note`). */
 const val NOTE_MAX: Int = 500
 
-/** A UUID in its canonical text form, either case. */
-private val UUID_TEXT = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+/** A UUID in its canonical text form, either case; also read by the join-request link. */
+internal val UUID_TEXT = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 /**
- * What a hub page's report link may name: the two listing kinds. Media,
- * reviews and replies are reported elsewhere, never from this link.
+ * What a hub report link may name: the two listing kinds, a photo on
+ * either, and a guardian's review or the teacher's reply to one [H4].
  *
  * @property wire The value the server takes
  */
@@ -36,6 +36,18 @@ enum class ReportKind(val wire: String) {
 
     /** A batch's page; the id is the batch's. */
     BATCH_LISTING("batch_listing"),
+
+    /** A photo on a public page; the id is the photo's. */
+    MEDIA("media"),
+
+    /** A guardian's review; the id is the review's. */
+    REVIEW("review"),
+
+    /**
+     * The teacher's reply to a review. **The id is the review's**: a review
+     * has at most one reply, and the server finds it by its review [T9-e].
+     */
+    REPLY("reply"),
 }
 
 /**
@@ -67,8 +79,9 @@ enum class ReportReason(val wire: String) {
 /**
  * A page a report is about, as the link named it and the server takes it.
  *
- * @property kind Which kind of page
- * @property id The owner's id for an owner page, the batch's for a batch page
+ * @property kind Which kind of page, a photo on one, a review or a reply
+ * @property id The owner's id for an owner page, the batch's for a batch
+ *   page, the photo's for a photo, the review's for a review or its reply
  */
 data class ReportTarget(val kind: ReportKind, val id: String)
 
@@ -109,8 +122,8 @@ data class ReportLink(val kind: String?, val id: String?) {
 /**
  * A report, as `POST /v1/hub/reports` takes it.
  *
- * @property targetKind `owner_listing` or `batch_listing`
- * @property targetId The owner's or the batch's id
+ * @property targetKind One of [ReportKind]'s wire values
+ * @property targetId The owner's, the batch's, the photo's or the review's id
  * @property reason One of [ReportReason]'s wire values
  * @property note An optional note; omitted when null
  */

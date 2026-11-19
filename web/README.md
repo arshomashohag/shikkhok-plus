@@ -77,6 +77,22 @@ already reads, as `VITE_SITE_URL`. A build must be given a bare https
 origin or nothing; nothing (as locally) offers no "View public page" link
 and leaves the preview unstyled.
 
+The site's origin also joins `img-src`: an approved hub photo's thumbnail
+is served from the site's `/m/` [R1].
+
+### The hub photo bucket (`VITE_MEDIA_ORIGIN`)
+
+Photos are uploaded by a presigned POST straight to the media bucket
+(`infra/modules/media`) and previewed, until approved, by presigned GETs
+from it. So the bucket's regional endpoint,
+`https://<bucket>.s3.<region>.amazonaws.com`, joins this page's CSP
+`connect-src` and `img-src`, and the admin page's `img-src`
+(`vite.admin.config.ts`) for the moderation previews. `deploy.yml` passes
+the `media-bucket-domain` SSM parameter, read by the release job, to both
+builds. Anything but a regional S3 endpoint fails the build; nothing (as
+locally) adds no host, and uploads are then refused by the page's own
+policy. `src/test/contentSecurityPolicy.test.ts` pins both policies.
+
 ### The Android app-links file
 
 A public hub page's "Report this page" link opens `/ui/hub-report` here

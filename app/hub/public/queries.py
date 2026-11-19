@@ -4,11 +4,28 @@ The only code that reads the public views. Each function drops to the hub
 reader before its first statement, so a query here that named any other
 relation would fail on a missing grant rather than return a row; and each
 reads only ``hub_public_owner``, ``hub_public_batch``,
-``hub_public_teacher_name`` and ``hub_public_area``.
+``hub_public_teacher_name``, ``hub_public_area`` and ``hub_public_media``,
+and -- through :mod:`app.hub.public.ratings`, only while reviews are on --
+``hub_public_rating`` and ``hub_public_review``; and, only while join
+requests are on, ``hub_public_enquirable``.
+
+**The "Ask to join" link** [H5 Task 6] is offered on an owner page when
+join requests are switched on and the owner is in ``hub_public_enquirable``,
+and on a batch page when, besides, the batch's admissions are not
+``closed``. While the switch is off no query here reads that view.
+
+**Sort by rating** (Call 11) orders by the owner's Bayesian score over its
+qualifying batches, then by the relevance order. While reviews are off a
+``sort`` is ignored: the search reads no rating view and the page offers no
+choice.
 
 The views already apply every visibility rule -- the owner published, the
-batch listing published, the batch active -- so nothing here repeats them
-and nothing here can loosen them.
+batch listing published, the batch active, a photo approved -- so nothing
+here repeats them and nothing here can loosen them.
+
+**Photos.** The owner page shows the owner's own photos only, those with
+no batch; a batch's photos are on that batch's page alone, which is why a
+hold on a batch photo invalidates only the batch page [Task 6].
 
 The fee crosses from the database as text and becomes a ``Money`` through
 the money module's own constructor, so no decimal is handled here.
@@ -16,31 +33,41 @@ the money module's own constructor, so no decimal is handled here.
 
 from __future__ import annotations
 
+import functools
 import math
 import re
 import uuid
 from collections.abc import Mapping, Sequence
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.hub.public.db import as_hub_reader
+from app.hub.public.images import hub_image, image_alt, public_path
 from app.hub.public.messages import LOCALES, Locale, t
 from app.hub.public.normalise import query_terms
-from app.hub.public.settings import site_url
+from app.hub.public.ratings import (
+    SCORE_MILLI,
+    batch_ratings,
+    batch_reviews,
+    owner_ratings,
+)
+from app.hub.public.settings import enquiries_enabled, reviews_enabled, site_url
 from app.hub.public.views import (
     AreaNames,
     AreaOption,
     CityAreas,
     HubBatchCard,
     HubBatchPage,
+    HubImage,
     HubOwnerCard,
     HubOwnerPage,
     HubSearchFilters,
     HubSearchPage,
     HubSitemap,
     PublicSlot,
+    RatingSummary,
     SitemapAlternate,
     SitemapUrl,
 )
@@ -109,6 +136,16 @@ _BATCH_SELECT: Final[str] = (
     "FROM hub_public_batch b"
 )
 
+#: A gallery's approved photos, in the owner's order. ``:batch`` is NULL
+#: for the owner's own gallery, which ``IS NOT DISTINCT FROM`` matches to
+#: the owner-level rows only.
+_MEDIA: Final[str] = (
+    "SELECT media_id, public_key, width, height, widths, alt_en, alt_bn "
+    "FROM hub_public_media WHERE owner_slug = :owner "
+    "AND batch_slug IS NOT DISTINCT FROM CAST(:batch AS text) "
+    "ORDER BY position, media_id"
+)
+
 #: Every district, for the search form's district choice.
 _DISTRICTS: Final[str] = (
     "SELECT code, name_en, name_bn FROM hub_public_area WHERE kind = 'district'"
@@ -129,7 +166,8 @@ WHERE (a.parent_code = :district AND a.kind IN ('upazila', 'city_corporation'))
 #: offset stays far inside ``bigint`` whatever page a URL names.
 MAX_PAGE: Final[int] = 1_000_000
 
-#: The search, as one static statement. ``:terms`` is the normalised term
+#: The search, as one static statement once ``/*score*/`` is replaced by one
+#: of the two constants below. ``:terms`` is the normalised term
 #: list; each term holds only letters, marks and digits
 #: (:func:`app.hub.public.normalise.query_terms`), so ``term || ':*'`` is a
 #: prefix query that cannot carry query syntax. Every term must match the
@@ -149,6 +187,7 @@ WITH q AS (
 ), ranked AS (
     SELECT o.owner_id, o.slug, o.public_name, o.kind::text AS kind,
            o.runs_classes, o.published_at, o.district_code, o.upazila_code,
+           /*score*/ AS score_milli,
            CASE WHEN cardinality(q.terms) = 0 THEN 0 ELSE (
                SELECT sum(
                    ts_rank(o.search_text, to_tsquery('simple', term || ':*'))
@@ -212,13 +251,21 @@ SELECT counted.total, page.owner_id, page.slug, page.public_name, page.kind,
 FROM counted
 LEFT JOIN LATERAL (
     SELECT * FROM ranked
-    ORDER BY rank DESC, published_at DESC NULLS LAST, slug
+    ORDER BY score_milli DESC, rank DESC, published_at DESC NULLS LAST, slug
     LIMIT :limit OFFSET :offset
 ) AS page ON true
 LEFT JOIN hub_public_area d ON d.code = page.district_code
 LEFT JOIN hub_public_area u ON u.code = page.upazila_code
-ORDER BY page.rank DESC, page.published_at DESC NULLS LAST, page.slug
+ORDER BY page.score_milli DESC, page.rank DESC, page.published_at DESC NULLS LAST,
+         page.slug
 """
+
+#: The search ordered by relevance: every owner scores the same, so the
+#: order is rank, then newest published, then slug. Reads no rating view.
+_SEARCH_BY_RELEVANCE: Final[str] = _SEARCH.replace("/*score*/", "0")
+
+#: The search ordered by rating: the Bayesian score first, then relevance.
+_SEARCH_BY_RATING: Final[str] = _SEARCH.replace("/*score*/", SCORE_MILLI)
 
 
 def _localised(row: Any, field: str, locale: Locale) -> str | None:
@@ -253,10 +300,11 @@ def _area_names(row: Any) -> AreaNames | None:
     return AreaNames(en=names["en"], bn=names["bn"])
 
 
-def _owner_card(row: Any) -> HubOwnerCard:
+def _owner_card(row: Any, rating: RatingSummary | None = None) -> HubOwnerCard:
     """Build an owner card from an owner row.
 
     :param row: An owner row from :data:`_OWNER_SELECT` or :data:`_SEARCH`
+    :param rating: The owner's rating, or None
     :return: The card
     """
     return HubOwnerCard(
@@ -266,6 +314,7 @@ def _owner_card(row: Any) -> HubOwnerCard:
         kind=row.kind,
         area_names=_area_names(row),
         runs_classes=row.runs_classes,
+        rating=rating,
     )
 
 
@@ -294,7 +343,11 @@ def _teacher_names(
 
 
 def _batch_card(
-    row: Any, owner: HubOwnerCard, names: Mapping[uuid.UUID, list[str]], locale: Locale
+    row: Any,
+    owner: HubOwnerCard,
+    names: Mapping[uuid.UUID, list[str]],
+    locale: Locale,
+    ratings: Mapping[uuid.UUID, RatingSummary],
 ) -> HubBatchCard:
     """Build a batch card from a batch row.
 
@@ -302,6 +355,7 @@ def _batch_card(
     :param owner: The batch's owner
     :param names: Consented teacher names by batch
     :param locale: The page's locale
+    :param ratings: Ratings by batch; empty while reviews are off
     :return: The card
     """
     if owner.kind == "organisation":
@@ -328,7 +382,48 @@ def _batch_card(
         fee_display=None if fee is None else fee.format(locale),
         schedule=schedule,
         teacher_names=teachers,
+        rating=ratings.get(row.batch_id),
     )
+
+
+def _sort(value: str | None) -> Literal["relevance", "rating"]:
+    """Read the sort key; anything but ``rating`` is relevance.
+
+    Read only while reviews are on, so an off switch ignores it.
+
+    :param value: ``sort`` as sent, or None
+    :return: The order to apply
+    """
+    if value is not None and value.strip().lower() == "rating" and reviews_enabled():
+        return "rating"
+    return "relevance"
+
+
+def _images(
+    session: Session, locale: Locale, owner_slug: str, batch_slug: str | None
+) -> list[HubImage]:
+    """Read one gallery's approved photos.
+
+    :param session: A session already reading as the hub reader
+    :param locale: The page's locale
+    :param owner_slug: The owner's slug
+    :param batch_slug: The batch's slug, or None for the owner's own photos
+    :return: The photos, by position
+    """
+    rows = session.execute(
+        sa.text(_MEDIA), {"owner": owner_slug, "batch": batch_slug}
+    ).all()
+    return [
+        hub_image(
+            media_id=row.media_id,
+            widths=row.widths,
+            width=row.width,
+            height=row.height,
+            alt=image_alt(row.alt_en, row.alt_bn, locale),
+            url=functools.partial(public_path, row.public_key),
+        )
+        for row in rows
+    ]
 
 
 def _clean(value: str | None) -> str | None:
@@ -412,6 +507,7 @@ def search(
     subject: str | None,
     level: str | None,
     page: int,
+    sort: str | None = None,
 ) -> HubSearchPage:
     """Search published owners by text and by structured filters.
 
@@ -428,8 +524,10 @@ def search(
     is ignored too. The page also carries the form's area choices.
 
     Ranked by each term's ``ts_rank`` against the owner and its best
-    batch, summed; then newest published; then slug. A page past the end
-    is empty, never an error.
+    batch, summed; then newest published; then slug. With ``sort`` of
+    ``rating`` and reviews on, the owner's Bayesian score
+    (:data:`~app.hub.public.ratings.SCORE_MILLI`) comes first. A page past
+    the end is empty, never an error.
 
     :param session: The application's session; left reading as the hub reader
     :param locale: The page's locale; owner cards carry both languages, so
@@ -440,6 +538,8 @@ def search(
     :param subject: A subject tag, or None
     :param level: A class level, or None
     :param page: The page number, from 1; less than 1 reads as 1
+    :param sort: ``rating`` to order by rating; anything else, or reviews
+        off, is relevance
     :return: The page of results
     """
     del locale
@@ -463,8 +563,10 @@ def search(
         level=level if level in CLASS_LEVELS else None,
     )
     number = max(1, page)
+    order = _sort(sort)
+    statement = _SEARCH_BY_RATING if order == "rating" else _SEARCH_BY_RELEVANCE
     rows = session.execute(
-        sa.text(_SEARCH),
+        sa.text(statement),
         {
             "terms": query_terms(q) if q else [],
             "district": filters.district,
@@ -477,18 +579,20 @@ def search(
     ).all()
     total = int(rows[0].total)
     past_end = number > MAX_PAGE
+    shown = [row for row in rows if row.slug is not None and not past_end]
+    ratings = owner_ratings(session, [row.slug for row in shown])
     return HubSearchPage(
         query=q,
         filters=filters,
         districts=districts,
         upazilas=upazilas,
         cities=cities,
-        results=[
-            _owner_card(row) for row in rows if row.slug is not None and not past_end
-        ],
+        results=[_owner_card(row, ratings.get(row.slug)) for row in shown],
         page=number,
         pages=max(1, math.ceil(total / PAGE_SIZE)),
         total=total,
+        sort=order,
+        offers_sort=reviews_enabled(),
     )
 
 
@@ -502,6 +606,28 @@ def _owner_row(session: Session, owner_slug: str) -> Any:
     return session.execute(
         sa.text(f"{_OWNER_SELECT} WHERE o.slug = :slug"), {"slug": owner_slug}
     ).one_or_none()
+
+
+def _enquirable(session: Session, owner_slug: str) -> bool:
+    """Say whether an owner's pages offer the "Ask to join" link.
+
+    Reads ``hub_public_enquirable`` only while join requests are on, so an
+    off switch reaches no join-request view at all.
+
+    :param session: A session already reading as the hub reader
+    :param owner_slug: The owner's slug
+    :return: True when the switch is on and the owner accepts requests
+    """
+    if not enquiries_enabled():
+        return False
+    return bool(
+        session.execute(
+            sa.text(
+                "SELECT EXISTS (SELECT 1 FROM hub_public_enquirable WHERE slug = :slug)"
+            ),
+            {"slug": owner_slug},
+        ).scalar_one()
+    )
 
 
 def owner_page(
@@ -518,7 +644,7 @@ def owner_page(
     row = _owner_row(session, owner_slug)
     if row is None:
         return None
-    owner = _owner_card(row)
+    owner = _owner_card(row, owner_ratings(session, [owner_slug]).get(owner_slug))
     batches = session.execute(
         sa.text(
             f"{_BATCH_SELECT} WHERE b.owner_slug = :slug "
@@ -527,6 +653,7 @@ def owner_page(
         {"slug": owner_slug},
     ).all()
     names = _teacher_names(session, [b.batch_id for b in batches])
+    ratings = batch_ratings(session, [b.batch_id for b in batches])
     return HubOwnerPage(
         owner=owner,
         headline=_localised(row, "headline", locale),
@@ -535,7 +662,9 @@ def owner_page(
         teaching_mode=list(row.teaching_mode),
         street_address=row.street_address,
         public_contact_phone=row.public_contact_phone,
-        batches=[_batch_card(b, owner, names, locale) for b in batches],
+        batches=[_batch_card(b, owner, names, locale, ratings) for b in batches],
+        images=_images(session, locale, owner_slug, None),
+        enquiry_open=_enquirable(session, owner_slug),
     )
 
 
@@ -560,13 +689,17 @@ def batch_page(
     ).one_or_none()
     if batch is None:
         return None
-    owner = _owner_card(row)
+    owner = _owner_card(row, owner_ratings(session, [owner_slug]).get(owner_slug))
     names = _teacher_names(session, [batch.batch_id])
+    ratings = batch_ratings(session, [batch.batch_id])
     return HubBatchPage(
         owner=owner,
-        batch=_batch_card(batch, owner, names, locale),
+        batch=_batch_card(batch, owner, names, locale, ratings),
         description=_localised(batch, "description", locale),
         syllabus=_localised(batch, "syllabus", locale),
+        images=_images(session, locale, owner_slug, batch_slug),
+        enquiry_open=batch.admissions != "closed" and _enquirable(session, owner_slug),
+        reviews=batch_reviews(session, batch.batch_id, locale),
     )
 
 

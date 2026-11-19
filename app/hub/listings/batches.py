@@ -398,6 +398,9 @@ def unpublish(
 ) -> BatchListing:
     """Hide a published batch listing, evicting its page; a draft stays a draft.
 
+    The batch's photos stay as they are and leave the page through
+    ``hub_public_media``; no object is deleted [H3 deviation 4].
+
     :param session: The session
     :param lens: The owner's lens
     :param batch_id: The batch

@@ -1,36 +1,44 @@
 /**
- * Public-hub moderation: open reports and suspended listings, oldest
- * first as the server sends them.
+ * Public-hub moderation: open reports, suspended listings, and photos and
+ * reviews waiting for a decision, oldest first as the server sends them.
  *
- * Every act (uphold, dismiss, suspend, lift) asks for an in-page
- * confirmation first and sends nothing until it is confirmed. What may be
- * seen is the server's decision: a reporter is an opaque reference, and
- * nothing about a student or guardian is in the queue [TC-14] [D-6].
+ * Every act (uphold, dismiss, suspend, lift, approve, reject) asks for an
+ * in-page confirmation first and sends nothing until it is confirmed. What
+ * may be seen is the server's decision: a reporter or a review's author is
+ * an opaque reference, a photo names only its page, and nothing else about
+ * a student or guardian is in the queue [TC-14] [D-6].
  */
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useResource } from '../../core/useResource'
 import { useT } from '../../i18n/i18n'
 import { EmptyState, Loading, Snackbar, StaleBanner } from '../../ui/components'
-import { WarningIcon } from '../../ui/icons'
 import { decideHubReport, readHubQueue, setHubSuspension } from '../screens/api'
 import { AdminFailure, AdminFrame } from '../screens/AdminFrame'
 import { ApiError } from '../../api/errors'
 import type { Schemas } from '../../api/endpoints'
+import { MediaRow } from './MediaRow'
+import { ReviewRow } from './ReviewRow'
+import {
+  ConfirmBanner,
+  REASONS,
+  isReason,
+  reasonLabel,
+  useConfirmFocus,
+  type Reason,
+} from './shared'
 
 type Item = Schemas['AdminHubQueueItem']
-type Reason = Schemas['AdminHubSuspensionRequest']['reason_code']
-type Tab = 'report' | 'listing'
+type Tab = Schemas['AdminHubQueueResponse']['kind']
 
-const REASONS: readonly Reason[] = [
-  'personal_info',
-  'child_safety',
-  'abusive',
-  'fake',
-  'misleading',
-  'other',
-]
-const isReason = (r: string | null): r is Reason => REASONS.some((x) => x === r)
+const EMPTY: Record<Tab, string> = {
+  report: 'web_admin_hub_reports_empty',
+  listing: 'web_admin_hub_suspended_empty',
+  media: 'web_admin_hub_media_empty',
+  review: 'web_admin_hub_reviews_empty',
+}
+
+const TABS: readonly Tab[] = ['report', 'listing', 'media', 'review']
 
 type Act = { kind: 'uphold' | 'dismiss' } | { kind: 'suspend'; reason: Reason } | { kind: 'lift' }
 
@@ -39,30 +47,13 @@ const TITLE_KEYS: ReadonlySet<string> = new Set(['public_name', 'public_title'])
 
 const rowKey = (i: Item) => i.report_id ?? `${i.target_kind}:${i.target_id}`
 
-function reasonLabel(t: (k: string) => string, reason: string | null): string {
-  return isReason(reason) ? t(`web_admin_hub_reason_${reason}`) : (reason ?? '')
-}
-
 function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void }) {
   const { t, message } = useT()
   const [act, setAct] = useState<Act | null>(null)
   const [reason, setReason] = useState<Reason>('other')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
-  const confirmButton = useRef<HTMLButtonElement>(null)
-  const row = useRef<HTMLLIElement>(null)
-  /** Which trigger opened the confirmation, so Cancel can hand focus back to it. */
-  const opener = useRef<string | null>(null)
-
-  // Opening a confirmation moves focus to Confirm; closing it without acting
-  // returns focus to the button that opened it (which was unmounted meanwhile).
-  useEffect(() => {
-    if (act) confirmButton.current?.focus()
-    else if (opener.current) {
-      row.current?.querySelector<HTMLElement>(`[data-act="${opener.current}"]`)?.focus()
-      opener.current = null
-    }
-  }, [act])
+  const { confirmButton, row, opener } = useConfirmFocus(act?.kind ?? null)
 
   function open(next: Act) {
     opener.current = next.kind
@@ -99,6 +90,9 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
   const heading = t(`web_admin_hub_kind_${item.target_kind}`)
   // The public name or title is already the row's title; the rest is listed.
   const fields = item.fields.filter((f) => !(TITLE_KEYS.has(f.key) && f.value === item.title))
+  // A review or reply is what a family or the owner wrote, not the owner's
+  // listing, so its report row offers no suspension.
+  const aboutReview = item.target_kind === 'review' || item.target_kind === 'reply'
 
   return (
     <li ref={row}>
@@ -136,6 +130,13 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
           <br />
           <span className="meta">
             {[
+              item.author_ref && item.author_role
+                ? t(
+                    'web_admin_hub_review_author',
+                    item.author_ref,
+                    t(`web_admin_hub_review_role_${item.author_role}`),
+                  )
+                : null,
               item.reporter_ref ? t('web_admin_hub_reporter', item.reporter_ref) : null,
               t('web_admin_hub_waited', item.waited_hours),
             ]
@@ -146,47 +147,14 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
       </div>
 
       {act ? (
-        <div className="banner" role="group" aria-label={t('web_admin_hub_confirm')}>
-          <div className="grow">
-            <strong>
-              {t(
-                act.kind === 'uphold'
-                  ? 'web_admin_hub_confirm_uphold'
-                  : act.kind === 'dismiss'
-                    ? 'web_admin_hub_confirm_dismiss'
-                    : act.kind === 'suspend'
-                      ? 'web_admin_hub_confirm_suspend'
-                      : 'web_admin_hub_confirm_lift',
-              )}
-            </strong>
-            <br />
-            <span className="meta">{t('web_admin_hub_confirm_body')}</span>
-            {failure ? (
-              <span className="field-error" role="alert">
-                <WarningIcon /> {failure}
-              </span>
-            ) : null}
-          </div>
-          <div className="button-row">
-            <button
-              ref={confirmButton}
-              type="button"
-              className="btn btn-primary btn-small"
-              disabled={busy}
-              onClick={() => void confirm()}
-            >
-              {t('web_admin_hub_confirm')}
-            </button>
-            <button
-              type="button"
-              className="btn btn-text btn-small"
-              disabled={busy}
-              onClick={() => setAct(null)}
-            >
-              {t('web_admin_hub_cancel')}
-            </button>
-          </div>
-        </div>
+        <ConfirmBanner
+          question={t(`web_admin_hub_confirm_${act.kind}`)}
+          failure={failure}
+          busy={busy}
+          confirmButton={confirmButton}
+          onConfirm={() => void confirm()}
+          onCancel={() => setAct(null)}
+        />
       ) : (
         <div className="button-row" style={{ padding: '0 16px 12px' }}>
           {item.kind === 'report' ? (
@@ -207,7 +175,7 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
               >
                 {t('web_admin_hub_dismiss')}
               </button>
-              {item.owner_id ? (
+              {item.owner_id && !aboutReview ? (
                 <>
                   <label className="visually-hidden" htmlFor={`reason-${rowKey(item)}`}>
                     {t('web_admin_hub_reason_label')}
@@ -253,7 +221,8 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
 export function AdminHubQueue() {
   const { t } = useT()
   const [params, setParams] = useSearchParams()
-  const tab: Tab = params.get('tab') === 'listing' ? 'listing' : 'report'
+  const asked = params.get('tab')
+  const tab: Tab = TABS.find((x) => x !== 'report' && x === asked) ?? 'report'
   const { resource, reload } = useResource(() => readHubQueue(tab), [tab])
   const [snack, setSnack] = useState<string | null>(null)
 
@@ -272,11 +241,7 @@ export function AdminHubQueue() {
   else if (resource.data.items.length === 0)
     body = (
       <div className="card">
-        <EmptyState
-          title={t(
-            tab === 'report' ? 'web_admin_hub_reports_empty' : 'web_admin_hub_suspended_empty',
-          )}
-        />
+        <EmptyState title={t(EMPTY[tab])} />
       </div>
     )
   else
@@ -286,16 +251,15 @@ export function AdminHubQueue() {
           <StaleBanner error={resource.error} loadedAt={resource.loadedAt} />
         ) : null}
         <ul className="card flush list">
-          {resource.data.items.map((i) => (
-            <QueueRow
-              key={rowKey(i)}
-              item={i}
-              onDone={(text) => {
-                setSnack(text)
-                reload()
-              }}
-            />
-          ))}
+          {resource.data.items.map((i) => {
+            const onDone = (text: string) => {
+              setSnack(text)
+              reload()
+            }
+            if (i.kind === 'media') return <MediaRow key={rowKey(i)} item={i} onDone={onDone} />
+            if (i.kind === 'review') return <ReviewRow key={rowKey(i)} item={i} onDone={onDone} />
+            return <QueueRow key={rowKey(i)} item={i} onDone={onDone} />
+          })}
         </ul>
       </>
     )
@@ -303,6 +267,8 @@ export function AdminHubQueue() {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'report', label: 'web_admin_hub_tab_reports' },
     { id: 'listing', label: 'web_admin_hub_tab_suspended' },
+    { id: 'media', label: 'web_admin_hub_tab_media' },
+    { id: 'review', label: 'web_admin_hub_tab_reviews' },
   ]
 
   return (

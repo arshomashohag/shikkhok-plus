@@ -6,6 +6,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Reading the server's timestamps and naming days and months.
@@ -60,6 +61,19 @@ class DatesTest {
         val heading = dayHeading("2026-10-17")
 
         assertEquals(true, heading.contains(" 17 "), heading)
+    }
+
+    @Test
+    fun `a review month names the month and the year, in Latin digits`() {
+        assertEquals("Nov 2026", monthYear("2026-11"))
+        assertEquals("soon", monthYear("soon"))
+        assertEquals("19 Dec 2026", dayMonthYear("2026-12-19"))
+        assertEquals("later", dayMonthYear("later"))
+
+        Locale.setDefault(Locale.forLanguageTag("bn-BD"))
+        // The long Bangla month, as the constraints write it: "নভেম্বর 2026".
+        assertEquals("নভেম্বর 2026", monthYear("2026-11"))
+        assertTrue(dayMonthYear("2026-12-19").let { it.startsWith("19 ") && it.endsWith(" 2026") })
     }
 
     @Test

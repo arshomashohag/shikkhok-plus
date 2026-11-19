@@ -47,6 +47,16 @@ describe('hub-query: query-string allowlist', () => {
     assert.equal(r.querystring.q.value, 'math');
   });
 
+  // Sort by rating (H4 Call 11): the seventh key. Lowercased, so RATING
+  // and rating share one cache entry; any other key is still refused.
+  it('sort passes and is lowercased; utm_source still 400', () => {
+    const r = handler(event('/hub/en', { q: one('math'), sort: one('RaTing') }));
+    assert.equal(r.uri, '/hub/en');
+    assert.equal(r.querystring.sort.value, 'rating');
+    const refused = handler(event('/hub/en', { sort: one('rating'), utm_source: one('x') }));
+    assert.equal(refused.statusCode, 400);
+  });
+
   it('passes a request with no query string', () => {
     const r = handler(event('/hub/bn/t/some-owner'));
     assert.equal(r.uri, '/hub/bn/t/some-owner');

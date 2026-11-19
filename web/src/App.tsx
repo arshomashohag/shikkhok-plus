@@ -26,6 +26,8 @@ import { Dues } from './features/teacher/Dues'
 import { Verify } from './features/teacher/Verify'
 import { MyBatches } from './features/student/MyBatches'
 import { GuardianHome } from './features/guardian/GuardianHome'
+import { MyReviews } from './features/family/reviews/MyReviews'
+import { MyEnquiries } from './features/account/MyEnquiries'
 import { Invitations } from './features/account/Invitations'
 import { ClassScreen } from './features/classTeacher/ClassScreen'
 import { MyClasses } from './features/classTeacher/MyClasses'
@@ -72,8 +74,28 @@ const AREA_ROUTES = [
  */
 const HUB_REPORT = lazyScreen(() => import('./features/common/HubReport'), 'HubReport')
 
-/** Signed out on a report link: remember it, then sign in [H2 task 9]. */
-function SignInThenReport() {
+/**
+ * Asking an owner to take a student, opened from a public page's "Ask to
+ * join" link [H5]; any lens may ask. A chunk of its own: most sessions
+ * never open it. The caller's own requests load with More, whose row
+ * shares their module.
+ */
+const HUB_ENQUIRY = lazyScreen(() => import('./features/common/HubEnquiry'), 'HubEnquiry')
+
+/**
+ * One batch's review, by its guardian author [H4]. The list loads with the
+ * guardian home, whose entry it shares a module with; the editor on first use.
+ */
+const REVIEW_EDITOR = lazyScreen(
+  () => import('./features/family/reviews/ReviewEditor'),
+  'ReviewEditor',
+)
+
+/**
+ * Signed out on a public link (report a page [H2 task 9], ask to join
+ * [H5]): remember it, then sign in. `returnPath.ts` keeps only those two.
+ */
+function SignInThenReturn() {
   const { pathname, search } = useLocation()
   const [here] = useState(`${pathname}${search}`)
   useEffect(() => rememberReturn(here), [here])
@@ -81,10 +103,10 @@ function SignInThenReport() {
 }
 
 /**
- * Where an address the routes do not know lands: home, unless a report
- * link was remembered before sign-in, in which case there. Read without
- * consuming during render (StrictMode renders twice) and forgotten once
- * the landing has happened.
+ * Where an address the routes do not know lands: home, unless a report or
+ * join-request link was remembered before sign-in, in which case there.
+ * Read without consuming during render (StrictMode renders twice) and
+ * forgotten once the landing has happened.
  */
 function Landing({ home }: { home: string }) {
   const [to] = useState(() => peekReturn() ?? home)
@@ -128,7 +150,8 @@ function AppRoutes() {
         <Route path="/signin" element={<SignIn />} />
         <Route path="/signin/code" element={<PasswordCode />} />
         <Route path="/signup" element={<SignUp />} />
-        <Route path="/hub-report" element={<SignInThenReport />} />
+        <Route path="/hub-report" element={<SignInThenReturn />} />
+        <Route path="/hub-enquiry" element={<SignInThenReturn />} />
         <Route path="*" element={<Navigate to="/signin" replace />} />
       </Routes>
     )
@@ -283,6 +306,22 @@ function AppRoutes() {
             </Only>
           }
         />
+        <Route
+          path="/reviews"
+          element={
+            <Only lens="guardian" current={lens}>
+              <MyReviews />
+            </Only>
+          }
+        />
+        <Route
+          path="/reviews/:batchId"
+          element={
+            <Only lens="guardian" current={lens}>
+              {REVIEW_EDITOR}
+            </Only>
+          }
+        />
         {AREA_ROUTES.map((r) => (
           <Route
             key={r.path}
@@ -315,6 +354,8 @@ function AppRoutes() {
           <Route key={r.path} path={r.path} element={r.element} />
         ))}
         <Route path="/hub-report" element={HUB_REPORT} />
+        <Route path="/hub-enquiry" element={HUB_ENQUIRY} />
+        <Route path="/hub-enquiries" element={<MyEnquiries />} />
         <Route path="/invitations" element={<Invitations />} />
         <Route path="/more" element={<More />} />
         <Route path="/settings" element={<Settings />} />

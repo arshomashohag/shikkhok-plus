@@ -1,6 +1,6 @@
 /**
  * Reporting a public hub page, opened from the page's "Report this page"
- * link: `/ui/hub-report?kind=owner_listing|batch_listing&id=<uuid>`.
+ * link: `/ui/hub-report?kind=owner_listing|batch_listing|media&id=<uuid>`.
  *
  * What is asserted: the target comes from the query and nowhere else, a
  * malformed link sends nothing, the server's refusals read as the brief
@@ -85,6 +85,22 @@ describe('HubReport', () => {
     expect(screen.queryByRole('button', { name: 'Send report' })).not.toBeInTheDocument()
   })
 
+  it('reports a photo: kind=media renders the form and submits it', async () => {
+    serve(() => new Response(null, { status: 202 }))
+    renderScreen(<HubReport />, REPORT('media', OWNER))
+
+    expect(await screen.findByText('A photo on a public page')).toBeInTheDocument()
+    await fill(/It shows personal information/, '')
+    await send()
+
+    await waitFor(() =>
+      expect(posts()).toEqual([
+        { target_kind: 'media', target_id: OWNER, reason: 'personal_info' },
+      ]),
+    )
+    expect(await screen.findByText(/Thank you. We will look at this page./)).toBeInTheDocument()
+  })
+
   it('sends no note when none was written', async () => {
     serve(() => new Response(null, { status: 202 }))
     renderScreen(<HubReport />, REPORT('owner_listing', OWNER))
@@ -100,8 +116,24 @@ describe('HubReport', () => {
   })
 
   it.each([
-    ['an unknown kind', REPORT('media', OWNER)],
-    ['a review kind', REPORT('review', OWNER)],
+    ['review', "A guardian's review"],
+    ['reply', "A teacher's reply to a review"],
+  ])('reports a %s by the review id the link carries', async (kind, target) => {
+    serve(() => new Response(null, { status: 202 }))
+    renderScreen(<HubReport />, REPORT(kind, BATCH))
+
+    expect(await screen.findByText(target)).toBeInTheDocument()
+    await fill(/It is abusive/, '')
+    await send()
+
+    await waitFor(() =>
+      expect(posts()).toEqual([{ target_kind: kind, target_id: BATCH, reason: 'abusive' }]),
+    )
+  })
+
+  it.each([
+    ['an unknown kind', REPORT('bogus', OWNER)],
+    ['a kind near a real one', REPORT('reviews', OWNER)],
     ['no kind', `/hub-report?id=${OWNER}`],
     ['no id', '/hub-report?kind=owner_listing'],
     ['an id that is not a UUID', REPORT('owner_listing', 'sumi-apa')],

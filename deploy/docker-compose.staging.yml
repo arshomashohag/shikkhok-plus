@@ -82,10 +82,30 @@ x-app-environment: &app-environment
   # public hub's canonical, hreflang and sitemap links. Empty leaves the
   # email link out; it never stops a code being sent.
   SHIKKHOKPLUS_SITE_URL: ${SHIKKHOKPLUS_SITE_URL:-}
+  # The hub reviews switch, written by the deploy from SSM `hub-reviews`.
+  # Off unless exactly "on"; the application reads it at each call.
+  SHIKKHOKPLUS_HUB_REVIEWS: ${SHIKKHOKPLUS_HUB_REVIEWS:-off}
+  # The hub join-requests switch, written by the deploy from SSM
+  # `hub-enquiries`. Off unless exactly "on"; read at each call.
+  SHIKKHOKPLUS_HUB_ENQUIRIES: ${SHIKKHOKPLUS_HUB_ENQUIRIES:-off}
   # The web app's origin: each public hub page's "Report this page" link
   # opens {origin}/ui/hub-report. The deploy refuses to record a release
   # without it.
   SHIKKHOKPLUS_WEB_APP_URL: ${SHIKKHOKPLUS_WEB_APP_URL:-}
+  # The hub photo bucket and its region, both written by the deploy from
+  # SSM (modules/media). Empty bucket: uploads answer a transient error and
+  # deletes wait in the outbox, failing, so the drain's heartbeat goes stale
+  # [R9] -- the rest of the API is unaffected.
+  # Here rather than on `api` alone so `migrate` sees the same runtime env;
+  # only `api` holds credentials to use them with (below).
+  SHIKKHOKPLUS_MEDIA_BUCKET: ${SHIKKHOKPLUS_MEDIA_BUCKET:-}
+  AWS_REGION: ${AWS_REGION:-}
+  # **The SDK never falls back to IMDS.** With the credentials file
+  # missing (before the host job's first success, or on the rehearsal
+  # host) boto3 would otherwise try the instance metadata service, which
+  # hop limit 1 makes time out rather than refuse; this makes it fail at
+  # once with "no credentials" instead. Fixed, not from the runtime env.
+  AWS_EC2_METADATA_DISABLED: "true"
 
 # **Every container ships its output to CloudWatch** [OPS-11] -- the
 # API, the migrate runs and each scheduled job (`run --rm api` inherits
@@ -113,6 +133,18 @@ services:
       <<: *app-environment
       # The restricted role [OPS-5]. Never the owner.
       SHIKKHOKPLUS_DATABASE_URL: ${SHIKKHOKPLUS_DATABASE_URL:?required}
+      # **The photo bucket's credentials, and no other AWS credentials**
+      # [H3 deviation 1]. The host's shikkhokplus-media-creds job assumes
+      # the media role every 15 minutes and writes its one-hour
+      # credentials here (infra/modules/app/user_data.sh.tftpl). The
+      # container still cannot reach the instance role: IMDS hop limit 1.
+      AWS_SHARED_CREDENTIALS_FILE: /run/media-creds/credentials
+
+    # Read-only: the container can read the credentials, never replace
+    # them. The directory exists from boot even when no file has been
+    # written yet. `run --rm api` jobs inherit it.
+    volumes:
+      - /srv/shikkhokplus/media-creds:/run/media-creds:ro
 
     ports:
       # **Bound to localhost.** nginx is the only thing that talks to

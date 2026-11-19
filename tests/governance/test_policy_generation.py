@@ -608,7 +608,18 @@ def test_no_raw_table_name_appears_in_the_generated_region() -> None:
     region = render()
     # `student` since 0018: the policy has always said "a student's place
     # in a class", and the table took the word rather than the reverse.
-    english_words = {"session", "account", "exam", "mark", "batch", "owner", "student"}
+    # `review` since 0045: a parent reads "a review you wrote"; the table
+    # took the word. `review_reply` is still checked.
+    english_words = {
+        "session",
+        "account",
+        "exam",
+        "mark",
+        "batch",
+        "owner",
+        "student",
+        "review",
+    }
 
     for table in DISPOSITIONS:
         if table in english_words:
@@ -662,3 +673,167 @@ def test_life_of_account_is_not_rendered_as_deletion_of_the_account() -> None:
         "'until the account is deleted'"
     )
     assert heading is not None
+
+
+# ---------------------------------------------------------------------
+# Join requests [H5]. The generated row is the manifest's; the prose
+# around it is hand-written, so it is pinned here phrase by phrase:
+# without it, the hand prose said things that become false the day the
+# switch is turned on (preflight F16).
+# ---------------------------------------------------------------------
+
+
+def _hand_prose(document: str) -> str:
+    """Return the policy outside its generated region, on one line.
+
+    :param document: A full policy document
+    :return: Everything but the generated region, whitespace collapsed
+    """
+    begin = document.find(BEGIN_MARKER)
+    end = document.find(END_MARKER)
+    assert begin != -1 and end > begin, "the document has no generated region"
+    return " ".join((document[:begin] + document[end:]).split())
+
+
+def _section(document: str, heading: str) -> str:
+    """Return one ``## `` section, whitespace collapsed.
+
+    :param document: A full policy document
+    :param heading: The heading's text, without the ``## ``
+    :return: The section, up to the next rule
+    """
+    _, found, rest = document.partition(f"\n## {heading}\n")
+    assert found, f"the policy has no {heading!r} section"
+    return " ".join(rest.split("\n---", 1)[0].split())
+
+
+def _subsection(document: str, heading: str) -> str:
+    """Return one ``### `` subsection, whitespace collapsed.
+
+    :param document: A full policy document
+    :param heading: The heading's text, without the ``### ``
+    :return: The subsection, up to the next heading or rule
+    """
+    _, found, rest = document.partition(f"\n### {heading}\n")
+    assert found, f"the policy has no {heading!r} subsection"
+    body = rest.split("\n### ", 1)[0].split("\n---", 1)[0]
+    return " ".join(body.split())
+
+
+def test_the_generated_policy_deletes_a_join_request_after_90_days() -> None:
+    """The join-request row is deleted with the account and after 90 days.
+
+    Asserted through ``describe``, so the row is the one the manifest's
+    ``listing_enquiry`` entry renders, under the hard-delete heading.
+
+    :return: None
+    """
+    region = _generated_region(COMMITTED.read_text(encoding="utf-8"))
+    deleted = region.split("### Deleted outright when you delete your account")[1]
+    deleted = deleted.split("\n### ", 1)[0]
+
+    assert f"| {describe('listing_enquiry')} | 90 days |" in deleted
+
+
+def test_the_hand_prose_is_true_once_join_requests_are_on() -> None:
+    """No sentence outside the markers is falsified by the switch.
+
+    Each of these was an unconditional statement before H5, and each
+    becomes false the moment join requests are offered: the policy is
+    hosted from ``main``, so it must already read correctly while the
+    switch is off, and stay correct when it is turned on.
+
+    :return: None
+    """
+    document = COMMITTED.read_text(encoding="utf-8")
+    prose = _hand_prose(document)
+
+    assert "There is no messaging between users." not in prose
+    assert (
+        "There is no messaging between users, with one exception where "
+        "join requests are offered" in prose
+    )
+    # The short version keeps the database claim for the boundary it is
+    # true of, and states the exception after it, as the app's doing.
+    assert (
+        "A teacher **cannot** see anything a student or guardian writes "
+        "about themselves, and the database enforces that boundary, not our "
+        "good intentions. Where join requests are offered, a request a "
+        "guardian chooses to send is the exception" in prose
+    )
+    assert "other than a join request" not in prose
+    # Join requests have no row-level security: owner scoping is a WHERE
+    # clause in the application's own SQL. No sentence may put them under
+    # the database's enforcement.
+    who = _section(document, "Who can see what")
+    lead, _, rest = who.partition("**A teacher can see**")
+    assert lead.startswith(
+        "The separation below, except for join requests, is enforced by the "
+        "database itself"
+    ), "the database-enforcement lead-in covers join requests again"
+    cannot = rest.split("**A teacher cannot see**", 1)[1].split("**", 1)[0]
+    assert "join request" not in cannot, (
+        "the join-request exception is back inside a paragraph the "
+        "database-enforcement lead-in covers"
+    )
+    _, found, joins = who.partition("**Join requests are kept apart differently.**")
+    assert found, "Who can see what has no join-request paragraph"
+    assert (
+        "enforced by our application's queries, which read a request only "
+        "for the teacher or centre it was sent to" in joins
+    )
+    assert "not by the database's row-level security" in joins
+    for text in (cannot, joins):
+        assert "row-level security policies" not in text
+    # The "When you use the app" table gains the row.
+    table = document.split("### When you use the app", 1)[1].split("\n### ", 1)[0]
+    assert "| A request to join a class on the public hub" in table
+    # And nobody at ShikkhokPlus reads them.
+    assert "Join requests are not among them" in prose
+
+
+def test_the_policy_describes_join_requests() -> None:
+    """The "Join requests" subsection says what spec D6 needs it to say.
+
+    What the owner sees, that the contact is seen only on Share and read
+    live, total withdrawal, the 90-day limit, and no administrator view.
+
+    :return: None
+    """
+    section = _subsection(COMMITTED.read_text(encoding="utf-8"), "Join requests")
+
+    assert section.startswith("Where join requests are offered on the public hub")
+    # What the owner sees, and who the owner is.
+    assert (
+        "sees the student's name as you typed it, their school class as you "
+        "chose it, your message, the class it is about, and when it was "
+        "received" in section
+    )
+    # The school class is picked from a list; only the name is typed.
+    assert "class as you type" not in section
+    # Everything the request holds, as Data Safety item 6 lists it.
+    assert (
+        "The student's name as you type it, their school class as you "
+        "choose it from a list" in section
+    )
+    for held in (
+        "the account that sent it",
+        "whether it is open or answered",
+        "the teacher's answer",
+        "when it was sent and when it was answered",
+    ):
+        assert held in section, f"What it holds omits {held!r}"
+    assert "each manager of the centre" in section
+    # The contact: only on Share, read live, gone with the request.
+    assert "only if you choose **Share**" in section
+    assert "read from your account while the request exists" in section
+    assert "the phone number on your account, or your email address" in section
+    # Withdrawal is total and always available.
+    assert "withdraw a request at any time" in section
+    assert "withdrawal is total" in section
+    # Retention, and what happens when the switch goes off.
+    assert "deleted 90 days after it was sent" in section
+    assert "still see and withdraw" in section
+    # Never public, never an administrator's.
+    assert "never shown on any public page" in section
+    assert "no administrator view of join requests" in section

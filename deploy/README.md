@@ -40,7 +40,8 @@ and optionally a ref. `.github/workflows/deploy.yml` then:
    distribution turns an origin 403 or 404 into its own 404 page, so an
    origin-secret mismatch would otherwise read as a missing page), a
    canonical link on the site's origin and a stylesheet the site serves;
-   then `{site}/hub/sitemap.xml` 200, `{site}/hub/en?utm=x` 400,
+   then `{site}/hub/sitemap.xml` 200, `{site}/hub/en?sort=rating` 200
+   (the edge function carries the `sort` key), `{site}/hub/en?utm=x` 400,
    `{site}/hub/en/t/no_such_teacher` 404, and `{api}/hub/en` 404. It holds
    no AWS credentials and rolls nothing back: what it catches is edge
    wiring between two distributions, which the previous image would not
@@ -109,6 +110,8 @@ GitHub environment's secrets and variables.
 | `SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL` | variable, default `1000` | the daily send ceiling; the same variable prices email in the plan's budget guard |
 | `SHIKKHOKPLUS_SITE_URL` | SSM `site-url` | the public site's origin: the code email's website link, and the public hub's canonical, `hreflang` and sitemap links. Unreadable, the release warns and writes it empty; the hub smoke then fails on the canonical link |
 | `SHIKKHOKPLUS_WEB_APP_URL` | SSM `web-url`, less its `/ui/` | the web app's origin: every public hub page's report link opens `{origin}/ui/hub-report`. The release stops before writing anything if it is unreadable or not `https://<host>/ui/` |
+| `SHIKKHOKPLUS_HUB_REVIEWS` | SSM `hub-reviews` (Terraform creates it `off`, never changes it) | the hub reviews switch, `on` or `off`; anything else is off in the application, and the release stops before writing anything if the parameter is unreadable or neither word |
+| `SHIKKHOKPLUS_HUB_ENQUIRIES` | SSM `hub-enquiries` (Terraform creates it `off`, never changes it) | the hub join-requests switch, `on` or `off`, independent of the reviews switch; anything else is off in the application, and the release stops before writing anything if the parameter is unreadable or neither word |
 | `SHIKKHOKPLUS_DATABASE_URL` | SSM `database-url`, by the boot script | the `shikkhok_app` role |
 | `SHIKKHOKPLUS_MIGRATION_DATABASE_URL`, `SHIKKHOKPLUS_APP_DB_PASSWORD` | SSM, by the boot script | `migrate` service only, never written to `.env` |
 | `API_IMAGE` | the image tag in SSM | a commit SHA, never `latest` |

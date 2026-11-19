@@ -63,11 +63,16 @@ VERSIONS: Final[pathlib.Path] = (
 #: ``0039`` -- city corporations and metropolitan thanas -- again, and
 #: ``0040`` -- the public hub's views and search columns -- once more, and
 #: ``0041`` -- the CloudFront invalidation outbox -- again, and ``0042``
-#: -- the demand question and the first-publish anchor -- once more.
-EXPECTED_REVISIONS: Final[int] = 42
+#: -- the demand question and the first-publish anchor -- once more, and
+#: ``0043`` -- owner photos, their object outbox and public view -- again,
+#: and ``0044`` -- moderation events for photos -- once more, and ``0045`` --
+#: reviews, their replies and the two threshold views -- again, and ``0046``
+#: -- moderation events for reviews and replies -- once more, and ``0047``
+#: -- join requests and the enquirable view -- again.
+EXPECTED_REVISIONS: Final[int] = 47
 
-#: The head ``0042`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0042"
+#: The head ``0047`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0047"
 
 
 def _revision_files() -> list[pathlib.Path]:

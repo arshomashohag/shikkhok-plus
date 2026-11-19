@@ -560,4 +560,68 @@ class HubListingViewModelTest {
             assertEquals(expected, vm.state.value.publicSlug, listing.status)
         }
     }
+
+    @Test
+    fun the_enquiries_switch_saves_its_one_field_and_keeps_what_was_typed() = runTest(dispatcher) {
+        val fake = FakeHubApi()
+        fake.listing = AuthResult.Ok(owner().copy(enquiriesOffered = true))
+        fake.saveResult = AuthResult.Ok(owner().copy(enquiriesOffered = true, acceptsEnquiries = true))
+        val vm = model(fake)
+        vm.load()
+        advanceUntilIdle()
+        assertTrue(vm.state.value.offersEnquiries)
+        vm.edit { it.copy(headlineEn = "typed, not saved") }
+
+        vm.setAcceptsEnquiries(true)
+        assertTrue(vm.state.value.switchSaving)
+        advanceUntilIdle()
+
+        assertEquals(listOf(OwnerListingUpdateRequest(acceptsEnquiries = true)), fake.saved)
+        val editing = assertIs<HubListingUiState.Editing>(vm.state.value.body)
+        assertTrue(editing.listing.acceptsEnquiries)
+        assertEquals("typed, not saved", vm.state.value.draft.headlineEn, "the draft is the owner's, untouched")
+        assertTrue(vm.state.value.dirty)
+        assertFalse(vm.state.value.switchSaving)
+    }
+
+    @Test
+    fun the_enquiries_switch_is_not_offered_while_switched_off() = runTest(dispatcher) {
+        val fake = FakeHubApi()
+        fake.listing = AuthResult.Ok(owner().copy(acceptsEnquiries = true, enquiriesOffered = false))
+        val vm = model(fake)
+        vm.load()
+        advanceUntilIdle()
+
+        assertFalse(vm.state.value.offersEnquiries)
+        vm.setAcceptsEnquiries(false)
+        advanceUntilIdle()
+        assertTrue(fake.saved.isEmpty())
+    }
+
+    @Test
+    fun a_failed_switch_stays_at_the_servers_value_and_retries_when_it_can_help() = runTest(dispatcher) {
+        val fake = FakeHubApi()
+        fake.listing = AuthResult.Ok(owner().copy(enquiriesOffered = true))
+        fake.saveResult = AuthResult.TransportFailure
+        val vm = model(fake)
+        vm.load()
+        advanceUntilIdle()
+
+        vm.setAcceptsEnquiries(true)
+        advanceUntilIdle()
+        assertEquals(HubFailure(HUB_OFFLINE_KEY, canRetry = true), vm.state.value.switchFailure)
+        assertFalse(assertIs<HubListingUiState.Editing>(vm.state.value.body).listing.acceptsEnquiries)
+        assertNull(vm.state.value.failure, "the form's own banner is not the switch's")
+
+        fake.saveResult = refusal("hub.listing.not_found")
+        vm.retrySwitch()
+        advanceUntilIdle()
+        assertEquals(2, fake.saved.size)
+        assertEquals(OwnerListingUpdateRequest(acceptsEnquiries = true), fake.saved[1])
+        assertEquals(false, vm.state.value.switchFailure?.canRetry)
+
+        vm.retrySwitch()
+        advanceUntilIdle()
+        assertEquals(2, fake.saved.size, "a refusal trying again cannot fix is not retried")
+    }
 }

@@ -48,6 +48,9 @@ from app.authz.resolve import LensResolver
 from app.centres.memberships import available_memberships, centre_member
 from app.errors import AuthorizationError
 from app.errors.codes import NOT_AVAILABLE
+from app.local_time import bangladesh_today
+from app.reviews.eligibility import assess
+from app.reviews.lens import ReviewerLens
 
 __all__ = [
     "WORKSPACE_HEADER",
@@ -62,6 +65,7 @@ __all__ = [
     "invitation_lens",
     "membership_lens",
     "platform_admin_lens",
+    "reviewer_lens",
     "student_lens",
     "teacher_lens",
 ]
@@ -475,6 +479,39 @@ def examiner_lens(
     :return: The lens for that one exam
     """
     return resolve_examiner_lens(session, account_id=account_id, exam_id=exam_id)
+
+
+def reviewer_lens(
+    batch_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+) -> ReviewerLens:
+    """Resolve the reviewer lens for the one batch in the path [spec §6].
+
+    Resolved by its own statement and never memoized, on
+    :func:`invitation_lens`'s reasoning: the grant is per batch, the batch
+    arrives as a path parameter, and standing changes with the calendar,
+    so a cached answer would be a stale one.
+
+    Granted to a member of the batch whatever their standing, and to an
+    author who is no longer one (Call 7). Everyone else -- a stranger, a
+    student, a declined or blocked guardian, a caller naming a hidden or
+    nonexistent batch -- gets one identical ``NOT_AVAILABLE``, so the
+    refusal does not reveal whether the batch exists.
+
+    :param batch_id: The batch, from the route path
+    :param session: The session to query through
+    :param account_id: The authenticated account
+    :return: The lens for that one batch, carrying the assessment
+    :raises AuthorizationError: ``NOT_AVAILABLE`` (403) for a non-member
+        who wrote no review of the batch
+    """
+    assessment = assess(session, account_id, batch_id, bangladesh_today())
+    if assessment is None:
+        raise AuthorizationError(
+            code=NOT_AVAILABLE, message_key="authz.lens.not_available"
+        )
+    return ReviewerLens(account_id=account_id, batch_id=batch_id, assessment=assessment)
 
 
 def admin_gate(request: Request) -> None:

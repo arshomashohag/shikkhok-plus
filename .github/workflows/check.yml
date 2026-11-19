@@ -538,3 +538,48 @@ jobs:
       # node:test, zero dependencies, a second or two.
       - name: make infra-functions
         run: make infra-functions
+
+  lambda:
+    name: lambda
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The image sanitiser (lambdas/image_sanitiser), its own job for the
+    # same reason as the others: a photo-pipeline change never waits on a
+    # Kotlin or backend build. It decodes hostile bytes, so its gate is
+    # the backend's in miniature -- format, lint, types, tests -- plus the
+    # build the deploy ships, proved to hold Pillow's AArch64 extension.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # The tools (pytest, ruff, mypy) from the API's lockfile, hash-checked
+      # as the backend job installs them. `make lambda-test` then adds
+      # Pillow from the Lambda's own lockfile, also hash-checked -- never
+      # from the API's, which does not name it.
+      - name: Install the tools from the lockfile
+        run: python -m pip install --require-hashes -r requirements.txt
+
+      - name: make lambda-test
+        run: make lambda-test
+
+      # The package the deploy uploads, built the same way. Its last step
+      # refuses a zip without Pillow's AArch64 core extension.
+      - name: make lambda-image
+        run: make lambda-image
+
+      # The ANNOTATING half of the two-speed CVE model, as for the API's
+      # lockfile: reported on every push, blocking only at the release
+      # gate (deploy.yml), where this lockfile is audited too.
+      - name: Dependency CVEs (annotating, non-blocking)
+        continue-on-error: true
+        run: |
+          python -m pip install pip-audit
+          pip-audit --requirement lambdas/image_sanitiser/requirements.txt \
+                    --desc --strict --progress-spinner off \
+            || echo "::warning::pip-audit reported findings in the image sanitiser's lockfile. These do not block this push; they block the release gate."

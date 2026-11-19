@@ -82,11 +82,26 @@ describe('build', () => {
 describe('the public hub', () => {
   const section = (html, id) => html.split(`<section id="${id}"`)[1].split('</section>')[0]
   const twins = [
-    { page: 'index.html', href: '/hub/en', label: 'Find a tutor', optIn: /\bopt-in\b/ },
-    { page: 'bn/index.html', href: '/hub/bn', label: 'শিক্ষক খুঁজুন', optIn: /ঐচ্ছিক/ },
+    {
+      page: 'index.html',
+      href: '/hub/en',
+      label: 'Find a tutor',
+      optIn: /\bopt-in\b/,
+      reviewed: /reviewed before/,
+      // [H4] who writes reviews, that they are checked first, and that no name shows
+      reviews: [/only from verified guardians/, /checked before they appear/, /never show a name/],
+    },
+    {
+      page: 'bn/index.html',
+      href: '/hub/bn',
+      label: 'শিক্ষক খুঁজুন',
+      optIn: /ঐচ্ছিক/,
+      reviewed: /দেখে নেওয়া হয়/,
+      reviews: [/কেবল যাচাইকৃত অভিভাবকেরা/, /প্রকাশের আগে যাচাই করা হয়/, /কোনো নাম দেখানো হয় না/],
+    },
   ]
 
-  for (const { page, href, label, optIn } of twins) {
+  for (const { page, href, label, optIn, reviewed, reviews } of twins) {
     it(`${page} links to the hub in its own language`, () => {
       const families = section(read(page), 'families')
       assert.ok(families.includes(`href="${href}">${label}</a>`), `${page}: no "${label}" link to ${href}`)
@@ -99,6 +114,18 @@ describe('the public hub', () => {
       const privacy = section(read(page), 'privacy')
       assert.match(privacy, optIn, `${page}: the privacy section does not say listings are opt-in`)
       assert.ok(privacy.includes(`href="${href}"`), `${page}: the privacy section does not name the hub`)
+    })
+
+    it(`${page} says photos are reviewed before they appear`, () => {
+      const privacy = section(read(page), 'privacy')
+      assert.match(privacy, reviewed, `${page}: the privacy section does not say photos are reviewed first`)
+    })
+
+    it(`${page} says reviews come from verified guardians, are checked first and show no name`, () => {
+      const privacy = section(read(page), 'privacy')
+      for (const claim of reviews) {
+        assert.match(privacy, claim, `${page}: the privacy section does not say ${claim}`)
+      }
     })
   }
 })

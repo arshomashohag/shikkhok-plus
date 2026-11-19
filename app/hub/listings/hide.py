@@ -2,6 +2,14 @@
 
 Kept apart from :mod:`app.hub.listings.batches` so the batch service can call
 it without importing a module that imports the batch service.
+
+**A retired batch's photos are unlinked, never deleted** [H3 deviation 4].
+They stay as ``listing_media`` rows, approved and keyed, and leave the page
+through ``hub_public_media``, which shows a batch photo only under a batch
+``hub_public_batch`` shows -- active, its listing published. No object
+delete is enqueued and no ``/m/`` path is evicted: the keys are unguessable,
+and the owner who brings the batch back gets the photos back with it. Only
+the page's own invalidation is enqueued here.
 """
 
 from __future__ import annotations

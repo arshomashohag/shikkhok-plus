@@ -323,6 +323,298 @@ nothing but send from that one address.
 5. Optionally set `SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL` per environment; unset
    means 1,000.
 
+## Hub photos: the media bucket and its credentials
+
+`modules/media` holds the hub's photos in one private bucket,
+`shikkhokplus-<env>-media-<account id>`, in the app's runtime region:
+
+```
+quarantine/{media_id}         presigned POST from the web app     expires after 1 day
+staged/{media_id}/            the sanitiser Lambda's WebP variants expires after 30 days
+public/{public_key}/          approved copies; the ONLY prefix CloudFront reads
+archive/{media_id}/           variants frozen at completion; preview and approval read only these
+```
+
+- **Served at `/m/*` on the site distribution** (`modules/site`), through
+  Origin Access Control, cached a year, with `nosniff` and
+  `Content-Security-Policy: default-src 'none'; sandbox`; the objects carry
+  their own `image/webp` type.
+  `functions/media-path.js` maps `/m/{key}/{w}.webp` to
+  `public/{key}/{w}.webp` and answers any other shape 404 at the edge:
+  CloudFront's origin path can only prepend, never strip `/m/`.
+- **The API container gets the media role, never the instance role.**
+  IMDS hop limit 1 still keeps the container from the instance role. The
+  host's `shikkhokplus-media-creds` job (cron, every 15 minutes, and once
+  at boot before compose starts) assumes `shikkhokplus-<env>-media` for an
+  hour and writes the credentials to
+  `/srv/shikkhokplus/media-creds/credentials` (0640, group 10001: the
+  container's `app` user), mounted read-only at `/run/media-creds`. A
+  failed refresh keeps the previous file and logs to
+  `/var/log/shikkhokplus-media-creds.log`. The role can read, write, list
+  and delete only the four prefixes above; the rehearsal host gets no role.
+- **Uploads come from the web app's origin only** (bucket CORS: `POST`
+  from `web-url` less `/ui/`), and the web and admin pages' CSP admit the
+  bucket's regional endpoint and nothing else new.
+- **Cost**: `media` and `image_lambda` in `monthly_cost_estimate`.
+
+### Manual step
+
+**Re-apply `bootstrap/` before the deploy that ships H3.** It lets the
+infrastructure role manage the bucket's CORS, lifecycle, ownership and
+event notification, lets the plan role read it, lets the deploy role read
+`media-bucket` and `media-bucket-domain`, and raises the workload boundary
+to allow the media role's object actions and the host's `sts:AssumeRole`
+on that one role. Without it the infrastructure job stops at
+`PutBucketCORS` or `CreateRole` with AccessDenied, and the release at
+"Cannot read the hub media bucket from SSM", having changed nothing.
+
+**Also before the deploy that ships H3 (HUMAN STEPS):**
+
+1. **Bootstrap additionally gives** the deploy role
+   `lambda:UpdateFunctionCode` and `lambda:GetFunctionConfiguration` on the
+   image sanitiser (and no other function), and the plan role
+   `lambda:GetFunctionEventInvokeConfig`. Without the first, the deploy
+   stops at "image sanitiser"; without the second, `terraform plan` fails
+   refreshing the Lambda. (The media role and the image Lambda themselves
+   are created by the infrastructure job once bootstrap allows it.)
+2. **Check Lambda concurrency headroom**: `aws lambda get-account-settings`.
+   The sanitiser reserves 2 concurrent executions, and AWS requires the
+   account to keep at least 10 unreserved. If `UnreservedConcurrentExecutions`
+   would fall below 10, request a quota increase before applying.
+3. **After the first deploy, upload one real photo to staging from the
+   Android debug build and one from the web app**, and see each reach
+   "pending review". The two clients send different multipart forms and
+   only S3 can confirm it accepts both.
+4. **Moderation checklist line**: before the first production publish of
+   H3, approve one photo, open its `/m/` URL, then hold it and see the URL
+   stop answering. The deploy smoke only proves that unapproved paths are
+   refused.
+
+## Switching reviews on
+
+Hub reviews are **off** until someone turns them on, in every
+environment. The switch is one SSM parameter per environment, a plain
+`String` holding exactly `on` or `off`:
+
+| Environment | Parameter |
+|---|---|
+| staging | `/shikkhokplus/shikkhokplus-staging/hub-reviews` |
+| production | `/shikkhokplus/shikkhokplus-production/hub-reviews` |
+
+Its name is `/shikkhokplus/${var.name_prefix}/hub-reviews`
+(`modules/app/deployment_state.tf`) with `name_prefix =
+"shikkhokplus-${var.environment}"` (`main.tf`), the same path the release
+reads (`ses_param hub-reviews` in `deploy.yml`);
+`tests/gates/test_hub_reviews_switch_infra.py` keeps the table and the
+commands below equal to it. Terraform creates it `off` and ignores its
+value afterwards, so an apply never changes it.
+
+**The deploy role must be able to read it.** Every release reads the
+switch, on or off, so if the last deploy succeeded this is already true.
+If a release stops at "Cannot read the hub reviews switch", re-apply
+`bootstrap/` once from a laptop: H4 added `hub-reviews` to the
+parameters the deploy role may read (`bootstrap/deploy_role.tf`). The
+release stops before changing anything.
+
+**Turning it on publishes what families write about a class**, so each
+step below is a human check, done in this order, and a step that is not
+met stops the list. Steps 4 to 6 run on staging first; production
+repeats steps 4 and 5 only after step 6 has passed on staging.
+
+1. **D9: the day-90 demand bar in hub spec §9 is met** — opt-in (published
+   owners ÷ owners with at least one active batch) **≥ 20%**, and **≥ 15%**
+   of answering owners said Yes to "Did the hub bring you a student?".
+   *Freeze* (opt-in < 10% or < 5% Yes) or *Hold* (anything between;
+   re-measure at day 120) means stop here. No screen computes these two
+   figures yet: they are read by hand from `owner_listing`, `batch` and
+   `hub_feedback` in the production database, and the two figures and the
+   date are written down with the decision. Read them **only through the
+   production access path team.md requires** (Deployment, "Production
+   access is named, logged and bounded"): your own named non-superuser
+   role, never the application's `shikkhok_app` role or a superuser,
+   opened through the session wrapper that records the session's start,
+   the person and the stated reason ("D9 measurement") to the append-only
+   log. Run aggregate counts only, and copy no row out of the session:
+   the two percentages are all that leaves it. Neither the role nor the
+   wrapper is defined in this repository; if either does not exist yet,
+   this step waits until it does.
+2. **D8: the legal review of the review policy is recorded** in
+   `docs/legal/README.md`, "The D8 legal review of the review policy",
+   with a date, a reviewer and an outcome. If the outcome requires a
+   change to the review policy, that change ships first.
+3. **D6: the declarations are published.** The Play Data Safety form and
+   the Families user-content declaration have been updated against
+   `docs/legal/README.md` item 5 and the Families note, the privacy policy
+   on `main` describes reviews (`docs/legal/PRIVACY.md`, "Reviews"), and
+   the site carries the reviews sentence under "Private by design". The
+   policy promises an in-app notice before a material change takes
+   effect; this is one, and nothing in the app sends such a notice, so
+   decide how it is given and give it before step 4 on production.
+4. **Write `on`** to the environment's parameter. **Staging first**, then
+   steps 5 and 6 on staging:
+
+   ```bash
+   # staging
+   aws ssm put-parameter --overwrite --name /shikkhokplus/shikkhokplus-staging/hub-reviews --type String --value on
+   ```
+
+   **Production only after step 6 has passed on staging**, followed by
+   step 5 on production:
+
+   ```bash
+   # production -- only once step 6 has passed on staging
+   aws ssm put-parameter --overwrite --name /shikkhokplus/shikkhokplus-production/hub-reviews --type String --value on
+   ```
+
+   Writing the parameter changes nothing by itself: the container reads
+   its runtime env, which only a release writes.
+5. **Dispatch a deploy** of the same environment (`Actions -> deploy ->
+   Run workflow`; any ref already deployed will do). The release
+   validates the value (`on` or `off`, nothing else), writes
+   `SHIKKHOKPLUS_HUB_REVIEWS` into the runtime env, and the application
+   reads it at each call.
+6. **Check that a seeded batch page in staging shows the reviews
+   section.** Open a published batch page on the staging site,
+   `{site}/hub/en/t/<owner>/<batch>`: it must now carry a **Reviews**
+   heading. With fewer than three published reviews the section reads
+   "Ratings appear once a class has 3 reviews."; with the switch off
+   there is no heading at all. The staging seeder publishes no listing,
+   so sign in as a seeded teacher (`deploy/README.md`, "Seeding test
+   data") and publish their listing and one batch first. Batch pages are
+   cached at the edge for up to ten minutes (`s-maxage=600`), so open one
+   not fetched since the deploy, or wait.
+
+**Switching off is the same with `off`**: write `off` to the parameter and
+dispatch a deploy. It hides every review surface — sections, ratings,
+the sort choice, the teacher's and the admin's review routes — and stops
+the weekly publication, but **never blocks a deletion**, and it deletes
+nothing: the reviews come back as they were when it is turned on again.
+Cached pages keep showing reviews for up to ten minutes (search pages
+five). Switch off without waiting for the D-steps whenever a safety
+reason calls for it; the admin overview's pull-reviews figure (more than
+5% of public reviews reported in a quarter, hub spec §9) is one.
+
+## Switching join requests on
+
+Hub join requests ("Ask to join") are **off** until someone turns them
+on, in every environment, and the switch is independent of the reviews
+switch. It is one SSM parameter per environment, a plain `String`
+holding exactly `on` or `off`:
+
+| Environment | Parameter |
+|---|---|
+| staging | `/shikkhokplus/shikkhokplus-staging/hub-enquiries` |
+| production | `/shikkhokplus/shikkhokplus-production/hub-enquiries` |
+
+Its name is `/shikkhokplus/${var.name_prefix}/hub-enquiries`
+(`modules/app/deployment_state.tf`) with `name_prefix =
+"shikkhokplus-${var.environment}"` (`main.tf`), the same path the release
+reads (`ses_param hub-enquiries` in `deploy.yml`);
+`tests/gates/test_hub_enquiries_switch_infra.py` keeps the table and the
+commands below equal to it. Terraform creates it `off` and ignores its
+value afterwards, so an apply never changes it.
+
+**The parameter must exist before anyone writes to it.** It is created
+when you apply `infra/` with H5's change, which the first deploy of an
+H5 ref does: its `infrastructure` job applies before the release reads
+the switch ("Terraform runs in GitHub Actions" above). Writing `on` to a
+name that does not exist yet creates a parameter outside Terraform's
+state, which the next apply then fails on, so check with `aws ssm
+get-parameter --name <path>` first.
+
+**The deploy role must be able to read it.** Every release reads the
+switch, on or off, so if the last deploy succeeded this is already true.
+If a release stops at "Cannot read the hub join requests switch",
+re-apply `bootstrap/` once from a laptop: H5 added `hub-enquiries` to the
+parameters the deploy role may read (`bootstrap/deploy_role.tf`). The
+release stops before changing anything.
+
+**Turning it on lets a guardian's own words reach a teacher**, which the
+project's rules forbid as they stand, so each step below is a human
+check, done in this order, and a step that is not met stops the list.
+Steps 3 to 5 run on staging first; production repeats steps 3 and 4 only
+after step 5 has passed on staging. No step reads production data by
+hand.
+
+1. **The `project.md` rule is amended first.** Its Forbidden rule
+   beginning "NEVER expose anything a student or guardian writes to any
+   teacher" forbids join requests as worded: a request is written by a
+   guardian to a teacher. The owner amends it **through the learnings
+   ritual** (AI-DLC's human-gated learnings write path), never by
+   editing `aidlc/spaces/default/memory/project.md` by hand, and the
+   runbook does not do it for them. Its first sentence becomes:
+
+   > NEVER expose anything a student or guardian writes to any teacher,
+   > except a hub review its author explicitly submitted for public
+   > display, and a join request a guardian explicitly sent to that
+   > owner, which only that owner's managers see, never with the
+   > guardian's contact unless they chose to share it on that request.
+
+   The rule's existing review clauses ("Such a review reaches anyone
+   ...", to "deletion is total.") stay as they are, after it. If the
+   owner declines the amendment, stop here: the switch stays `off`.
+2. **D6: the declarations are published.** The Play Data Safety form and
+   the Families target-audience declaration have been updated against
+   `docs/legal/README.md` item 6 ("New: join requests") and the Families
+   note, and the privacy policy on `main` describes join requests
+   (`docs/legal/PRIVACY.md`, "Join requests"). The site's sentences
+   saying a teacher cannot see what a guardian writes (the home page and
+   the FAQ, in English and Bangla) carry the same "where join requests
+   are offered" exception, so the site needs no change; check only that
+   the site released to the environment is from H5 or later. The policy
+   promises an in-app notice before a material change takes effect; this
+   is one, and nothing in the app sends such a notice, so decide how it
+   is given and give it before step 3 on production.
+3. **Write `on`** to the environment's parameter. **Staging first**, then
+   steps 4 and 5 on staging:
+
+   ```bash
+   # staging
+   aws ssm put-parameter --overwrite --name /shikkhokplus/shikkhokplus-staging/hub-enquiries --type String --value on
+   ```
+
+   **Production only after step 5 has passed on staging**, followed by
+   step 4 on production:
+
+   ```bash
+   # production -- only once step 5 has passed on staging
+   aws ssm put-parameter --overwrite --name /shikkhokplus/shikkhokplus-production/hub-enquiries --type String --value on
+   ```
+
+   Writing the parameter changes nothing by itself: the container reads
+   its runtime env, which only a release writes.
+4. **Dispatch a deploy** of the same environment (`Actions -> deploy ->
+   Run workflow`; any ref already deployed will do). The release
+   validates the value (`on` or `off`, nothing else), writes
+   `SHIKKHOKPLUS_HUB_ENQUIRIES` into the runtime env, and the application
+   reads it at each call.
+5. **Check in staging that a seeded owner with requests on shows "Ask to
+   join", and that a test guardian's request reaches the owner's
+   inbox.** The staging seeder publishes no listing, so sign in as a
+   seeded teacher (`deploy/README.md`, "Seeding test data"), publish
+   their listing and one batch, and turn on **Receive join requests**
+   for the listing (the choice appears only once the switch is on).
+   Their page on the staging site, `{site}/hub/en/t/<owner>`, must now
+   carry an **Ask to join** link; with the switch off there is none.
+   Owner and batch pages are cached at the edge for up to ten minutes
+   (`s-maxage=600`), so open one not fetched since the deploy, or wait.
+   Then sign in as one of the family numbers the seeder's `seed.json`
+   lists, follow the link, send a request with **Share** chosen, and
+   check that a "New join request" item reaches the teacher's inbox and
+   that the request, opened from it, shows the family number. Withdraw
+   it from the guardian's side afterwards; the teacher's copy goes with
+   it.
+
+**Switching off is the same with `off`**: write `off` to the parameter
+and dispatch a deploy. It removes every "Ask to join" link and the
+owner's join-request routes, but **never blocks a deletion** and deletes
+nothing: guardians can still read and withdraw the requests they sent,
+every request is still purged 90 days after it was sent, and the
+owner's join requests list shows the rest again if the switch is turned
+back on before then. Cached pages keep showing the link for up to ten minutes; a
+request sent from one is refused. Switch off without waiting for
+anything whenever a safety reason calls for it.
+
 ## Reading the outputs
 
 The apply job writes `api_url`, `app_static_ip` and

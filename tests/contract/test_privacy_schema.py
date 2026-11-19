@@ -475,6 +475,15 @@ RECORDED_EMAIL_SCHEMAS = frozenset(
 #: they carry what the teacher is typing, back to nobody else.
 RECORDED_EMAIL_INPUTS = frozenset({"StudentCreateRequest", "StudentUpdateRequest"})
 
+#: The same NAME carrying something else, as exact ``(schema, field)``
+#: pairs. ``OwnerEnquiryWire.guardian_email`` is a guardian's OWN account
+#: address, shown to the people who run a listing only because that
+#: guardian ticked "share" on their join request, and only when the account
+#: has no phone [H5 contact predicate]. Nobody typed it about somebody
+#: else, so it is not a recorded email; ``tests/contract/test_enquiry_privacy.py``
+#: walks that response against its own forbidden set instead.
+SHARED_BY_CONSENT = frozenset({("OwnerEnquiryWire", "guardian_email")})
+
 
 def _recorded_email_leaks(document: dict[str, object]) -> list[tuple[str, str]]:
     """List every schema outside the allowlist carrying a recorded email.
@@ -492,7 +501,7 @@ def _recorded_email_leaks(document: dict[str, object]) -> list[tuple[str, str]]:
         for name, schema in schemas.items()
         if name not in RECORDED_EMAIL_SCHEMAS | RECORDED_EMAIL_INPUTS
         for field in schema.get("properties", {})  # type: ignore[attr-defined]
-        if field in RECORDED_EMAIL_FIELDS
+        if field in RECORDED_EMAIL_FIELDS and (name, field) not in SHARED_BY_CONSENT
     )
 
 
@@ -531,6 +540,9 @@ def test_recorded_emails_reach_only_their_teacher_and_manager_responses(
     schemas = document["components"]["schemas"]
 
     assert _recorded_email_leaks(document) == []
+    # The exemption names fields that exist, so it cannot outlive them.
+    for name, field in SHARED_BY_CONSENT:
+        assert field in schemas[name]["properties"], (name, field)
     for name in RECORDED_EMAIL_SCHEMAS:
         carried = set(schemas[name]["properties"]) & RECORDED_EMAIL_FIELDS
         assert carried, f"{name} lost its recorded email fields"

@@ -84,6 +84,8 @@ class OwnerListingUpdate:
     :ivar upazila_code: The upazila, which must lie in the district
     :ivar street_address: A centre's street address
     :ivar public_contact_phone: The one public phone number
+    :ivar accepts_enquiries: Whether the owner agrees to receive join
+        requests; stored whatever the switch says
     """
 
     slug: str | None = None
@@ -99,6 +101,7 @@ class OwnerListingUpdate:
     upazila_code: str | None = None
     street_address: str | None = None
     public_contact_phone: str | None = None
+    accepts_enquiries: bool | None = None
 
 
 def _load(session: Session, lens: TeacherLens) -> OwnerListing:
@@ -298,6 +301,8 @@ def update(
             if changes.public_contact_phone
             else None
         )
+    if changes.accepts_enquiries is not None:
+        listing.accepts_enquiries = changes.accepts_enquiries
     listing.updated_at = dt.datetime.now(tz=dt.UTC)
     if listing.status != "draft":
         _require_complete(listing)

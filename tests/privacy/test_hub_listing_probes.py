@@ -2,12 +2,15 @@
 
 A listing is the owner's own page, so the boundaries are: nobody reaches
 another owner's listing, and no hub response carries a phone, a collection
-number or a per-person key.
+number or a per-person key -- except the guardian's ``guardian_phone`` on
+the owner's three join-request routes, which the guardian chose to share
+[H5 contact predicate].
 """
 
 from __future__ import annotations
 
 import uuid
+from typing import Final
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -83,11 +86,27 @@ def test_teacher_a_cannot_read_or_write_teacher_b_listing(
     assert a_owner != b_owner
 
 
-def test_no_hub_schema_contains_collection_number_or_phone() -> None:
+#: The one contact a hub response may carry by name under the public set,
+#: as exact ``(path, schema, field)`` triples [H5]. ``guardian_phone`` on a
+#: join request is the guardian's own account number, shown to the people
+#: who run the listing only because the guardian ticked "share" (the
+#: contact predicate). None of these routes is public: each resolves the
+#: owner's teacher lens, and ``tests/contract/test_enquiry_privacy.py``
+#: walks them against their own forbidden set, which holds a bare
+#: ``phone``.
+CONSENTED: Final = frozenset(
+    ("/v1/hub/enquiries" + suffix, "OwnerEnquiryWire", "guardian_phone")
+    for suffix in ("", "/{enquiry_id}", "/{enquiry_id}/close")
+)
+
+
+def test_no_hub_schema_carries_a_phone_or_key_beyond_consented_contact() -> None:
     """Every hub response schema is clean against the public forbidden set.
 
     ``public_contact_phone`` is the owner's opt-in field and is deliberately
-    not in that set; every other contact or per-person key is.
+    not in that set; every other contact or per-person key is. The one
+    exception is :data:`CONSENTED`: ``guardian_phone`` on the owner's three
+    join-request routes, shown only because the guardian ticked "share".
     """
     app = create_app()
     document = app.openapi()
@@ -117,6 +136,15 @@ def test_no_hub_schema_contains_collection_number_or_phone() -> None:
                 (path, str(name), field)
                 for name, field in _walk(schema, definitions, set(), _public_field)
             ]
-    assert checked == 10
-    assert leaks == []
+    # The ten listing responses, the five JSON-bodied media routes (the
+    # sixth, DELETE, is a 204 with no body to walk), the five JSON-bodied
+    # review routes [H4]: the reviewable list, the author's read and write,
+    # the teacher's read and reply (both deletes are 204s), and the five
+    # join-request routes under /v1/hub [H5]: the target, the send, and the
+    # owner's list, read and close (the guardian's own list and withdrawal
+    # are under /v1/me).
+    assert checked == 25
+    assert sorted(set(leaks) - CONSENTED) == []
+    # The allowance names leaks that occur, so it cannot outlive them.
+    assert CONSENTED <= set(leaks)
     assert "public_contact_phone" not in PUBLIC_FORBIDDEN_FIELDS

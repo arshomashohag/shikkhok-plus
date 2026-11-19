@@ -46,6 +46,12 @@ api = [
     # one autoescaping environment with StrictUndefined, so an unescaped
     # value or a misspelt variable is a failure rather than a blank.
     "jinja2==3.1.6",
+    # The hub photo bucket [H3 deviation 1]: presigned uploads, reading the
+    # sanitiser's result, copying approved variants and deleting objects.
+    # Imported by app/hub/media/storage.py and nowhere else, which
+    # tests/gates/test_boto3_confined.py asserts; the container's only AWS
+    # credentials are the media role's, scoped to that one bucket.
+    "boto3==1.43.123",
 ]
 dev = [
     "pytest==9.2.0",
@@ -123,6 +129,9 @@ convention = "pep257"
 # B015 permits a bare comparison inside `pytest.raises`, which is exactly how
 # an operator's refusal is provoked.
 "tests/**" = ["S101", "D100", "D101", "D102", "D103", "D104", "D205", "D200", "B015"]
+# The image sanitiser's tests (lambdas/image_sanitiser/tests) on the same
+# terms as the API's: they run in their own `make lambda-test`, not here.
+"lambdas/*/tests/**" = ["S101", "D100", "D101", "D102", "D103", "D104", "D205", "D200", "B015"]
 # An FCM registration token is NOT a credential and S106's heuristic
 # matches it on the name alone. It is a per-install address for a
 # delivery channel -- system-rotated, revocable, and naming no hardware,
@@ -174,6 +183,14 @@ disallow_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 check_untyped_defs = true
+
+# boto3 and botocore ship no type information. They are imported by one
+# module, app/hub/media/storage.py (tests/gates/test_boto3_confined.py),
+# which wraps them behind the typed MediaStore protocol, so the Any they
+# carry stops at that file's public signatures.
+[[tool.mypy.overrides]]
+module = ["boto3", "boto3.*", "botocore", "botocore.*"]
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "app.money.*"

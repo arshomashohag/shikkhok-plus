@@ -38,9 +38,14 @@ origin-secret mismatch between the two distributions reads as a missing
 page, and the first check is the one that cannot be faked by that: ``GET
 {site}/hub/en`` answers 200 carrying the hub's own CSP, a canonical link
 on the site's origin, and a stylesheet the site serves. Then the sitemap
-(200), an unknown query key (400, from the edge function), a teacher no
-listing can be (404, not a soft 200), and the API host's own ``/hub/en``
-(404, from its hub-block function). It needs no listing to exist, so it
+(200), the ``sort`` key (200: the edge function lets through only the
+keys it lists, so this proves the deployed function carries it [H4]; it
+answers 200 whether reviews are switched on or not, because a switched-off
+page ignores the key), an unknown query key (400, from the edge function),
+a teacher no listing can be (404, not a soft 200), and the API host's own
+``/hub/en`` (404, from its hub-block function). **Photos** [H3]: two ``/m/`` paths, a
+well-formed absent key (reaches the bucket through OAC) and a malformed
+one (refused by the viewer function), each 403 or 404 with ``nosniff``. It needs no listing to exist, so it
 runs against production as well.
 """
 
@@ -232,6 +237,38 @@ def _check_landing(site: str) -> None:
         )
 
 
+#: A well-formed key no photo holds (a real one is random), so no object
+#: sits under it. It passes the /m/ viewer function, reaches the bucket
+#: through Origin Access Control and is refused there (403, or 404 where
+#: the caller may list).
+ABSENT_MEDIA = "/m/00000000000000000000000000000000/320.webp"
+
+#: A path the viewer function itself refuses: not a 32-hex key.
+MALFORMED_MEDIA = "/m/does-not-exist/320.webp"
+
+
+def _check_media(site: str) -> None:
+    """Check ``/m/*`` is routed to the bucket and serves nothing unapproved.
+
+    Each probe must answer 403 or 404 carrying ``X-Content-Type-Options:
+    nosniff``. The well-formed absent key proves the routing (it gets past
+    the viewer function to the bucket); the malformed one proves the
+    function refuses what is not a photo URL.
+
+    :param site: The site origin, no trailing slash
+    :raises RuntimeError: Either probe answered otherwise
+    """
+    for path in (ABSENT_MEDIA, MALFORMED_MEDIA):
+        status, headers, _ = _get(f"{site}{path}")
+        if status not in (403, 404):
+            raise RuntimeError(f"{site}{path} answered {status}, not 403 or 404")
+        if headers.get("x-content-type-options", "").lower() != "nosniff":
+            raise RuntimeError(
+                f"{site}{path} answered {status} without X-Content-Type-Options: "
+                "nosniff"
+            )
+
+
 def smoke_hub(site_url: str, api_url: str, *, attempts: int, interval: float) -> str:
     """Check the public hub through the site's and the API's distributions.
 
@@ -255,14 +292,17 @@ def smoke_hub(site_url: str, api_url: str, *, attempts: int, interval: float) ->
             time.sleep(interval)
 
     _expect(f"{site}/hub/sitemap.xml", 200, f"{site}/hub/sitemap.xml")
+    _expect(f"{site}/hub/en?sort=rating", 200, f"{site}/hub/en?sort=rating")
     _expect(f"{site}/hub/en?utm=x", 400, f"{site}/hub/en?utm=x")
     absent = f"{site}/hub/en/t/{ABSENT_SLUG}"
     _expect(absent, 404, absent)
     _expect(f"{api}/hub/en", 404, f"the API host's {api}/hub/en")
+    _check_media(site)
     return (
         f"the hub answers at {site}/hub/en with its own CSP, the sitemap, "
-        "the stylesheet, a 400 for an unknown query key and a 404 for an "
-        "unknown teacher, and the API host refuses it"
+        "the stylesheet, a 200 for the sort key, a 400 for an unknown query "
+        "key and a 404 for an unknown teacher, the photo path refusing what "
+        "is not approved, and the API host refuses it"
     )
 
 

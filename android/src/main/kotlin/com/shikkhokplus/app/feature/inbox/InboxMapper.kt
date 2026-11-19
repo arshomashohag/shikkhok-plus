@@ -30,7 +30,47 @@ object InboxMapper {
             "class_rescheduled" to InboxKind.CLASS_RESCHEDULED,
             "hub_listing_suspended" to InboxKind.HUB_LISTING_SUSPENDED,
             "hub_feedback_question" to InboxKind.HUB_FEEDBACK_QUESTION,
+            "hub_review_outcome" to InboxKind.HUB_REVIEW_OUTCOME,
+            "hub_reviews_published" to InboxKind.HUB_REVIEWS_PUBLISHED,
+            "hub_enquiry_received" to InboxKind.HUB_ENQUIRY_RECEIVED,
+            "hub_enquiry_answered" to InboxKind.HUB_ENQUIRY_ANSWERED,
         )
+
+    /**
+     * A review outcome's `preview` is one word, worded on screen; never a
+     * rejection code, which only the author's own review carries.
+     */
+    private val OUTCOMES: Map<String, ReviewOutcome> =
+        mapOf(
+            "published" to ReviewOutcome.PUBLISHED,
+            "rejected" to ReviewOutcome.REJECTED,
+            "removed" to ReviewOutcome.REMOVED,
+        )
+
+    /**
+     * A join request's answer: its `preview` is the outcome code, worded on
+     * screen. A request received carries no preview at all, since nothing a
+     * guardian typed is ever in an inbox [H5].
+     */
+    private val ANSWERS: Map<String, EnquiryAnswer> =
+        mapOf(
+            "added" to EnquiryAnswer.ADDED,
+            "not_now" to EnquiryAnswer.NOT_NOW,
+            "call_us" to EnquiryAnswer.CALL_US,
+        )
+
+    /** Kinds whose `preview` is a value to word, not a line to show as sent. */
+    private val WORDED_PREVIEW: Set<InboxKind> =
+        setOf(
+            InboxKind.HUB_FEEDBACK_QUESTION,
+            InboxKind.HUB_REVIEW_OUTCOME,
+            InboxKind.HUB_REVIEWS_PUBLISHED,
+            InboxKind.HUB_ENQUIRY_RECEIVED,
+            InboxKind.HUB_ENQUIRY_ANSWERED,
+        )
+
+    /** A count as the server writes it: Latin digits only. */
+    private val LATIN_COUNT = Regex("[0-9]+")
 
     /** The days the hub's demand question is asked on, as its `preview` names them. */
     private val FEEDBACK_DAYS: Set<Int> = setOf(60, 90)
@@ -84,8 +124,10 @@ object InboxMapper {
      */
     private fun toMessage(dto: NotificationDto): InboxMessage? =
         KINDS[dto.kind]?.let { kind ->
-            // The demand question's `preview` is its day, not a line to show.
+            // The demand question's `preview` is its day, not a line to show;
+            // a review message's is a word or a count, worded on screen.
             val feedback = kind == InboxKind.HUB_FEEDBACK_QUESTION
+            val preview = dto.preview
             InboxMessage(
                 id = dto.notificationId,
                 batchName = dto.batchName,
@@ -97,9 +139,13 @@ object InboxMapper {
                 enrollmentId = dto.enrollmentId,
                 sourceId = dto.sourceId,
                 childName = dto.childName,
-                preview = if (feedback) null else dto.preview,
+                preview = if (kind in WORDED_PREVIEW) null else preview,
                 classChange = classChangeOf(dto.classDate, dto.classTime, dto.movedFromDate, dto.movedFromTime),
-                feedbackDay = if (feedback) dto.preview?.toIntOrNull()?.takeIf { it in FEEDBACK_DAYS } else null,
+                feedbackDay = if (feedback) preview?.toIntOrNull()?.takeIf { it in FEEDBACK_DAYS } else null,
+                reviewOutcome = if (kind == InboxKind.HUB_REVIEW_OUTCOME) OUTCOMES[preview] else null,
+                reviewsPublished =
+                    preview?.takeIf { kind == InboxKind.HUB_REVIEWS_PUBLISHED && LATIN_COUNT.matches(it) },
+                enquiryAnswer = if (kind == InboxKind.HUB_ENQUIRY_ANSWERED) ANSWERS[preview] else null,
             )
         }
 
@@ -164,10 +210,31 @@ object InboxMapper {
             message.kind == InboxKind.FEE_REMINDER && seat != null -> InboxTarget.Fees(seat, guardian)
             message.kind == InboxKind.CLAIM_TO_VERIFY && source != null -> InboxTarget.Payment(source)
             message.kind == InboxKind.CLAIM_TO_VERIFY -> InboxTarget.Verify
-            message.kind == InboxKind.HUB_LISTING_SUSPENDED -> InboxTarget.HubListing
-            message.kind == InboxKind.HUB_FEEDBACK_QUESTION && source != null && message.feedbackDay != null ->
-                InboxTarget.HubFeedback(source, message.feedbackDay)
-            else -> InboxTarget.Detail(message.id)
+            else -> hubTargetOf(message) ?: InboxTarget.Detail(message.id)
+        }
+    }
+
+    /**
+     * Where a hub message leads, kept apart so [targetOf] stays within the
+     * complexity limit.
+     *
+     * @param message The item
+     * @return The target, or null for a message that is not a hub one or lacks what its screen needs
+     */
+    private fun hubTargetOf(message: InboxMessage): InboxTarget? {
+        val source = message.sourceId
+        val day = message.feedbackDay
+        return when (message.kind) {
+            InboxKind.HUB_LISTING_SUSPENDED -> InboxTarget.HubListing
+            InboxKind.HUB_FEEDBACK_QUESTION ->
+                if (source != null && day != null) InboxTarget.HubFeedback(source, day) else null
+            // The author's own review of the batch; the owner's Reviews screen [H4].
+            InboxKind.HUB_REVIEW_OUTCOME -> source?.let { InboxTarget.HubReviewEditor(it, message.batchName) }
+            InboxKind.HUB_REVIEWS_PUBLISHED -> InboxTarget.HubOwnerReviews
+            // The request in the owner's inbox; the guardian's own list [H5].
+            InboxKind.HUB_ENQUIRY_RECEIVED -> source?.let(InboxTarget::HubOwnerEnquiry)
+            InboxKind.HUB_ENQUIRY_ANSWERED -> InboxTarget.HubMyEnquiries
+            else -> null
         }
     }
 

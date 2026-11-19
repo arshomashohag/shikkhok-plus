@@ -120,6 +120,7 @@ _RETENTION_TEXT: Final[dict[RetentionClass, str]] = {
     RetentionClass.MONTHS_12: "12 months",
     RetentionClass.UNTIL_EXPIRY_PLUS_30_DAYS: "30 days after it expires",
     RetentionClass.UNTIL_EXPIRY: "30 days, when the hold expires",
+    RetentionClass.DAYS_90: "90 days",
     RetentionClass.LIFE_OF_ACCOUNT: "no time limit",
 }
 
@@ -158,9 +159,28 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
         "student"
     ),
     "hub_report": "A complaint you filed about something on the public hub",
+    "listing_media": (
+        "Photos a solo teacher uploaded for their public hub pages, and their "
+        "descriptions"
+    ),
+    "media_object_task": (
+        "Instructions to delete the image files of a photo that was taken "
+        "down or deleted; they name nobody"
+    ),
+    "review": (
+        "A review you wrote of a class on the public hub, with its star rating"
+    ),
+    "review_reply": (
+        "A teacher's reply to a review on the public hub, removed with the review"
+    ),
+    "listing_enquiry": (
+        "A request to join a class that you sent to a teacher or centre: the "
+        "student's name and class, any message, and whether you chose to share "
+        "your phone number or email address"
+    ),
     "hub_moderation_event": (
-        "A record that moderation acted on a hub listing or report; it holds "
-        "no free text and names nobody"
+        "A record that moderation acted on a hub listing, photo, review, reply "
+        "or report; it holds no free text and names nobody"
     ),
     "cdn_invalidation": (
         "Addresses of public hub pages we asked our web cache to forget after "
@@ -341,10 +361,12 @@ def centre_listing_disclosure() -> str:
     return (
         "**A coaching centre's public listing stays with the centre.** If "
         "you are a manager of a coaching centre and delete your account, "
-        "what the centre published on the public hub -- its own page and "
-        "its class pages -- and its answers to whether the hub brought it "
-        "students are kept, because they belong to the centre and "
-        "not to you, and the centre's other managers may still run it. "
+        "what the centre published on the public hub -- its own page, "
+        "its class pages and their photos, and its replies to reviews -- "
+        "and its answers to whether "
+        "the hub brought it students are kept, because they belong to the "
+        "centre and not to you, and the centre's other managers may still "
+        "run it. "
         "Your own account is removed as described above. A solo teacher's "
         "public listing is not kept: it is deleted with their account."
     )

@@ -243,6 +243,44 @@ h3 {
   margin: 0;
 }
 
+/*
+ * A page's photos: one column on a phone, up to three across the page,
+ * matching the sizes attribute in templates/_gallery.html. Each <img>
+ * carries its own width and height, so height: auto keeps its proportions
+ * and its box is reserved before it loads.
+ */
+.gallery {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+}
+
+.photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+
+.photo p {
+  margin: 4px 0 0;
+  font-size: 0.875rem;
+}
+
+.pending {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  background: var(--warn-container);
+  color: var(--on-warn-container);
+  font-weight: 600;
+}
+
 .pager {
   display: flex;
   justify-content: space-between;
@@ -260,4 +298,72 @@ h3 {
   .facts {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/*
+ * Reviews and ratings [H4]. The distribution is five <meter> elements,
+ * sized here, never by an inline style the CSP would refuse.
+ */
+.rating {
+  margin: 4px 0;
+  font-weight: 600;
+}
+
+.reviews .distribution {
+  display: grid;
+  grid-template-columns: minmax(0, 6rem) minmax(0, 1fr);
+  gap: 4px 12px;
+  align-items: center;
+  margin: 8px 0 16px;
+}
+
+.reviews .distribution dt {
+  color: var(--on-surface-variant);
+}
+
+.reviews .distribution dd {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reviews meter {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 16rem;
+  height: 12px;
+}
+
+.review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.review {
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--r-card);
+  padding: 16px;
+}
+
+.review p {
+  margin: 4px 0;
+}
+
+.stars {
+  font-weight: 600;
+}
+
+.reply {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--primary-container);
+}
+
+.reply h3 {
+  font-size: 1rem;
 }

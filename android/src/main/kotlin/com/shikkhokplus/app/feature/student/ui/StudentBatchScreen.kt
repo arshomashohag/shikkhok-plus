@@ -34,6 +34,7 @@ import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.designsystem.asHeading
+import com.shikkhokplus.app.core.designsystem.Quiet
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.monthName
 import com.shikkhokplus.app.core.format.shortDate
@@ -173,7 +174,7 @@ private fun BatchHeader(
     offline: Boolean = false,
 ) {
     if (view.teacher.subjects.isNotEmpty()) {
-        Quiet(view.teacher.subjects.joinToString(" · ") { Numerals.freeText(it) })
+        Quiet(view.teacher.subjects.joinToString(" · ") { Numerals.freeText(it) }, small = true)
     }
     val next = view.next
     if (next == null) {
@@ -197,7 +198,7 @@ private fun BatchHeader(
                 stringResource(R.string.family_fee_unavailable),
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
             )
-            Quiet(stringResource(R.string.family_fee_unavailable_body))
+            Quiet(stringResource(R.string.family_fee_unavailable_body), small = true)
         }
         return
     }
@@ -331,6 +332,7 @@ private fun FeeCard(fee: FeeLine, onOpen: () -> Unit, onPay: () -> Unit) {
                 Quiet(
                     fee.paidOn?.let { stringResource(R.string.student_paid_on, shortDate(it)) }
                         ?: stringResource(R.string.student_due_by, shortDate(fee.dueDate)),
+                    small = true,
                 )
             }
             FeeChip(fee)
@@ -354,16 +356,6 @@ internal fun Section(text: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 6.dp).asHeading(),
     )
-}
-
-/**
- * A quiet secondary line.
- *
- * @param text The line
- */
-@Composable
-internal fun Quiet(text: String) {
-    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 /**

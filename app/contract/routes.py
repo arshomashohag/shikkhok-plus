@@ -29,10 +29,12 @@ __all__ = [
     "PLATFORM_ADMIN_ROUTES",
     "PUBLIC_CACHEABLE_ROUTES",
     "PUBLIC_ROUTES",
+    "REVIEWER_ROUTES",
     "RouteViolation",
     "authenticated_cacheable_routes",
     "class_teacher_routes",
     "platform_admin_routes",
+    "reviewer_routes",
     "unlensed_routes",
 ]
 
@@ -322,15 +324,50 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # owner from the request, and any signed-in reader -- student,
         # guardian or someone holding no lens at all -- may report what
         # they see. A lens would scope nothing here. What bounds it is that
-        # only a PUBLISHED listing is reportable, every other target
-        # answers one identical refusal, a report changes no listing, and
-        # an account may file ten a day.
+        # only a PUBLISHED listing, a photo on a public page, or a review or
+        # reply the public view shows while reviews are on is reportable,
+        # every other target answers one identical refusal, a
+        # report changes no listing -- a child-safety or personal-information
+        # report holds the one photo it names until an administrator
+        # decides [H3], and so it does the one review or reply it names
+        # [H4], unless filed by the batch's own owner or managers, who may
+        # report but never hide [F10] -- and an account may file ten a day.
         ("POST", "/v1/hub/reports"),
+        # The batches the caller may review, is waiting to, or reviewed
+        # [H4], exempt on exactly GET /v1/invitations's reasoning: it
+        # REPORTS which reviewer lenses exist, so requiring one would mean
+        # a guardian had to already know which batch they could review in
+        # order to ask. Every row is resolved from the authenticated
+        # account id by the one eligibility statement, which takes no batch
+        # from the request, and the three per-batch my-review routes
+        # beneath it each resolve a ReviewerLens -- so the exemption covers
+        # the listing alone and nothing it links to.
+        ("GET", "/v1/hub/reviewable"),
+        # A guardian's join request to a public hub listing [H5], exempt on
+        # POST /v1/hub/reports's reasoning: both routes act as the
+        # authenticated account alone, and a guardian asking to join holds
+        # no lens on that owner yet -- which is the point of asking. A lens
+        # would scope nothing here. What bounds them is that the one SQL
+        # statement deciding the target (app.hub.enquiries.target.resolve)
+        # reaches only a PUBLISHED owner that chose to accept requests,
+        # never one the caller runs, and answers every other target -- a
+        # slug that never existed included -- with one identical refusal,
+        # with nothing read before it; and an account may send five a day.
+        ("GET", "/v1/hub/owners/{owner_slug}/enquiry-target"),
+        ("POST", "/v1/hub/owners/{owner_slug}/enquiries"),
+        # The guardian's own join requests [H5], on the help centre's
+        # reasoning: the list and the withdrawal are scoped by account id
+        # in SQL, so another account's id is indistinguishable from a
+        # missing one, and a lens would lock out the guardian whose seat
+        # has not been created yet, which is every guardian who asked.
+        ("GET", "/v1/me/hub/enquiries"),
+        ("DELETE", "/v1/me/hub/enquiries/{enquiry_id}"),
     }
 )
 
 #: Every route a :class:`~app.authz.lenses.PlatformAdminLens` reaches,
-#: and exactly those [TC-14, D-6]. Asserted in both directions by
+#: and exactly those [TC-14, D-6] -- fourteen, a count
+#: ``tests/contract/test_admin_contract.py`` pins. Asserted in both directions by
 #: ``tests/contract/test_admin_routes.py``: a route taking the lens that
 #: is not listed fails, and so does a ``/v1/admin`` route that does not
 #: take it. The administrator boundary is the most consequential privacy
@@ -350,6 +387,15 @@ PLATFORM_ADMIN_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/v1/admin/hub/queue"),
         ("POST", "/v1/admin/hub/reports/{report_id}/decision"),
         ("PUT", "/v1/admin/hub/owners/{owner_id}/suspension"),
+        # Photo moderation [H3]: one photo with five-minute previews of its
+        # variants and its page's public names, and the decision on it.
+        ("GET", "/v1/admin/hub/media/{media_id}"),
+        ("POST", "/v1/admin/hub/media/{media_id}/decision"),
+        # Review moderation [H4]: one review or reply, its batch's public
+        # names and its author only by role and opaque reference, and the
+        # decision on it. Both answer HUB_REVIEWS_OFF while reviews are off.
+        ("GET", "/v1/admin/hub/reviews/{review_id}"),
+        ("POST", "/v1/admin/hub/reviews/{review_id}/decision"),
     }
 )
 
@@ -368,6 +414,21 @@ CLASS_TEACHER_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/v1/me/exams/{exam_id}/results"),
         ("POST", "/v1/me/exams/{exam_id}/marks"),
         ("POST", "/v1/me/exams/{exam_id}/publish"),
+    }
+)
+
+
+#: Every route a :class:`~app.reviews.lens.ReviewerLens` reaches [H4]:
+#: exactly the three methods on one batch's review by the caller -- a
+#: count ``tests/contract/test_reviewer_contract.py`` pins, and asserts
+#: equal to what the application registers in both directions. A guardian
+#: reaches nothing else through this lens, so a route opened to it is a
+#: diff against this set rather than a handler that quietly appeared.
+REVIEWER_ROUTES: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("GET", "/v1/hub/batches/{batch_id}/my-review"),
+        ("PUT", "/v1/hub/batches/{batch_id}/my-review"),
+        ("DELETE", "/v1/hub/batches/{batch_id}/my-review"),
     }
 )
 
@@ -560,6 +621,32 @@ def platform_admin_routes(app: FastAPI) -> set[tuple[str, str]]:
         """
         lens = resolve_lens_type(dependant.call) if dependant.call else None
         if lens is not None and issubclass(lens, PlatformAdminLens):
+            return True
+        return any(yields(sub) for sub in dependant.dependencies)
+
+    found: set[tuple[str, str]] = set()
+    for route in _api_routes(app):
+        if yields(route.dependant):
+            found.update((method, route.path) for method in route.methods or set())
+    return found
+
+
+def reviewer_routes(app: FastAPI) -> set[tuple[str, str]]:
+    """List every route whose dependencies yield a reviewer lens.
+
+    :param app: The application to enumerate
+    :return: ``(method, path)`` per such route
+    """
+    from app.reviews.lens import ReviewerLens
+
+    def yields(dependant: Dependant) -> bool:
+        """Report whether this dependency tree yields the reviewer lens.
+
+        :param dependant: The dependency node
+        :return: True if any node returns a ``ReviewerLens``
+        """
+        lens = resolve_lens_type(dependant.call) if dependant.call else None
+        if lens is not None and issubclass(lens, ReviewerLens):
             return True
         return any(yields(sub) for sub in dependant.dependencies)
 

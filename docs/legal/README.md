@@ -65,6 +65,15 @@ These claims are outside the generated region and were checked by hand:
 | Codes and tokens stored as hashes | `app/auth/hashing.py` |
 | Internet is the only granted permission | the merged release manifest |
 | No device or advertising identifiers | the release DEX scan |
+| A review needs an accepted guardian link, 30 days in the class, 4 attended sessions and, after leaving, no more than 180 days | `app/reviews/eligibility.py` |
+| Nobody who runs or teaches a class reviews it | `app/reviews/eligibility.py` [T3-c, T3-f] |
+| Review words up to 1,000 characters; a phone number or web address is refused | `MAX_BODY` in `app/reviews/authoring.py`, `app/reviews/content.py` |
+| Nothing public below three published reviews | `REVIEW_THRESHOLD` in `migrations/versions/0045_hub_reviews.py` |
+| Month and year only; a tenure label, never a name | `month_label` in `app/hub/public/ratings.py`, the labels in `app/hub/public/messages.py` |
+| Published weekly; an edit within 30 days goes back to be checked | `app/reviews/publication.py`, `EDIT_WINDOW` in `app/reviews/authoring.py` |
+| A teacher reads reviews only as the public does | `app/reviews/owner.py`, `tests/gates/test_teacher_reviews_read_views.py` |
+| A report by anyone who runs or teaches the class holds nothing; a child-safety or personal-information report from anyone else takes a review down | `runs_batch_sql` in `app/reviews/eligibility.py`, shared by `app/moderation/reviews.py` and eligibility [F10, I-2] |
+| Deleting a review removes its reply and every report on either | `app/reviews/forget.py` |
 
 ## NOT YET TRUE: account deletion
 
@@ -156,9 +165,11 @@ unpublished at any time. What a published listing shows:
 
 **No student or guardian data is shown on any public page**: no name,
 photo, marks, attendance, enrollment or anything a student or guardian
-wrote (`project.md`, Forbidden). The pages are rendered only from the
-four `hub_public_*` views and the fixed list of area names, read through
-a role that can see nothing else. The people whose data becomes public are teachers and centre
+wrote (`project.md`, Forbidden) — with one exception, added by H4: a
+review a guardian chose to submit for publication, shown without a name
+(item 5). The pages are rendered only from the `hub_public_*` views and
+the fixed list of area names, read through a role that can see nothing
+else. The people whose data becomes public are teachers and centre
 staff, all adults, by their own choice.
 
 For the form: the data types concerned (name, phone number, address,
@@ -186,6 +197,153 @@ Deleted with a solo teacher's account; a centre's answers stay with the
 centre and lose the answering manager. Form category: user-generated
 content or app interactions (whichever the form's wording fits), from
 teachers only; purpose: analytics.
+
+**4. New: listing photos [H3].** A teacher or centre can add photos to
+their public listing. **Review the Play Data Safety form against this
+list before the release that ships them.**
+
+- **Who uploads.** Teachers and centre managers only (the owner of a
+  listing). A student or guardian cannot upload a photo, and no student
+  photo is ever published (`project.md`, Forbidden).
+- **When it is public.** Only after a platform administrator has approved
+  it. Until then a photo sits in a private bucket, visible to the uploader
+  and the moderators alone. A child-safety or personal-information report
+  on an approved photo takes it down at once, before any moderator acts.
+- **What is stored.** The image is decoded and re-encoded as WebP at three
+  sizes by a sandboxed function, so **EXIF and location data are removed**
+  and no original byte is published; the original is deleted within a day.
+  Alongside it: alt text in English and Bangla, written by the owner.
+- **How long.** Until the owner withdraws or deletes it, or deletes their
+  account. A solo teacher's account deletion removes the photos and queues
+  the deletion of every image file; a centre's photos belong to the centre
+  and stay (`PRIVACY.md`, generated from `listing_media`).
+- **Form category:** photos, user-generated content, collected and shown
+  publicly at the user's request; purpose: app functionality. No new
+  Android permission: the app uses the system photo picker, which grants
+  access only to the photo the person picks. No new SDK, no new
+  identifier.
+
+**5. New: guardian reviews [H4].** A guardian can rate and review a
+class their child attends. **Review the Play Data Safety form against
+this list before the release that turns reviews on** (the switch, not the
+release that ships the code: reviews ship off; `infra/README.md`,
+"Switching reviews on").
+
+- **Who writes.** Verified guardians only: an accepted guardian link to a
+  student in that class, at least 30 days in it and 4 attended sessions,
+  and, after the child leaves, for no more than 180 days. Students cannot
+  write reviews in V1, and nobody who runs or teaches the class can.
+- **What is stored.** For a review (`review`): a star rating (1–5),
+  optional words of up to 1,000 characters (a phone number or web address
+  is refused), the class, the author's account and role, the evidence
+  enrollment, a tenure bucket frozen at first submit, the moderation
+  state and any rejection code, the administrator who last decided it,
+  and its submission, edit, approval and decision times (never shown),
+  and the month it was published (shown). For a teacher's reply
+  (`review_reply`), one per review: up to 1,000 characters, the account
+  that wrote it, the moderation state and any rejection code, the
+  administrator who last decided it, its creation, edit and decision
+  times (never shown), and the month it was published (shown).
+- **When it is public.** Only after a platform administrator has approved
+  it, at the next weekly publication, and only once the class has at
+  least **three** published reviews; below that nothing shows, not even
+  a count. It is shown with a tenure label ("Verified guardian · enrolled
+  6–12 months") and the month and year, **never a name**, an initial,
+  the child's school class or a day. The administrator sees it under an
+  opaque author reference; the teacher sees only what the public sees.
+- **How long.** Until the author deletes it, **which they can do at any
+  time**; deletion is total (the review, its reply and every report on
+  either). **It is deleted with the author's account**, and the reviews
+  of a solo teacher's classes are deleted with that teacher's account and
+  listing (`PRIVACY.md`, generated from `review` and `review_reply`).
+- **Form category:** user-generated content (and the rating, if the form
+  asks separately), collected from guardians and **shown publicly after
+  moderation at the user's request**; purpose: app functionality. Whether
+  Play counts public display as "shared" is, as in item 1, a judgement
+  for whoever submits the form. No new SDK, no new Android permission, no
+  new identifier.
+
+**6. New: join requests [H5].** A signed-in parent or guardian can ask a
+teacher or centre with a public listing to take their child into a class
+("Ask to join"). **Review the Play Data Safety form against this list
+before the release that turns join requests on** (the switch, not the
+release that ships the code: join requests ship off; `infra/README.md`,
+"Switching join requests on").
+
+- **Who sends.** A signed-in account that declares, on each request, that
+  it is the child's parent or guardian aged 18 or older; a request
+  without that declaration is refused. Nobody who runs the listing can
+  send one to it. A teacher or centre chooses whether to accept requests
+  at all.
+- **What is collected.** For a request (`listing_enquiry`): the student's
+  name (up to 80 characters) as the guardian typed it, their school
+  class, chosen from a fixed list, an optional message of up to 300
+  characters (a phone number or web address in the name or the message
+  is refused), the listed class it is about if any, the sending account,
+  whether the guardian chose to share their contact, its status, the
+  owner's answer (one of three fixed outcomes) and the times it was sent
+  and answered. **The phone number or email
+  address is not collected anew**: it is the one already on the account,
+  read live and only on a request where the guardian chose to share it,
+  never copied into the request.
+- **Shared with whom.** Only with the one teacher or centre the guardian
+  chose, at the guardian's direction: a solo teacher, or each of a
+  centre's managers and nobody else who works there. The contact goes
+  with it only if the guardian chose to share it on that request: the
+  phone number, or the email address when the account has no phone
+  number. What comes back to the guardian is a fixed answer, never words
+  the teacher writes.
+- **Never.** Shown on any public page, or to platform administrators:
+  no administrator route reads join requests, and the role the public
+  pages are rendered through cannot read the table.
+- **Deleted.** When the guardian withdraws it, **which they can do at any
+  time**, answered or not and with the switch off too; withdrawal is
+  total (the request and every inbox item about it, the teacher's and the
+  guardian's). **With the guardian's account**, and with a solo
+  teacher's. And **90 days after it was sent** in any case, by the
+  retention purge, which the switch never stops (`PRIVACY.md`, generated
+  from `listing_enquiry`, and its "Join requests" section).
+- **Form category:** name (the student's, as typed) and user-generated
+  content (the message), collected from guardians and **shared with the
+  one teacher or centre they choose, at their request**; phone number or
+  email address, already declared as collected, now also **shared with
+  that teacher or centre only when the user chooses to, per request**.
+  Purpose: app functionality. Whether Play counts a transfer the user
+  initiates, to a recipient the user chooses, as "shared" is a judgement
+  for whoever submits the form, against Play's current definitions; it
+  is not decided here. No new SDK, no new Android permission, no new
+  identifier.
+
+**Families target-audience declaration.** The app's audience includes
+children, so the declaration must say the app carries **user-generated
+content** (teachers' listing text and photos, guardians' reviews and
+teachers' replies to them) that is **pre-moderated before it is public**,
+that no student uploads a photo or writes a review (photos come from
+teachers and centres, reviews from guardians), and that **every public
+listing, photo, review and reply can be reported from inside the app** by
+a signed-in user, with a child-safety or personal-information report
+taking a photo, review or reply down at once (for a review or reply,
+unless someone who runs or teaches the class filed it). Once join
+requests are switched on, the declaration also says that **a join
+request comes only from an account declaring, on that request, that it
+is a parent or guardian aged 18 or older**, that it goes only to the one
+teacher or centre chosen and is never public (so it is not moderated:
+nobody but that recipient reads it), and that **no message reaches a
+child account from a teacher through this feature**: the only reply is a
+fixed answer, delivered to the guardian who asked. Whoever submits the
+declaration confirms this against Play's current wording; it is recorded
+here because nothing in the repository checks it.
+
+### The D8 legal review of the review policy
+
+Hub spec D8: a local legal review of the review policy happens **before
+free-text reviews go live**. Turning the switch on is going live, so the
+review is recorded here and the runbook checks for it. **Not yet
+recorded.**
+
+| Date | Reviewer | What was reviewed | Outcome, and any change it requires |
+|---|---|---|---|
+| — | — | — | — |
 
 **Not changed by the hub:** no new SDK, no new Android permission, no
 device or advertising identifier, no cookie on the public pages, and no

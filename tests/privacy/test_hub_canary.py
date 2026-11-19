@@ -4,6 +4,15 @@ The real probe walks ``PUBLIC_CACHEABLE_ROUTES`` over a seeded world of a
 solo tutor, a draft and a centre. The fixture test below proves the same
 collection and assertion functions fire on a planted leak, so a green probe
 is not a green probe over nothing.
+
+**Every probe here runs with reviews switched on** [F12]: the seeded world
+holds published reviews on the solo batch, so the walk renders a review
+section, and below-threshold and unpublished reviews beside them, so the
+walk proves the threshold and the status keep their canaries off.
+
+The solo owner also accepts join requests and holds one [H5 Task 6]; the
+join-request probes switch those on too, so the walk renders the "Ask to
+join" link beside a request it must never show.
 """
 
 from __future__ import annotations
@@ -17,7 +26,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.contract.routes import PUBLIC_CACHEABLE_ROUTES
+from app.hub.public.messages import t
 from tests.privacy.canary import (
+    LOCALES,
     CanaryWorld,
     _resolve,
     canary_leaks,
@@ -25,6 +36,8 @@ from tests.privacy.canary import (
     seed_canaries,
     walk_cacheable_routes,
 )
+
+pytestmark = pytest.mark.usefixtures("reviews_on")
 
 
 def test_no_canary_on_any_cacheable_public_page(
@@ -47,6 +60,173 @@ def test_no_canary_on_any_cacheable_public_page(
     assert f"/hub/en/t/{world.owner_slug}/{world.batch_slug}" in bodies
     assert f"/hub/bn/t/{world.centre_slug}/{world.centre_batch_slug}" in bodies
     assert canary_leaks(bodies, world) == []
+
+
+def test_canary_alt_of_unapproved_photos_never_public(
+    owner_session: Session, api_client: TestClient
+) -> None:
+    """A pending, held or rejected photo is on no public page or the sitemap.
+
+    Each carries canary alt texts and its id is a canary; the approved
+    photo beside them is on its owner page, in that page's language, so a
+    walk that rendered no photos at all could not pass.
+
+    :param owner_session: A session able to arrange the seeded world
+    :param api_client: A client over the real application
+    :return: None
+    """
+    world = seed_canaries(owner_session)
+
+    bodies = walk_cacheable_routes(api_client, world, PUBLIC_CACHEABLE_ROUTES)
+
+    # Three photos, each two alt texts and its id in two spellings.
+    assert len(world.unapproved_photo_strings) == 12
+    assert "/hub/sitemap.xml" in bodies
+    leaked = [
+        (path, canary)
+        for path, canary in canary_leaks(bodies, world)
+        if canary in world.unapproved_photo_strings
+    ]
+    assert leaked == []
+    for locale, alt in (("en", world.approved_alt_en), ("bn", world.approved_alt_bn)):
+        owner_page = bodies[f"/hub/{locale}/t/{world.owner_slug}"]
+        assert f'alt="{alt}"' in owner_page
+
+
+def test_canary_review_text_of_unpublished_or_below_threshold_never_public(
+    owner_session: Session, api_client: TestClient
+) -> None:
+    """No unpublished or below-threshold review, nor any author, is public.
+
+    The solo batch's pending, approved, held and rejected reviews sit beside
+    three published ones, so only their status keeps them off; the centre
+    batch's two reviews are published, so only the threshold keeps their
+    bodies -- and their count -- off its page. The solo batch's average is
+    4.3 over 3, which any of the four rated-1 reviews would have moved.
+
+    :param owner_session: A session able to arrange the seeded world
+    :param api_client: A client over the real application
+    :return: None
+    """
+    world = seed_canaries(owner_session)
+
+    bodies = walk_cacheable_routes(api_client, world, PUBLIC_CACHEABLE_ROUTES)
+
+    # Each author: account phone, guardian phone, seat name, seat id in two
+    # spellings (5). Four unpublished reviews (body, id twice, author: 8
+    # each), the pending reply, two below-threshold reviews (8 each) and the
+    # three published reviews' authors (5 each).
+    assert len(world.review_strings) == 4 * 8 + 1 + 2 * 8 + 3 * 5
+    assert len(world.below_threshold_strings) == 2 * 8
+    assert len(bodies) == 11
+    leaked = [
+        (path, canary)
+        for path, canary in canary_leaks(bodies, world)
+        if canary in world.review_strings
+    ]
+    assert leaked == []
+    for locale in LOCALES:
+        centre = bodies[
+            f"/hub/{locale}/t/{world.centre_slug}/{world.centre_batch_slug}"
+        ]
+        assert t("reviews_below_threshold", locale) in centre
+        assert t("reviews_count", locale, count=2) not in centre
+        assert t("rating_out_of", locale, average="1.0") not in centre
+        solo = bodies[f"/hub/{locale}/t/{world.owner_slug}/{world.batch_slug}"]
+        summary = t("rating_out_of", locale, average="4.3")
+        assert f"{summary} · {t('reviews_count', locale, count=3)}" in solo
+
+
+def test_canary_published_review_does_appear(
+    owner_session: Session, api_client: TestClient
+) -> None:
+    """The published reviews and reply are on the solo batch page.
+
+    The positive control for the probe above: the same walk renders the
+    review section, so a page that showed no reviews at all could not pass
+    for one that hides the right ones.
+
+    :param owner_session: A session able to arrange the seeded world
+    :param api_client: A client over the real application
+    :return: None
+    """
+    world = seed_canaries(owner_session)
+
+    bodies = walk_cacheable_routes(api_client, world, PUBLIC_CACHEABLE_ROUTES)
+
+    assert len(world.published_review_bodies) == 3
+    for locale in LOCALES:
+        page = bodies[f"/hub/{locale}/t/{world.owner_slug}/{world.batch_slug}"]
+        for body in world.published_review_bodies:
+            assert body in page
+        assert world.published_reply_body in page
+        for review_id in world.published_review_ids:
+            assert f"kind=review&amp;id={review_id}" in page
+    assert canary_leaks(bodies, world) == []
+
+
+@pytest.mark.usefixtures("enquiries_on")
+def test_canary_enquiry_never_public(
+    owner_session: Session, api_client: TestClient
+) -> None:
+    """Nothing of a join request, nor of its sender, is on any public page.
+
+    The solo owner accepts requests and holds one that shares its sender's
+    contact, with join requests and reviews both switched on, so the walk
+    renders the link beside the request it must never show.
+
+    :param owner_session: A session able to arrange the seeded world
+    :param api_client: A client over the real application
+    :return: None
+    """
+    world = seed_canaries(owner_session)
+
+    bodies = walk_cacheable_routes(api_client, world, PUBLIC_CACHEABLE_ROUTES)
+
+    # Student name, message, request id twice, sender phone, email, id twice.
+    assert len(world.enquiry_strings) == 8
+    assert len(bodies) == 11
+    leaked = [
+        (path, canary)
+        for path, canary in canary_leaks(bodies, world)
+        if canary in world.enquiry_strings
+    ]
+    assert leaked == []
+    assert canary_leaks(bodies, world) == []
+
+
+@pytest.mark.usefixtures("enquiries_on")
+def test_canary_link_does_appear(
+    owner_session: Session, api_client: TestClient
+) -> None:
+    """The solo owner's pages link to the form; the centre's do not.
+
+    The positive control for the probe above: the walk that hid the request
+    rendered the link, so a page that rendered nothing of join requests
+    could not pass for one that hides the right things.
+
+    :param owner_session: A session able to arrange the seeded world
+    :param api_client: A client over the real application
+    :return: None
+    """
+    world = seed_canaries(owner_session)
+
+    bodies = walk_cacheable_routes(api_client, world, PUBLIC_CACHEABLE_ROUTES)
+
+    form = "/ui/hub-enquiry?owner="
+    for locale in LOCALES:
+        owner = bodies[f"/hub/{locale}/t/{world.owner_slug}"]
+        assert f'{form}{world.owner_slug}"' in owner
+        assert t("enquiry_link", locale) in owner
+        batch = bodies[f"/hub/{locale}/t/{world.owner_slug}/{world.batch_slug}"]
+        assert f'{form}{world.owner_slug}&amp;batch={world.batch_id}"' in batch
+        assert t("enquiry_link_batch", locale) in batch
+        for path in (
+            f"/hub/{locale}/t/{world.centre_slug}",
+            f"/hub/{locale}/t/{world.centre_slug}/{world.centre_batch_slug}",
+        ):
+            assert "hub-enquiry" not in bodies[path], path
+    assert "hub-enquiry" not in bodies["/hub/sitemap.xml"]
 
 
 def test_canary_probe_fires_on_planted_page(owner_session: Session) -> None:

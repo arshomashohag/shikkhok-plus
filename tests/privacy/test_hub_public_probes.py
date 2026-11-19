@@ -8,12 +8,18 @@ a page that renders nothing cannot pass for a page that hides everything.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.api.hub_media import media_store
 from app.contract.routes import PUBLIC_CACHEABLE_ROUTES
 from app.db.models import Owner
+from app.hub.public.messages import t
 from tests.conftest import bearer
+from tests.hub.media.fakes import FakeMediaStore
 from tests.privacy.canary import (
     LOCALES,
     CanaryWorld,
@@ -127,6 +133,27 @@ def test_batch_name_never_public(
         assert "Canary public title" in page
 
 
+@pytest.fixture
+def preview_store(api_client: TestClient) -> Iterator[FakeMediaStore]:
+    """Serve the preview's photo bucket from memory, for this test only.
+
+    The override is removed however the test ends, as the other media
+    suites' fixtures remove theirs, rather than left on the application
+    after the test body.
+
+    :param api_client: A client over the real application
+    :return: The fake bucket
+    """
+    store = FakeMediaStore()
+    overrides = api_client.app.dependency_overrides  # type: ignore[attr-defined]
+    overrides[media_store] = lambda: store
+    try:
+        yield store
+    finally:
+        overrides.pop(media_store, None)
+
+
+@pytest.mark.usefixtures("preview_store")
 def test_preview_route_carries_no_other_owner_canary(
     owner_session: Session, api_client: TestClient
 ) -> None:
@@ -155,4 +182,12 @@ def test_preview_route_carries_no_other_owner_canary(
         assert [s for s in world.other_owner_strings if s.lower() in body] == []
         # The owner's OWN student, guardian and private batch data too:
         # nothing a student or guardian writes reaches the teacher's page.
-        assert canary_leaks({f"preview/{locale}": response.text}, world) == []
+        # The owner's own pending photo is the one canary the preview
+        # shows, marked; the held and rejected photos it does not.
+        leaks = canary_leaks({f"preview/{locale}": response.text}, world)
+        assert [
+            canary for _, canary in leaks if canary not in world.pending_photo_strings
+        ] == []
+        assert {canary for _, canary in leaks} <= world.pending_photo_strings
+        assert leaks != []
+        assert t("photo_awaiting_review", locale) in response.text

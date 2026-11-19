@@ -45,8 +45,8 @@ export const setTicketStatus = (ticketId: string, status: 'open' | 'closed') =>
     { body: { status } },
   )
 
-/** The moderation queue, oldest first: open reports or suspended listings. */
-export const readHubQueue = (kind: 'report' | 'listing') =>
+/** The moderation queue, oldest first: open reports, suspended listings, photos, or reviews. */
+export const readHubQueue = (kind: Schemas['AdminHubQueueResponse']['kind']) =>
   request<Schemas['AdminHubQueueResponse']>('GET', '/v1/admin/hub/queue', { query: { kind } })
 
 export const decideHubReport = (reportId: string, decision: 'upheld' | 'dismissed') =>
@@ -60,5 +60,27 @@ export const setHubSuspension = (ownerId: string, body: Schemas['AdminHubSuspens
   request<Schemas['AdminHubSuspensionState']>(
     'PUT',
     `/v1/admin/hub/owners/${enc(ownerId)}/suspension`,
+    { body },
+  )
+
+/** One photo to review, with five-minute signed previews of its variants. */
+export const readHubMedia = (mediaId: string) =>
+  request<Schemas['AdminHubMediaDetail']>('GET', `/v1/admin/hub/media/${enc(mediaId)}`)
+
+export const decideHubMedia = (mediaId: string, body: Schemas['AdminHubMediaDecisionRequest']) =>
+  request<Schemas['AdminHubMediaDecided']>('POST', `/v1/admin/hub/media/${enc(mediaId)}/decision`, {
+    body,
+  })
+
+/** One review, or its reply, to moderate: the author only as a role and a reference. */
+export const readHubReview = (reviewId: string, target: 'review' | 'reply') =>
+  request<Schemas['AdminHubReviewDetail']>('GET', `/v1/admin/hub/reviews/${enc(reviewId)}`, {
+    query: { target },
+  })
+
+export const decideHubReview = (reviewId: string, body: Schemas['AdminHubReviewDecisionRequest']) =>
+  request<Schemas['AdminHubReviewDecided']>(
+    'POST',
+    `/v1/admin/hub/reviews/${enc(reviewId)}/decision`,
     { body },
   )

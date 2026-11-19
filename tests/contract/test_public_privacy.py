@@ -78,6 +78,7 @@ def test_public_view_models_are_registered() -> None:
         views.HubBatchPage,
         views.HubSearchPage,
         views.HubSitemap,
+        views.HubImage,
     } <= set(registered_views())
 
 

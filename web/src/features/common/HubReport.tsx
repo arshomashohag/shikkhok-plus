@@ -1,11 +1,13 @@
 /**
  * Report a public hub page, opened from the page's "Report this page"
- * link: `/ui/hub-report?kind=owner_listing|batch_listing&id=<uuid>`. The
- * id is what `POST /v1/hub/reports` takes: the owner's id for an owner
- * listing, the batch's for a batch listing.
+ * link: `/ui/hub-report?kind=owner_listing|batch_listing|media|review|reply&id=<uuid>`.
+ * The id is what `POST /v1/hub/reports` takes: the owner's id for an owner
+ * listing, the batch's for a batch listing, the photo's for a photo, and
+ * the review's for a review **and for its reply**, whose key is its
+ * review's [H4].
  *
  * **The target is the link's and only the link's.** A kind other than
- * the two listing kinds, or an id that is not a UUID, says the link is
+ * those five, or an id that is not a UUID, says the link is
  * not valid and sends nothing; the reader cannot retarget a report here.
  *
  * Any signed-in reader may report, whatever their lens; a signed-out one
@@ -23,7 +25,7 @@ import { EmptyState, TopBar } from '../../ui/components'
 import { WarningIcon } from '../../ui/icons'
 
 type Request = Schemas['HubReportRequest']
-type Kind = 'owner_listing' | 'batch_listing'
+type Kind = Request['target_kind']
 type Reason = Request['reason']
 
 /** The server's limit on the note (`HubReportRequest.note`). */
@@ -42,6 +44,9 @@ const REASONS: readonly Reason[] = [
 const KINDS: Record<Kind, string> = {
   owner_listing: 'hub_report_target_owner',
   batch_listing: 'hub_report_target_batch',
+  media: 'web_hub_report_target_media',
+  review: 'hub_report_target_review',
+  reply: 'hub_report_target_reply',
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -50,8 +55,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 function targetOf(params: URLSearchParams): { kind: Kind; id: string } | null {
   const kind = params.get('kind')
   const id = params.get('id')
-  if ((kind !== 'owner_listing' && kind !== 'batch_listing') || !id || !UUID.test(id)) return null
-  return { kind, id }
+  if (!kind || !Object.hasOwn(KINDS, kind) || !id || !UUID.test(id)) return null
+  return { kind: kind as Kind, id }
 }
 
 export function HubReport() {

@@ -23,11 +23,13 @@ schema once, rather than rediscovered per table.
 
 from __future__ import annotations
 
+import datetime as dt
 import enum
 from dataclasses import dataclass
 from typing import Final
 
 __all__ = [
+    "CLASS_AGE",
     "DISPOSITIONS",
     "RETENTION",
     "Disposition",
@@ -79,7 +81,32 @@ class RetentionClass(enum.Enum):
     #: Kept until the row's own expiry and no longer [U1: BR7.6]: the
     #: purge's window is zero, measured from the expiry column.
     UNTIL_EXPIRY = "until_expiry"
+    #: Ninety days from the row's own creation, answered or not [0047].
+    DAYS_90 = "90_days"
     LIFE_OF_ACCOUNT = "life_of_account"
+
+
+#: How long each finite retention class keeps a row past its age column,
+#: read by the purge (:mod:`app.governance.commands`). ``LIFE_OF_ACCOUNT``
+#: has no entry: it is never purged.
+#:
+#: ``UNTIL_EXPIRY_PLUS_30_DAYS`` is the odd one and is correct: the
+#: refresh-token row's age column is ``expires_at`` rather than
+#: ``issued_at``, because reuse detection needs the rotated-out row to
+#: still exist after the token it represents has expired. Measuring that
+#: window from issue would delete rows whose reuse-detection purpose had
+#: not yet lapsed.
+CLASS_AGE: Final[dict[RetentionClass, dt.timedelta]] = {
+    RetentionClass.DAYS_7: dt.timedelta(days=7),
+    RetentionClass.HOURS_48: dt.timedelta(hours=48),
+    RetentionClass.MONTHS_12: dt.timedelta(days=365),
+    RetentionClass.UNTIL_EXPIRY_PLUS_30_DAYS: dt.timedelta(days=30),
+    # [U1: BR7.6] A username hold is purged at its own expiry: the age
+    # column is `held_until`, and an expired hold already blocks nobody.
+    RetentionClass.UNTIL_EXPIRY: dt.timedelta(0),
+    # [0047] A join request, answered or not, from when it was sent.
+    RetentionClass.DAYS_90: dt.timedelta(days=90),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -713,13 +740,76 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "they stay when a manager's account is deleted."
         ),
     ),
+    "listing_media": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "Photos a solo teacher uploaded for their public hub page or "
+            "their class pages, with the descriptions they wrote for them. "
+            "They go when that teacher deletes their account, and so do the "
+            "image files stored for them. A coaching centre's photos belong "
+            "to the centre, so they stay when a manager's account is deleted."
+        ),
+    ),
+    "review": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A review a guardian wrote of a class on the public hub: a star "
+            "rating, optional text, and which of their child's places in the "
+            "class showed they could write it. It goes when that guardian "
+            "deletes their account, and also when a solo teacher deletes "
+            "theirs, because it is deleted with the teacher's listing of the "
+            "class. The public sees it only once moderated, by month, and "
+            "only once the class has three published reviews, never with a "
+            "name."
+        ),
+    ),
+    "review_reply": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A teacher's or coaching centre's one reply to a review. It goes "
+            "with the review it answers, whoever's deletion removes that. A "
+            "coaching centre's reply belongs to the centre, so it stays when "
+            "the manager who wrote it deletes their account, and no longer "
+            "says who wrote it."
+        ),
+    ),
+    "listing_enquiry": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.DAYS_90,
+        basis=(
+            "A request to join that a signed-in guardian sent to a teacher or "
+            "centre: the student's name and class as they typed them, an "
+            "optional message, and whether they chose to share their phone "
+            "number or email address, which is read from their account only "
+            "while the request exists and only if they chose. Seen only by "
+            "the people who run that listing; never public, never shown to "
+            "platform administrators. It goes when the guardian withdraws it "
+            "or deletes their account, when a solo teacher deletes theirs, "
+            "and 90 days after it was sent in any case."
+        ),
+    ),
+    "media_object_task": TableGovernance(
+        disposition=Disposition.NOT_PERSONAL,
+        retention=RetentionClass.DAYS_7,
+        basis=(
+            "Instructions to delete a photo's stored image files, naming the "
+            "files only by a random reference. About no person, and kept "
+            "seven days after the files are deleted, never less while the "
+            "deletion is still to be done."
+        ),
+    ),
     "hub_report": TableGovernance(
         disposition=Disposition.HARD_DELETE,
         retention=RetentionClass.LIFE_OF_ACCOUNT,
         basis=(
             "A complaint a reader filed about something on the public hub, "
             "with the reason they chose and an optional short note. It "
-            "goes when that reader deletes their account."
+            "goes when that reader deletes their account, and a complaint "
+            "about a review or a reply also goes when that review goes, "
+            "whoever's deletion removes it."
         ),
     ),
     "cdn_invalidation": TableGovernance(
@@ -738,8 +828,9 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         basis=(
             "A deletion request does nothing to these rows, because they "
             "are not about a person: a closed-vocabulary record that "
-            "moderation acted on a listing or a report, holding no free "
-            "text, kept twelve months."
+            "moderation acted on a listing, a photo, a review, a reply or a "
+            "report, holding no free text, kept twelve months. A review's "
+            "deletion leaves its rows as bare ids naming nothing that exists."
         ),
     ),
 }

@@ -16,7 +16,16 @@ second commit point, on the branch where no account exists):
    number that no longer answers. ``0010`` set ``owner.account_id`` to
    ``SET NULL``, so the account's removal unlinks rather than destroys.
 2. **Delete the rows this account owns** that the manifest marks
-   ``HARD_DELETE``.
+   ``HARD_DELETE``. Reviews go first and go whole: every review the
+   account wrote, and every review of a solo teacher's listed classes,
+   with its reply and every report on either, whoever filed it, so no
+   report is left naming nothing [T7-f]. Join requests go the same way:
+   every request the account sent and every request its solo owner
+   received, with both parties' inbox items [H5]. A solo teacher's photos are
+   read first, and every bucket prefix they may have and every ``/m/``
+   path they were served at is queued for deletion in this transaction:
+   the rows are the only record of which objects exist [H3 Review
+   Focus 5].
 3. **Delete the account row.** Everything else follows from the database
    constraints: ``SET NULL`` on the references ``0007`` fixed, so the
    enrollments, payment claims and queued submissions survive with their
@@ -66,7 +75,16 @@ from app.accounts.identifier import Channel, Identifier
 from app.accounts.usernames import place_hold
 from app.db.advisory import account_key, contact_key, lock_keys, username_key
 from app.governance.dispositions import DISPOSITIONS, Disposition
+from app.hub.enquiries import forget as enquiries
+from app.hub.media import objects
+from app.hub.media.storage import (
+    archive_prefix,
+    public_prefix,
+    quarantine_key,
+    staged_prefix,
+)
 from app.hub.public import invalidation
+from app.reviews import forget
 from app.students.service import block_relinking
 from app.teaching.unassign import unassign_member
 
@@ -284,10 +302,57 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
             "as its students' history; only the publication goes."
         ),
     ),
+    "listing_media": _Target(
+        scope=Scope.SOLO_OWNER,
+        column="owner_id",
+        note=(
+            "A solo teacher's hub photos. `owner` is retained, so no cascade "
+            "fires; deleted by owner, and a centre's photos survive a manager. "
+            "Their bucket objects and `/m/` paths are queued first."
+        ),
+    ),
+    "review": _Target(
+        scope=Scope.ACCOUNT_COLUMN,
+        column="author_account_id",
+        note=(
+            "A guardian's own review, and every review of a solo teacher's "
+            "batch listings, forgotten with their replies and every report on "
+            "either before the listings' `ON DELETE CASCADE` could fire."
+        ),
+    ),
+    "review_reply": _Target(
+        scope=Scope.VIA_CASCADE,
+        column=None,
+        note=(
+            "Cascades from `review`. A centre's reply survives a manager's "
+            "deletion, its writer cleared by its foreign key."
+        ),
+    ),
+    "listing_enquiry": _Target(
+        scope=Scope.ACCOUNT_COLUMN,
+        column="enquirer_account_id",
+        note=(
+            "A join request the account sent. A solo owner's received "
+            "requests, and the inbox items of both parties, are removed "
+            "first by `app.hub.enquiries.forget`: the `owner` row stays, so "
+            "its cascade never fires."
+        ),
+    ),
+    "media_object_task": _Target(
+        scope=Scope.NOT_PERSONAL,
+        column=None,
+        note=(
+            "Bucket prefixes named by random ids, purged a week after they are "
+            "done. A deletion enqueues rows here rather than removing any."
+        ),
+    ),
     "hub_report": _Target(
         scope=Scope.ACCOUNT_COLUMN,
         column="reporter_account_id",
-        note="A complaint the account filed; nobody else has a claim on it.",
+        note=(
+            "A complaint the account filed; nobody else has a claim on it. "
+            "Complaints about a forgotten review or reply go with it."
+        ),
     ),
     "cdn_invalidation": _Target(
         scope=Scope.NOT_PERSONAL,
@@ -382,6 +447,56 @@ _NAMING_CENTRE_SLUGS: Final = sa.text(
     "WHERE m.account_id = :account_id AND m.revoked_at IS NULL "
     "AND m.decision = 'accepted' AND m.public_name_consent_at IS NOT NULL "
     "AND l.status = 'published' AND l.slug IS NOT NULL ORDER BY l.slug"
+)
+
+#: The solo owners' rows, locked before their photos as an upload and an
+#: approval lock them, so no photo is added or approved between the read
+#: below and the delete.
+_LOCK_SOLO_OWNERS: Final = sa.text(
+    "SELECT id FROM owner WHERE account_id = :account_id AND kind = 'teacher' "
+    "ORDER BY id FOR UPDATE"
+)
+
+#: The solo owners' photos, read and locked before the rows go: a row is
+#: the only record of which objects and which ``/m/`` path a photo has.
+_SOLO_MEDIA: Final = sa.text(
+    "SELECT m.id, m.status::text AS status, m.public_key, m.created_at "
+    "FROM listing_media m JOIN owner o ON o.id = m.owner_id "
+    "WHERE o.account_id = :account_id AND o.kind = 'teacher' "
+    "ORDER BY m.id FOR UPDATE OF m"
+)
+
+#: The solo owners' listings, locked before their join requests: a send holds
+#: its listing ``FOR SHARE`` until it commits, so a request sent before this
+#: lock is visible to ``for_account`` and one sent after it finds the listing
+#: gone [H5 T7 review]. Listing, then request, then inbox.
+_LOCK_SOLO_LISTINGS: Final = sa.text(
+    "SELECT l.owner_id FROM owner_listing l JOIN owner o ON o.id = l.owner_id "
+    "WHERE o.account_id = :account_id AND o.kind = 'teacher' "
+    "ORDER BY l.owner_id FOR UPDATE OF l"
+)
+
+#: The reviews the account wrote, locked in id order before ``forget``.
+_LOCK_AUTHORED_REVIEWS: Final = sa.text(
+    "SELECT id FROM review WHERE author_account_id = :account_id ORDER BY id FOR UPDATE"
+)
+
+#: The reviews of the solo owners' batch listings, locked in id order
+#: before ``forget``.
+#:
+#: Unlike a join request's send, a review written after this lock needs no
+#: owner-listing lock. Its insert key-shares its ``batch_listing`` row, so
+#: it either commits first and goes with that row's cascade below, or meets
+#: the row gone and fails its foreign key, rendered as 409 ``CONFLICT``.
+#: Nothing can attach to it first: review inbox items are keyed on the
+#: batch or the owner, never the review, and a report is filed only on a
+#: review ``hub_public_review`` shows, which a new, pending one is not.
+_LOCK_SOLO_OWNER_REVIEWS: Final = sa.text(
+    "SELECT r.id FROM review r "
+    "JOIN batch_listing bl ON bl.batch_id = r.batch_id "
+    "JOIN owner o ON o.id = bl.owner_id "
+    "WHERE o.account_id = :account_id AND o.kind = 'teacher' "
+    "ORDER BY r.id FOR UPDATE OF r"
 )
 
 #: The live memberships whose future classes a deletion frees first.
@@ -549,12 +664,56 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
         unassign_member(session, member_id=member_id)
     session.execute(_END_MEMBERSHIPS, {"account_id": account_id})
 
+    # Reviews are forgotten whole -- the review, its reply and every report
+    # on either, whoever filed it -- before any statement below can remove
+    # one behind `forget`'s back: the author's own delete in the loop, or
+    # the `batch_listing -> review` cascade of a solo teacher's listings
+    # [T7-f]. Each step locks its reviews before `forget` runs, as the
+    # author's delete does, and before any report row [T5-e].
+    #
+    # One rare cycle is left to the retry, not to lock order. A review
+    # forget here deletes OTHER accounts' reports on the review, while the
+    # generic loop below deletes this account's own reports (`hub_report`
+    # by `reporter_account_id`) without locking the review each names.
+    # Take an account that is both a solo teacher and a centre manager,
+    # deleted while the author of a review of its centre is deleted too,
+    # the two sharing a join request. The author's review forget deletes,
+    # and so holds, a report the manager filed on the author's review. The
+    # manager's `for_account` locks the shared request, then its generic
+    # loop's `hub_report` delete waits on that report; the author's
+    # `for_account` waits on the request the manager holds. PostgreSQL ends
+    # it with `40P01`, and `run_with_retry` around both deletion routes
+    # re-runs the losing side [U2: NFR4.3].
+    reviews_forgotten = _forget_authored_reviews(
+        session, account_id, dt.datetime.now(tz=dt.UTC)
+    ) + _forget_solo_owner_reviews(session, account_id, dt.datetime.now(tz=dt.UTC))
+
+    # Join requests, sent and received, are forgotten whole -- the row and
+    # both parties' inbox items -- before the loop below deletes this
+    # account's own inbox, so the requests are locked before any item about
+    # them, as a close and a withdrawal lock them [F7]. One statement in id
+    # order, so two deletions holding each other's requests never wait in a
+    # cycle [H4 T10-a]. The solo owner's received requests are collected
+    # here because `owner` is retained and its cascade never fires; they go
+    # in this transaction, with the listing [H5 Task 3 review]. The listing
+    # is locked first, so no send can add one between this and the delete.
+    session.execute(_LOCK_SOLO_LISTINGS, {"account_id": account_id})
+    enquiries_forgotten = enquiries.for_account(session, account_id)
+
     for table, target in sorted(HARD_DELETE_SCOPES.items()):
         if target.scope is not Scope.ACCOUNT_COLUMN or table == "account":
             continue
         rows_deleted[table] = _delete_where(
             session, table, target, account_id=account_id
         )
+    # A review its author wrote after the lock above can only be pending,
+    # so nobody could report it; the loop's own statement removed it.
+    rows_deleted["review"] += reviews_forgotten
+    # The loop found none of them: they were forgotten above, and no new
+    # one can appear in between, because a send takes this account's key
+    # (held since the start) before it inserts, and `send` is the only
+    # writer of new requests.
+    rows_deleted["listing_enquiry"] += enquiries_forgotten
 
     # The deletion hold [U1: BR7.5]: 30 days, a keyed digest only, and no
     # releasing account, so nobody -- this person included -- can take the
@@ -577,6 +736,9 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
         invalidation.enqueue(
             session, invalidation.owner_paths(slug), dt.datetime.now(tz=dt.UTC)
         )
+    # Its photos' objects and `/m/` paths, read before the rows go and
+    # queued in this transaction [H3 Review Focus 5].
+    _enqueue_solo_media(session, account_id, dt.datetime.now(tz=dt.UTC))
     for table, target in sorted(HARD_DELETE_SCOPES.items()):
         if target.scope is Scope.SOLO_OWNER:
             rows_deleted[table] = _delete_solo_owner_rows(
@@ -602,6 +764,92 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
 
     session.commit()
     return DeletionResult(existed=True, rows_deleted=rows_deleted)
+
+
+def _forget_authored_reviews(
+    session: Session, account_id: uuid.UUID, now: dt.datetime
+) -> int:
+    """Forget every review the account wrote, with its reply and reports.
+
+    The reviews are locked first, in id order, because ``forget`` takes no
+    lock of its own: an owner's reply delete and a moderation decision
+    lock a review before its reply and its reports, and so does this
+    [T5-e]. ``forget`` evicts the pages of the reviews that were visible.
+    Commits nothing.
+
+    :param session: The deletion's session, inside its transaction
+    :param account_id: The account being deleted
+    :param now: The moment of the deletion
+    :return: How many reviews were forgotten
+    """
+    ids = list(session.scalars(_LOCK_AUTHORED_REVIEWS, {"account_id": account_id}))
+    forget.forget(session, ids, now)
+    return len(ids)
+
+
+def _forget_solo_owner_reviews(
+    session: Session, account_id: uuid.UUID, now: dt.datetime
+) -> int:
+    """Forget every review of the account's solo listings, with replies and reports.
+
+    Runs before :func:`_delete_solo_owner_rows`: deleting a batch listing
+    cascades to its reviews, which would leave every report on them and
+    on their replies naming nothing [T7-f]. Locked in id order before
+    ``forget``, as :func:`_forget_authored_reviews` is. A centre's listings
+    have no account, so a manager's deletion matches none. Commits nothing.
+
+    :param session: The deletion's session, inside its transaction
+    :param account_id: The account being deleted
+    :param now: The moment of the deletion
+    :return: How many reviews were forgotten
+    """
+    ids = list(session.scalars(_LOCK_SOLO_OWNER_REVIEWS, {"account_id": account_id}))
+    forget.forget(session, ids, now)
+    return len(ids)
+
+
+def _enqueue_solo_media(
+    session: Session, account_id: uuid.UUID, now: dt.datetime
+) -> None:
+    """Queue the deletion of every object the account's solo photos have.
+
+    Runs before ``listing_media`` is deleted, because the rows are the only
+    record of the prefixes. Every photo has ``quarantine/``, ``staged/`` and
+    ``archive/`` queued whatever its status -- a held photo has no key but
+    still has its variants and its archive, and a prefix with no object
+    under it costs the drain one empty listing. An approved photo also has
+    ``public/{key}/`` queued and ``/m/{key}/{w}.webp`` evicted. A photo still
+    uploading has ``quarantine/`` and ``staged/`` queued again for when its
+    upload window closes, as a withdrawal does, so a late upload is removed.
+
+    The owner rows are locked first, then the photos, in the order an
+    upload and an approval take them, so no photo appears or gains a key
+    between this read and the delete. Commits nothing.
+
+    :param session: The deletion's session, inside its transaction
+    :param account_id: The account being deleted
+    :param now: The moment of the deletion
+    :return: None
+    """
+    session.execute(_LOCK_SOLO_OWNERS, {"account_id": account_id})
+    photos = session.execute(_SOLO_MEDIA, {"account_id": account_id}).all()
+    prefixes: list[str] = []
+    paths: list[str] = []
+    for photo in photos:
+        prefixes += [
+            quarantine_key(photo.id),
+            staged_prefix(photo.id),
+            archive_prefix(photo.id),
+        ]
+        if photo.public_key is not None:
+            prefixes.append(public_prefix(photo.public_key))
+            paths += invalidation.media_paths(photo.public_key)
+    objects.enqueue(session, prefixes, now)
+    for photo in photos:
+        if photo.status in objects.IN_FLIGHT:
+            objects.enqueue_upload_window(session, photo.id, photo.created_at, now)
+    if paths:
+        invalidation.enqueue(session, paths, now)
 
 
 def _delete_solo_owner_rows(

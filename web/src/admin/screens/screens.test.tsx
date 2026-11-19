@@ -54,6 +54,9 @@ const overview = {
   help_open: 3,
   help_answered: 5,
   help_closed: 41,
+  hub_reviews_public: 40,
+  hub_reviews_reported: 2,
+  hub_reviews_pull_bar: false,
 }
 
 const forbidden = json(403, {
@@ -77,6 +80,36 @@ describe('Overview', () => {
     const open = screen.getByText(en('web_admin_status_open')).closest('a')!
     expect(open).toHaveAttribute('href', '/help/tickets?status=open')
     expect(within(open).getByText('3')).toBeInTheDocument()
+  })
+
+  it('overview shows pull bar', async () => {
+    serve((_m, url) =>
+      url.endsWith('/v1/admin/overview')
+        ? json(200, { ...overview, hub_reviews_reported: 3, hub_reviews_pull_bar: true })
+        : undefined,
+    )
+    renderAt('/')
+    expect(await screen.findByText(en('web_admin_reviews_pull_bar'))).toBeInTheDocument()
+    expect(en('web_admin_reviews_pull_bar')).toBe('Pull-reviews bar crossed')
+    const reported = screen.getByText(en('web_admin_reviews_reported')).closest('.admin-stat')!
+    expect(within(reported as HTMLElement).getByText('3')).toBeInTheDocument()
+    const shown = screen.getByText(en('web_admin_reviews_public')).closest('.admin-stat')!
+    expect(within(shown as HTMLElement).getByText('40')).toBeInTheDocument()
+    // Only removals are windowed; published and held count as they stand now.
+    expect(
+      within(shown as HTMLElement).getByText(en('web_admin_reviews_public_sub')),
+    ).toBeInTheDocument()
+    expect(en('web_admin_reviews_public_sub')).toBe(
+      'Published or held now, or removed in the window',
+    )
+  })
+
+  it('says nothing of the pull bar while it is not crossed', async () => {
+    serve((_m, url) => (url.endsWith('/v1/admin/overview') ? json(200, overview) : undefined))
+    renderAt('/')
+    expect(await screen.findByText(en('web_admin_reviews_reported'))).toBeInTheDocument()
+    expect(screen.queryByText(en('web_admin_reviews_pull_bar'))).toBeNull()
+    expect(translate('bn', 'web_admin_reviews_pull_bar')).not.toBe('')
   })
 
   it('sends the admin token, to the same origin', async () => {

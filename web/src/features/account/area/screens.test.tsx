@@ -153,6 +153,102 @@ describe('Inbox', () => {
     ).toBe(true)
   })
 
+  it('inbox renders both review kinds', async () => {
+    const reviewItem = (over: Record<string, unknown>) => ({
+      notification_id: 'r1',
+      kind: 'hub_review_outcome',
+      batch_name: 'Physics · Batch A',
+      child_name: null,
+      amount: null,
+      period: null,
+      created_at: new Date().toISOString(),
+      read: false,
+      enrollment_id: null,
+      source_id: 'batch1',
+      preview: 'published',
+      ...over,
+    })
+    serve(me('guardian'), (method, url) => {
+      if (url.split('?')[0]!.endsWith('/v1/me/notifications') && method === 'GET')
+        return json(200, {
+          unread: 2,
+          items: [
+            reviewItem({}),
+            reviewItem({
+              notification_id: 'r2',
+              kind: 'hub_reviews_published',
+              source_id: 'owner1',
+              preview: '3',
+            }),
+          ],
+        })
+      if (url.endsWith('/read')) return new Response(null, { status: 204 })
+      return undefined
+    })
+    renderAt('/inbox')
+    expect(await screen.findByText('Your review · Physics · Batch A')).toBeInTheDocument()
+    expect(screen.getByText('Your review is now public.')).toBeInTheDocument()
+    expect(screen.getByText('New reviews · Physics · Batch A')).toBeInTheDocument()
+    expect(screen.getByText('New reviews published: 3')).toBeInTheDocument()
+    // Both kinds are announced, so the server counts them.
+    const read = calls.find((c) => c.url.includes('/v1/me/notifications?'))
+    expect(new URL(read!.url, 'http://x').searchParams.getAll('kind')).toEqual(
+      expect.arrayContaining(['hub_review_outcome', 'hub_reviews_published']),
+    )
+
+    await userEvent.click(screen.getByText('Your review · Physics · Batch A'))
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/reviews/batch1'))
+  })
+
+  it('inbox renders both enquiry kinds', async () => {
+    const enquiryItem = (over: Record<string, unknown>) => ({
+      notification_id: 'q1',
+      kind: 'hub_enquiry_received',
+      batch_name: 'Physics · Batch A',
+      child_name: null,
+      amount: null,
+      period: null,
+      created_at: new Date().toISOString(),
+      read: false,
+      enrollment_id: null,
+      source_id: 'enq1',
+      preview: null,
+      ...over,
+    })
+    serve(me('teacher'), (method, url) => {
+      if (url.split('?')[0]!.endsWith('/v1/me/notifications') && method === 'GET')
+        return json(200, {
+          unread: 2,
+          items: [
+            enquiryItem({}),
+            enquiryItem({
+              notification_id: 'q2',
+              kind: 'hub_enquiry_answered',
+              source_id: 'enq2',
+              preview: 'not_now',
+            }),
+          ],
+        })
+      if (url.endsWith('/read')) return new Response(null, { status: 204 })
+      return undefined
+    })
+    renderAt('/inbox')
+    expect(await screen.findByText('New join request · Physics · Batch A')).toBeInTheDocument()
+    expect(screen.getByText('Open it to see the request.')).toBeInTheDocument()
+    expect(screen.getByText('Your join request · Physics · Batch A')).toBeInTheDocument()
+    expect(screen.getByText('The teacher cannot take this request now.')).toBeInTheDocument()
+    // Both kinds are announced, so the server counts them.
+    const read = calls.find((c) => c.url.includes('/v1/me/notifications?'))
+    expect(new URL(read!.url, 'http://x').searchParams.getAll('kind')).toEqual(
+      expect.arrayContaining(['hub_enquiry_received', 'hub_enquiry_answered']),
+    )
+
+    await userEvent.click(screen.getByText('New join request · Physics · Batch A'))
+    await waitFor(() =>
+      expect(screen.getByTestId('where')).toHaveTextContent('/more/hub/enquiries/enq1'),
+    )
+  })
+
   it('marks everything read with one call', async () => {
     serve(me('guardian'), (method, url) => {
       if (url.split('?')[0]!.endsWith('/v1/me/notifications') && method === 'GET')

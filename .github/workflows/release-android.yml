@@ -488,6 +488,16 @@ jobs:
             "android/build/outputs/bundle/release/android-release.aab" \
             -o spdx-json > "android-sbom-${{ steps.version.outputs.name }}.json" \
             || echo "::warning::SBOM generation failed; not blocking the release."
+          # **The image sanitiser's lockfile too** (lambdas/image_sanitiser):
+          # the one other dependency set this project ships that no image
+          # scan sees -- Pillow, decoding every photo the hub accepts. The
+          # Lambda ships with deploy.yml, which runs no third-party scanner
+          # in a job holding the deploy role, so its SBOM is cut here, from
+          # the same lockfile the deploy builds the package from.
+          "$RUNNER_TEMP/bin/syft" scan \
+            "file:lambdas/image_sanitiser/requirements.txt" \
+            -o spdx-json > "image-sanitiser-sbom-${{ steps.version.outputs.name }}.json" \
+            || echo "::warning::Image sanitiser SBOM generation failed; not blocking the release."
 
       - name: Draft the release notes
         run: |
@@ -532,6 +542,7 @@ jobs:
             play-release-notes.txt
             CHANGELOG.md
             android-sbom-*.json
+            image-sanitiser-sbom-*.json
           if-no-files-found: error
           retention-days: 90
 

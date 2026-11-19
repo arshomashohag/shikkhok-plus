@@ -77,6 +77,20 @@ class HubReportViewModelTest {
     }
 
     @Test
+    fun a_photo_link_reports_the_photo() = runTest(dispatcher) {
+        val api = FakeReportApi()
+        val vm = HubReportViewModel(api, ReportLink("media", PHOTO))
+
+        assertEquals(ReportTarget(ReportKind.MEDIA, PHOTO), vm.state.value.target)
+        vm.pickReason(ReportReason.CHILD_SAFETY)
+        vm.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf(HubReportRequest("media", PHOTO, "child_safety", null)), api.sent)
+        assertTrue(vm.state.value.sent)
+    }
+
+    @Test
     fun a_blank_note_is_not_sent() = runTest(dispatcher) {
         val api = FakeReportApi()
         val vm = HubReportViewModel(api, ReportLink("owner_listing", OWNER))
@@ -102,8 +116,8 @@ class HubReportViewModelTest {
     fun rejects_bad_kind_or_id_without_a_request() = runTest(dispatcher) {
         val bad =
             listOf(
-                ReportLink("media", OWNER),
-                ReportLink("review", OWNER),
+                ReportLink("reviews", OWNER),
+                ReportLink("media", "photo-1"),
                 ReportLink(null, OWNER),
                 ReportLink("owner_listing", null),
                 ReportLink("owner_listing", "sumi-apa"),
@@ -189,11 +203,28 @@ class HubReportViewModelTest {
         assertEquals(note, NOTE_MAX)
     }
 
+    @Test
+    fun the_kinds_are_the_servers_and_a_reply_is_reported_by_its_review() = runTest(dispatcher) {
+        val kinds =
+            OpenApi.resolve(schema("HubReportRequest")["properties"]!!.jsonObject["target_kind"]!!.jsonObject)["enum"]!!
+                .jsonArray.map { it.jsonPrimitive.content }
+        assertEquals(kinds.toSet(), ReportKind.entries.map { it.wire }.toSet())
+
+        val api = FakeReportApi()
+        val vm = HubReportViewModel(api, ReportLink("reply", PHOTO))
+        assertEquals(ReportTarget(ReportKind.REPLY, PHOTO), vm.state.value.target)
+        vm.pickReason(ReportReason.ABUSIVE)
+        vm.send()
+        advanceUntilIdle()
+        assertEquals(listOf(HubReportRequest("reply", PHOTO, "abusive", null)), api.sent)
+    }
+
     private fun schema(name: String): JsonObject =
         OpenApi.spec["components"]!!.jsonObject["schemas"]!!.jsonObject[name]!!.jsonObject
 
     private companion object {
         const val OWNER = "6f1c2b0e-3a4d-4e5f-8a9b-0c1d2e3f4a5b"
         const val BATCH = "0b9e8d7c-6b5a-4c3d-9e2f-1a0b9c8d7e6f"
+        const val PHOTO = "a1111111-1111-4111-8111-111111111111"
     }
 }

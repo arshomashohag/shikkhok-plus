@@ -4,11 +4,11 @@
 // a cache key built from the raw query string would still let a crawler
 // mint endless distinct cache entries (?utm_source=1, ?utm_source=2, ...).
 // So the edge refuses unknown keys outright and normalises the rest, which
-// keeps the cache-key space bounded by the six allowed keys:
+// keeps the cache-key space bounded by the seven allowed keys:
 //
-//   * a key outside q, district, upazila, subject, level, page -> 400
+//   * a key outside q, district, upazila, subject, level, page, sort -> 400
 //   * a repeated key keeps its FIRST value
-//   * subject and level are lowercased; district and upazila are not,
+//   * subject, level and sort are lowercased; district and upazila are not,
 //     because they are uppercase area codes (BD3026, MT3026250003) the
 //     origin matches exactly
 //   * q is truncated to 200 characters
@@ -25,9 +25,11 @@
 // Everything else passes through untouched. cloudfront-js-2.0 runtime:
 // `value` is the first value of a key and `multiValue` lists all of them
 // when it repeats. Tested by hub-query.test.mjs beside it
-// (`make infra-functions`).
-var ALLOWED = ['q', 'district', 'upazila', 'subject', 'level', 'page'];
-var LOWERCASED = ['subject', 'level'];
+// (`make infra-functions`). The origin (app/hub/public/routes.py QUERY_KEYS)
+// and the cache policy (hub_query_strings in ../main.tf) name the same
+// seven keys; tests/gates/test_hub_query_keys_agree.py holds them together.
+var ALLOWED = ['q', 'district', 'upazila', 'subject', 'level', 'page', 'sort'];
+var LOWERCASED = ['subject', 'level', 'sort'];
 var Q_MAX = 200;
 
 function handler(event) {

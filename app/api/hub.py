@@ -28,6 +28,7 @@ from app.api.deps import (
     teacher_lens,
 )
 from app.api.html import HUB_PAGE_CSP, html_response
+from app.api.hub_media import media_store
 from app.auth.ceilings import CeilingChecker
 from app.authz.lenses import CentreMemberLens, TeacherLens
 from app.db.models import OwnerListing
@@ -48,7 +49,9 @@ from app.hub.listings.member_consent import (
 from app.hub.listings.names import teacher_names
 from app.hub.listings.owner import OwnerListingUpdate
 from app.hub.listings.preview import owner_page as preview_owner_page
+from app.hub.media.storage import MediaStore
 from app.hub.public import render
+from app.hub.public.settings import enquiries_enabled
 from app.local_time import bangladesh_today
 from app.moderation import reports
 from app.money.wire import to_wire
@@ -151,6 +154,8 @@ def _owner_response(
             "runs_classes": runs_classes(session, lens.owner_id, bangladesh_today()),
             "consent_version_current": HUB_CONSENT_VERSION,
             "is_centre": _is_centre(session, lens),
+            "accepts_enquiries": listing.accepts_enquiries,
+            "enquiries_offered": enquiries_enabled(),
         }
     )
 
@@ -278,6 +283,7 @@ def put_listing(
 def preview_listing(
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
     session: Annotated[Session, Depends(get_session)],
+    store: Annotated[MediaStore, Depends(media_store)],
     locale: Annotated[Literal["en", "bn"], Query()] = "en",
 ) -> HTMLResponse:
     """Show the owner their own public page before it is public.
@@ -289,10 +295,11 @@ def preview_listing(
 
     :param lens: The owner's lens; the page is always this owner's
     :param session: The request-scoped session
+    :param store: The photo bucket, which signs photos awaiting review
     :param locale: ``en`` or ``bn``
     :return: The page
     """
-    view = preview_owner_page(session, lens, locale)
+    view = preview_owner_page(session, lens, locale, store)
     return html_response(
         render.page(view, "owner.html", locale, preview=True),
         csp=HUB_PAGE_CSP,
@@ -499,7 +506,10 @@ def file_report(
     account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
     session: Annotated[Session, Depends(get_session)],
 ) -> Response:
-    """Report a published hub listing; nothing about the listing changes.
+    """Report a published hub listing or a public photo.
+
+    Nothing about a listing changes. A child-safety or personal-information
+    report on a photo takes that photo down until an administrator decides.
 
     :param body: The target, the reason and an optional note
     :param request: The incoming request, for its correlation id

@@ -151,6 +151,29 @@ export function AdminOverview() {
         </Section>
       </div>
 
+      {/* The "Pull reviews" measure (spec section 9): the server computes the
+          figures and whether the bar is crossed; nothing is compared here. */}
+      <Section title={t('web_admin_section_reviews')}>
+        <div className="admin-stats two">
+          <Stat
+            label={t('web_admin_reviews_public')}
+            value={n(o.hub_reviews_public)}
+            sub={t('web_admin_reviews_public_sub')}
+          />
+          <Stat
+            label={t('web_admin_reviews_reported')}
+            value={n(o.hub_reviews_reported)}
+            sub={t('web_admin_reviews_reported_sub')}
+          />
+        </div>
+        {o.hub_reviews_pull_bar ? (
+          <div className="banner" role="status">
+            <strong>{t('web_admin_reviews_pull_bar')}</strong>
+          </div>
+        ) : null}
+        <p className="meta admin-note">{t('web_admin_reviews_pull_bar_note')}</p>
+      </Section>
+
       <Section title={t('web_admin_section_help')}>
         <div className="admin-stats three">
           <Stat

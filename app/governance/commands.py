@@ -55,7 +55,7 @@ from app.db.models import RETENTION_PURGE_JOB
 from app.db.session import build_engine, session_scope
 from app.fees.commands import stamp_heartbeat
 from app.fees.generation import GenerationResult as HeartbeatCounts
-from app.governance.dispositions import RETENTION, RetentionClass
+from app.governance.dispositions import CLASS_AGE, RETENTION
 
 __all__ = [
     "CHUNK_SIZE",
@@ -81,24 +81,6 @@ log = logging.getLogger(__name__)
 #: interrupted run leave a consistent state.
 CHUNK_SIZE: Final = 1_000
 
-#: How long each finite retention class keeps a row past its age column.
-#:
-#: ``UNTIL_EXPIRY_PLUS_30_DAYS`` is the odd one and is correct: the
-#: refresh-token row's age column is ``expires_at`` rather than
-#: ``issued_at``, because reuse detection needs the rotated-out row to
-#: still exist after the token it represents has expired. Measuring that
-#: window from issue would delete rows whose reuse-detection purpose had
-#: not yet lapsed.
-_CLASS_AGE: Final[dict[RetentionClass, dt.timedelta]] = {
-    RetentionClass.DAYS_7: dt.timedelta(days=7),
-    RetentionClass.HOURS_48: dt.timedelta(hours=48),
-    RetentionClass.MONTHS_12: dt.timedelta(days=365),
-    RetentionClass.UNTIL_EXPIRY_PLUS_30_DAYS: dt.timedelta(days=30),
-    # [U1: BR7.6] A username hold is purged at its own expiry: the age
-    # column is `held_until`, and an expired hold already blocks nobody.
-    RetentionClass.UNTIL_EXPIRY: dt.timedelta(0),
-}
-
 #: Which column carries each purgeable table's age.
 #:
 #: **Named per table rather than guessed from a convention**, because
@@ -121,6 +103,11 @@ _AGE_COLUMN: Final[dict[str, str]] = {
     "pending_signup": "created_at",
     "username_hold": "held_until",
     "cdn_invalidation": "requested_at",
+    # Measured from completion, not request: a NULL never compares older
+    # than the cutoff, so a deletion still to be done is never purged and
+    # a photo's objects cannot outlive the only record that they must go.
+    "media_object_task": "done_at",
+    "listing_enquiry": "created_at",
 }
 
 
@@ -161,7 +148,7 @@ def _build_windows() -> dict[str, TableWindow]:
     """
     windows: dict[str, TableWindow] = {}
     for table, retention in RETENTION.items():
-        keep_for = _CLASS_AGE.get(retention)
+        keep_for = CLASS_AGE.get(retention)
         if keep_for is None:
             # LIFE_OF_ACCOUNT, or a class added later with no window.
             # Either way the table is not purged, which is the safe

@@ -1,18 +1,14 @@
 package com.shikkhokplus.app.navigation
 
 import com.shikkhokplus.app.core.offline.keptBy
-import com.shikkhokplus.app.core.offline.OfflineProfileRepository
-import com.shikkhokplus.app.core.offline.OfflineGuardianRepository
 import com.shikkhokplus.app.core.offline.OfflineDuesRepository
 import com.shikkhokplus.app.core.offline.LocalOfflineCopies
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import com.shikkhokplus.app.feature.profile.ui.DeleteAccountScreen
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -54,7 +50,6 @@ import com.shikkhokplus.app.feature.batches.BatchesViewModel
 import com.shikkhokplus.app.core.queue.QueueStore
 import com.shikkhokplus.app.core.session.Lens
 import com.shikkhokplus.app.core.network.HttpFeesRepository
-import com.shikkhokplus.app.core.network.HttpGuardianRepository
 import com.shikkhokplus.app.core.network.HttpInvitationsRepository
 import com.shikkhokplus.app.core.network.HttpMarksRepository
 import com.shikkhokplus.app.core.network.HttpProfileRepository
@@ -63,9 +58,6 @@ import com.shikkhokplus.app.feature.fees.FeesViewModel
 import com.shikkhokplus.app.feature.fees.ui.FeeHistoryScreen
 import com.shikkhokplus.app.feature.fees.ui.RecordActions
 import com.shikkhokplus.app.feature.fees.ui.RecordPaymentSheetView
-import com.shikkhokplus.app.feature.guardian.GuardianViewModel
-import com.shikkhokplus.app.feature.guardian.ui.GuardianActions
-import com.shikkhokplus.app.feature.guardian.ui.GuardianHomeScreen
 import com.shikkhokplus.app.core.model.AcceptanceState
 import com.shikkhokplus.app.feature.invitations.InvitationsUiState
 import com.shikkhokplus.app.feature.invitations.InvitationsViewModel
@@ -76,11 +68,7 @@ import com.shikkhokplus.app.feature.marks.ui.MarksheetScreen
 import com.shikkhokplus.app.feature.dashboard.DashboardReader
 import com.shikkhokplus.app.feature.marks.ui.ProgressScreen
 import com.shikkhokplus.app.feature.profile.ProfileViewModel
-import com.shikkhokplus.app.feature.profile.ui.ProfileScreen
-import com.shikkhokplus.app.feature.profile.ui.LogOutSheet
 import com.shikkhokplus.app.feature.profile.ui.MoreActions
-import com.shikkhokplus.app.feature.profile.ProfileUiState
-import com.shikkhokplus.app.BuildConfig
 import io.ktor.client.HttpClient
 
 /**
@@ -597,48 +585,7 @@ private fun ShikkhokGraph(
             }
         }
 
-        composable(Destination.GuardianHome.route) {
-            val copies = LocalOfflineCopies.current
-            val model: GuardianViewModel =
-                viewModel {
-                    val network = HttpGuardianRepository(client)
-                    GuardianViewModel(network.keptBy(copies, ::OfflineGuardianRepository))
-                }
-            val state by model.state.collectAsState()
-            val refreshing by model.refreshing.collectAsState()
-
-            LaunchedEffect(Unit) { model.load() }
-
-            GuardianHomeScreen(
-                state = state,
-                // **Selection, not navigation** [BR4.2]: switching child
-                // replaces the shown child, so Back cannot reach the
-                // previous one's data. Results and payments are pushes
-                // the guardian asks for explicitly.
-                actions =
-                    GuardianActions(
-                        onSelect = model::select,
-                        // **Pay opens the child's payments first** (G1 → G3):
-                        // what was already paid sits above Send money, so a
-                        // guardian does not pay twice for want of seeing it.
-                        onPay = { option -> navController.navigate(Destination.ChildPayments.of(option.enrollmentId)) },
-                        onPayments = { seat -> navController.navigate(Destination.ChildPayments.of(seat)) },
-                        onResult = { result, _ ->
-                            navController.navigate(
-                                Destination.Dashboard.of(result.enrollmentId, DashboardReader.GUARDIAN.name),
-                            )
-                        },
-                        onBatch = { seat -> navController.navigate(Destination.ChildBatch.of(seat)) },
-                        onRetry = model::retry,
-                        onRefresh = model::refresh,
-                    ),
-                refreshing = refreshing,
-                // **No bottom bar for a guardian** (G1, G4): More opens
-                // from the profile button beside the bell.
-                barActions = { FamilyBarActions(client, navController) },
-            )
-        }
-
+        guardianHomeRoute(client, navController)
         guardianRoutes(client, navController)
         dashboardRoutes(client, navController)
 
@@ -689,76 +636,7 @@ private fun ShikkhokGraph(
             )
         }
 
-        composable(Destination.Profile.route) {
-            val copies = LocalOfflineCopies.current
-            val model: ProfileViewModel =
-                viewModel {
-                    val network = HttpProfileRepository(client)
-                    ProfileViewModel(network.keptBy(copies, ::OfflineProfileRepository))
-                }
-            val state by model.state.collectAsState()
-            val summary by model.summary.collectAsState()
-            var confirmingSignOut by remember { mutableStateOf(false) }
-
-            // Re-read on every visit, except straight back from a save:
-            // the save already returned the profile, and a read would
-            // replace "Saved." with a loader before anyone saw it.
-            LaunchedEffect(Unit) {
-                if (model.state.value !is ProfileUiState.Saved) model.load()
-            }
-
-            ProfileScreen(
-                state = state,
-                lens = session.lens,
-                summary = summary,
-                version = BuildConfig.VERSION_NAME,
-                actions = moreActionsFor(
-                    lens = session.lens,
-                    base =
-                        withWorkspaces(
-                            navController,
-                            MoreActions(
-                            onEdit = {
-                                model.edit()
-                                navController.navigate(Destination.EditProfile.route)
-                            },
-                            onSignOut = { confirmingSignOut = true },
-                            onDeleteAccount = {
-                                model.startDeletion()
-                                navController.navigate(Destination.DeleteAccount.route)
-                            },
-                            onRetry = model::retry,
-                            onSwitchLens = session.onSwitch,
-                            onSettings = settingsOpener(session, navController),
-                            unsent = remember { session.unsentWrites() },
-                            // The status the session already read: More
-                            // makes no request of its own for the mark.
-                            twoStepRecommended =
-                                session.mfaStatus?.state?.collectAsState()?.value?.showRecommended == true,
-                        ).withAccountRows(
-                            accountRowsFor(summary) { route -> navController.navigate(route) }
-                                .takeIf { session.tokens != null },
-                        ),
-                        ),
-                    navigate = { route -> navController.navigate(route) },
-                ),
-                bottomBar = { LensBar(session.lens, Destination.Profile.route, navController) },
-                // Pushed from a family home's profile button, so it has
-                // a way back; a teacher reaches it as a tab and needs none.
-                onBack = { navController.popBackStack(); Unit }.takeIf { isFamily(session.lens) },
-            )
-
-            if (confirmingSignOut) {
-                LogOutSheet(
-                    unsent = remember { session.unsentWrites() },
-                    onConfirm = {
-                        confirmingSignOut = false
-                        session.onEndSession()
-                    },
-                    onDismiss = { confirmingSignOut = false },
-                )
-            }
-        }
+        moreRoute(client, navController, session)
 
         profileRoutes(client, navController, session.lens, session.settings)
         accountRoutes(client, navController, session)

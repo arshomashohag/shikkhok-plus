@@ -414,3 +414,69 @@ def bearer(session: Session, account_id: uuid.UUID) -> dict[str, str]:
     """
     pair = issue_pair(session, account_id=account_id, correlation_id=uuid.uuid4())
     return {"Authorization": f"Bearer {pair.access_token}"}
+
+
+@pytest.fixture
+def reviews_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Switch hub reviews on for one test.
+
+    Reviews are off by default, so every test exercising a gated route
+    asks for this. Defined here, not per directory, because the gated
+    routes are reached from ``tests/hub``, ``tests/governance``,
+    ``tests/admin`` and ``tests/moderation`` alike.
+
+    :param monkeypatch: Restores the environment after the test
+    :return: None
+    """
+    from app.hub.public.settings import HUB_REVIEWS_ENV
+
+    monkeypatch.setenv(HUB_REVIEWS_ENV, "on")
+
+
+@pytest.fixture
+def reviews_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Switch hub reviews off for one test, whatever the ambient environment.
+
+    Off is the default only while the variable is unset; a developer or CI
+    runner that exports ``SHIKKHOKPLUS_HUB_REVIEWS=on`` would otherwise
+    turn every switch-off test into a switch-on one.
+
+    :param monkeypatch: Restores the environment after the test
+    :return: None
+    """
+    from app.hub.public.settings import HUB_REVIEWS_ENV
+
+    monkeypatch.delenv(HUB_REVIEWS_ENV, raising=False)
+
+
+@pytest.fixture
+def enquiries_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Switch hub join requests on for one test.
+
+    Join requests are off by default, so every test exercising a gated
+    route asks for this. Defined here, beside :func:`reviews_on`, because
+    the gated routes are reached from ``tests/enquiries``, ``tests/hub``
+    and ``tests/governance`` alike.
+
+    :param monkeypatch: Restores the environment after the test
+    :return: None
+    """
+    from app.hub.public.settings import HUB_ENQUIRIES_ENV
+
+    monkeypatch.setenv(HUB_ENQUIRIES_ENV, "on")
+
+
+@pytest.fixture
+def enquiries_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Switch hub join requests off for one test, whatever the environment.
+
+    Off is the default only while the variable is unset; a developer or CI
+    runner that exports ``SHIKKHOKPLUS_HUB_ENQUIRIES=on`` would otherwise
+    turn every switch-off test into a switch-on one.
+
+    :param monkeypatch: Restores the environment after the test
+    :return: None
+    """
+    from app.hub.public.settings import HUB_ENQUIRIES_ENV
+
+    monkeypatch.delenv(HUB_ENQUIRIES_ENV, raising=False)

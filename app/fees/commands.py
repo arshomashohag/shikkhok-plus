@@ -42,6 +42,7 @@ from app.db.models import (
     EXPECTED_JOBS,
     FEE_GENERATION_JOB,
     HUB_INVALIDATION_JOB,
+    HUB_MEDIA_OBJECT_JOB,
     JobHeartbeat,
 )
 from app.db.session import build_engine, session_scope
@@ -88,8 +89,14 @@ STALENESS_THRESHOLD = dt.timedelta(hours=48)
 #: some fifteen hundred failed runs pass while a taken-down page stays on
 #: the edge. Thirty minutes is fifteen missed runs: past a brief CloudFront
 #: or container hiccup, and reported by the hourly check's next pass.
+#:
+#: **The photo bucket's deletion drain also runs every two minutes** [0043,
+#: R2], on the same progress-only heartbeat, so the same thirty minutes: a
+#: withdrawn or held photo's public objects stay in the bucket for as long
+#: as the drain is stuck.
 JOB_STALENESS_THRESHOLDS: Mapping[str, dt.timedelta] = {
     HUB_INVALIDATION_JOB: dt.timedelta(minutes=30),
+    HUB_MEDIA_OBJECT_JOB: dt.timedelta(minutes=30),
 }
 
 

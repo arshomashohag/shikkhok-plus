@@ -77,14 +77,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <!--
-              A public hub page's "Report this page" link, as an App Link:
-              https://<web-app host>/ui/hub-report?kind=…&id=…. Exactly
-              that path, so no other web-app address opens the app.
-              autoVerify asks Android to check the claim against
+              Two App Links from public hub pages, one filter each, so each
+              path is claimed exactly and no other web-app address opens the
+              app:
+                - "Report this page":
+                  https://<web-app host>/ui/hub-report?kind=…&id=…
+                - "Ask to join" [H5]:
+                  https://<web-app host>/ui/hub-enquiry?owner=…[&batch=…]
+              autoVerify asks Android to check each claim against
               /.well-known/assetlinks.json on the same host, which the web
               deploy publishes (deploy.yml); unverified, the link opens in
-              the browser, where the same report screen is served. The
-              host is set per build type (build.gradle.kts, appLinkHost).
+              the browser, where the same screen is served. The host is set
+              per build type (build.gradle.kts, appLinkHost).
             -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
@@ -93,6 +97,14 @@
                 <data android:scheme="https" />
                 <data android:host="${appLinkHost}" />
                 <data android:path="/ui/hub-report" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="${appLinkHost}" />
+                <data android:path="/ui/hub-enquiry" />
             </intent-filter>
         </activity>
     </application>

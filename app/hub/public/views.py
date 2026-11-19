@@ -1,6 +1,6 @@
 """The view models public hub pages render, each registered with the gate.
 
-Every model here is filled only from the four public views, as the hub
+Every model here is filled only from the public views, as the hub
 reader, by :mod:`app.hub.public.queries`. Registering each top-level model
 lets :func:`app.contract.privacy.public_field_leaks` walk it, nested models
 included, against the public forbidden set.
@@ -11,7 +11,8 @@ teachers named on a batch are ``teacher_names``.
 
 ``report_id`` is the id ``POST /v1/hub/reports`` expects for the target
 [R2]: the owner id on an owner card, the batch id on a batch card. Neither
-is an account, enrollment or student id.
+is an account, enrollment or student id. A photo's ``media_id`` is the same
+for a ``media`` report.
 """
 
 from __future__ import annotations
@@ -30,12 +31,16 @@ __all__ = [
     "CityAreas",
     "HubBatchCard",
     "HubBatchPage",
+    "HubImage",
     "HubOwnerCard",
     "HubOwnerPage",
+    "HubReply",
+    "HubReview",
     "HubSearchFilters",
     "HubSearchPage",
     "HubSitemap",
     "PublicSlot",
+    "RatingSummary",
     "SitemapAlternate",
     "SitemapUrl",
 ]
@@ -61,6 +66,32 @@ class AreaNames(BaseModel):
     bn: str
 
 
+class RatingSummary(BaseModel):
+    """What a page says about a batch's or an owner's rating.
+
+    Read only from ``hub_public_rating``, which has no row for a batch below
+    the threshold [T2-a]. Below it every figure is None, the count included
+    [F18, T9-a]: a batch with 0, 1 or 2 published reviews reads the same.
+    The average is integer tenths (43 is 4.3) and its label is rendered by
+    integer operations, never through a float.
+
+    :ivar state: ``shown`` at or over the threshold, else ``below_threshold``
+    :ivar count: Published reviews, or None below the threshold
+    :ivar average_tenths: The average in tenths, or None
+    :ivar average_label: The average as shown, ``"4.3"``, or None
+    :ivar distribution: Reviews per star from one to five, or None; an
+        owner card carries none
+    """
+
+    model_config = _FROZEN
+
+    state: Literal["below_threshold", "shown"]
+    count: int | None = None
+    average_tenths: int | None = None
+    average_label: str | None = None
+    distribution: list[int] | None = None
+
+
 @register_view
 class HubOwnerCard(BaseModel):
     """One published owner as a search result or a page header.
@@ -71,6 +102,8 @@ class HubOwnerCard(BaseModel):
     :ivar kind: ``teacher`` for a solo tutor, ``organisation`` for a centre
     :ivar area_names: Where the owner teaches, or None when unset
     :ivar runs_classes: The stored "Runs classes" badge
+    :ivar rating: The rating over the owner's batches at the threshold
+        only (Call 12); None while reviews are off or no batch qualifies
     """
 
     model_config = _FROZEN
@@ -81,6 +114,7 @@ class HubOwnerCard(BaseModel):
     kind: Literal["teacher", "organisation"]
     area_names: AreaNames | None
     runs_classes: bool
+    rating: RatingSummary | None = None
 
 
 class PublicSlot(BaseModel):
@@ -118,6 +152,8 @@ class HubBatchCard(BaseModel):
         show them
     :ivar teacher_names: Who teaches it: consented centre teachers, else
         "Centre faculty" in the page's locale; a solo tutor's public name
+    :ivar rating: The batch's rating, ``below_threshold`` under three
+        published reviews; None while reviews are off
     """
 
     model_config = _FROZEN
@@ -135,6 +171,77 @@ class HubBatchCard(BaseModel):
     fee_display: str | None
     schedule: list[PublicSlot] | None
     teacher_names: list[str]
+    rating: RatingSummary | None = None
+
+
+class HubReply(BaseModel):
+    """The owner's published reply to a review.
+
+    :ivar body: The reply's text
+    :ivar month_label: The month it was published, e.g. ``Nov 2026``
+    """
+
+    model_config = _FROZEN
+
+    body: str
+    month_label: str
+
+
+@register_view
+class HubReview(BaseModel):
+    """One published review of a batch at the threshold, as a page shows it.
+
+    Read only from ``hub_public_review``. Its author is a tenure label,
+    never a name, an initial, a class or a day; its date is a month
+    [global constraints: Display]. ``review_id`` is what a ``review`` or
+    ``reply`` report names, and is no account, seat or student id.
+
+    :ivar review_id: The review, for the report links
+    :ivar rating: 1 to 5
+    :ivar body: The text, or None for a rating alone
+    :ivar author_label: "Verified guardian · enrolled …" in the page's locale
+    :ivar month_label: The month it was published, e.g. ``Nov 2026``
+    :ivar reply: The owner's reply while it is published, else None
+    """
+
+    model_config = _FROZEN
+
+    review_id: uuid.UUID
+    rating: int
+    body: str | None
+    author_label: str
+    month_label: str
+    reply: HubReply | None
+
+
+@register_view
+class HubImage(BaseModel):
+    """One approved photo, as an ``<img>`` renders it.
+
+    The URLs name the stored WebP variants, ``/m/{public_key}/{w}.webp``,
+    and only those the sanitiser wrote. :attr:`src` is the 960 variant, else
+    the largest; :attr:`width` and :attr:`height` are that variant's own
+    pixels, so the page reserves the photo's box before it arrives.
+
+    :ivar media_id: The photo's id, for the report link
+    :ivar src: The fallback URL
+    :ivar srcset: Every variant's URL with its pixel width
+    :ivar width: :attr:`src`'s width in pixels
+    :ivar height: :attr:`src`'s height in pixels
+    :ivar alt: The alt text in the page's locale, else the other locale's
+    :ivar awaiting_review: Set only in the owner's own preview, for a photo
+        moderation has not yet approved; a public page has none
+    """
+
+    model_config = _FROZEN
+
+    media_id: uuid.UUID
+    src: str
+    srcset: str
+    width: int
+    height: int
+    alt: str
+    awaiting_review: bool = False
 
 
 @register_view
@@ -152,6 +259,10 @@ class HubOwnerPage(BaseModel):
     :ivar street_address: A centre's address; always None for a tutor
     :ivar public_contact_phone: The number the owner chose to publish
     :ivar batches: The owner's published batches
+    :ivar images: The owner's own approved photos, by position; never a
+        batch's, which are on that batch's page only
+    :ivar enquiry_open: Whether the page offers the "Ask to join" link:
+        join requests are switched on and the owner accepts them
     """
 
     model_config = _FROZEN
@@ -164,6 +275,8 @@ class HubOwnerPage(BaseModel):
     street_address: str | None
     public_contact_phone: str | None
     batches: list[HubBatchCard]
+    images: list[HubImage]
+    enquiry_open: bool
 
 
 @register_view
@@ -177,6 +290,13 @@ class HubBatchPage(BaseModel):
     :ivar batch: The batch card
     :ivar description: The description
     :ivar syllabus: The syllabus
+    :ivar images: The batch's approved photos, by position
+    :ivar reviews: The newest published reviews, at most
+        :data:`~app.hub.public.ratings.MAX_REVIEWS`, newest month first then
+        by id; empty below the threshold and while reviews are off
+    :ivar enquiry_open: Whether the page offers the "Ask to join this
+        class" link: join requests are switched on, the owner accepts them,
+        and the batch's admissions are not ``closed``
     """
 
     model_config = _FROZEN
@@ -185,6 +305,9 @@ class HubBatchPage(BaseModel):
     batch: HubBatchCard
     description: str | None
     syllabus: str | None
+    images: list[HubImage]
+    enquiry_open: bool
+    reviews: list[HubReview] = []
 
 
 class AreaOption(BaseModel):
@@ -254,6 +377,10 @@ class HubSearchPage(BaseModel):
     :ivar page: This page's number, from 1
     :ivar pages: How many pages there are, at least 1
     :ivar total: How many owners matched
+    :ivar sort: ``rating`` when ordered by rating, else ``relevance``;
+        always ``relevance`` while reviews are off
+    :ivar offers_sort: Whether the form offers the sort choice: only while
+        reviews are on
     """
 
     model_config = _FROZEN
@@ -267,6 +394,8 @@ class HubSearchPage(BaseModel):
     page: int
     pages: int
     total: int
+    sort: Literal["relevance", "rating"] = "relevance"
+    offers_sort: bool = False
 
 
 class SitemapAlternate(BaseModel):

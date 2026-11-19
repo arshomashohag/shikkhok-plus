@@ -338,6 +338,10 @@ resource "aws_launch_template" "app" {
       # The distribution the host's invalidation sender targets [0041,
       # R8]; empty when none is passed, and the sender then sends nothing.
       site_distribution_id = local.site_distribution_id
+      # The role the host's media-credentials job assumes for the API
+      # container [H3 deviation 1]; empty when none is passed, and the job
+      # then writes nothing.
+      media_role_arn = try(var.media_role.arn, "")
     }))
     : line if !startswith(trimspace(line), "#") || startswith(trimspace(line), "#!")
   ]))
@@ -361,10 +365,13 @@ resource "aws_launch_template" "app" {
     #
     # **Hop limit 1, so no container can reach IMDS at all** [OPS-4].
     # It was 2, on the reasoning that the application runs in a
-    # container -- but nothing in the container calls AWS: the image
-    # carries no AWS SDK, and every AWS call (SSM reads, ECR pulls via
-    # the credential helper, Route53, S3, the awslogs driver in dockerd)
-    # is made by a HOST process. At 2, an SSRF in the API could fetch the
+    # container -- but nothing in the container needs the instance role:
+    # every AWS call (SSM reads, ECR pulls via the credential helper,
+    # Route53, S3, the awslogs driver in dockerd) is made by a HOST
+    # process. The container's one AWS client, the hub photo bucket's
+    # (app/hub/media/storage.py), signs with the media role's credentials,
+    # which a host job writes to a read-only mount [H3 deviation 1] -- never
+    # with anything from IMDS. At 2, an SSRF in the API could fetch the
     # instance role's credentials and the user data; at 1 the IMDSv2
     # token response dies one hop short of any container.
     http_tokens                 = "required"
@@ -639,6 +646,37 @@ resource "aws_iam_role_policy" "site_invalidation" {
       Effect   = "Allow"
       Action   = ["cloudfront:CreateInvalidation"]
       Resource = var.site_distribution_arn
+    }]
+  })
+}
+
+# **The API container's photo-bucket credentials, assumed by the HOST**
+# [H3 deviation 1]. The container still cannot reach this role (hop limit
+# 1, above). The host's shikkhokplus-media-creds job assumes the media
+# role (modules/media) with it every 15 minutes and writes the one-hour
+# credentials to a file mounted read-only into the api container. One
+# action on one role: this is the only role the host may assume, and the
+# media role can touch nothing but four prefixes of the photo bucket.
+#
+# **The count tests the object, not the arn inside it**, as ecr_pull does:
+# the role's arn is unknown until the first apply creates it, and count
+# must be known at plan time. The rehearsal host passes nothing and gets
+# nothing.
+#
+# **Needs the workload boundary to allow the action**, which
+# infra/bootstrap now does for this environment's media role only.
+resource "aws_iam_role_policy" "media_assume" {
+  count = var.media_role == null ? 0 : 1
+
+  name = "media-assume"
+  role = aws_iam_role.instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["sts:AssumeRole"]
+      Resource = var.media_role.arn
     }]
   })
 }

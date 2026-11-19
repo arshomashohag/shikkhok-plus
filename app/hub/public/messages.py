@@ -111,8 +111,22 @@ MESSAGES: Final[dict[str, dict[Locale, str]]] = {
         "en": "All batches of {name}",
         "bn": "{name}-এর সব ব্যাচ",
     },
+    # Photos.
+    "photos": {"en": "Photos", "bn": "ছবি"},
+    "photo_awaiting_review": {
+        "en": "Awaiting review",
+        "bn": "পর্যালোচনার অপেক্ষায়",
+    },
     # Reporting, preview, and the two fixed pages.
     "report_page": {"en": "Report this page", "bn": "এই পাতাটি রিপোর্ট করুন"},
+    # Join requests [H5]. Shown only while join requests are switched on and
+    # the owner accepts them; "join request" is ভর্তির অনুরোধ, as the apps say.
+    "enquiry_link": {"en": "Ask to join", "bn": "ভর্তির অনুরোধ পাঠান"},
+    "enquiry_link_batch": {
+        "en": "Ask to join this class",
+        "bn": "এই ক্লাসে ভর্তির অনুরোধ পাঠান",
+    },
+    "report_photo": {"en": "Report this photo", "bn": "এই ছবিটি রিপোর্ট করুন"},
     "preview_banner": {
         "en": "Preview — not public yet",
         "bn": "প্রিভিউ — এখনও প্রকাশিত নয়",
@@ -128,6 +142,54 @@ MESSAGES: Final[dict[str, dict[Locale, str]]] = {
         "en": "Please wait a minute and try again.",
         "bn": "এক মিনিট অপেক্ষা করে আবার চেষ্টা করুন।",
     },
+    # Reviews and ratings [H4]. Shown only while reviews are switched on.
+    # Below the threshold every batch reads the same line, whatever its
+    # count, so 0, 1 and 2 reviews cannot be told apart [F18, T9-a].
+    "reviews_heading": {"en": "Reviews", "bn": "রিভিউ"},
+    "reviews_count": {"en": "{count} reviews", "bn": "{count}টি রিভিউ"},
+    "reviews_below_threshold": {
+        "en": "Ratings appear once a class has 3 reviews.",
+        "bn": "কোনো ক্লাসে 3টি রিভিউ হলে রেটিং দেখা যাবে।",
+    },
+    "reviews_most_recent": {
+        "en": "Showing the {shown} most recent reviews.",
+        "bn": "সাম্প্রতিকতম {shown}টি রিভিউ দেখানো হচ্ছে।",
+    },
+    "rating_out_of": {"en": "{average} out of 5", "bn": "5-এর মধ্যে {average}"},
+    "rating_stars": {"en": "{stars} stars", "bn": "{stars} তারকা"},
+    "reply_heading": {"en": "Reply from the teacher", "bn": "শিক্ষকের উত্তর"},
+    "report_review": {"en": "Report this review", "bn": "এই রিভিউটি রিপোর্ট করুন"},
+    "report_reply": {"en": "Report this reply", "bn": "এই উত্তরটি রিপোর্ট করুন"},
+    "sort_label": {"en": "Sort by", "bn": "সাজানোর ক্রম"},
+    "sort_relevance": {"en": "Best match", "bn": "সবচেয়ে মানানসই"},
+    "sort_rating": {"en": "Rating", "bn": "রেটিং"},
+    # Who wrote a review: a tenure bucket, never a name, an initial, a
+    # class or a day. V1 reviewers are guardians only.
+    "review_by_lt_6m": {
+        "en": "Verified guardian · enrolled under 6 months",
+        "bn": "যাচাইকৃত অভিভাবক · 6 মাসের কম সময় ধরে ভর্তি",
+    },
+    "review_by_6_12m": {
+        "en": "Verified guardian · enrolled 6–12 months",  # noqa: RUF001 -- the decided copy's en dash
+        "bn": "যাচাইকৃত অভিভাবক · 6–12 মাস ধরে ভর্তি",  # noqa: RUF001 -- the decided copy's en dash
+    },
+    "review_by_gt_1y": {
+        "en": "Verified guardian · enrolled over 1 year",
+        "bn": "যাচাইকৃত অভিভাবক · 1 বছরের বেশি সময় ধরে ভর্তি",
+    },
+    # A review's or reply's month: the name, then the year in Latin digits.
+    "month_1": {"en": "Jan", "bn": "জানুয়ারি"},
+    "month_2": {"en": "Feb", "bn": "ফেব্রুয়ারি"},
+    "month_3": {"en": "Mar", "bn": "মার্চ"},
+    "month_4": {"en": "Apr", "bn": "এপ্রিল"},
+    "month_5": {"en": "May", "bn": "মে"},
+    "month_6": {"en": "Jun", "bn": "জুন"},
+    "month_7": {"en": "Jul", "bn": "জুলাই"},
+    "month_8": {"en": "Aug", "bn": "আগস্ট"},
+    "month_9": {"en": "Sep", "bn": "সেপ্টেম্বর"},
+    "month_10": {"en": "Oct", "bn": "অক্টোবর"},
+    "month_11": {"en": "Nov", "bn": "নভেম্বর"},
+    "month_12": {"en": "Dec", "bn": "ডিসেম্বর"},
     # The apps' vocabulary labels, equal to the generated web bundle.
     "hub_level_class_1": {"en": "Class 1", "bn": "প্রথম শ্রেণি"},
     "hub_level_class_2": {"en": "Class 2", "bn": "দ্বিতীয় শ্রেণি"},

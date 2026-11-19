@@ -89,6 +89,10 @@ services:
       SHIKKHOKPLUS_SES_CONFIGURATION_SET: ${SHIKKHOKPLUS_SES_CONFIGURATION_SET:-}
       SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL: ${SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL:-1000}
       SHIKKHOKPLUS_SITE_URL: ${SHIKKHOKPLUS_SITE_URL:-}
+      # Hub reviews are off unless this is exactly "on".
+      SHIKKHOKPLUS_HUB_REVIEWS: ${SHIKKHOKPLUS_HUB_REVIEWS:-off}
+      # Hub join requests are off unless this is exactly "on".
+      SHIKKHOKPLUS_HUB_ENQUIRIES: ${SHIKKHOKPLUS_HUB_ENQUIRIES:-off}
     ports:
       - "${API_PORT:-8000}:8000"
     restart: unless-stopped

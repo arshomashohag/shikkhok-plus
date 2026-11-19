@@ -137,6 +137,24 @@ data class NewStudent(
 }
 
 /**
+ * What a join request fills the form with [H5]: the name the guardian
+ * typed, and their contact only when they chose to share it. The teacher
+ * checks it and saves as usual.
+ *
+ * @property name The student's name as the guardian typed it
+ * @property guardianPhone The guardian's shared phone, or null
+ * @property guardianEmail The guardian's shared email, or null
+ */
+data class StudentPrefill(
+    val name: String,
+    val guardianPhone: String? = null,
+    val guardianEmail: String? = null,
+) {
+    // A child's name and a family's contact [NFR3.2].
+    override fun toString(): String = "StudentPrefill(name=***, guardianPhone=***, guardianEmail=***)"
+}
+
+/**
  * Add a student to the teacher's list, and suggest batches [D3].
  *
  * **Batches are suggested, never required**: the multi-select may be
@@ -157,6 +175,8 @@ data class NewStudent(
  * @param existingNames The teacher's students, for the same-name hint
  * @param studentEmailError A refusal about the student's email, resolved,
  *   shown under that field (`student.email.taken`), or null
+ * @param prefill What a join request fills the fields with, or null; read
+ *   once, when the form is first drawn
  */
 @Composable
 fun AddStudentForm(
@@ -169,12 +189,13 @@ fun AddStudentForm(
     preselected: String? = null,
     existingNames: List<String> = emptyList(),
     studentEmailError: String? = null,
+    prefill: StudentPrefill? = null,
 ) {
-    var name by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(prefill?.name.orEmpty()) }
     var phone by remember { mutableStateOf("") }
-    var guardian by remember { mutableStateOf("") }
+    var guardian by remember { mutableStateOf(prefill?.guardianPhone?.let(Numerals::phone).orEmpty()) }
     var studentEmail by remember { mutableStateOf("") }
-    var guardianEmail by remember { mutableStateOf("") }
+    var guardianEmail by remember { mutableStateOf(prefill?.guardianEmail.orEmpty()) }
     // Batch id to the fee typed for it; blank inherits the batch's fee.
     val chosen = remember { mutableStateMapOf<String, String>().apply { preselected?.let { put(it, "") } } }
 

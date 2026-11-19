@@ -4,7 +4,7 @@ Public owner and batch pages are cached at the edge for up to ten minutes,
 so a takedown that only changed a row would leave the page served from the
 cache. Every takedown therefore writes ``cdn_invalidation`` rows **in its own
 transaction**: a rolled-back takedown leaves no row, and a committed one
-cannot lose its row. Nothing in the container calls AWS [R8]: the host's
+cannot lose its row. Nothing in the container calls CloudFront [R8]: the host's
 cron claims rows through ``app.hub.public.commands``, sends them with its own
 AWS CLI, and acks or fails them; the container half is tested here, the host
 script in ``tests/gates/test_hub_invalidation_host.py``.
