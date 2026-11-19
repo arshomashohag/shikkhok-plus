@@ -1228,3 +1228,45 @@ id = "test_class_teacher_report_holds_nothing_and_keeps_nothing_held"
 file = "tests/moderation/test_review_moderation.py"
 criterion = "A centre teacher assigned to the batch by slot or class files child-safety reports that hold nothing, keep nothing held and block no approval; a stranger's report still holds"
 rule = "ruling F10 with T3-c, final fix I-2"
+
+[[test]]
+id = "test_unenquirable_targets_answer_identically"
+file = "tests/enquiries/test_target.py"
+criterion = "A draft, hidden or suspended owner, an owner not accepting requests, a closed, unpublished, inactive, unknown or other owner's batch, a centre manager and a solo owner's own account each get the same 404 status and body bytes as a slug that never existed, from resolve, send and describe, with no row, counter or notification written"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_contact_in_text_refused_both_ways"
+file = "tests/enquiries/test_sending.py"
+criterion = "A phone number in Bangla or spaced digits, a country-code number, or a web address in the student name or message is refused with ENQUIRY_CONTAINS_CONTACT naming the field, storing and counting nothing; ordinary text such as 4.30 pm passes"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_concurrent_sends_make_one_open_enquiry"
+file = "tests/enquiries/test_sending.py"
+criterion = "Two simultaneous first sends to one owner leave exactly one open request, one ENQUIRY_ALREADY_OPEN, one counted send and one delivery"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_mine_lists_only_own_rows"
+file = "tests/enquiries/test_sending.py"
+criterion = "With two guardians each asking two owners, a guardian's list holds only their own requests, newest first, and carries no account id"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_withdraw_is_total"
+file = "tests/enquiries/test_forget.py"
+criterion = "Withdrawing an answered request with the switch off leaves no listing_enquiry row and no notification with its source_id for any manager or the guardian, and leaves another guardian's request and items untouched"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_resolve_refuses_exactly_the_managing_accounts"
+file = "tests/enquiries/test_target.py"
+criterion = "Across solo and centre worlds with accepted, pending, declined and revoked managers and class teachers, the accounts resolve refuses equal managing_accounts(owner)"
+rule = "H5 ruling F8"
+
+[[test]]
+id = "test_close_and_withdraw_race_without_deadlock"
+file = "tests/enquiries/test_forget.py"
+criterion = "A close-shaped transaction and a withdrawal racing in either order both finish without a deadlock and leave no request and no inbox item"
+rule = "H5 ruling F7"

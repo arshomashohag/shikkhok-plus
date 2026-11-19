@@ -1885,6 +1885,10 @@
     <string name="hub_write_ceiling">আজ আপনি তালিকায় অনেকবার পরিবর্তন করেছেন। কাল আবার চেষ্টা করুন।</string>
     <string name="hub_review_off">রিভিউ এখন পাওয়া যাচ্ছে না।</string>
     <string name="hub_enquiry_off">ভর্তির অনুরোধ এখন পাওয়া যাচ্ছে না।</string>
+    <string name="hub_enquiry_target_not_found">এই শিক্ষক বা ব্যাচ এখন ভর্তির অনুরোধ নিচ্ছে না।</string>
+    <string name="hub_enquiry_already_open">এই শিক্ষকের কাছে আপনার একটি ভর্তির অনুরোধ এখনও খোলা আছে। নতুন অনুরোধ পাঠাতে আগেরটি তুলে নিন।</string>
+    <string name="hub_enquiry_ceiling">আজ আপনি অনেকগুলো ভর্তির অনুরোধ পাঠিয়েছেন। কাল আবার চেষ্টা করুন।</string>
+    <string name="hub_enquiry_contains_contact">ফোন নম্বর ও ওয়েব ঠিকানা সরিয়ে দিন। শিক্ষককে আপনার নম্বর দিতে শেয়ার-এ টিক দিন।</string>
     <string name="hub_review_ceiling">আজ আপনি অনেকবার রিভিউ পরিবর্তন করেছেন। কাল আবার চেষ্টা করুন।</string>
     <string name="hub_review_already_decided">এই রিভিউ বা উত্তরের সিদ্ধান্ত আগেই নেওয়া হয়েছে।</string>
     <string name="hub_review_code_invalid">তালিকা থেকে বাতিলের একটি কারণ বেছে নিন।</string>

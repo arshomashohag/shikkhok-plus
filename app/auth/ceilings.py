@@ -123,6 +123,7 @@ __all__ = [
     "DEL_PER_NUMBER_DAILY",
     "DEL_PER_NUMBER_HOURLY",
     "GLOBAL_DAILY",
+    "HUB_ENQUIRY_ACCOUNT_DAILY",
     "HUB_LISTING_OWNER_DAILY",
     "HUB_MEDIA_OWNER_DAILY",
     "HUB_PUBLIC_READ_IP_MINUTE",
@@ -415,6 +416,11 @@ HUB_REPORT_ACCOUNT_DAILY: Final = 10
 #: review and four second thoughts, across every batch the account reviews.
 HUB_REVIEW_ACCOUNT_DAILY: Final = 5
 
+#: Join requests one account may send in a day [H5 Call 9]. Only a request
+#: actually stored counts; one open request per owner bounds the rest, so
+#: five is five different teachers asked in a day.
+HUB_ENQUIRY_ACCOUNT_DAILY: Final = 5
+
 #: Public hub page reads one network may make at the origin in a minute.
 #: The edge cache answers almost every read, so the origin sees misses
 #: only; a caller sending more than two a second is walking the site to
@@ -515,6 +521,10 @@ class ScopeKind(enum.Enum):
     # Consumed only by the NON-committing consume, inside the write's own
     # transaction [F5], so a refused or failed write counts nothing.
     HUB_REVIEW_DAILY = "hub_review_day"
+    # The public hub's join requests, one counter per sending account per
+    # day [H5]. Consumed only by the NON-committing consume, once the
+    # request is stored, so a refused send counts nothing.
+    HUB_ENQUIRY_DAILY = "hub_enquiry_day"
     # Email and passwords [0032], inside `String(16)` like the rest.
     EMAIL_GLOBAL_DAILY = "em_global_day"
     PASSWORD_FAIL_ID_HOURLY = "pw_fail_id_hour"  # noqa: S105 -- a name, not a password
@@ -645,8 +655,9 @@ class CeilingBreach(ConflictError):
     **The message key follows the cascade, the code does not**, except
     where a client is not a person waiting for a code: the public hub's
     listing editor answers ``HUB_WRITE_CEILING``, its report form
-    ``HUB_REPORT_CEILING``, its photo editor ``MEDIA_LIMIT_REACHED`` and its
-    review form ``HUB_REVIEW_CEILING``, and a contact change
+    ``HUB_REPORT_CEILING``, its photo editor ``MEDIA_LIMIT_REACHED``, its
+    review form ``HUB_REVIEW_CEILING`` and its join-request form
+    ``HUB_ENQUIRY_CEILING``, and a contact change
     ``CONTACT_CHANGE_LIMIT``, codes of their own. Every other cascade
     answers the same contentless ``TEMPORARILY_UNAVAILABLE``,
     so a client switching on the code treats them identically; what
@@ -774,6 +785,11 @@ class CeilingBreach(ConflictError):
             super().__init__(
                 code="HUB_REVIEW_CEILING",
                 message_key="hub.review.ceiling",
+            )
+        elif scope is ScopeKind.HUB_ENQUIRY_DAILY:
+            super().__init__(
+                code="HUB_ENQUIRY_CEILING",
+                message_key="hub.enquiry.ceiling",
             )
         else:
             super().__init__(
@@ -1491,18 +1507,11 @@ class CeilingChecker:
         :return: None
         :raises CeilingBreach: This would exceed today's allowance
         """
-        moment = now or dt.datetime.now(tz=dt.UTC)
-        scope = _Scope(ScopeKind.HUB_OWNER_DAILY, HUB_LISTING_OWNER_DAILY, _DAY)
-        count = self.session.execute(
-            _UPSERT,
-            {
-                "kind": scope.kind.value,
-                "value": str(owner_id),
-                "window": _window_start(moment, scope.window),
-            },
-        ).scalar_one()
-        if count > scope.limit:
-            raise CeilingBreach(scope.kind)
+        self._consume_in_transaction(
+            _Scope(ScopeKind.HUB_OWNER_DAILY, HUB_LISTING_OWNER_DAILY, _DAY),
+            str(owner_id),
+            now,
+        )
 
     def check_and_consume_hub_report(
         self, account_id: uuid.UUID, now: dt.datetime | None = None
@@ -1536,18 +1545,11 @@ class CeilingChecker:
         :return: None
         :raises CeilingBreach: This would be the owner's 31st upload today
         """
-        moment = now or dt.datetime.now(tz=dt.UTC)
-        scope = _Scope(ScopeKind.HUB_MEDIA_DAILY, HUB_MEDIA_OWNER_DAILY, _DAY)
-        count = self.session.execute(
-            _UPSERT,
-            {
-                "kind": scope.kind.value,
-                "value": str(owner_id),
-                "window": _window_start(moment, scope.window),
-            },
-        ).scalar_one()
-        if count > scope.limit:
-            raise CeilingBreach(scope.kind)
+        self._consume_in_transaction(
+            _Scope(ScopeKind.HUB_MEDIA_DAILY, HUB_MEDIA_OWNER_DAILY, _DAY),
+            str(owner_id),
+            now,
+        )
 
     def consume_hub_review_in_transaction(
         self, account_id: uuid.UUID, now: dt.datetime | None = None
@@ -1566,18 +1568,33 @@ class CeilingChecker:
         :raises CeilingBreach: This would be the author's sixth changing
             write today; its code is ``HUB_REVIEW_CEILING``
         """
-        moment = now or dt.datetime.now(tz=dt.UTC)
-        scope = _Scope(ScopeKind.HUB_REVIEW_DAILY, HUB_REVIEW_ACCOUNT_DAILY, _DAY)
-        count = self.session.execute(
-            _UPSERT,
-            {
-                "kind": scope.kind.value,
-                "value": str(account_id),
-                "window": _window_start(moment, scope.window),
-            },
-        ).scalar_one()
-        if count > scope.limit:
-            raise CeilingBreach(scope.kind)
+        self._consume_in_transaction(
+            _Scope(ScopeKind.HUB_REVIEW_DAILY, HUB_REVIEW_ACCOUNT_DAILY, _DAY),
+            str(account_id),
+            now,
+        )
+
+    def consume_hub_enquiry_in_transaction(
+        self, account_id: uuid.UUID, now: dt.datetime | None = None
+    ) -> None:
+        """Count one join request, WITHOUT committing [H5 Call 9].
+
+        Called once the request is stored, so a send refused for its text,
+        its target or an open request spends nothing. The count and the
+        request commit together, and a breach raises so the caller rolls
+        back the request with the count.
+
+        :param account_id: The sending account
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: This would be the account's sixth request
+            today; its code is ``HUB_ENQUIRY_CEILING``
+        """
+        self._consume_in_transaction(
+            _Scope(ScopeKind.HUB_ENQUIRY_DAILY, HUB_ENQUIRY_ACCOUNT_DAILY, _DAY),
+            str(account_id),
+            now,
+        )
 
     def check_and_consume_hub_public_read(
         self, ip_prefix: str, now: dt.datetime | None = None
@@ -1683,6 +1700,35 @@ class CeilingChecker:
         scope = self._dead_code_scope()
         if self._peek(scope, number, moment) >= scope.limit:
             raise CeilingBreach(scope.kind, during_signup=during_signup)
+
+    def _consume_in_transaction(
+        self, scope: _Scope, value: str, now: dt.datetime | None
+    ) -> None:
+        """Count one use against a scope inside the caller's transaction.
+
+        The one body behind every hub non-committing consume [H5 F12]: the
+        same atomic upsert-and-compare :meth:`_consume` runs, without its
+        commit. The counter commits with the caller's write or rolls back
+        with it; a breach raises and the caller rolls back, so nothing is
+        counted.
+
+        :param scope: The scope to count against
+        :param value: Its scope value
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: The count now exceeds the scope's limit
+        """
+        moment = now or dt.datetime.now(tz=dt.UTC)
+        count = self.session.execute(
+            _UPSERT,
+            {
+                "kind": scope.kind.value,
+                "value": value,
+                "window": _window_start(moment, scope.window),
+            },
+        ).scalar_one()
+        if count > scope.limit:
+            raise CeilingBreach(scope.kind)
 
     def _peek(self, scope: _Scope, value: str, moment: dt.datetime) -> int:
         """Read one scope's count in the current window without changing it.

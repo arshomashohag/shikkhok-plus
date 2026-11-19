@@ -32,6 +32,8 @@ __all__ = [
     "EXAM_CANCELLED",
     "EXAM_SCHEDULED",
     "FEE_REMINDER",
+    "HUB_ENQUIRY_ANSWERED",
+    "HUB_ENQUIRY_RECEIVED",
     "HUB_FEEDBACK_QUESTION",
     "HUB_LISTING_SUSPENDED",
     "HUB_REVIEWS_PUBLISHED",
@@ -129,6 +131,19 @@ HUB_REVIEW_OUTCOME: Final[str] = "hub_review_outcome"
 #: digits; ``source_id`` is the owner, as for :data:`HUB_FEEDBACK_QUESTION`.
 #: Not legacy.
 HUB_REVIEWS_PUBLISHED: Final[str] = "hub_reviews_published"
+
+#: A guardian asked to join an owner's class [H5], told to everyone who runs
+#: the listing (``managing_accounts``). ``source_id`` is the request,
+#: ``batch_name`` the batch's public title, else the listing's public name,
+#: and ``preview`` is None: nothing the guardian typed or shared is ever in
+#: an inbox. Closing the request marks every copy read. Not legacy.
+HUB_ENQUIRY_RECEIVED: Final[str] = "hub_enquiry_received"
+
+#: The owner answered a guardian's join request [H5], told to the guardian.
+#: ``preview`` is the outcome code (``added``, ``not_now`` or ``call_us``),
+#: ``source_id`` the request and ``batch_name`` as for
+#: :data:`HUB_ENQUIRY_RECEIVED`. Not legacy.
+HUB_ENQUIRY_ANSWERED: Final[str] = "hub_enquiry_answered"
 
 #: The kinds every client knew before clients began announcing theirs
 #: [PO-10]. **Frozen: never add to it.** A client that does not say which

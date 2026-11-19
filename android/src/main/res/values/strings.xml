@@ -1952,6 +1952,10 @@
     <string name="hub_write_ceiling">You have changed your listing a lot today. Try again tomorrow.</string>
     <string name="hub_review_off">Reviews are not available right now.</string>
     <string name="hub_enquiry_off">Join requests are not available right now.</string>
+    <string name="hub_enquiry_target_not_found">This teacher or class is not taking join requests right now.</string>
+    <string name="hub_enquiry_already_open">You already have a join request open with this teacher. Withdraw it to send a new one.</string>
+    <string name="hub_enquiry_ceiling">You have sent a lot of join requests today. Try again tomorrow.</string>
+    <string name="hub_enquiry_contains_contact">Remove phone numbers and web addresses. To give the teacher your number, tick Share.</string>
     <string name="hub_review_ceiling">You have changed your reviews a lot today. Try again tomorrow.</string>
     <string name="hub_review_already_decided">This review or reply has already been decided.</string>
     <string name="hub_review_code_invalid">Choose one of the listed rejection reasons.</string>
