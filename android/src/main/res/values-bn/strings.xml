@@ -1884,6 +1884,7 @@
     <string name="hub_batch_flags_required">এই তালিকা সংরক্ষণের আগে ফি এবং সময়সূচি জনসাধারণের জন্য দেখানো হবে কি না জানান।</string>
     <string name="hub_write_ceiling">আজ আপনি তালিকায় অনেকবার পরিবর্তন করেছেন। কাল আবার চেষ্টা করুন।</string>
     <string name="hub_review_off">রিভিউ এখন পাওয়া যাচ্ছে না।</string>
+    <string name="hub_enquiry_off">ভর্তির অনুরোধ এখন পাওয়া যাচ্ছে না।</string>
     <string name="hub_review_ceiling">আজ আপনি অনেকবার রিভিউ পরিবর্তন করেছেন। কাল আবার চেষ্টা করুন।</string>
     <string name="hub_review_already_decided">এই রিভিউ বা উত্তরের সিদ্ধান্ত আগেই নেওয়া হয়েছে।</string>
     <string name="hub_review_code_invalid">তালিকা থেকে বাতিলের একটি কারণ বেছে নিন।</string>

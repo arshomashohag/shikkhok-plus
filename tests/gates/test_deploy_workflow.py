@@ -1395,6 +1395,7 @@ _RECORD_PARAMS = {
         "shikkhokplus-staging-media-123456789012.s3.us-east-1.amazonaws.com"
     ),
     "hub-reviews": "off",
+    "hub-enquiries": "off",
 }
 
 
@@ -1742,6 +1743,39 @@ def test_deploy_validates_switch_value_and_writes_it(
     finished, log, runtime = _run_record_step(tmp_path, **{"hub-reviews": value})
 
     assert finished.returncode != 0
+    assert "Nothing has been recorded or rolled" in finished.stdout
+    assert runtime == {}
+    assert not any("put-parameter" in line for line in log)
+
+
+@pytest.mark.parametrize("value", ["on", "off"])
+def test_deploy_writes_the_enquiries_switch(tmp_path: pathlib.Path, value: str) -> None:
+    finished, _, runtime = _run_record_step(tmp_path, **{"hub-enquiries": value})
+
+    assert finished.returncode == 0, finished.stdout + finished.stderr
+    assert runtime["SHIKKHOKPLUS_HUB_ENQUIRIES"] == value
+
+
+def test_deploy_writes_the_enquiries_switch_independently_of_reviews(
+    tmp_path: pathlib.Path,
+) -> None:
+    finished, _, runtime = _run_record_step(
+        tmp_path, **{"hub-reviews": "on", "hub-enquiries": "off"}
+    )
+
+    assert finished.returncode == 0, finished.stdout + finished.stderr
+    assert runtime["SHIKKHOKPLUS_HUB_REVIEWS"] == "on"
+    assert runtime["SHIKKHOKPLUS_HUB_ENQUIRIES"] == "off"
+
+
+@pytest.mark.parametrize("value", ["ON", "true", "1", "", "yes", "on off", None])
+def test_deploy_validates_enquiries_switch_value_and_writes_it(
+    tmp_path: pathlib.Path, value: str | None
+) -> None:
+    finished, log, runtime = _run_record_step(tmp_path, **{"hub-enquiries": value})
+
+    assert finished.returncode != 0
+    assert "Cannot read the hub join requests switch" in finished.stdout
     assert "Nothing has been recorded or rolled" in finished.stdout
     assert runtime == {}
     assert not any("put-parameter" in line for line in log)

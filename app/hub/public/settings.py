@@ -7,9 +7,11 @@ from typing import Final
 
 __all__ = [
     "DEFAULT_ORIGIN",
+    "HUB_ENQUIRIES_ENV",
     "HUB_REVIEWS_ENV",
     "SITE_URL_ENV",
     "WEB_APP_URL_ENV",
+    "enquiries_enabled",
     "reviews_enabled",
     "site_url",
     "web_app_url",
@@ -25,6 +27,10 @@ WEB_APP_URL_ENV: Final[str] = "SHIKKHOKPLUS_WEB_APP_URL"
 
 #: The reviews switch. Reviews are off unless this is exactly ``on``.
 HUB_REVIEWS_ENV: Final[str] = "SHIKKHOKPLUS_HUB_REVIEWS"
+
+#: The join-requests switch. Join requests are off unless this is exactly
+#: ``on``; it is independent of the reviews switch.
+HUB_ENQUIRIES_ENV: Final[str] = "SHIKKHOKPLUS_HUB_ENQUIRIES"
 
 #: The origin used when either variable is unset, as locally and in tests.
 DEFAULT_ORIGIN: Final[str] = "http://localhost"
@@ -62,3 +68,15 @@ def reviews_enabled() -> bool:
     :return: True when reviews are on
     """
     return os.environ.get(HUB_REVIEWS_ENV) == "on"
+
+
+def enquiries_enabled() -> bool:
+    """Say whether hub join requests are switched on.
+
+    True only for the exact string ``on``: unset, ``ON``, ``true``, ``1``
+    and `` on`` are all off, so a typo can never switch the feature on.
+    Read at each call, as :func:`reviews_enabled` is.
+
+    :return: True when join requests are on
+    """
+    return os.environ.get(HUB_ENQUIRIES_ENV) == "on"

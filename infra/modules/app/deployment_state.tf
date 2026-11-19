@@ -164,3 +164,18 @@ resource "aws_ssm_parameter" "hub_reviews" {
     ignore_changes = [value]
   }
 }
+
+# **The hub join-requests switch**, on the reviews switch's terms and
+# independent of it: `on` or `off`, created `off`, its value ignored by every
+# apply after that. See infra/README.md "Switching join requests on".
+resource "aws_ssm_parameter" "hub_enquiries" {
+  name  = "/shikkhokplus/${var.name_prefix}/hub-enquiries"
+  type  = "String"
+  value = "off"
+
+  description = "Hub join-requests switch: on or off. Read by the deploy, never set by an apply."
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}

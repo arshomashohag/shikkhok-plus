@@ -116,6 +116,7 @@
     "hub.batch_inactive",
     "hub.batch_value_invalid",
     "hub.consent_outdated",
+    "hub.enquiry.off",
     "hub.feedback_not_asked",
     "hub.listing_incomplete",
     "hub.listing_suspended",

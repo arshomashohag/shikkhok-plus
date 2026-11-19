@@ -1122,6 +1122,16 @@ jobs:
             echo "from a laptop. Nothing has been recorded or rolled."
             exit 1
           fi
+          # **The hub join-requests switch** (infra/modules/app), on the
+          # reviews switch's terms and independent of it.
+          HUB_ENQUIRIES=$(ses_param hub-enquiries) || true
+          if ! [[ "$HUB_ENQUIRIES" =~ ^(on|off)$ ]]; then
+            echo "::error::Cannot read the hub join requests switch from SSM as hub-enquiries: on or off (got '${HUB_ENQUIRIES}')."
+            echo "Either the infrastructure job has not applied infra/modules/app,"
+            echo "or the deploy role predates it: re-apply infra/bootstrap once,"
+            echo "from a laptop. Nothing has been recorded or rolled."
+            exit 1
+          fi
           echo "media_origin=https://${MEDIA_DOMAIN}" >> "$GITHUB_OUTPUT"
           if ! [[ "$DAILY_EMAIL" =~ ^[0-9]+$ ]]; then
             echo "::error::Variable SHIKKHOKPLUS_GLOBAL_DAILY_EMAIL must be a whole number."
@@ -1203,6 +1213,8 @@ jobs:
             echo "AWS_REGION=${MEDIA_REGION}"
             # The reviews switch, validated above.
             echo "SHIKKHOKPLUS_HUB_REVIEWS=${HUB_REVIEWS}"
+            # The join-requests switch, validated above.
+            echo "SHIKKHOKPLUS_HUB_ENQUIRIES=${HUB_ENQUIRIES}"
           } > runtime.env
 
           aws ssm put-parameter \

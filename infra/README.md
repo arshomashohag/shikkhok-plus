@@ -494,6 +494,38 @@ five). Switch off without waiting for the D-steps whenever a safety
 reason calls for it; the admin overview's pull-reviews figure (more than
 5% of public reviews reported in a quarter, hub spec §9) is one.
 
+## Switching join requests on
+
+Hub join requests ("Ask to join") are **off** until someone turns them
+on, in every environment, and the switch is independent of the reviews
+switch. It is one SSM parameter per environment, a plain `String`
+holding exactly `on` or `off`:
+
+| Environment | Parameter |
+|---|---|
+| staging | `/shikkhokplus/shikkhokplus-staging/hub-enquiries` |
+| production | `/shikkhokplus/shikkhokplus-production/hub-enquiries` |
+
+Its name is `/shikkhokplus/${var.name_prefix}/hub-enquiries`
+(`modules/app/deployment_state.tf`) with `name_prefix =
+"shikkhokplus-${var.environment}"` (`main.tf`), the same path the release
+reads (`ses_param hub-enquiries` in `deploy.yml`);
+`tests/gates/test_hub_enquiries_switch_infra.py` keeps this table equal
+to it. Terraform creates it `off` and ignores its value afterwards, so
+an apply never changes it.
+
+**The deploy role must be able to read it.** Every release reads the
+switch, on or off, so if the last deploy succeeded this is already true.
+If a release stops at "Cannot read the hub join requests switch",
+re-apply `bootstrap/` once from a laptop: H5 added `hub-enquiries` to the
+parameters the deploy role may read (`bootstrap/deploy_role.tf`). The
+release stops before changing anything.
+
+**Do not turn it on yet.** The human checks that come before writing
+`on` (the `project.md` rule amendment and the D6 declarations) and the
+staging check after it are not written here yet; until they are, the
+parameter stays `off` in every environment.
+
 ## Reading the outputs
 
 The apply job writes `api_url`, `app_static_ip` and

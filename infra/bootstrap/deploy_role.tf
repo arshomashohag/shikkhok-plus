@@ -209,6 +209,12 @@ resource "aws_iam_role_policy" "deploy" {
         # region into the runtime env and hands the endpoint to the web and
         # admin builds for their CSP. Names only; this role gets no access
         # to the bucket itself.
+        #
+        # **And the hub switches** (modules/app): `hub-reviews` and
+        # `hub-enquiries`, plain Strings holding `on` or `off`, which the
+        # release validates and copies into the runtime env. A release
+        # stops if it cannot read either, so adding one here is a
+        # bootstrap re-apply before the next deploy.
         Sid    = "PublicUrl"
         Effect = "Allow"
         Action = ["ssm:GetParameter"]
@@ -222,7 +228,7 @@ resource "aws_iam_role_policy" "deploy" {
             "email-from", "ses-configuration-set", "ses-smtp-host",
             "android-cert-sha256",
             "media-bucket", "media-bucket-domain",
-            "hub-reviews",
+            "hub-reviews", "hub-enquiries",
           ] :
           "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/shikkhokplus-${each.key}/${name}"
         ]

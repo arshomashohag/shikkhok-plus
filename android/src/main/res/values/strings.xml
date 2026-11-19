@@ -1951,6 +1951,7 @@
     <string name="hub_batch_flags_required">Say whether to show the fee and the schedule publicly before saving this listing.</string>
     <string name="hub_write_ceiling">You have changed your listing a lot today. Try again tomorrow.</string>
     <string name="hub_review_off">Reviews are not available right now.</string>
+    <string name="hub_enquiry_off">Join requests are not available right now.</string>
     <string name="hub_review_ceiling">You have changed your reviews a lot today. Try again tomorrow.</string>
     <string name="hub_review_already_decided">This review or reply has already been decided.</string>
     <string name="hub_review_code_invalid">Choose one of the listed rejection reasons.</string>

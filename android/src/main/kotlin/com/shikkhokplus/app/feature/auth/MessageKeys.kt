@@ -84,6 +84,7 @@ object MessageKeys {
         "hub.write_ceiling" to R.string.hub_write_ceiling,
         "hub.report_target_not_found" to R.string.hub_report_target_not_found,
         "hub.review.off" to R.string.hub_review_off,
+        "hub.enquiry.off" to R.string.hub_enquiry_off,
         "hub.review.ceiling" to R.string.hub_review_ceiling,
         "hub.review.already_decided" to R.string.hub_review_already_decided,
         "hub.review.code_invalid" to R.string.hub_review_code_invalid,
