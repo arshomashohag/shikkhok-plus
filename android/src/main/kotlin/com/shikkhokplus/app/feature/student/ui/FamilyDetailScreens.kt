@@ -17,6 +17,7 @@ import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.designsystem.asHeading
+import com.shikkhokplus.app.core.designsystem.Quiet
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.dayLabel
 import com.shikkhokplus.app.core.ui.CalendarClassUi
@@ -79,7 +80,7 @@ fun ClassDetailScreen(
             return@ScreenScaffold
         }
         Heading(clazz.subjectName?.let(Numerals::freeText) ?: dayLabel(clazz.date))
-        Quiet("${dayLabel(clazz.date)} · ${displayTime(clazz.startTime.take(HHMM))}")
+        Quiet("${dayLabel(clazz.date)} · ${displayTime(clazz.startTime.take(HHMM))}", small = true)
         Section(stringResource(classTopicsHeading(clazz.state)))
         val topic = clazz.topic?.takeIf { it.isNotBlank() }
         Text(
@@ -161,10 +162,11 @@ private fun ExamBody(exam: FamilyExam) {
             dayLabel(exam.date),
             stringResource(R.string.batch_exam_out_of, Numerals.count(exam.totalMarks)),
         ).joinToString(" · "),
+        small = true,
     )
     Section(stringResource(R.string.family_exam_topics))
     if (exam.topics.isEmpty()) {
-        Quiet(stringResource(R.string.family_exam_no_topics))
+        Quiet(stringResource(R.string.family_exam_no_topics), small = true)
     } else {
         RowsCard {
             exam.topics.forEachIndexed { index, topic ->
@@ -196,6 +198,7 @@ fun NoticeDetailScreen(notice: NoticeRow?, onBack: () -> Unit, modifier: Modifie
         Quiet(
             listOfNotNull(ago(notice.postedAt), stringResource(R.string.family_notice_edited).takeIf { notice.edited })
                 .joinToString(" · "),
+            small = true,
         )
     }
 }

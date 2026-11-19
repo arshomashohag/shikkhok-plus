@@ -1,10 +1,8 @@
 package com.shikkhokplus.app.feature.hubreviews.ui
 
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -23,10 +21,6 @@ import com.shikkhokplus.app.feature.hubreviews.ReviewReason
 import com.shikkhokplus.app.feature.hubreviews.ReviewStatusWords
 import com.shikkhokplus.app.feature.hubreviews.Tenure
 import com.shikkhokplus.app.feature.hubreviews.statusWords
-import kotlinx.coroutines.delay
-
-/** How long a "deleted" confirmation stays up. */
-private const val NOTICE_MILLIS: Long = 3_000
 
 /**
  * A status in its author's words: "Awaiting review", "Published", "Not
@@ -97,16 +91,6 @@ internal fun RatingStars(rating: Int) {
 }
 
 /**
- * A secondary line.
- *
- * @param text The line
- */
-@Composable
-internal fun Quiet(text: String) {
-    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-}
-
-/**
  * The words-count under a review or reply box.
  *
  * @param length How many characters are typed
@@ -139,48 +123,5 @@ internal fun WriteFailed(prefix: String, failure: ReviewFailure, onRetry: () -> 
             } else {
                 null
             },
-    )
-}
-
-/**
- * A short confirmation that goes after a few seconds.
- *
- * @param text The confirmation
- * @param onDismiss Forgets it
- */
-@Composable
-internal fun Notice(text: String, onDismiss: () -> Unit) {
-    LaunchedEffect(text) {
-        delay(NOTICE_MILLIS)
-        onDismiss()
-    }
-    Banner(title = text, tone = BannerTone.INFO)
-}
-
-/**
- * A delete confirmation; nothing is deleted from anywhere else.
- *
- * @param title The question
- * @param body What deleting does
- * @param confirm The confirming button's label
- * @param confirmTag Its tag
- * @param onConfirm Deletes
- * @param onCancel Closes without deleting
- */
-@Composable
-internal fun DeleteDialog(
-    title: String,
-    body: String,
-    confirm: String,
-    confirmTag: String,
-    onConfirm: () -> Unit,
-    onCancel: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onCancel,
-        title = { Text(title) },
-        text = { Text(body) },
-        confirmButton = { TextAction(confirm, onConfirm, Modifier.testTag(confirmTag)) },
-        dismissButton = { TextAction(stringResource(R.string.action_cancel), onCancel) },
     )
 }

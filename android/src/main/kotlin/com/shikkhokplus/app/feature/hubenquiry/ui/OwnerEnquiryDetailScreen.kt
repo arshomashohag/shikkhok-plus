@@ -11,7 +11,9 @@ import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.BannerTone
 import com.shikkhokplus.app.core.designsystem.ErrorCard
+import com.shikkhokplus.app.core.designsystem.Notice
 import com.shikkhokplus.app.core.designsystem.PrimaryButton
+import com.shikkhokplus.app.core.designsystem.Quiet
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.designsystem.SecondaryButton
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
@@ -24,8 +26,6 @@ import com.shikkhokplus.app.feature.hubenquiry.EnquiryOutcome
 import com.shikkhokplus.app.feature.hubenquiry.OwnerEnquiry
 import com.shikkhokplus.app.feature.hubenquiry.OwnerEnquiryUiState
 import com.shikkhokplus.app.feature.hubenquiry.OwnerEnquiryView
-import com.shikkhokplus.app.feature.hubreviews.ui.Notice
-import com.shikkhokplus.app.feature.hubreviews.ui.Quiet
 
 /** The guardian's shared phone, as a call action. */
 const val TAG_ENQUIRY_CONTACT_PHONE: String = "hub_enquiry_contact_phone"

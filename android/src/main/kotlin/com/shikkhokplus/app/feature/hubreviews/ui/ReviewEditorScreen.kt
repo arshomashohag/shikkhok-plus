@@ -20,9 +20,12 @@ import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.BannerTone
+import com.shikkhokplus.app.core.designsystem.DeleteDialog
 import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.LocalTouchScale
+import com.shikkhokplus.app.core.designsystem.Notice
 import com.shikkhokplus.app.core.designsystem.PrimaryButton
+import com.shikkhokplus.app.core.designsystem.Quiet
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.ShikkhokTextField

@@ -16,6 +16,7 @@ import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.BannerTone
 import com.shikkhokplus.app.core.designsystem.EmptyState
 import com.shikkhokplus.app.core.designsystem.ErrorCard
+import com.shikkhokplus.app.core.designsystem.Quiet
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.SkeletonList
@@ -27,7 +28,6 @@ import com.shikkhokplus.app.feature.hubenquiry.OwnerEnquiriesUiState
 import com.shikkhokplus.app.feature.hubenquiry.OwnerEnquiry
 import com.shikkhokplus.app.feature.hubenquiry.STATUS_OPEN
 import com.shikkhokplus.app.feature.hubenquiry.classLevelOf
-import com.shikkhokplus.app.feature.hubreviews.ui.Quiet
 import com.shikkhokplus.app.feature.hublisting.ui.levelLabel
 
 /**
