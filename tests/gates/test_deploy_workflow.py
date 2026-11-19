@@ -1769,7 +1769,7 @@ def test_deploy_writes_the_enquiries_switch_independently_of_reviews(
 
 
 @pytest.mark.parametrize("value", ["ON", "true", "1", "", "yes", "on off", None])
-def test_deploy_validates_enquiries_switch_value_and_writes_it(
+def test_deploy_refuses_an_invalid_enquiries_switch_and_writes_nothing(
     tmp_path: pathlib.Path, value: str | None
 ) -> None:
     finished, log, runtime = _run_record_step(tmp_path, **{"hub-enquiries": value})
