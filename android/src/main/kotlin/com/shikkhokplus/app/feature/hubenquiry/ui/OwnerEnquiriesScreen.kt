@@ -83,7 +83,8 @@ fun OwnerEnquiriesScreen(
                     retryLabel = if (state.retryable) stringResource(R.string.auth_retry) else null,
                     onRetry = if (state.retryable) actions.onRetry else null,
                 )
-            is OwnerEnquiriesUiState.Ready ->
+            is OwnerEnquiriesUiState.Ready -> {
+                state.refreshFailure?.let { RefreshFailed(it, actions.onRetry) }
                 if (state.rows.isEmpty()) {
                     EmptyState(
                         title = stringResource(R.string.hub_enquiry_inbox_empty),
@@ -92,6 +93,7 @@ fun OwnerEnquiriesScreen(
                 } else {
                     state.rows.forEach { row -> InboxRow(row) { actions.onOpen(row) } }
                 }
+            }
         }
     }
 }

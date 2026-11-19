@@ -54,6 +54,15 @@ sealed interface OwnerEnquiryUiState {
     data class Unavailable(val messageKey: String) : OwnerEnquiryUiState
 }
 
+/** What the add-student form does once its student is saved [H5]. */
+enum class AfterSave {
+    /** Stay: the answer is in flight, failed with its Retry showing, or the request is still being read. */
+    WAIT,
+
+    /** Close the form: the request is answered, or there is nothing left to answer. */
+    LEAVE,
+}
+
 /**
  * Holds one join request for its owner: the detail screen, and the
  * add-student form opened from its "Add as student", which answers
@@ -124,6 +133,9 @@ class OwnerEnquiryViewModel(
     fun answer(outcome: EnquiryOutcome) {
         val view = shown ?: return
         if (view.closing || outcome !in view.enquiry.offered) return
+        // A re-read landing after this would show the request open again and
+        // re-enable the answers while this one is in flight.
+        reading?.cancel()
         val sending = view.copy(closing = true, failure = null, retryOutcome = null, answered = false)
         _state.value = OwnerEnquiryUiState.Ready(sending)
         viewModelScope.launch {
@@ -156,6 +168,29 @@ class OwnerEnquiryViewModel(
         if (view.closing || EnquiryOutcome.ADDED !in view.enquiry.offered) return false
         answer(EnquiryOutcome.ADDED)
         return true
+    }
+
+    /**
+     * The add-student form's next step once its student is saved: answer
+     * [EnquiryOutcome.ADDED] while the server offers it, wait while an
+     * answer is in flight or its failure is showing, and leave once the
+     * request is answered, or when there is nothing left to answer.
+     *
+     * **Called again after the form is recreated**, the process included:
+     * the form remembers the student was saved, this view model does not,
+     * so a fresh read that still offers `added` sends it rather than
+     * leaving Save disabled with no way forward.
+     *
+     * @return What the form does now
+     */
+    fun afterSave(): AfterSave {
+        val view = shown ?: return AfterSave.WAIT
+        return when {
+            view.answered -> AfterSave.LEAVE
+            view.closing || view.failure != null -> AfterSave.WAIT
+            answerAdded() -> AfterSave.WAIT
+            else -> AfterSave.LEAVE
+        }
     }
 
     /** Send the failed answer again, when that can help. */

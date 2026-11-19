@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.hubenquiry
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.feature.auth.AuthResult
+import kotlinx.coroutines.CompletableDeferred
 
 /**
  * The join-request routes in memory: each call is recorded, and answered
@@ -25,6 +26,9 @@ internal class FakeEnquiryApi :
     var inbox: List<AuthResult<List<OwnerEnquiry>>> = listOf(AuthResult.Ok(emptyList()))
     var reads: List<AuthResult<OwnerEnquiry>> = listOf(AuthResult.Ok(ownerEnquiry()))
     var closes: List<AuthResult<OwnerEnquiry>> = listOf(AuthResult.Ok(ownerEnquiry(status = "closed")))
+
+    /** When set, a close waits for it before answering, so a test can act mid-flight. */
+    var closeGate: CompletableDeferred<Unit>? = null
 
     private val counts = mutableMapOf<String, Int>()
 
@@ -67,6 +71,7 @@ internal class FakeEnquiryApi :
 
     override suspend fun close(enquiryId: String, outcome: EnquiryOutcome): AuthResult<OwnerEnquiry> {
         calls += "CLOSE $enquiryId ${outcome.wire}"
+        closeGate?.await()
         return next("close", closes)
     }
 }

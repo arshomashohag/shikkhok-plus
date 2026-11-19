@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.hubenquiry
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.feature.auth.AuthResult
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,8 +18,13 @@ sealed interface OwnerEnquiriesUiState {
      * The server's rows, open first, in its order; the client sorts nothing.
      *
      * @property rows The owner's requests
+     * @property refreshFailure Why the last quiet re-read failed, or null: the
+     *   rows shown are the last ones read, and the screen says so
      */
-    data class Ready(val rows: List<OwnerEnquiry>) : OwnerEnquiriesUiState
+    data class Ready(
+        val rows: List<OwnerEnquiry>,
+        val refreshFailure: EnquiryFailure? = null,
+    ) : OwnerEnquiriesUiState
 
     /**
      * The read failed.
@@ -60,20 +66,30 @@ class OwnerEnquiriesViewModel(
     /** What the screen renders. */
     val state: StateFlow<OwnerEnquiriesUiState> = _state.asStateFlow()
 
+    /** The read in flight, so two never race. */
+    private var reading: Job? = null
+
     /**
      * Read the inbox; rows already shown stay until the answer arrives, so
-     * a return from a request shows its answer without a loader.
+     * a return from a request shows its answer without a loader. A re-read
+     * that fails keeps the rows and says they could not be refreshed, so a
+     * dropped connection never takes the listing editor's row away; being
+     * switched off is not a failure, and is shown as such. One read at a time.
      */
     fun load() {
-        if (_state.value !is OwnerEnquiriesUiState.Ready) _state.value = OwnerEnquiriesUiState.Loading
-        viewModelScope.launch {
-            val result = api.inbox()
-            _state.value =
-                when {
-                    result is AuthResult.Ok -> OwnerEnquiriesUiState.Ready(result.value)
-                    result.isEnquiriesOff -> OwnerEnquiriesUiState.Off(result.enquiryFailure().messageKey)
-                    else -> result.enquiryFailure().let { OwnerEnquiriesUiState.Error(it.messageKey, it.canRetry) }
-                }
-        }
+        if (reading?.isActive == true) return
+        val shown = _state.value as? OwnerEnquiriesUiState.Ready
+        if (shown == null) _state.value = OwnerEnquiriesUiState.Loading
+        reading =
+            viewModelScope.launch {
+                val result = api.inbox()
+                _state.value =
+                    when {
+                        result is AuthResult.Ok -> OwnerEnquiriesUiState.Ready(result.value)
+                        result.isEnquiriesOff -> OwnerEnquiriesUiState.Off(result.enquiryFailure().messageKey)
+                        shown != null -> shown.copy(refreshFailure = result.enquiryFailure())
+                        else -> result.enquiryFailure().let { OwnerEnquiriesUiState.Error(it.messageKey, it.canRetry) }
+                    }
+            }
     }
 }

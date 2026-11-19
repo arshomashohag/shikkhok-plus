@@ -174,4 +174,59 @@ class MyEnquiriesViewModelTest {
         advanceUntilIdle()
         assertEquals("call_us", ready(vm).rows.single().outcome)
     }
+
+    @Test
+    fun `a late re-read never closes an open withdraw confirmation`() = runTest(dispatcher) {
+        val api =
+            FakeEnquiryApi().apply {
+                mine = listOf(AuthResult.Ok(listOf(myEnquiry("e-1"))), AuthResult.Ok(emptyList()))
+            }
+        val vm = MyEnquiriesViewModel(api)
+        vm.load()
+        advanceUntilIdle()
+
+        // A return to the screen starts a re-read; the guardian taps Withdraw before it lands.
+        vm.load()
+        vm.askWithdraw("e-1")
+        advanceUntilIdle()
+
+        assertEquals("e-1", ready(vm).confirming)
+        assertEquals(listOf("e-1"), ready(vm).rows.map { it.id })
+    }
+
+    @Test
+    fun `a failed quiet re-read keeps the rows and says so, and the entry stays`() = runTest(dispatcher) {
+        val api =
+            FakeEnquiryApi().apply {
+                mine =
+                    listOf(
+                        AuthResult.Ok(listOf(myEnquiry("e-1"))),
+                        AuthResult.TransportFailure,
+                        AuthResult.Ok(listOf(myEnquiry("e-1"))),
+                    )
+            }
+        val vm = MyEnquiriesViewModel(api)
+        vm.load()
+        advanceUntilIdle()
+
+        vm.load()
+        advanceUntilIdle()
+        assertEquals(listOf("e-1"), ready(vm).rows.map { it.id })
+        assertEquals(EnquiryFailure(HUB_OFFLINE_KEY, canRetry = true), ready(vm).refreshFailure)
+        assertTrue(vm.state.value.showsEntry, "More keeps its row through a dropped connection")
+
+        vm.load()
+        advanceUntilIdle()
+        assertNull(ready(vm).refreshFailure)
+    }
+
+    @Test
+    fun `two loads read once`() = runTest(dispatcher) {
+        val api = FakeEnquiryApi()
+        val vm = MyEnquiriesViewModel(api)
+        vm.load()
+        vm.load()
+        advanceUntilIdle()
+        assertEquals(1, api.calls.count { it == "GET mine" })
+    }
 }

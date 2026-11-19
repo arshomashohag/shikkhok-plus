@@ -6,6 +6,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -16,6 +17,7 @@ import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.feature.auth.MessageKeys
+import com.shikkhokplus.app.feature.hubenquiry.AfterSave
 import com.shikkhokplus.app.feature.hubenquiry.HttpHubEnquiryApi
 import com.shikkhokplus.app.feature.hubenquiry.OwnerEnquiryUiState
 import com.shikkhokplus.app.feature.hubenquiry.OwnerEnquiryViewModel
@@ -150,8 +152,8 @@ private fun NavGraphBuilder.newStudentRoute(client: HttpClient, navController: N
         LaunchedEffect(write) {
             if (write == WriteState.Saved) {
                 model.acknowledgeWrite()
-                saved = request?.answerAdded() == true
-                if (!saved) navController.popBackStack()
+                // From a request, the form leaves once it is answered (FromEnquiry).
+                if (request == null) navController.popBackStack() else saved = true
             }
         }
         val leave = {
@@ -214,8 +216,15 @@ private fun FromEnquiry(
     form: @Composable (StudentPrefill?, String?) -> Unit,
 ) {
     val state by request.state.collectAsState()
-    LaunchedEffect(state) {
-        if (saved && (state as? OwnerEnquiryUiState.Ready)?.view?.answered == true) onLeave()
+    // Once saved, answer `added` and leave when it is answered; also after the
+    // form is recreated, when only `saved` survived [H5].
+    var left by remember { mutableStateOf(false) }
+    LaunchedEffect(saved, state) {
+        if (!left && saved && request.afterSave() == AfterSave.LEAVE) {
+            // Once: a second Back would leave the request's own screen too.
+            left = true
+            onLeave()
+        }
     }
     when (val shown = state) {
         OwnerEnquiryUiState.Loading -> SkeletonList(rows = 4)

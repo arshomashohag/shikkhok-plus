@@ -78,69 +78,9 @@ import kotlin.test.assertTrue
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], qualifiers = "w400dp-h1600dp")
-class HubEnquiryRouteTest {
-
-    @get:Rule
-    val compose = createComposeRule()
-
-    private val json = headersOf("Content-Type", ContentType.Application.Json.toString())
-
-    /** Every write, as `METHOD path body`. */
-    private val writes = Collections.synchronizedList(mutableListOf<String>())
-
-    private fun MockRequestHandleScope.ok(body: String, status: HttpStatusCode = HttpStatusCode.OK): HttpResponseData =
-        respond(body, status, json)
-
-    private fun record(request: HttpRequestData) {
-        val body = (request.body as? TextContent)?.text.orEmpty()
-        writes += "${request.method.value} ${request.url.encodedPath} $body".trim()
-    }
-
-    private fun client(handle: MockRequestHandleScope.(HttpRequestData) -> HttpResponseData) =
-        ApiClient.build("https://staging.example", MockEngine { handle(it) }, TokenStore.InMemory())
-
-    private fun waitForTag(tag: String) =
-        compose.waitUntil(timeoutMillis = 5_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
-
-    private fun waitForText(text: String) =
-        compose.waitUntil(timeoutMillis = 5_000) {
-            compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
-        }
+class HubEnquiryRouteTest : HubEnquiryRouteHarness() {
 
     // ------------------------------------------------------------ the form
-
-    /** The app's shape in small, as `MainActivity` composes it: sign-in or home, the hub routes, the link. */
-    private fun linkHost(
-        link: () -> EnquiryLink?,
-        signedIn: () -> Boolean,
-        onOpened: () -> Unit,
-        handle: MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
-    ) {
-        val client = client(handle)
-        compose.setContent {
-            ShikkhokTheme {
-                key(signedIn()) {
-                    val nav: NavHostController = rememberNavController()
-                    NavHost(nav, startDestination = if (signedIn()) HOME else SIGN_IN) {
-                        composable(SIGN_IN) { Text(SIGN_IN) }
-                        composable(HOME) { Text(HOME) }
-                        hubRoutes(client, nav)
-                    }
-                    HubEnquiryLinkEffect(nav, signedIn(), link(), onOpened)
-                }
-            }
-        }
-    }
-
-    private fun MockRequestHandleScope.guardianSide(request: HttpRequestData): HttpResponseData =
-        when (request.url.encodedPath) {
-            "/v1/hub/owners/rahima-apa/enquiry-target" -> ok(TARGET)
-            "/v1/hub/owners/rahima-apa/enquiries" -> {
-                record(request)
-                ok(mine("e-1"), HttpStatusCode.Created)
-            }
-            else -> respond("", HttpStatusCode.NotFound)
-        }
 
     @Test
     fun `an App Link opens the form, and send calls the API with the guardian's choices`() {
@@ -302,78 +242,6 @@ class HubEnquiryRouteTest {
 
     // -------------------------------------------------------- owner's inbox
 
-    /**
-     * The server as the owner's screens see it: the listing, its inbox, one
-     * request and its answer, and the students the add-student form writes.
-     *
-     * @property offered Whether join requests are switched on
-     * @property closeFails Whether the first answer fails, retryably
-     */
-    private inner class OwnerServer(val offered: Boolean, val closeFails: Boolean) {
-        private var request = ownerEnquiry("open")
-        private var closes = 0
-
-        fun handle(scope: MockRequestHandleScope, req: HttpRequestData): HttpResponseData {
-            val path = req.url.encodedPath
-            val post = req.method == HttpMethod.Post
-            return when {
-                path == "/v1/hub/listing" && req.method == HttpMethod.Put -> {
-                    record(req)
-                    scope.ok(listing(offered, accepts = true))
-                }
-                path == "/v1/hub/listing" -> scope.ok(listing(offered, accepts = false))
-                path == "/v1/hub/enquiries" -> scope.ok("[$request]")
-                path == "/v1/hub/enquiries/$ENQUIRY" -> scope.ok(request)
-                path == "/v1/hub/enquiries/$ENQUIRY/close" -> close(scope, req)
-                path == "/v1/students" && post -> {
-                    record(req)
-                    scope.ok(STUDENT, HttpStatusCode.Created)
-                }
-                else -> scope.background(path)
-            }
-        }
-
-        private fun close(scope: MockRequestHandleScope, req: HttpRequestData): HttpResponseData {
-            record(req)
-            closes++
-            if (closeFails && closes == 1) return scope.respond(UNAVAILABLE, HttpStatusCode.ServiceUnavailable, json)
-            request = ownerEnquiry("closed")
-            return scope.ok(request)
-        }
-    }
-
-    /** What every owner screen reads beside the request: areas, reviews (off), students and batches. */
-    private fun MockRequestHandleScope.background(path: String): HttpResponseData =
-        when (path) {
-            "/v1/hub/areas", "/v1/students" -> ok("[]")
-            "/v1/hub/reviews" -> respond(OFF_REVIEWS, HttpStatusCode.NotFound, json)
-            "/v1/batches" -> ok(BATCHES)
-            else -> respond("", HttpStatusCode.NotFound)
-        }
-
-    /** The owner's side: the listing, its inbox, one request, and the add-student form. */
-    private fun ownerHost(
-        offered: Boolean = true,
-        closeFails: Boolean = false,
-        start: String = Destination.HubListing.route,
-    ): NavHostController {
-        val server = OwnerServer(offered, closeFails)
-        val client = client { server.handle(this, it) }
-        lateinit var nav: NavHostController
-        compose.setContent {
-            ShikkhokTheme {
-                nav = rememberNavController()
-                NavHost(nav, startDestination = HOME) {
-                    composable(HOME) { Text(HOME) }
-                    hubRoutes(client, nav)
-                    teacherStudentsRoutes(client, nav) {}
-                }
-            }
-        }
-        compose.runOnIdle { nav.navigate(start) }
-        return nav
-    }
-
     @Test
     fun `the listing row opens the inbox, then the request, and Add as student saves then answers added`() {
         val nav = ownerHost()
@@ -419,7 +287,7 @@ class HubEnquiryRouteTest {
 
     @Test
     fun `a failed answer after the save keeps the student saved and Retry answers alone`() {
-        val nav = ownerHost(closeFails = true, start = Destination.NewStudent.of(null, ENQUIRY))
+        val nav = ownerHost(OwnerServer(offered = true, closeFails = true), Destination.NewStudent.of(null, ENQUIRY))
 
         waitForTag(TAG_FORM_NAME)
         compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
@@ -438,7 +306,7 @@ class HubEnquiryRouteTest {
 
     @Test
     fun `the switch saves its one field, and while not offered there is no switch`() {
-        ownerHost(offered = true)
+        ownerHost(OwnerServer(offered = true, closeFails = false))
         waitForTag(TAG_HUB_ENQUIRIES_SWITCH)
         compose.onNodeWithTag(TAG_HUB_ENQUIRIES_SWITCH).performScrollTo().performClick()
         compose.waitUntil(timeoutMillis = 5_000) { writes.isNotEmpty() }
@@ -483,54 +351,5 @@ class HubEnquiryRouteTest {
         compose.runOnIdle { nav.navigate(Destination.HubOwnerEnquiries.route) }
         waitForText("Join requests are not available right now.")
         assertTrue(compose.onAllNodesWithText("Try again").fetchSemanticsNodes().isEmpty())
-    }
-
-    private companion object {
-        const val SIGN_IN = "sign-in"
-        const val HOME = "home"
-        const val BATCH = "0b9e8d7c-6b5a-4c3d-9e2f-1a0b9c8d7e6f"
-        const val ENQUIRY = "e1111111-1111-4111-8111-111111111111"
-        const val MINE = "/v1/me/hub/enquiries"
-
-        const val TARGET =
-            """{"owner_public_name":"Rahima","batch_title":"Physics 9","contact_kind":"phone","already_open":false}"""
-
-        const val UNAVAILABLE =
-            """{"error":{"code":"UNAVAILABLE","retryable":true,"message_key":"error.temporarily_unavailable"}}"""
-
-        const val OFF = """{"error":{"code":"HUB_ENQUIRIES_OFF","retryable":false,"message_key":"hub.enquiry.off"}}"""
-        const val OFF_REVIEWS =
-            """{"error":{"code":"HUB_REVIEWS_OFF","retryable":false,"message_key":"hub.review.off"}}"""
-
-        const val STUDENT =
-            """{"student_id":"s-1","display_name":"Nadia","student_state":"none","guardian_state":"pending",""" +
-                """"total_outstanding":"0.00","is_removable":true}"""
-
-        const val BATCHES = """[{"id":"$BATCH","name":"Physics 9","subjects":["Physics"]}]"""
-
-        fun mine(id: String, outcome: String? = null): String {
-            val status = if (outcome == null) "open" else "closed"
-            val answer = outcome?.let { "\"$it\"" } ?: "null"
-            val phone = if (outcome == "call_us") "\"+8801711000000\"" else "null"
-            return """{"id":"$id","owner_public_name":"Rahima","batch_title":"Physics 9","student_name":"Nadia",""" +
-                """"class_level":"class_8","message":null,"share_contact":true,"status":"$status",""" +
-                """"outcome":$answer,"sent_on":"2026-11-19","owner_contact_phone":$phone}"""
-        }
-
-        fun ownerEnquiry(status: String): String {
-            val open = status == "open"
-            val outcome = if (open) "null" else "\"added\""
-            val allowed = if (open) """["added","not_now","call_us"]""" else "[]"
-            return """{"id":"$ENQUIRY","batch_id":"$BATCH","batch_title":"Physics 9","student_name":"Nadia",""" +
-                """"class_level":"class_8","message":"Wants Physics","status":"$status","outcome":$outcome,""" +
-                """"received_at":"2026-11-19T06:00:00Z","guardian_phone":"+8801711000000",""" +
-                """"guardian_email":null,"outcomes_allowed":$allowed}"""
-        }
-
-        fun listing(offered: Boolean, accepts: Boolean): String =
-            """{"status":"published","slug":"rahima","public_name":"Rahima","teaching_mode":[],""" +
-                """"checklist":[],"publishable":true,"runs_classes":false,""" +
-                """"consent_version_current":"2026-11-14","is_centre":false,""" +
-                """"accepts_enquiries":$accepts,"enquiries_offered":$offered}"""
     }
 }

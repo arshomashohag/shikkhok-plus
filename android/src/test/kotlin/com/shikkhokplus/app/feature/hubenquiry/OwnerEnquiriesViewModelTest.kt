@@ -2,12 +2,14 @@ package com.shikkhokplus.app.feature.hubenquiry
 
 import com.shikkhokplus.app.feature.auth.AuthResult
 import com.shikkhokplus.app.feature.hublisting.HUB_OFFLINE_KEY
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlin.test.AfterTest
@@ -205,4 +207,87 @@ class OwnerEnquiriesViewModelTest {
         }
         assertFalse("Nadia" in myEnquiry().toString())
     }
+
+    @Test
+    fun `a failed quiet re-read of the inbox keeps the rows and the listing row`() = runTest(dispatcher) {
+        val rows = listOf(ownerEnquiry("e-1"))
+        val api =
+            FakeEnquiryApi().apply {
+                inbox = listOf(AuthResult.Ok(rows), AuthResult.TransportFailure, enquiriesOff)
+            }
+        val vm = OwnerEnquiriesViewModel(api)
+        vm.load()
+        vm.load()
+        advanceUntilIdle()
+        assertEquals(1, api.calls.count { it == "GET inbox" }, "one read at a time")
+
+        vm.load()
+        advanceUntilIdle()
+        assertEquals(
+            OwnerEnquiriesUiState.Ready(rows, EnquiryFailure(HUB_OFFLINE_KEY, canRetry = true)),
+            vm.state.value,
+        )
+        assertTrue(vm.state.value.showsEntry)
+
+        // Being switched off is not a dropped connection: it is said as such.
+        vm.load()
+        advanceUntilIdle()
+        assertEquals(OwnerEnquiriesUiState.Off("hub.enquiry.off"), vm.state.value)
+    }
+
+    @Test
+    fun `a late re-read cannot re-enable the answers while one is in flight`() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val api =
+            FakeEnquiryApi().apply {
+                closeGate = gate
+                closes = listOf(AuthResult.Ok(ownerEnquiry(status = "closed", outcome = "not_now")))
+            }
+        val vm = detail(api)
+
+        // A return to the screen starts a re-read; the owner answers before it lands.
+        vm.load()
+        vm.answer(EnquiryOutcome.NOT_NOW)
+        runCurrent()
+
+        assertTrue(vm.view.closing, "the answers stay disabled until the close returns")
+        assertEquals(1, api.calls.count { it == "GET e-1" }, "the late re-read was dropped")
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertTrue(vm.view.answered)
+        assertEquals("not_now", vm.view.enquiry.outcome)
+    }
+
+    @Test
+    fun `after recreation a saved student's request is answered, not left stuck`() = runTest(dispatcher) {
+        // Only the form's "saved" survived: this view model is fresh and reads the request again.
+        val api = FakeEnquiryApi()
+        val vm = OwnerEnquiryViewModel(api, "e-1")
+        assertEquals(AfterSave.WAIT, vm.afterSave(), "nothing is decided before the request is read")
+        vm.load()
+        advanceUntilIdle()
+
+        assertEquals(AfterSave.WAIT, vm.afterSave())
+        assertTrue(vm.view.closing)
+        assertEquals(AfterSave.WAIT, vm.afterSave(), "an answer in flight is not sent twice")
+        advanceUntilIdle()
+        assertEquals("CLOSE e-1 added", api.calls.last())
+        assertEquals(1, api.calls.count { it.startsWith("CLOSE") })
+        assertEquals(AfterSave.LEAVE, vm.afterSave())
+    }
+
+    @Test
+    fun `after the save, a failed answer waits with its Retry, and a request already answered leaves`() =
+        runTest(dispatcher) {
+            val failing = detail(FakeEnquiryApi().apply { closes = listOf(AuthResult.TransportFailure) })
+            failing.afterSave()
+            advanceUntilIdle()
+            assertEquals(AfterSave.WAIT, failing.afterSave())
+            assertEquals(EnquiryOutcome.ADDED, failing.view.retryOutcome)
+
+            val answered =
+                detail(FakeEnquiryApi().apply { reads = listOf(AuthResult.Ok(ownerEnquiry(status = "closed"))) })
+            assertEquals(AfterSave.LEAVE, answered.afterSave())
+        }
 }

@@ -21,6 +21,7 @@ import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.dayMonthYear
 import com.shikkhokplus.app.feature.auth.MessageKeys
+import com.shikkhokplus.app.feature.hubenquiry.EnquiryFailure
 import com.shikkhokplus.app.feature.hubenquiry.EnquiryOutcome
 import com.shikkhokplus.app.feature.hubenquiry.MyEnquiriesUiState
 import com.shikkhokplus.app.feature.hubenquiry.MyEnquiry
@@ -29,6 +30,9 @@ import com.shikkhokplus.app.feature.hubenquiry.WithdrawFailure
 
 /** The withdrawal confirmation's Withdraw button. */
 const val TAG_ENQUIRY_WITHDRAW_CONFIRM: String = "hub_enquiry_withdraw_confirm"
+
+/** The banner saying the list shown could not be read again. */
+const val TAG_ENQUIRY_REFRESH_FAILED: String = "hub_enquiry_refresh_failed"
 
 /** Retry after a failed withdrawal. */
 const val TAG_ENQUIRY_WITHDRAW_RETRY: String = "hub_enquiry_withdraw_retry"
@@ -109,6 +113,7 @@ fun MyEnquiriesScreen(
                 )
             is MyEnquiriesUiState.Ready -> {
                 if (state.withdrawn) Notice(stringResource(R.string.hub_enquiry_withdrawn), actions.onDismissNotice)
+                state.refreshFailure?.let { RefreshFailed(it, actions.onRetry) }
                 if (state.rows.isEmpty()) {
                     EmptyState(
                         title = stringResource(R.string.hub_enquiry_mine_empty),
@@ -218,3 +223,25 @@ internal fun guardianOutcomeText(outcome: EnquiryOutcome): Int =
         EnquiryOutcome.NOT_NOW -> R.string.hub_enquiry_outcome_not_now
         EnquiryOutcome.CALL_US -> R.string.hub_enquiry_outcome_call_us
     }
+
+/**
+ * The rows shown are the last ones read: a quiet re-read failed. Said in
+ * the server's words, or the offline line, with Retry when it can help.
+ *
+ * @param failure Why the re-read failed
+ * @param onRetry Reads again
+ */
+@Composable
+internal fun RefreshFailed(failure: EnquiryFailure, onRetry: () -> Unit) {
+    Banner(
+        title = stringResource(MessageKeys.resolve(failure.messageKey)),
+        tone = BannerTone.NEUTRAL,
+        modifier = Modifier.testTag(TAG_ENQUIRY_REFRESH_FAILED),
+        action =
+            if (failure.canRetry) {
+                { TextAction(stringResource(R.string.auth_retry), onRetry) }
+            } else {
+                null
+            },
+    )
+}
