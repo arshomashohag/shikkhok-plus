@@ -40,7 +40,8 @@ and optionally a ref. `.github/workflows/deploy.yml` then:
    distribution turns an origin 403 or 404 into its own 404 page, so an
    origin-secret mismatch would otherwise read as a missing page), a
    canonical link on the site's origin and a stylesheet the site serves;
-   then `{site}/hub/sitemap.xml` 200, `{site}/hub/en?utm=x` 400,
+   then `{site}/hub/sitemap.xml` 200, `{site}/hub/en?sort=rating` 200
+   (the edge function carries the `sort` key), `{site}/hub/en?utm=x` 400,
    `{site}/hub/en/t/no_such_teacher` 404, and `{api}/hub/en` 404. It holds
    no AWS credentials and rolls nothing back: what it catches is edge
    wiring between two distributions, which the previous image would not

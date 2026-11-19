@@ -393,23 +393,89 @@ on that one role. Without it the infrastructure job stops at
 ## Switching reviews on
 
 Hub reviews are **off** until someone turns them on, in every
-environment. The switch is the SSM parameter
-`/shikkhokplus/shikkhokplus-<env>/hub-reviews`, a plain `String` holding
-exactly `on` or `off`. Terraform creates it `off` and ignores its value
-afterwards, so an apply never changes it.
+environment. The switch is one SSM parameter per environment, a plain
+`String` holding exactly `on` or `off`:
 
-1. Re-apply `bootstrap/` once so the deploy role may read `hub-reviews`.
-   Without it the release stops at "Cannot read the hub reviews switch",
-   having changed nothing.
-2. `aws ssm put-parameter --name /shikkhokplus/shikkhokplus-<env>/hub-reviews --type String --value on --overwrite`
-3. Run the deploy. The release validates the value (`on` or `off`, nothing
-   else), writes `SHIKKHOKPLUS_HUB_REVIEWS` into the runtime env, and the
-   application reads it at each call.
+| Environment | Parameter |
+|---|---|
+| staging | `/shikkhokplus/shikkhokplus-staging/hub-reviews` |
+| production | `/shikkhokplus/shikkhokplus-production/hub-reviews` |
 
-To switch off, write `off` and deploy again. Switching off hides every
-review surface but never blocks a deletion.
+Its name is `/shikkhokplus/${var.name_prefix}/hub-reviews`
+(`modules/app/deployment_state.tf`) with `name_prefix =
+"shikkhokplus-${var.environment}"` (`main.tf`), the same path the release
+reads (`ses_param hub-reviews` in `deploy.yml`);
+`tests/gates/test_hub_reviews_switch_infra.py` keeps the table and the
+commands below equal to it. Terraform creates it `off` and ignores its
+value afterwards, so an apply never changes it.
 
-The full pre-switch checklist is completed by the last H4 task.
+**The deploy role must be able to read it.** Every release reads the
+switch, on or off, so if the last deploy succeeded this is already true.
+If a release stops at "Cannot read the hub reviews switch", re-apply
+`bootstrap/` once from a laptop: H4 added `hub-reviews` to the
+parameters the deploy role may read (`bootstrap/deploy_role.tf`). The
+release stops before changing anything.
+
+**Turning it on publishes what families write about a class**, so each
+step below is a human check, done in this order, and a step that is not
+met stops the list. Steps 4 to 6 run on staging first; production
+repeats steps 4 and 5 only after step 6 has passed on staging.
+
+1. **D9: the day-90 demand bar in hub spec §9 is met** — opt-in (published
+   owners ÷ owners with at least one active batch) **≥ 20%**, and **≥ 15%**
+   of answering owners said Yes to "Did the hub bring you a student?".
+   *Freeze* (opt-in < 10% or < 5% Yes) or *Hold* (anything between;
+   re-measure at day 120) means stop here. No screen computes these two
+   figures yet: they are read by hand from `owner_listing`, `batch` and
+   `hub_feedback` in the production database, and the two figures and the
+   date are written down with the decision.
+2. **D8: the legal review of the review policy is recorded** in
+   `docs/legal/README.md`, "The D8 legal review of the review policy",
+   with a date, a reviewer and an outcome. If the outcome requires a
+   change to the review policy, that change ships first.
+3. **D6: the declarations are published.** The Play Data Safety form and
+   the Families user-content declaration have been updated against
+   `docs/legal/README.md` item 5 and the Families note, the privacy policy
+   on `main` describes reviews (`docs/legal/PRIVACY.md`, "Reviews"), and
+   the site carries the reviews sentence under "Private by design". The
+   policy promises an in-app notice before a material change takes
+   effect; this is one, and nothing in the app sends such a notice, so
+   decide how it is given and give it before step 4 on production.
+4. **Write `on`** to the environment's parameter:
+
+   ```bash
+   aws ssm put-parameter --overwrite --name /shikkhokplus/shikkhokplus-staging/hub-reviews --type String --value on
+   aws ssm put-parameter --overwrite --name /shikkhokplus/shikkhokplus-production/hub-reviews --type String --value on
+   ```
+
+   The first line is staging, the second production. Writing the
+   parameter changes nothing by itself: the container reads its runtime
+   env, which only a release writes.
+5. **Dispatch a deploy** of the same environment (`Actions -> deploy ->
+   Run workflow`; any ref already deployed will do). The release
+   validates the value (`on` or `off`, nothing else), writes
+   `SHIKKHOKPLUS_HUB_REVIEWS` into the runtime env, and the application
+   reads it at each call.
+6. **Check that a seeded batch page in staging shows the reviews
+   section.** Open a published batch page on the staging site,
+   `{site}/hub/en/t/<owner>/<batch>`: it must now carry a **Reviews**
+   heading. With fewer than three published reviews the section reads
+   "Ratings appear once a class has 3 reviews."; with the switch off
+   there is no heading at all. The staging seeder publishes no listing,
+   so sign in as a seeded teacher (`deploy/README.md`, "Seeding test
+   data") and publish their listing and one batch first. Batch pages are
+   cached at the edge for up to ten minutes (`s-maxage=600`), so open one
+   not fetched since the deploy, or wait.
+
+**Switching off is the same with `off`**: write `off` to the parameter and
+dispatch a deploy. It hides every review surface — sections, ratings,
+the sort choice, the teacher's and the admin's review routes — and stops
+the weekly publication, but **never blocks a deletion**, and it deletes
+nothing: the reviews come back as they were when it is turned on again.
+Cached pages keep showing reviews for up to ten minutes (search pages
+five). Switch off without waiting for the D-steps whenever a safety
+reason calls for it; the admin overview's pull-reviews figure (more than
+5% of public reviews reported in a quarter, hub spec §9) is one.
 
 ## Reading the outputs
 

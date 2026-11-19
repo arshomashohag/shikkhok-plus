@@ -2001,7 +2001,8 @@ jobs:
   # **A 200 with the hub's own CSP comes first** [R9]. The site
   # distribution answers an origin 404 -- and a 403 -- with the site's
   # 404 page, so an origin-secret mismatch would read as "no such page"
-  # everywhere. Then the sitemap, an unknown query key (400 from the
+  # everywhere. Then the sitemap, the sort key (200: the edge function
+  # lets it through), an unknown query key (400 from the
   # edge function), a teacher no listing can be (404), and the API
   # host's own /hub/en (404 from its hub-block function). deploy/smoke.py
   # says what each failure usually means. It needs no listing to exist.

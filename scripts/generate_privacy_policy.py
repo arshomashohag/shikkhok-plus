@@ -173,8 +173,8 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
         "A teacher's reply to a review on the public hub, removed with the review"
     ),
     "hub_moderation_event": (
-        "A record that moderation acted on a hub listing or report; it holds "
-        "no free text and names nobody"
+        "A record that moderation acted on a hub listing, photo, review, reply "
+        "or report; it holds no free text and names nobody"
     ),
     "cdn_invalidation": (
         "Addresses of public hub pages we asked our web cache to forget after "

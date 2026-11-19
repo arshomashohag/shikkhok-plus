@@ -1,6 +1,6 @@
 # ShikkhokPlus Privacy Policy
 
-**Last updated: 8 November 2026**
+**Last updated: 19 November 2026**
 
 ShikkhokPlus (`com.shikkhokplus.app`) helps private tutors in
 Bangladesh manage their classes — attendance, marks and fees — and
@@ -28,6 +28,12 @@ the code does cannot drift apart.
 - A teacher **cannot** see anything a student or guardian writes
   about themselves. That boundary is enforced by the database, not by
   our good intentions.
+- Where reviews are offered on our public hub, only a **verified
+  guardian** can review a class their child attends. A review shows a
+  star rating, any words you add, how long your child has been enrolled
+  and the month it was published — **never your name or your
+  child's** — and only after we have checked it. You can delete it at
+  any time.
 - You can delete your account from inside the app, or from a web page
   without installing anything.
 
@@ -60,6 +66,8 @@ password is, and is deleted after a short period. We never log either.
 | Class name, schedule, fee amount | The teacher | The teacher, and enrolled students |
 | Attendance and marks | The teacher | The teacher, and the student concerned |
 | Fee payments and claims | The teacher and the student | Both parties to that fee |
+| A review of a class on the public hub: a star rating and any words you add | A verified guardian of a student in that class, only if they choose to | Anyone, once we have checked it and the class has at least three published reviews; never with the guardian's name (see "Reviews" below) |
+| A reply to a review | The teacher or centre that runs the class | Anyone, with the review, once we have checked it |
 
 ### What we deliberately do not collect
 
@@ -101,13 +109,56 @@ central rather than incidental.
   publish a public listing, with photos they upload; each photo is
   reviewed by us before anyone else can see it, is re-encoded with its
   EXIF data and location removed, and is deleted with the teacher's
-  account. **No student or guardian is ever shown on a public page, and no
-  photo of a student is published.**
+  account. **No student is ever shown on a public page, no photo of a
+  student is published, and a guardian appears only as the unnamed
+  author of a review they chose to write.**
 
 If you are a parent or guardian and want to see, correct or delete
 your child's data, contact us at the address above. If you believe a
 child's data is in the app without a guardian's knowledge, tell us and
 we will remove it.
+
+### Reviews
+
+Where reviews are offered on the public hub, a guardian may review a
+class their child attends. Students cannot write reviews.
+
+- **Who can write one.** Only a **verified guardian**: someone linked to
+  a student in that class, who accepted that link, whose child joined
+  the class at least 30 days ago and has attended at least four of its
+  sessions, and, if the child has left, left it no more than 180 days
+  ago. Nobody who runs or teaches the class can review it. One review per
+  guardian per class.
+- **What it holds.** A star rating from 1 to 5, and optional words of up
+  to 1,000 characters. Words containing a phone number or a web address
+  are refused.
+- **What is shown publicly.** The rating, the words, a label such as
+  "Verified guardian · enrolled 6–12 months", and the month and year it
+  was published. **Never a name or an initial, never your child's
+  school class, and never the day** it was written or published.
+  Nothing is shown — no review, no average and no count — until a class
+  has at least **three** published reviews.
+- **Checked before it appears.** We read every review before it is
+  public; our moderators see it with an opaque reference in place of
+  your name, never your name or phone number. Approved reviews are
+  published once a week, so the date cannot be matched to the day you
+  wrote it. Editing a review, which you can do for 30 days, sends it
+  back to be checked.
+- **The teacher sees it as the public does.** We never tell a teacher
+  who wrote a review. The teacher or centre that runs the class may
+  write one reply to it, which we also check before it appears. They
+  cannot hide or delete a review.
+- **Reporting.** Anyone signed in to ShikkhokPlus can report a review
+  or a reply. A report that it puts a child at risk or reveals personal
+  information takes it down at once while we look at it, unless the
+  report comes from the teacher or centre that runs the class.
+- **Deleting it.** You can delete your review at any time. Deletion is
+  total: the review, the teacher's reply to it and every report about
+  either are removed. Your reviews are also deleted with your account.
+  Reviews of a solo teacher's classes are deleted when that teacher
+  deletes their account, which deletes their public listing with them;
+  a coaching centre's listing, and the reviews on it, stay with the
+  centre.
 
 ---
 
@@ -119,7 +170,9 @@ built from different tables than a student's. It is not a filter in
 application code that someone could forget to apply.
 
 **A teacher can see** their own classes, the students enrolled in
-them, and the attendance, marks and fees they themselves recorded.
+them, and the attendance, marks and fees they themselves recorded. A
+teacher or centre that runs a class also sees its published reviews,
+exactly as the public sees them, and never who wrote one.
 
 **A teacher cannot see** a student's own profile, a guardian's
 details, or anything a student or guardian writes about themselves.
@@ -129,7 +182,11 @@ attendance, marks and fees.
 
 **Nobody else can see anything.** There is no administrator view of
 student data. Our own operational access is limited to subscriber
-information — a teacher's name, plan and payment status.
+information — a teacher's name, plan and payment status — and to what
+someone submits for publication on the public hub: listing text,
+photos, reviews, replies and reports. Our moderators see a review, a
+reply or a report with an opaque reference in place of its author,
+never a name or phone number.
 
 ---
 
@@ -211,7 +268,7 @@ These records are about how the service itself is running, not about any person.
 | Data | Removed anyway after |
 |---|---|
 | A coaching centre's names for the places its classes meet | no time limit |
-| A record that moderation acted on a hub listing or report; it holds no free text and names nobody | 12 months |
+| A record that moderation acted on a hub listing, photo, review, reply or report; it holds no free text and names nobody | 12 months |
 | Addresses of public hub pages we asked our web cache to forget after a page was taken down; they name nobody | 7 days |
 | Counters that limit sign-in attempts | 48 hours |
 | Instructions to delete the image files of a photo that was taken down or deleted; they name nobody | 7 days |

@@ -1043,6 +1043,15 @@ smoke = _load_smoke()
 #: The site's own policy, which a page served from the bucket carries.
 _SITE_CSP = "default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'"
 
+#: The query keys the site's hub-query edge function lets through, read
+#: from the function itself so the stand-in cannot drift from it.
+_ALLOWED = re.search(
+    r"var ALLOWED = \[(.*?)\];",
+    (ROOT / "infra" / "modules" / "site" / "functions" / "hub-query.js").read_text(),
+)
+assert _ALLOWED is not None, "hub-query.js no longer declares var ALLOWED"
+_EDGE_KEYS = frozenset(re.findall(r"'([a-z]+)'", _ALLOWED.group(1)))
+
 
 def _landing_page() -> str:
     """Render the real, empty ``/hub/en`` landing page.
@@ -1137,7 +1146,12 @@ class _HubHost(http.server.BaseHTTPRequestHandler):
         site = self.server.origin  # type: ignore[attr-defined]
         absent = f"/hub/en/t/{smoke.ABSENT_SLUG}"
         if url.path == "/hub/en" and url.query:
-            if behaviour == "query-passed":
+            # The edge function: an allowlisted key passes, any other is 400.
+            keys = {k for k, _ in urllib.parse.parse_qsl(url.query)}
+            allowed = keys <= _EDGE_KEYS and not (
+                behaviour == "sort-refused" and "sort" in keys
+            )
+            if allowed or behaviour == "query-passed":
                 self._send(200, _landing_page())
             else:
                 self._send(400, "Bad Request", csp=_SITE_CSP)
@@ -1210,9 +1224,9 @@ def test_a_working_hub_passes_the_smoke(hub: tuple[str, str]) -> None:
 
     assert outcome == (
         f"the hub answers at {site}/hub/en with its own CSP, the sitemap, "
-        "the stylesheet, a 400 for an unknown query key and a 404 for an "
-        "unknown teacher, the photo path refusing what is not approved, "
-        "and the API host refuses it"
+        "the stylesheet, a 200 for the sort key, a 400 for an unknown query "
+        "key and a 404 for an unknown teacher, the photo path refusing what "
+        "is not approved, and the API host refuses it"
     )
 
 
@@ -1225,6 +1239,7 @@ def test_a_working_hub_passes_the_smoke(hub: tuple[str, str]) -> None:
         ("no-stylesheet", r"stylesheet .* answered 404"),
         ("no-sitemap", r"/hub/sitemap.xml answered 404"),
         ("query-passed", r"\?utm=x answered 200, not 400"),
+        ("sort-refused", r"\?sort=rating answered 400, not 200"),
         ("soft-404", r"no_such_teacher answered 200, not 404"),
         ("api-serves-hub", r"API host's .*/hub/en answered 200, not 404"),
         ("media-served", r"/m/0{32}/320.webp answered 200, not 403 or 404"),
@@ -1237,6 +1252,35 @@ def test_a_broken_hub_fails_the_smoke(hub: tuple[str, str], reason: str) -> None
 
     with pytest.raises(RuntimeError, match=reason):
         smoke.smoke_hub(site, api, attempts=1, interval=0)
+
+
+def test_hub_smoke_checks_sort_key(hub: tuple[str, str]) -> None:
+    """The smoke asks for ``?sort=rating`` and needs a 200 [H4].
+
+    The edge function refuses any query key it does not list with a 400, so
+    a 200 here proves the deployed function carries ``sort``. It is asked
+    whatever the reviews switch says: switched off, the page ignores the
+    key and still answers 200.
+
+    :param hub: The stand-in site and API
+    :return: None
+    """
+    assert "sort" in _EDGE_KEYS
+    site, api = hub
+    seen: list[str] = []
+    real = smoke._get
+
+    def spy(url: str) -> tuple[int, dict[str, str], str]:
+        seen.append(url)
+        return real(url)
+
+    smoke._get = spy
+    try:
+        smoke.smoke_hub(site, api, attempts=1, interval=0)
+    finally:
+        smoke._get = real
+
+    assert f"{site}/hub/en?sort=rating" in seen
 
 
 def test_hub_smoke_checks_media_behaviour(hub: tuple[str, str]) -> None:
