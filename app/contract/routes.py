@@ -343,6 +343,25 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # beneath it each resolve a ReviewerLens -- so the exemption covers
         # the listing alone and nothing it links to.
         ("GET", "/v1/hub/reviewable"),
+        # A guardian's join request to a public hub listing [H5], exempt on
+        # POST /v1/hub/reports's reasoning: both routes act as the
+        # authenticated account alone, and a guardian asking to join holds
+        # no lens on that owner yet -- which is the point of asking. A lens
+        # would scope nothing here. What bounds them is that the one SQL
+        # statement deciding the target (app.hub.enquiries.target.resolve)
+        # reaches only a PUBLISHED owner that chose to accept requests,
+        # never one the caller runs, and answers every other target -- a
+        # slug that never existed included -- with one identical refusal,
+        # with nothing read before it; and an account may send five a day.
+        ("GET", "/v1/hub/owners/{owner_slug}/enquiry-target"),
+        ("POST", "/v1/hub/owners/{owner_slug}/enquiries"),
+        # The guardian's own join requests [H5], on the help centre's
+        # reasoning: the list and the withdrawal are scoped by account id
+        # in SQL, so another account's id is indistinguishable from a
+        # missing one, and a lens would lock out the guardian whose seat
+        # has not been created yet, which is every guardian who asked.
+        ("GET", "/v1/me/hub/enquiries"),
+        ("DELETE", "/v1/me/hub/enquiries/{enquiry_id}"),
     }
 )
 

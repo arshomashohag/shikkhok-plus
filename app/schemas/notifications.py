@@ -43,7 +43,10 @@ class NotificationResponse(BaseModel):
         which the answer sends back; for a ``hub_review_outcome``,
         ``published``, ``rejected`` or ``removed``; for a
         ``hub_reviews_published``, how many reviews of the batch were just
-        published, in Latin digits
+        published, in Latin digits; for a ``hub_enquiry_received``, None,
+        since nothing a guardian typed is ever in an inbox; for a
+        ``hub_enquiry_answered``, the outcome, ``added``, ``not_now`` or
+        ``call_us``
     :ivar class_date: For a class change, the day the class is now on, or
         was on if cancelled
     :ivar class_time: For a class change, its start time that day
@@ -71,6 +74,8 @@ class NotificationResponse(BaseModel):
         "hub_feedback_question",
         "hub_review_outcome",
         "hub_reviews_published",
+        "hub_enquiry_received",
+        "hub_enquiry_answered",
     ]
     enrollment_id: uuid.UUID | None = None
     batch_name: str

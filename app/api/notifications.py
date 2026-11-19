@@ -29,6 +29,8 @@ from app.notifications.inbox import (
     EXAM_CANCELLED,
     EXAM_SCHEDULED,
     FEE_REMINDER,
+    HUB_ENQUIRY_ANSWERED,
+    HUB_ENQUIRY_RECEIVED,
     HUB_FEEDBACK_QUESTION,
     HUB_LISTING_SUSPENDED,
     HUB_REVIEW_OUTCOME,
@@ -77,6 +79,8 @@ Kind = Literal[
     "hub_feedback_question",
     "hub_review_outcome",
     "hub_reviews_published",
+    "hub_enquiry_received",
+    "hub_enquiry_answered",
 ]
 
 #: The kinds the contract publishes, each to itself.
@@ -97,6 +101,8 @@ _PUBLISHED: dict[str, Kind] = {
     HUB_FEEDBACK_QUESTION: "hub_feedback_question",
     HUB_REVIEW_OUTCOME: "hub_review_outcome",
     HUB_REVIEWS_PUBLISHED: "hub_reviews_published",
+    HUB_ENQUIRY_RECEIVED: "hub_enquiry_received",
+    HUB_ENQUIRY_ANSWERED: "hub_enquiry_answered",
 }
 
 #: ``?kind=`` as the read and mark-all routes declare it.

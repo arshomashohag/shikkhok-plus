@@ -4193,6 +4193,143 @@
         "title": "DuplicatePaymentResponse",
         "type": "object"
       },
+      "EnquiryClose": {
+        "additionalProperties": false,
+        "description": "Answer a join request.\n\n:ivar outcome: One of the request's ``outcomes_allowed``",
+        "properties": {
+          "outcome": {
+            "enum": [
+              "added",
+              "call_us",
+              "not_now"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "title": "EnquiryClose",
+        "type": "object"
+      },
+      "EnquiryTargetResponse": {
+        "description": "What the request form shows before the guardian sends.\n\n:ivar owner_public_name: Whoever would receive the request\n:ivar batch_title: The batch's public title, or None for the owner\n:ivar contact_kind: What \"share\" would share: ``phone`` when the\n    account has one, else ``email``\n:ivar already_open: The caller already has a request open with this\n    owner, so a send would answer ``ENQUIRY_ALREADY_OPEN``",
+        "properties": {
+          "already_open": {
+            "title": "Already Open",
+            "type": "boolean"
+          },
+          "batch_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Title"
+          },
+          "contact_kind": {
+            "enum": [
+              "email",
+              "phone"
+            ],
+            "title": "Contact Kind",
+            "type": "string"
+          },
+          "owner_public_name": {
+            "title": "Owner Public Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "already_open",
+          "batch_title",
+          "contact_kind",
+          "owner_public_name"
+        ],
+        "title": "EnquiryTargetResponse",
+        "type": "object"
+      },
+      "EnquiryWrite": {
+        "additionalProperties": false,
+        "description": "Ask an owner, or one of its batches, to take a student.\n\n:ivar student_name: 1 to 80 characters once stripped\n:ivar class_level: One of the hub class levels\n:ivar message: At most 300 characters once stripped; a blank message\n    is stored as none\n:ivar batch_id: The listed batch asked about, or None for the owner\n:ivar share_contact: Whether the people who run the listing may see\n    the account's phone, or its email when it has no phone. Required\n:ivar declares_adult_guardian: The sender declares they are the\n    student's parent or guardian and an adult; only ``true`` is\n    accepted. Not stored",
+        "properties": {
+          "batch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "class_level": {
+            "enum": [
+              "a_level",
+              "admission",
+              "class_1",
+              "class_10",
+              "class_11",
+              "class_12",
+              "class_2",
+              "class_3",
+              "class_4",
+              "class_5",
+              "class_6",
+              "class_7",
+              "class_8",
+              "class_9",
+              "hsc",
+              "o_level",
+              "other",
+              "ssc"
+            ],
+            "title": "Class Level",
+            "type": "string"
+          },
+          "declares_adult_guardian": {
+            "const": true,
+            "title": "Declares Adult Guardian",
+            "type": "boolean"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "share_contact": {
+            "title": "Share Contact",
+            "type": "boolean"
+          },
+          "student_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Student Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "class_level",
+          "declares_adult_guardian",
+          "share_contact",
+          "student_name"
+        ],
+        "title": "EnquiryWrite",
+        "type": "object"
+      },
       "EnrollmentCreateRequest": {
         "additionalProperties": false,
         "description": "Add a student to a batch [AC2.2.2, AC2.2.5].\n\n``fee_amount`` is nullable and null means **inherit** the batch\ndefault. Zero is a real fee of zero, which is a waiver -- a\nnon-nullable column defaulting to zero would make the two\nindistinguishable and silently charge nothing.\n\n:ivar display_name: The teacher-typed name for this seat\n:ivar student_phone: The student's number, typed by the teacher\n:ivar guardian_phone: The guardian's number, if one is recorded\n:ivar fee_amount: This seat's fee, or null to inherit\n:ivar joined_on: When the student joined\n:ivar client_mutation_id: The retry key; a resend under it returns the\n    seat the first request created",
@@ -7581,6 +7718,136 @@
         "title": "MyClassResponse",
         "type": "object"
       },
+      "MyEnquiryWire": {
+        "description": "One of the caller's own join requests.\n\n:ivar id: The request, to withdraw it\n:ivar owner_public_name: The listing's public name, or None once the\n    listing itself is gone\n:ivar batch_title: The batch's public title, or None\n:ivar student_name: As sent\n:ivar class_level: One of the hub class levels\n:ivar message: As sent, or None\n:ivar share_contact: Whether the caller shared their contact\n:ivar status: ``open`` or ``closed``\n:ivar outcome: How the owner answered, or None while open\n:ivar sent_on: The day it was sent, in Bangladesh\n:ivar owner_contact_phone: The owner's published number, only on a\n    ``call_us`` answer and only while the owner is public",
+        "properties": {
+          "batch_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Title"
+          },
+          "class_level": {
+            "enum": [
+              "a_level",
+              "admission",
+              "class_1",
+              "class_10",
+              "class_11",
+              "class_12",
+              "class_2",
+              "class_3",
+              "class_4",
+              "class_5",
+              "class_6",
+              "class_7",
+              "class_8",
+              "class_9",
+              "hsc",
+              "o_level",
+              "other",
+              "ssc"
+            ],
+            "title": "Class Level",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "enum": [
+                  "added",
+                  "call_us",
+                  "not_now"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "owner_contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Contact Phone"
+          },
+          "owner_public_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Public Name"
+          },
+          "sent_on": {
+            "format": "date",
+            "title": "Sent On",
+            "type": "string"
+          },
+          "share_contact": {
+            "title": "Share Contact",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "closed",
+              "open"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "student_name": {
+            "title": "Student Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_title",
+          "class_level",
+          "id",
+          "message",
+          "outcome",
+          "owner_contact_phone",
+          "owner_public_name",
+          "sent_on",
+          "share_contact",
+          "status",
+          "student_name"
+        ],
+        "title": "MyEnquiryWire",
+        "type": "object"
+      },
       "MyExamResponse": {
         "description": "One exam the caller marks [C4].\n\n:ivar exam_id: The exam\n:ivar centre_name: Its centre\n:ivar batch_name: Its batch\n:ivar subject_name: Its subject\n:ivar title: Its name\n:ivar date: When it was sat\n:ivar total_marks: The denominator\n:ivar published: Whether its results have been published\n:ivar cancelled: Whether it was cancelled",
         "properties": {
@@ -7968,6 +8235,8 @@
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
+              "hub_enquiry_answered",
+              "hub_enquiry_received",
               "hub_feedback_question",
               "hub_listing_suspended",
               "hub_review_outcome",
@@ -8084,7 +8353,7 @@
       },
       "NotificationResponse": {
         "additionalProperties": false,
-        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any; for a\n    ``hub_feedback_question``, the question's day, ``60`` or ``90``,\n    which the answer sends back; for a ``hub_review_outcome``,\n    ``published``, ``rejected`` or ``removed``; for a\n    ``hub_reviews_published``, how many reviews of the batch were just\n    published, in Latin digits\n:ivar class_date: For a class change, the day the class is now on, or\n    was on if cancelled\n:ivar class_time: For a class change, its start time that day\n:ivar moved_from_date: For a reschedule, the day it was moved from\n:ivar moved_from_time: For a reschedule, the start time it was moved from",
+        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any; for a\n    ``hub_feedback_question``, the question's day, ``60`` or ``90``,\n    which the answer sends back; for a ``hub_review_outcome``,\n    ``published``, ``rejected`` or ``removed``; for a\n    ``hub_reviews_published``, how many reviews of the batch were just\n    published, in Latin digits; for a ``hub_enquiry_received``, None,\n    since nothing a guardian typed is ever in an inbox; for a\n    ``hub_enquiry_answered``, the outcome, ``added``, ``not_now`` or\n    ``call_us``\n:ivar class_date: For a class change, the day the class is now on, or\n    was on if cancelled\n:ivar class_time: For a class change, its start time that day\n:ivar moved_from_date: For a reschedule, the day it was moved from\n:ivar moved_from_time: For a reschedule, the start time it was moved from",
         "properties": {
           "amount": {
             "anyOf": [
@@ -8160,6 +8429,8 @@
               "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
+              "hub_enquiry_answered",
+              "hub_enquiry_received",
               "hub_feedback_question",
               "hub_listing_suspended",
               "hub_review_outcome",
@@ -8450,6 +8721,157 @@
           "review_count"
         ],
         "title": "OwnerBatchRatingWire",
+        "type": "object"
+      },
+      "OwnerEnquiryWire": {
+        "description": "One join request, as the people who run the listing read it.\n\n:ivar id: The request\n:ivar batch_id: The batch asked about, or None for the owner as a whole\n:ivar batch_title: That batch's public title, or None\n:ivar student_name: As the guardian typed it\n:ivar class_level: One of the hub class levels\n:ivar message: As typed, or None\n:ivar status: ``open`` or ``closed``\n:ivar outcome: How it was answered, or None while open\n:ivar received_at: When it was sent\n:ivar guardian_phone: The guardian's phone, only when they shared\n    their contact\n:ivar guardian_email: The guardian's email, only when they shared\n    their contact and have no phone\n:ivar outcomes_allowed: What a close would accept now; empty once\n    closed. Clients offer exactly these",
+        "properties": {
+          "batch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "batch_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Title"
+          },
+          "class_level": {
+            "enum": [
+              "a_level",
+              "admission",
+              "class_1",
+              "class_10",
+              "class_11",
+              "class_12",
+              "class_2",
+              "class_3",
+              "class_4",
+              "class_5",
+              "class_6",
+              "class_7",
+              "class_8",
+              "class_9",
+              "hsc",
+              "o_level",
+              "other",
+              "ssc"
+            ],
+            "title": "Class Level",
+            "type": "string"
+          },
+          "guardian_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Email"
+          },
+          "guardian_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Phone"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "enum": [
+                  "added",
+                  "call_us",
+                  "not_now"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "outcomes_allowed": {
+            "items": {
+              "enum": [
+                "added",
+                "call_us",
+                "not_now"
+              ],
+              "type": "string"
+            },
+            "title": "Outcomes Allowed",
+            "type": "array"
+          },
+          "received_at": {
+            "format": "date-time",
+            "title": "Received At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "closed",
+              "open"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "student_name": {
+            "title": "Student Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_id",
+          "batch_title",
+          "class_level",
+          "guardian_email",
+          "guardian_phone",
+          "id",
+          "message",
+          "outcome",
+          "outcomes_allowed",
+          "received_at",
+          "status",
+          "student_name"
+        ],
+        "title": "OwnerEnquiryWire",
         "type": "object"
       },
       "OwnerListingResponse": {
@@ -16043,7 +16465,7 @@
                 }
               }
             },
-            "description": "REVIEW_ALREADY_DECIDED: the item is neither pending nor held. REVIEW_REPORT_OPEN: an approval of a held item an open child-safety or personal-information report still names; deciding that report is what restores it."
+            "description": "REVIEW_ALREADY_DECIDED: the item is neither pending nor held. REVIEW_REPORT_OPEN: an approval of a pending or held item while an open child-safety or personal-information report, filed by someone who does not run the batch, still names it; deciding that report is what releases it."
           },
           "422": {
             "content": {
@@ -24841,6 +25263,300 @@
         ]
       }
     },
+    "/v1/hub/enquiries": {
+      "get": {
+        "description": "List the owner's requests, open first, then newest.\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The requests",
+        "operationId": "list_owner_enquiries_v1_hub_enquiries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OwnerEnquiryWire"
+                  },
+                  "title": "Response List Owner Enquiries V1 Hub Enquiries Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_ENQUIRIES_OFF: join requests are switched off."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "List Owner Enquiries",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/enquiries/{enquiry_id}": {
+      "get": {
+        "description": "Read one of the owner's requests.\n\n:param enquiry_id: The request\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The request",
+        "operationId": "get_owner_enquiry_v1_hub_enquiries__enquiry_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enquiry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enquiry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerEnquiryWire"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_NOT_FOUND: no request of this owner's by that id; another owner's request answers the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Get Owner Enquiry",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/enquiries/{enquiry_id}/close": {
+      "post": {
+        "description": "Answer a request; its guardian is told the outcome and nothing else.\n\n:param enquiry_id: The request\n:param body: The outcome, one of the request's ``outcomes_allowed``\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The closed request",
+        "operationId": "close_owner_enquiry_v1_hub_enquiries__enquiry_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enquiry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enquiry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnquiryClose"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerEnquiryWire"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "ENQUIRY_OUTCOME_INVALID: an outcome not in the request's outcomes_allowed."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_NOT_FOUND: no request of this owner's by that id; another owner's request answers the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "ENQUIRY_ALREADY_CLOSED: the request was already answered."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Close Owner Enquiry",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
     "/v1/hub/feedback": {
       "post": {
         "description": "Answer \"Did the hub bring you a student?\"; answering again overwrites.\n\nThe question answered is the workspace's own: a centre manager names the\ncentre with ``X-Workspace-Id``, as the inbox item's ``source_id`` gives\nit. A day this owner was never asked is refused with\n``HUB_FEEDBACK_NOT_ASKED`` (409).\n\n:param body: The day of the question and the answer\n:param lens: The answering manager's lens on the owner\n:param session: The request-scoped session\n:return: An empty 204",
@@ -26091,6 +26807,219 @@
           }
         },
         "summary": "Complete Upload",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/owners/{owner_slug}/enquiries": {
+      "post": {
+        "description": "Ask an owner, or one of its batches, to take a student.\n\nThe people who run the listing are told a request arrived, and nothing\nthe guardian typed travels with it.\n\n:param owner_slug: The owner's public slug\n:param body: The request; the declaration is checked and not stored\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: The request as the guardian sees it",
+        "operationId": "send_enquiry_v1_hub_owners__owner_slug__enquiries_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner_slug",
+            "required": true,
+            "schema": {
+              "title": "Owner Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnquiryWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyEnquiryWire"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "ENQUIRY_CONTAINS_CONTACT: the student's name or the message carries a phone number or a web address; details name the field."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_TARGET_NOT_FOUND: no published listing accepting requests by that slug, no open listed batch of it by that id, or a listing the caller runs; a slug that never existed answers the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "ENQUIRY_ALREADY_OPEN: the caller already has a request open with this owner. HUB_ENQUIRY_CEILING: today's requests are spent."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Send Enquiry",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/owners/{owner_slug}/enquiry-target": {
+      "get": {
+        "description": "Say who a request would reach and what \"share\" would share.\n\nInformed consent needs the name of whoever would receive the contact.\n\n:param owner_slug: The owner's public slug\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:param batch_id: The listed batch asked about, if any\n:return: The target as the form shows it",
+        "operationId": "get_enquiry_target_v1_hub_owners__owner_slug__enquiry_target_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner_slug",
+            "required": true,
+            "schema": {
+              "title": "Owner Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "batch_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnquiryTargetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_TARGET_NOT_FOUND: no published listing accepting requests by that slug, no open listed batch of it by that id, or a listing the caller runs; a slug that never existed answers the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Get Enquiry Target",
         "tags": [
           "hub"
         ]
@@ -29173,6 +30102,129 @@
         "summary": "Reply",
         "tags": [
           "help"
+        ]
+      }
+    },
+    "/v1/me/hub/enquiries": {
+      "get": {
+        "description": "List the caller's own requests, newest first.\n\nNot switch-gated: while join requests are off a guardian can still see\nwhat they sent, so they can withdraw it.\n\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: The requests",
+        "operationId": "list_my_enquiries_v1_me_hub_enquiries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MyEnquiryWire"
+                  },
+                  "title": "Response List My Enquiries V1 Me Hub Enquiries Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "List My Enquiries",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/me/hub/enquiries/{enquiry_id}": {
+      "delete": {
+        "description": "Withdraw one of the caller's requests, with every inbox item about it.\n\nNever switch-gated, and quiet for a missing id or another account's.\n\n:param enquiry_id: The request\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: An empty 204",
+        "operationId": "withdraw_enquiry_v1_me_hub_enquiries__enquiry_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enquiry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enquiry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Withdraw Enquiry",
+        "tags": [
+          "hub"
         ]
       }
     },

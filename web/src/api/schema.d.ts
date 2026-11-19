@@ -3103,6 +3103,81 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/hub/enquiries': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Owner Enquiries
+     * @description List the owner's requests, open first, then newest.
+     *
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The requests
+     */
+    get: operations['list_owner_enquiries_v1_hub_enquiries_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/enquiries/{enquiry_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Owner Enquiry
+     * @description Read one of the owner's requests.
+     *
+     *     :param enquiry_id: The request
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The request
+     */
+    get: operations['get_owner_enquiry_v1_hub_enquiries__enquiry_id__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/enquiries/{enquiry_id}/close': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Close Owner Enquiry
+     * @description Answer a request; its guardian is told the outcome and nothing else.
+     *
+     *     :param enquiry_id: The request
+     *     :param body: The outcome, one of the request's ``outcomes_allowed``
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The closed request
+     */
+    post: operations['close_owner_enquiry_v1_hub_enquiries__enquiry_id__close_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/hub/feedback': {
     parameters: {
       query?: never
@@ -3397,6 +3472,63 @@ export interface paths {
      *     :return: The photo
      */
     post: operations['complete_upload_v1_hub_media__media_id__complete_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/owners/{owner_slug}/enquiries': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Send Enquiry
+     * @description Ask an owner, or one of its batches, to take a student.
+     *
+     *     The people who run the listing are told a request arrived, and nothing
+     *     the guardian typed travels with it.
+     *
+     *     :param owner_slug: The owner's public slug
+     *     :param body: The request; the declaration is checked and not stored
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The request as the guardian sees it
+     */
+    post: operations['send_enquiry_v1_hub_owners__owner_slug__enquiries_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/owners/{owner_slug}/enquiry-target': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Enquiry Target
+     * @description Say who a request would reach and what "share" would share.
+     *
+     *     Informed consent needs the name of whoever would receive the contact.
+     *
+     *     :param owner_slug: The owner's public slug
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :param batch_id: The listed batch asked about, if any
+     *     :return: The target as the form shows it
+     */
+    get: operations['get_enquiry_target_v1_hub_owners__owner_slug__enquiry_target_get']
+    put?: never
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -4441,6 +4573,60 @@ export interface paths {
      */
     post: operations['reply_v1_me_help_tickets__ticket_id__messages_post']
     delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/hub/enquiries': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List My Enquiries
+     * @description List the caller's own requests, newest first.
+     *
+     *     Not switch-gated: while join requests are off a guardian can still see
+     *     what they sent, so they can withdraw it.
+     *
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The requests
+     */
+    get: operations['list_my_enquiries_v1_me_hub_enquiries_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/hub/enquiries/{enquiry_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Withdraw Enquiry
+     * @description Withdraw one of the caller's requests, with every inbox item about it.
+     *
+     *     Never switch-gated, and quiet for a missing id or another account's.
+     *
+     *     :param enquiry_id: The request
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: An empty 204
+     */
+    delete: operations['withdraw_enquiry_v1_me_hub_enquiries__enquiry_id__delete']
     options?: never
     head?: never
     patch?: never
@@ -7832,6 +8018,96 @@ export interface components {
       submission_id: string
     }
     /**
+     * EnquiryClose
+     * @description Answer a join request.
+     *
+     *     :ivar outcome: One of the request's ``outcomes_allowed``
+     */
+    EnquiryClose: {
+      /**
+       * Outcome
+       * @enum {string}
+       */
+      outcome: 'added' | 'call_us' | 'not_now'
+    }
+    /**
+     * EnquiryTargetResponse
+     * @description What the request form shows before the guardian sends.
+     *
+     *     :ivar owner_public_name: Whoever would receive the request
+     *     :ivar batch_title: The batch's public title, or None for the owner
+     *     :ivar contact_kind: What "share" would share: ``phone`` when the
+     *         account has one, else ``email``
+     *     :ivar already_open: The caller already has a request open with this
+     *         owner, so a send would answer ``ENQUIRY_ALREADY_OPEN``
+     */
+    EnquiryTargetResponse: {
+      /** Already Open */
+      already_open: boolean
+      /** Batch Title */
+      batch_title: string | null
+      /**
+       * Contact Kind
+       * @enum {string}
+       */
+      contact_kind: 'email' | 'phone'
+      /** Owner Public Name */
+      owner_public_name: string
+    }
+    /**
+     * EnquiryWrite
+     * @description Ask an owner, or one of its batches, to take a student.
+     *
+     *     :ivar student_name: 1 to 80 characters once stripped
+     *     :ivar class_level: One of the hub class levels
+     *     :ivar message: At most 300 characters once stripped; a blank message
+     *         is stored as none
+     *     :ivar batch_id: The listed batch asked about, or None for the owner
+     *     :ivar share_contact: Whether the people who run the listing may see
+     *         the account's phone, or its email when it has no phone. Required
+     *     :ivar declares_adult_guardian: The sender declares they are the
+     *         student's parent or guardian and an adult; only ``true`` is
+     *         accepted. Not stored
+     */
+    EnquiryWrite: {
+      /** Batch Id */
+      batch_id?: string | null
+      /**
+       * Class Level
+       * @enum {string}
+       */
+      class_level:
+        | 'a_level'
+        | 'admission'
+        | 'class_1'
+        | 'class_10'
+        | 'class_11'
+        | 'class_12'
+        | 'class_2'
+        | 'class_3'
+        | 'class_4'
+        | 'class_5'
+        | 'class_6'
+        | 'class_7'
+        | 'class_8'
+        | 'class_9'
+        | 'hsc'
+        | 'o_level'
+        | 'other'
+        | 'ssc'
+      /**
+       * Declares Adult Guardian
+       * @constant
+       */
+      declares_adult_guardian: true
+      /** Message */
+      message?: string | null
+      /** Share Contact */
+      share_contact: boolean
+      /** Student Name */
+      student_name: string
+    }
+    /**
      * EnrollmentCreateRequest
      * @description Add a student to a batch [AC2.2.2, AC2.2.5].
      *
@@ -9805,6 +10081,78 @@ export interface components {
       topic_logged: boolean
     }
     /**
+     * MyEnquiryWire
+     * @description One of the caller's own join requests.
+     *
+     *     :ivar id: The request, to withdraw it
+     *     :ivar owner_public_name: The listing's public name, or None once the
+     *         listing itself is gone
+     *     :ivar batch_title: The batch's public title, or None
+     *     :ivar student_name: As sent
+     *     :ivar class_level: One of the hub class levels
+     *     :ivar message: As sent, or None
+     *     :ivar share_contact: Whether the caller shared their contact
+     *     :ivar status: ``open`` or ``closed``
+     *     :ivar outcome: How the owner answered, or None while open
+     *     :ivar sent_on: The day it was sent, in Bangladesh
+     *     :ivar owner_contact_phone: The owner's published number, only on a
+     *         ``call_us`` answer and only while the owner is public
+     */
+    MyEnquiryWire: {
+      /** Batch Title */
+      batch_title: string | null
+      /**
+       * Class Level
+       * @enum {string}
+       */
+      class_level:
+        | 'a_level'
+        | 'admission'
+        | 'class_1'
+        | 'class_10'
+        | 'class_11'
+        | 'class_12'
+        | 'class_2'
+        | 'class_3'
+        | 'class_4'
+        | 'class_5'
+        | 'class_6'
+        | 'class_7'
+        | 'class_8'
+        | 'class_9'
+        | 'hsc'
+        | 'o_level'
+        | 'other'
+        | 'ssc'
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Message */
+      message: string | null
+      /** Outcome */
+      outcome: ('added' | 'call_us' | 'not_now') | null
+      /** Owner Contact Phone */
+      owner_contact_phone: string | null
+      /** Owner Public Name */
+      owner_public_name: string | null
+      /**
+       * Sent On
+       * Format: date
+       */
+      sent_on: string
+      /** Share Contact */
+      share_contact: boolean
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'closed' | 'open'
+      /** Student Name */
+      student_name: string
+    }
+    /**
      * MyExamResponse
      * @description One exam the caller marks [C4].
      *
@@ -9999,6 +10347,8 @@ export interface components {
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
+        | 'hub_enquiry_answered'
+        | 'hub_enquiry_received'
         | 'hub_feedback_question'
         | 'hub_listing_suspended'
         | 'hub_review_outcome'
@@ -10048,7 +10398,10 @@ export interface components {
      *         which the answer sends back; for a ``hub_review_outcome``,
      *         ``published``, ``rejected`` or ``removed``; for a
      *         ``hub_reviews_published``, how many reviews of the batch were just
-     *         published, in Latin digits
+     *         published, in Latin digits; for a ``hub_enquiry_received``, None,
+     *         since nothing a guardian typed is ever in an inbox; for a
+     *         ``hub_enquiry_answered``, the outcome, ``added``, ``not_now`` or
+     *         ``call_us``
      *     :ivar class_date: For a class change, the day the class is now on, or
      *         was on if cancelled
      *     :ivar class_time: For a class change, its start time that day
@@ -10083,6 +10436,8 @@ export interface components {
         | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
+        | 'hub_enquiry_answered'
+        | 'hub_enquiry_received'
         | 'hub_feedback_question'
         | 'hub_listing_suspended'
         | 'hub_review_outcome'
@@ -10227,6 +10582,82 @@ export interface components {
       distribution: number[] | null
       /** Review Count */
       review_count: number | null
+    }
+    /**
+     * OwnerEnquiryWire
+     * @description One join request, as the people who run the listing read it.
+     *
+     *     :ivar id: The request
+     *     :ivar batch_id: The batch asked about, or None for the owner as a whole
+     *     :ivar batch_title: That batch's public title, or None
+     *     :ivar student_name: As the guardian typed it
+     *     :ivar class_level: One of the hub class levels
+     *     :ivar message: As typed, or None
+     *     :ivar status: ``open`` or ``closed``
+     *     :ivar outcome: How it was answered, or None while open
+     *     :ivar received_at: When it was sent
+     *     :ivar guardian_phone: The guardian's phone, only when they shared
+     *         their contact
+     *     :ivar guardian_email: The guardian's email, only when they shared
+     *         their contact and have no phone
+     *     :ivar outcomes_allowed: What a close would accept now; empty once
+     *         closed. Clients offer exactly these
+     */
+    OwnerEnquiryWire: {
+      /** Batch Id */
+      batch_id: string | null
+      /** Batch Title */
+      batch_title: string | null
+      /**
+       * Class Level
+       * @enum {string}
+       */
+      class_level:
+        | 'a_level'
+        | 'admission'
+        | 'class_1'
+        | 'class_10'
+        | 'class_11'
+        | 'class_12'
+        | 'class_2'
+        | 'class_3'
+        | 'class_4'
+        | 'class_5'
+        | 'class_6'
+        | 'class_7'
+        | 'class_8'
+        | 'class_9'
+        | 'hsc'
+        | 'o_level'
+        | 'other'
+        | 'ssc'
+      /** Guardian Email */
+      guardian_email: string | null
+      /** Guardian Phone */
+      guardian_phone: string | null
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Message */
+      message: string | null
+      /** Outcome */
+      outcome: ('added' | 'call_us' | 'not_now') | null
+      /** Outcomes Allowed */
+      outcomes_allowed: ('added' | 'call_us' | 'not_now')[]
+      /**
+       * Received At
+       * Format: date-time
+       */
+      received_at: string
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'closed' | 'open'
+      /** Student Name */
+      student_name: string
     }
     /**
      * OwnerListingResponse
@@ -14418,7 +14849,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorEnvelope']
         }
       }
-      /** @description REVIEW_ALREADY_DECIDED: the item is neither pending nor held. REVIEW_REPORT_OPEN: an approval of a held item an open child-safety or personal-information report still names; deciding that report is what restores it. */
+      /** @description REVIEW_ALREADY_DECIDED: the item is neither pending nor held. REVIEW_REPORT_OPEN: an approval of a pending or held item while an open child-safety or personal-information report, filed by someone who does not run the batch, still names it; deciding that report is what releases it. */
       409: {
         headers: {
           [name: string]: unknown
@@ -21360,6 +21791,245 @@ export interface operations {
       }
     }
   }
+  list_owner_enquiries_v1_hub_enquiries_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OwnerEnquiryWire'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description NO_TEACHER_LENS: the caller runs no workspace, or not the one named. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_ENQUIRIES_OFF: join requests are switched off. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  get_owner_enquiry_v1_hub_enquiries__enquiry_id__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        enquiry_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OwnerEnquiryWire']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description NO_TEACHER_LENS: the caller runs no workspace, or not the one named. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_NOT_FOUND: no request of this owner's by that id; another owner's request answers the same. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  close_owner_enquiry_v1_hub_enquiries__enquiry_id__close_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        enquiry_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnquiryClose']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OwnerEnquiryWire']
+        }
+      }
+      /** @description ENQUIRY_OUTCOME_INVALID: an outcome not in the request's outcomes_allowed. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description NO_TEACHER_LENS: the caller runs no workspace, or not the one named. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_NOT_FOUND: no request of this owner's by that id; another owner's request answers the same. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description ENQUIRY_ALREADY_CLOSED: the request was already answered. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
   answer_feedback_v1_hub_feedback_post: {
     parameters: {
       query?: never
@@ -22372,6 +23042,164 @@ export interface operations {
       }
       /** @description Valid request; current state forbids it. Refetch and decide. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  send_enquiry_v1_hub_owners__owner_slug__enquiries_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        owner_slug: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnquiryWrite']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MyEnquiryWire']
+        }
+      }
+      /** @description ENQUIRY_CONTAINS_CONTACT: the student's name or the message carries a phone number or a web address; details name the field. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_TARGET_NOT_FOUND: no published listing accepting requests by that slug, no open listed batch of it by that id, or a listing the caller runs; a slug that never existed answers the same. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description ENQUIRY_ALREADY_OPEN: the caller already has a request open with this owner. HUB_ENQUIRY_CEILING: today's requests are spent. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  get_enquiry_target_v1_hub_owners__owner_slug__enquiry_target_get: {
+    parameters: {
+      query?: {
+        batch_id?: string | null
+      }
+      header?: never
+      path: {
+        owner_slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['EnquiryTargetResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_TARGET_NOT_FOUND: no published listing accepting requests by that slug, no open listed batch of it by that id, or a listing the caller runs; a slug that never existed answers the same. */
+      404: {
         headers: {
           [name: string]: unknown
         }
@@ -24844,6 +25672,109 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['HelpTicketDetailResponse']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  list_my_enquiries_v1_me_hub_enquiries_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MyEnquiryWire'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  withdraw_enquiry_v1_me_hub_enquiries__enquiry_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        enquiry_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
         }
       }
       /** @description The request could not be parsed */

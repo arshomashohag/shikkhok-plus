@@ -169,7 +169,12 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
       help;
     - the password and contact routes act only on the caller's own
       account, and an email-only account whose seats have not reached it
-      yet holds no lens until it adds the phone number that links them.
+      yet holds no lens until it adds the phone number that links them;
+    - a join request's target and send act as the caller alone and
+      answer one identical refusal for every target that is not a
+      published owner accepting requests, and the guardian's own list
+      and withdrawal are scoped by account id in SQL: a guardian asking
+      to join holds no lens on that owner yet, which is the point.
 
     :return: None
     """
@@ -220,6 +225,15 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             # reasoning; the per-batch my-review routes each resolve a
             # ReviewerLens.
             ("GET", "/v1/hub/reviewable"),
+            # A join request [H5]: the target and the send act as the
+            # caller alone, reach only a published owner that accepts
+            # requests, and answer every other target identically; the
+            # guardian's own list and withdrawal are scoped by account id
+            # in SQL.
+            ("GET", "/v1/hub/owners/{owner_slug}/enquiry-target"),
+            ("POST", "/v1/hub/owners/{owner_slug}/enquiries"),
+            ("GET", "/v1/me/hub/enquiries"),
+            ("DELETE", "/v1/me/hub/enquiries/{enquiry_id}"),
             # The caller's own two-step verification settings [0028].
             ("GET", "/v1/me/mfa"),
             ("POST", "/v1/me/mfa/setup"),

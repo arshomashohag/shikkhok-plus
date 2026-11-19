@@ -42,7 +42,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 from dataclasses import dataclass
-from typing import Final, cast
+from typing import Final, cast, get_args
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Row
@@ -64,8 +64,10 @@ __all__ = ["LIST_LIMIT", "OUTCOMES", "OwnerEnquiry", "close", "get", "list_for"]
 LIST_LIMIT: Final = 100
 
 #: Every outcome, in the order the enum declares them and the list shows
-#: the allowed ones.
-OUTCOMES: Final[tuple[EnquiryOutcome, ...]] = ("added", "not_now", "call_us")
+#: the allowed ones. Read off :data:`~app.hub.enquiries.sending.EnquiryOutcome`
+#: rather than spelled a third time; ``tests/contract/test_enquiry_contract.py``
+#: holds both to the model's ``HUB_ENQUIRY_OUTCOME_VALUES``.
+OUTCOMES: Final[tuple[EnquiryOutcome, ...]] = get_args(EnquiryOutcome)
 
 #: The owner's requests as they see them. The contact columns are the
 #: contact predicate; ``can_call`` is whether the guardian would be shown

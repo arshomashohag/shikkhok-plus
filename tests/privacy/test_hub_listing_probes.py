@@ -8,6 +8,7 @@ number or a per-person key.
 from __future__ import annotations
 
 import uuid
+from typing import Final
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -83,6 +84,20 @@ def test_teacher_a_cannot_read_or_write_teacher_b_listing(
     assert a_owner != b_owner
 
 
+#: The one contact a hub response may carry by name under the public set,
+#: as exact ``(path, schema, field)`` triples [H5]. ``guardian_phone`` on a
+#: join request is the guardian's own account number, shown to the people
+#: who run the listing only because the guardian ticked "share" (the
+#: contact predicate). None of these routes is public: each resolves the
+#: owner's teacher lens, and ``tests/contract/test_enquiry_privacy.py``
+#: walks them against their own forbidden set, which holds a bare
+#: ``phone``.
+CONSENTED: Final = frozenset(
+    ("/v1/hub/enquiries" + suffix, "OwnerEnquiryWire", "guardian_phone")
+    for suffix in ("", "/{enquiry_id}", "/{enquiry_id}/close")
+)
+
+
 def test_no_hub_schema_contains_collection_number_or_phone() -> None:
     """Every hub response schema is clean against the public forbidden set.
 
@@ -118,9 +133,14 @@ def test_no_hub_schema_contains_collection_number_or_phone() -> None:
                 for name, field in _walk(schema, definitions, set(), _public_field)
             ]
     # The ten listing responses, the five JSON-bodied media routes (the
-    # sixth, DELETE, is a 204 with no body to walk) and the five JSON-bodied
+    # sixth, DELETE, is a 204 with no body to walk), the five JSON-bodied
     # review routes [H4]: the reviewable list, the author's read and write,
-    # the teacher's read and reply (both deletes are 204s).
-    assert checked == 20
-    assert leaks == []
+    # the teacher's read and reply (both deletes are 204s), and the five
+    # join-request routes under /v1/hub [H5]: the target, the send, and the
+    # owner's list, read and close (the guardian's own list and withdrawal
+    # are under /v1/me).
+    assert checked == 25
+    assert sorted(set(leaks) - CONSENTED) == []
+    # The allowance names leaks that occur, so it cannot outlive them.
+    assert CONSENTED <= set(leaks)
     assert "public_contact_phone" not in PUBLIC_FORBIDDEN_FIELDS

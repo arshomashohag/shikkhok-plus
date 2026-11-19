@@ -573,9 +573,10 @@ def hub_review(
         409: {
             "model": ErrorEnvelope,
             "description": "REVIEW_ALREADY_DECIDED: the item is neither "
-            "pending nor held. REVIEW_REPORT_OPEN: an approval of a held item "
-            "an open child-safety or personal-information report still names; "
-            "deciding that report is what restores it.",
+            "pending nor held. REVIEW_REPORT_OPEN: an approval of a pending or "
+            "held item while an open child-safety or personal-information "
+            "report, filed by someone who does not run the batch, still names "
+            "it; deciding that report is what releases it.",
         },
     },
 )
