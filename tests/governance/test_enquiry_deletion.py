@@ -23,6 +23,7 @@ import threading
 import time
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass
 
 import pytest
 import sqlalchemy as sa
@@ -31,8 +32,10 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.authz.lenses import TeacherLens
+from app.errors import AuthorizationError
 from app.governance.deletion import delete_account
 from app.hub.enquiries import owner, sending
+from app.notifications.inbox import HUB_ENQUIRY_ANSWERED, HUB_ENQUIRY_RECEIVED
 from tests.enquiries.support import EnquirableWorld, enquirable_owner, guardian
 
 NOW = dt.datetime(2026, 11, 19, 4, 0, tzinfo=dt.UTC)
@@ -235,27 +238,129 @@ def test_external_deletion_path_also_forgets(
     assert _traces(owner_session, sent.id) == (0, 0)
 
 
-def _wait_for_waiters(session: Session, count: int) -> None:
-    """Block until ``count`` backends wait on a lock, or fail.
+#: Whether a backend waits on a row of one table: it holds or awaits that
+#: row's tuple lock while some lock of its own is not granted.
+_WAITING_ON_ROW = sa.text(
+    """
+    SELECT EXISTS (SELECT 1 FROM pg_locks WHERE pid = :pid AND NOT granted)
+       AND EXISTS (SELECT 1 FROM pg_locks
+                   WHERE pid = :pid AND locktype = 'tuple'
+                     AND relation = CAST(:relation AS regclass))
+    """
+)
 
-    ``pg_locks`` rather than ``pg_stat_activity``, which hides other roles'
-    wait events.
+#: Whether a backend waits on an advisory key.
+_WAITING_ON_KEY = sa.text(
+    "SELECT EXISTS (SELECT 1 FROM pg_locks "
+    "WHERE pid = :pid AND locktype = 'advisory' AND NOT granted)"
+)
 
-    :param session: Any session
-    :param count: How many lock waiters to wait for
-    :return: None
-    :raises AssertionError: Fewer waited within ten seconds
+#: Where a racer is expected to stop: a table name, or :data:`ADVISORY`.
+ADVISORY = "advisory"
+
+
+@dataclass(frozen=True, slots=True)
+class _Racer:
+    """One transaction in a race.
+
+    :ivar work: Runs the transaction on a fresh restricted session
+    :ivar waits_on: The table whose row it should wait on, or
+        :data:`ADVISORY` for an account key
+    """
+
+    work: Callable[[Session], None]
+    waits_on: str
+
+
+def _wait_for_waiter(
+    session: Session,
+    pids: dict[int, int],
+    index: int,
+    thread: threading.Thread,
+    waits_on: str,
+) -> bool:
+    """Block until one racer waits where expected, or has finished.
+
+    Filtered to that racer's own backend and to the table (or advisory key)
+    it should wait on, so no other lock waiter in the database can release
+    the next racer early. ``pg_locks`` rather than ``pg_stat_activity``,
+    which hides other roles' wait events.
+
+    :param session: A watching session
+    :param pids: Each racer's backend pid, by index, once it has one
+    :param index: The racer
+    :param thread: Its thread
+    :param waits_on: A table name, or :data:`ADVISORY`
+    :return: True when it waited there; False when it finished, or never
+        waited there within ten seconds
     """
     deadline = time.monotonic() + 10
-    while time.monotonic() < deadline:
-        waiting = session.execute(
-            sa.text("SELECT count(DISTINCT pid) FROM pg_locks WHERE NOT granted")
-        ).scalar_one()
-        session.rollback()
-        if waiting >= count:
-            return
+    while time.monotonic() < deadline and thread.is_alive():
+        pid = pids.get(index)
+        if pid is not None:
+            if waits_on == ADVISORY:
+                waiting = session.execute(_WAITING_ON_KEY, {"pid": pid})
+            else:
+                waiting = session.execute(
+                    _WAITING_ON_ROW, {"pid": pid, "relation": waits_on}
+                )
+            found = bool(waiting.scalar_one())
+            session.rollback()
+            if found:
+                return True
         time.sleep(0.05)
-    raise AssertionError(f"fewer than {count} transactions waited on a lock")
+    return False
+
+
+def _race(
+    owner_session: Session,
+    engine: Engine,
+    hold: tuple[str, dict[str, object]],
+    racers: list[_Racer],
+) -> tuple[list[BaseException], list[bool]]:
+    """Run racers in order against a row lock a third session holds.
+
+    The owner session locks ``hold``; each racer starts only once the one
+    before it waits where expected; then the hold is released and every
+    racer runs to its end. Each racer records its backend pid in its own
+    transaction first, so the watcher can tell which backend is which.
+
+    :param owner_session: Holds the lock
+    :param engine: The restricted engine the racers use
+    :param hold: The locking statement and its parameters
+    :param racers: The racers, in start order
+    :return: The racers' exceptions, and whether each waited as expected
+    """
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    errors: list[BaseException] = []
+    pids: dict[int, int] = {}
+    waited: list[bool] = []
+    threads: list[threading.Thread] = []
+
+    def runner(index: int, racer: _Racer) -> Callable[[], None]:
+        def work() -> None:
+            with factory() as session:
+                pids[index] = int(
+                    session.execute(sa.text("SELECT pg_backend_pid()")).scalar_one()
+                )
+                racer.work(session)
+
+        return work
+
+    owner_session.execute(sa.text(hold[0]), hold[1]).all()
+    try:
+        with factory() as watcher:
+            for index, racer in enumerate(racers):
+                threads.append(_in_thread(errors, runner(index, racer)))
+                waited.append(
+                    _wait_for_waiter(watcher, pids, index, threads[-1], racer.waits_on)
+                )
+    finally:
+        owner_session.commit()
+        for thread in threads:
+            thread.join(timeout=30)
+            assert not thread.is_alive()
+    return errors, waited
 
 
 def _in_thread(
@@ -277,6 +382,32 @@ def _in_thread(
     thread = threading.Thread(target=run)
     thread.start()
     return thread
+
+
+def _nothing_left(session: Session) -> tuple[int, int]:
+    """Count every request and every join-request inbox item left.
+
+    :param session: An arranging session
+    :return: ``(rows, notifications)``
+    """
+    session.rollback()
+    rows = session.execute(sa.text("SELECT count(*) FROM listing_enquiry"))
+    count = int(rows.scalar_one())
+    items = session.execute(
+        sa.text("SELECT count(*) FROM notification WHERE kind = ANY(:k)"),
+        {"k": [HUB_ENQUIRY_RECEIVED, HUB_ENQUIRY_ANSWERED]},
+    )
+    return count, int(items.scalar_one())
+
+
+def _refusal(error: BaseException) -> tuple[str, str, int]:
+    """Read what a refusal would put on the wire.
+
+    :param error: The racer's exception
+    :return: ``(code, message_key, status)``
+    """
+    assert isinstance(error, AuthorizationError), repr(error)
+    return error.code, error.message_key, error.status
 
 
 def test_mutual_deletion_cannot_deadlock(
@@ -308,30 +439,22 @@ def test_mutual_deletion_cannot_deadlock(
     first, second = (a, b) if a_asked_b.id < b_asked_a.id else (b, a)
     phones = [_phone(owner_session, w.lens.account_id) for w in (first, second)]
     owner_session.rollback()
-    factory = sessionmaker(bind=restricted_engine, expire_on_commit=False)
-    errors: list[BaseException] = []
 
-    def delete(phone: str) -> Callable[[], None]:
-        def work() -> None:
-            with factory() as session:
-                delete_account(session, phone)
+    def delete(phone: str) -> _Racer:
+        return _Racer(lambda s: delete_account(s, phone).existed, "listing_enquiry")
 
-        return work
-
-    owner_session.execute(
-        sa.text("SELECT id FROM listing_enquiry WHERE id = :e FOR UPDATE"),
-        {"e": min(a_asked_b.id, b_asked_a.id)},
-    ).all()
-    with factory() as watcher:
-        threads = []
-        for waiters, phone in enumerate(phones, start=1):
-            threads.append(_in_thread(errors, delete(phone)))
-            _wait_for_waiters(watcher, waiters)
-    owner_session.commit()
-    for thread in threads:
-        thread.join(timeout=30)
+    errors, waited = _race(
+        owner_session,
+        restricted_engine,
+        (
+            "SELECT id FROM listing_enquiry WHERE id = :e FOR UPDATE",
+            {"e": min(a_asked_b.id, b_asked_a.id)},
+        ),
+        [delete(phone) for phone in phones],
+    )
 
     assert errors == []
+    assert waited == [True, True]
     for gone in (a_asked_b, b_asked_a):
         assert _traces(owner_session, gone.id) == (0, 0)
     assert (
@@ -341,3 +464,120 @@ def test_mutual_deletion_cannot_deadlock(
         ).scalar_one()
         == 0
     )
+
+
+@pytest.mark.parametrize("first", ["send", "deletion"])
+def test_send_racing_solo_owner_deletion_leaves_nothing(
+    owner_session: Session,
+    restricted_session: Session,
+    restricted_engine: Engine,
+    first: str,
+) -> None:
+    """A request sent while its solo owner is deleted never outlives them.
+
+    The ``owner`` row is retained, so a send's foreign key never notices the
+    deletion; ``owner_listing`` is the row that goes. The send holds it
+    ``FOR SHARE`` from before it decides until it commits, and the deletion
+    locks it ``FOR UPDATE`` before collecting the owner's requests.
+
+    *Send first*: the send holds the listing and is held up on its batch
+    listing (by a third session); the deletion waits on the listing; once
+    released, the send commits and the deletion then collects and forgets
+    the new request. *Deletion first*: the deletion holds the listing and
+    is held up on another request; the send waits on the listing; once
+    released, the deletion commits and the send finds the listing gone and
+    answers exactly what any unknown target answers.
+    """
+    solo = enquirable_owner(owner_session)
+    sender = guardian(owner_session)
+    phone = _phone(owner_session, solo.lens.account_id)
+    sent: list[sending.MyEnquiry] = []
+    send = _Racer(lambda s: sent.append(_send(s, sender, solo)), "owner_listing")
+    delete = _Racer(lambda s: delete_account(s, phone).existed, "owner_listing")
+    if first == "send":
+        hold = (
+            "SELECT 1 FROM batch_listing WHERE batch_id = :k FOR UPDATE",
+            {"k": solo.batch_id},
+        )
+        racers = [_Racer(send.work, "batch_listing"), delete]
+    else:
+        other = guardian(owner_session, phone="01812345678")
+        held = _send(restricted_session, other, solo)
+        hold = (
+            "SELECT 1 FROM listing_enquiry WHERE id = :k FOR UPDATE",
+            {"k": held.id},
+        )
+        racers = [_Racer(delete.work, "listing_enquiry"), send]
+
+    errors, waited = _race(owner_session, restricted_engine, hold, racers)
+
+    if first == "send":
+        assert errors == []
+        assert len(sent) == 1
+    else:
+        assert [_refusal(e) for e in errors] == [
+            ("ENQUIRY_TARGET_NOT_FOUND", "hub.enquiry.target_not_found", 404)
+        ]
+        assert sent == []
+    assert _nothing_left(owner_session) == (0, 0)
+    assert _listings(owner_session, solo.lens.owner_id) == 0
+    assert waited == [True, True]
+
+
+@pytest.mark.parametrize("first", ["send", "deletion"])
+def test_send_racing_the_senders_own_deletion_leaves_nothing(
+    owner_session: Session,
+    restricted_session: Session,
+    restricted_engine: Engine,
+    first: str,
+) -> None:
+    """A guardian's send from a second device never outlives their deletion.
+
+    The send takes the account's advisory key, the deletion's first lock,
+    before it decides, so the two serialise. *Send first*: the send holds
+    the key and is held up on its batch listing; the deletion waits on the
+    key; once released, the send commits and the deletion then forgets the
+    request and the owner's item about it. *Deletion first*: the deletion
+    holds the key and is held up on an earlier request; the send waits on
+    the key; once released, the deletion commits and the send finds no
+    account, answering the 401 a deleted account's token gets anyway.
+    """
+    solo = enquirable_owner(owner_session)
+    sender = guardian(owner_session)
+    phone = _phone(owner_session, sender)
+    sent: list[sending.MyEnquiry] = []
+    send = _Racer(lambda s: sent.append(_send(s, sender, solo)), ADVISORY)
+    delete = _Racer(lambda s: delete_account(s, phone).existed, ADVISORY)
+    if first == "send":
+        hold = (
+            "SELECT 1 FROM batch_listing WHERE batch_id = :k FOR UPDATE",
+            {"k": solo.batch_id},
+        )
+        racers = [_Racer(send.work, "batch_listing"), delete]
+    else:
+        earlier = _send(restricted_session, sender, enquirable_owner(owner_session))
+        hold = (
+            "SELECT 1 FROM listing_enquiry WHERE id = :k FOR UPDATE",
+            {"k": earlier.id},
+        )
+        racers = [_Racer(delete.work, "listing_enquiry"), send]
+
+    errors, waited = _race(owner_session, restricted_engine, hold, racers)
+
+    if first == "send":
+        assert errors == []
+        assert len(sent) == 1
+    else:
+        assert [_refusal(e) for e in errors] == [
+            ("NOT_AUTHENTICATED", "auth.token.not_valid", 401)
+        ]
+        assert sent == []
+    assert _nothing_left(owner_session) == (0, 0)
+    owner_session.rollback()
+    assert (
+        owner_session.execute(
+            sa.text("SELECT count(*) FROM account WHERE id = :a"), {"a": sender}
+        ).scalar_one()
+        == 0
+    )
+    assert waited == [True, True]

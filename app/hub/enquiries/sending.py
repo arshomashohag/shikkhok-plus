@@ -25,6 +25,18 @@ answers ``ENQUIRY_ALREADY_OPEN``.
 account that runs the listing gets one ``hub_enquiry_received`` item naming
 the batch's public title (else the listing's public name), with no preview.
 
+**A send never outlives either party's deletion** [H5 T7 review]. Before
+it decides, a send takes the caller's account key -- the first lock an
+account deletion takes -- and then the owner listing's row ``FOR SHARE``,
+holding both until it commits. The ``owner`` row is retained by a deletion,
+so its foreign key would never notice one; the listing is the row that goes,
+and a deletion locks it ``FOR UPDATE`` before it collects the owner's
+requests. So a send already holding either lock is collected by the
+deletion that waits for it, and a send that waits on a deletion finds the
+account gone (the 401 a deleted account's token gets) or the listing gone
+(the one ``ENQUIRY_TARGET_NOT_FOUND``). The order is key, listing, request,
+inbox, as in the deletion; nothing locks a request and then a listing.
+
 **Withdrawal is total and never switch-gated**: :func:`withdraw` locks the
 caller's row, then hands it to :func:`app.hub.enquiries.forget.forget`.
 
@@ -45,8 +57,9 @@ from sqlalchemy.orm import Session
 
 from app.accounts.phone import contains_phone
 from app.auth.ceilings import CeilingChecker
+from app.db.advisory import account_key, lock_keys
 from app.db.models import Owner
-from app.errors import ConflictError, ValidationError
+from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.hub.enquiries import forget, target
 from app.hub.listings.shared import managing_accounts
 from app.local_time import bangladesh_today
@@ -94,6 +107,15 @@ _CALLER: Final = sa.text(
     FROM account a
     WHERE a.id = :account_id
     """
+)
+
+#: Whether the caller's account still exists, read under its key.
+_ACCOUNT_EXISTS: Final = sa.text("SELECT 1 FROM account WHERE id = :account_id")
+
+#: The asked owner's listing, held until the send commits, so a deletion
+#: cannot remove it between the decision and the insert.
+_HOLD_LISTING: Final = sa.text(
+    "SELECT owner_id FROM owner_listing WHERE slug = :slug FOR SHARE"
 )
 
 #: A new request; nothing when one is already open with this owner.
@@ -280,6 +302,32 @@ def _refuse_contact(field: str, text: str | None) -> None:
         )
 
 
+def _hold(session: Session, account_id: uuid.UUID, owner_slug: str) -> None:
+    """Take the send's locks, before anything is decided.
+
+    The caller's account key first, then the listing ``FOR SHARE``: the
+    order an account deletion takes its own key and then a solo owner's
+    listing, so the two never wait on each other in a cycle.
+
+    :param session: The send's session, inside its transaction
+    :param account_id: The authenticated guardian
+    :param owner_slug: The owner's public slug
+    :return: None
+    :raises AuthorizationError: ``NOT_AUTHENTICATED`` (401) when the account
+        was deleted after authentication; ``ENQUIRY_TARGET_NOT_FOUND`` (404)
+        when no listing has the slug, or it was deleted while this waited
+    """
+    lock_keys(session, [account_key(account_id)])
+    if session.execute(_ACCOUNT_EXISTS, {"account_id": account_id}).first() is None:
+        # Deleted between authentication and here: the next request is a
+        # 401 anyway, so this one answers as that one will.
+        raise AuthorizationError(
+            code="NOT_AUTHENTICATED", message_key="auth.token.not_valid", status=401
+        )
+    if session.execute(_HOLD_LISTING, {"slug": owner_slug}).first() is None:
+        raise target.not_found()
+
+
 def _notify_owners(
     session: Session,
     found: target.Target,
@@ -337,7 +385,8 @@ def send(
     :return: The request as the guardian sees it
     :raises ValidationError: ``ENQUIRY_CONTAINS_CONTACT`` for a number or
         address in the text, ``REQUEST_INVALID`` for a length out of range
-    :raises AuthorizationError: ``ENQUIRY_TARGET_NOT_FOUND`` (404)
+    :raises AuthorizationError: ``ENQUIRY_TARGET_NOT_FOUND`` (404), or
+        ``NOT_AUTHENTICATED`` (401) when the account was deleted meanwhile
     :raises ConflictError: ``ENQUIRY_ALREADY_OPEN`` while a request to this
         owner is open
     :raises CeilingBreach: ``HUB_ENQUIRY_CEILING``, the sixth request today
@@ -350,6 +399,11 @@ def send(
     _refuse_contact("student_name", name)
     _refuse_contact("message", text)
     try:
+        _hold(session, account_id, owner_slug)
+        # Decided after the locks, so a listing deleted while this waited is
+        # refused rather than trusted from an earlier read. The slug is
+        # unique and cannot change while held, so `resolve` reads the row
+        # held above.
         found = target.resolve(session, account_id, owner_slug, batch_id)
         enquiry_id = session.execute(
             _CREATE,

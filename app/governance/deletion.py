@@ -466,6 +466,16 @@ _SOLO_MEDIA: Final = sa.text(
     "ORDER BY m.id FOR UPDATE OF m"
 )
 
+#: The solo owners' listings, locked before their join requests: a send holds
+#: its listing ``FOR SHARE`` until it commits, so a request sent before this
+#: lock is visible to ``for_account`` and one sent after it finds the listing
+#: gone [H5 T7 review]. Listing, then request, then inbox.
+_LOCK_SOLO_LISTINGS: Final = sa.text(
+    "SELECT l.owner_id FROM owner_listing l JOIN owner o ON o.id = l.owner_id "
+    "WHERE o.account_id = :account_id AND o.kind = 'teacher' "
+    "ORDER BY l.owner_id FOR UPDATE OF l"
+)
+
 #: The reviews the account wrote, locked in id order before ``forget``.
 _LOCK_AUTHORED_REVIEWS: Final = sa.text(
     "SELECT id FROM review WHERE author_account_id = :account_id ORDER BY id FOR UPDATE"
@@ -652,6 +662,16 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
     # the `batch_listing -> review` cascade of a solo teacher's listings
     # [T7-f]. Each step locks its reviews before `forget` runs, as the
     # author's delete does, and before any report row [T5-e].
+    #
+    # One rare cycle is left to the retry, not to lock order. A review
+    # forget here deletes OTHER accounts' inbox items about the review,
+    # while the generic loop below deletes this account's own inbox without
+    # locking what each item is about. So an account that is both a solo
+    # teacher and a centre manager, deleted while the author of a review of
+    # its centre is deleted too, can hold an item the author's forget wants
+    # while waiting on a join request the author locked. PostgreSQL ends it
+    # with `40P01`, and `run_with_retry` around both deletion routes re-runs
+    # the losing side [U2: NFR4.3].
     reviews_forgotten = _forget_authored_reviews(
         session, account_id, dt.datetime.now(tz=dt.UTC)
     ) + _forget_solo_owner_reviews(session, account_id, dt.datetime.now(tz=dt.UTC))
@@ -663,7 +683,9 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
     # order, so two deletions holding each other's requests never wait in a
     # cycle [H4 T10-a]. The solo owner's received requests are collected
     # here because `owner` is retained and its cascade never fires; they go
-    # in this transaction, with the listing [H5 Task 3 review].
+    # in this transaction, with the listing [H5 Task 3 review]. The listing
+    # is locked first, so no send can add one between this and the delete.
+    session.execute(_LOCK_SOLO_LISTINGS, {"account_id": account_id})
     enquiries_forgotten = enquiries.for_account(session, account_id)
 
     for table, target in sorted(HARD_DELETE_SCOPES.items()):
@@ -675,7 +697,10 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
     # A review its author wrote after the lock above can only be pending,
     # so nobody could report it; the loop's own statement removed it.
     rows_deleted["review"] += reviews_forgotten
-    # The loop found none of them: they were forgotten above.
+    # The loop found none of them: they were forgotten above, and no new
+    # one can appear in between, because a send takes this account's key
+    # (held since the start) before it inserts, and `send` is the only
+    # writer of new requests.
     rows_deleted["listing_enquiry"] += enquiries_forgotten
 
     # The deletion hold [U1: BR7.5]: 30 days, a keyed digest only, and no
