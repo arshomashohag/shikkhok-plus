@@ -62,10 +62,11 @@ from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
 
 from app.accounts.phone import contains_phone
-from app.auth.ceilings import CeilingChecker
+from app.auth.ceilings import HUB_ENQUIRY_ACCOUNT_DAILY, CeilingChecker
 from app.db.advisory import account_key, lock_keys
 from app.db.models import Owner
 from app.errors import AuthorizationError, ConflictError, ValidationError
+from app.governance.dispositions import CLASS_AGE, RETENTION
 from app.hub.enquiries import forget, target
 from app.hub.listings.shared import managing_accounts
 from app.local_time import bangladesh_today
@@ -90,8 +91,17 @@ MAX_STUDENT_NAME: Final = 80
 #: The longest message, counted after stripping (Call 10; FR-41).
 MAX_MESSAGE: Final = 300
 
-#: How many of their own requests a guardian's list returns, newest first.
-MINE_LIMIT: Final = 50
+#: How many of their own requests a guardian's list returns, newest first:
+#: every request they can hold, so "withdraw at any time" stays true with
+#: no paging [H5 final review M7]. The ceiling stores at most
+#: ``HUB_ENQUIRY_ACCOUNT_DAILY`` a calendar day, and the purge keeps a
+#: request for its retention window, so the list covers that window's days,
+#: plus the calendar day it starts part-way through and the day since the
+#: daily purge last ran. A purge that stops running lets more accumulate;
+#: its heartbeat is what notices that.
+MINE_LIMIT: Final = HUB_ENQUIRY_ACCOUNT_DAILY * (
+    CLASS_AGE[RETENTION["listing_enquiry"]].days + 2
+)
 
 #: Where a request is.
 EnquiryStatus = Literal["open", "closed"]

@@ -17,6 +17,7 @@ import pathlib
 import threading
 import uuid
 from dataclasses import fields
+from typing import Final
 
 import pytest
 import sqlalchemy as sa
@@ -26,6 +27,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.auth.ceilings import HUB_ENQUIRY_ACCOUNT_DAILY, CeilingBreach, ScopeKind
 from app.errors import ConflictError, TaxonomyError, ValidationError
 from app.errors.handler import to_response
+from app.governance.commands import WINDOWS
 from app.hub.enquiries import sending
 from app.notifications.inbox import HUB_ENQUIRY_ANSWERED, HUB_ENQUIRY_RECEIVED
 from tests.enquiries.support import close, enquirable_owner, guardian
@@ -435,32 +437,73 @@ def test_mine_lists_only_own_rows(
     assert not names & {"enquirer_account_id", "account_id", "owner_id"}
 
 
-def test_mine_returns_the_newest_fifty(
+#: The most requests a guardian can hold while the daily purge runs: the
+#: ceiling's daily count over every calendar day the purge's window can
+#: touch. Computed here from the purge's own window, independently of
+#: :data:`sending.MINE_LIMIT` [H5 final review M7].
+RETENTION_BOUND: Final = HUB_ENQUIRY_ACCOUNT_DAILY * (
+    WINDOWS["listing_enquiry"].keep_for.days + 2
+)
+
+
+def _seed_closed(
+    owner_session: Session, owner_id: uuid.UUID, caller: uuid.UUID, count: int
+) -> None:
+    """Store ``count`` answered requests, a minute apart, ``Child 0`` oldest.
+
+    :param owner_session: The table-owner session
+    :param owner_id: The owner they were sent to
+    :param caller: The guardian who sent them
+    :param count: How many
+    :return: None
+    """
+    owner_session.execute(
+        sa.text(
+            "INSERT INTO listing_enquiry (owner_id, enquirer_account_id, "
+            "student_name, class_level, share_contact, status, outcome, "
+            "created_at, closed_at) "
+            "SELECT :o, :a, 'Child ' || n, 'class_8', false, 'closed', "
+            "'not_now', :t + n * interval '1 minute', "
+            ":t + n * interval '1 minute' "
+            "FROM generate_series(0, :c - 1) AS n"
+        ),
+        {"o": owner_id, "a": caller, "t": NOW, "c": count},
+    )
+    owner_session.commit()
+
+
+def test_mine_limit_is_the_retention_bound() -> None:
+    # "You can withdraw a request at any time" needs every stored request
+    # listed, so the cap is the most a guardian can hold, derived from the
+    # ceiling and the purge's window rather than restated.
+    assert sending.MINE_LIMIT == RETENTION_BOUND
+
+
+def test_mine_lists_the_oldest_request_at_the_retention_bound(
     owner_session: Session, restricted_session: Session
 ) -> None:
     world = enquirable_owner(owner_session)
     caller = guardian(owner_session)
-    for minute in range(51):
-        owner_session.execute(
-            sa.text(
-                "INSERT INTO listing_enquiry (owner_id, enquirer_account_id, "
-                "student_name, class_level, share_contact, status, outcome, "
-                "created_at, closed_at) VALUES (:o, :a, :n, 'class_8', false, "
-                "'closed', 'not_now', :t, :t)"
-            ),
-            {
-                "o": world.lens.owner_id,
-                "a": caller,
-                "n": f"Child {minute}",
-                "t": NOW + dt.timedelta(minutes=minute),
-            },
-        )
-    owner_session.commit()
+    _seed_closed(owner_session, world.lens.owner_id, caller, RETENTION_BOUND)
 
     listed = sending.mine(restricted_session, caller)
 
-    assert len(listed) == 50
-    assert listed[0].student_name == "Child 50"
+    assert len(listed) == RETENTION_BOUND
+    assert listed[0].student_name == f"Child {RETENTION_BOUND - 1}"
+    assert listed[-1].student_name == "Child 0"
+
+
+def test_mine_returns_the_newest_first_up_to_the_limit(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    world = enquirable_owner(owner_session)
+    caller = guardian(owner_session)
+    _seed_closed(owner_session, world.lens.owner_id, caller, sending.MINE_LIMIT + 1)
+
+    listed = sending.mine(restricted_session, caller)
+
+    assert len(listed) == sending.MINE_LIMIT
+    assert listed[0].student_name == f"Child {sending.MINE_LIMIT}"
     assert listed[-1].student_name == "Child 1"
 
 

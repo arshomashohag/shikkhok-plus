@@ -23,11 +23,13 @@ schema once, rather than rediscovered per table.
 
 from __future__ import annotations
 
+import datetime as dt
 import enum
 from dataclasses import dataclass
 from typing import Final
 
 __all__ = [
+    "CLASS_AGE",
     "DISPOSITIONS",
     "RETENTION",
     "Disposition",
@@ -82,6 +84,29 @@ class RetentionClass(enum.Enum):
     #: Ninety days from the row's own creation, answered or not [0047].
     DAYS_90 = "90_days"
     LIFE_OF_ACCOUNT = "life_of_account"
+
+
+#: How long each finite retention class keeps a row past its age column,
+#: read by the purge (:mod:`app.governance.commands`). ``LIFE_OF_ACCOUNT``
+#: has no entry: it is never purged.
+#:
+#: ``UNTIL_EXPIRY_PLUS_30_DAYS`` is the odd one and is correct: the
+#: refresh-token row's age column is ``expires_at`` rather than
+#: ``issued_at``, because reuse detection needs the rotated-out row to
+#: still exist after the token it represents has expired. Measuring that
+#: window from issue would delete rows whose reuse-detection purpose had
+#: not yet lapsed.
+CLASS_AGE: Final[dict[RetentionClass, dt.timedelta]] = {
+    RetentionClass.DAYS_7: dt.timedelta(days=7),
+    RetentionClass.HOURS_48: dt.timedelta(hours=48),
+    RetentionClass.MONTHS_12: dt.timedelta(days=365),
+    RetentionClass.UNTIL_EXPIRY_PLUS_30_DAYS: dt.timedelta(days=30),
+    # [U1: BR7.6] A username hold is purged at its own expiry: the age
+    # column is `held_until`, and an expired hold already blocks nobody.
+    RetentionClass.UNTIL_EXPIRY: dt.timedelta(0),
+    # [0047] A join request, answered or not, from when it was sent.
+    RetentionClass.DAYS_90: dt.timedelta(days=90),
+}
 
 
 @dataclass(frozen=True, slots=True)
