@@ -299,3 +299,71 @@ h3 {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/*
+ * Reviews and ratings [H4]. The distribution is five <meter> elements,
+ * sized here, never by an inline style the CSP would refuse.
+ */
+.rating {
+  margin: 4px 0;
+  font-weight: 600;
+}
+
+.reviews .distribution {
+  display: grid;
+  grid-template-columns: minmax(0, 6rem) minmax(0, 1fr);
+  gap: 4px 12px;
+  align-items: center;
+  margin: 8px 0 16px;
+}
+
+.reviews .distribution dt {
+  color: var(--on-surface-variant);
+}
+
+.reviews .distribution dd {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reviews meter {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 16rem;
+  height: 12px;
+}
+
+.review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.review {
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--r-card);
+  padding: 16px;
+}
+
+.review p {
+  margin: 4px 0;
+}
+
+.stars {
+  font-weight: 600;
+}
+
+.reply {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--primary-container);
+}
+
+.reply h3 {
+  font-size: 1rem;
+}

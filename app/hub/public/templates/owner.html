@@ -3,6 +3,7 @@
 {% set owner = view.owner %}
 <h1>{{ owner.public_name }}</h1>
 <p class="meta">{{ m("kind_" ~ owner.kind) }}{% if area(owner) %} · {{ area(owner) }}{% endif %}</p>
+{% with rating = owner.rating %}{% include "_rating.html" %}{% endwith %}
 {% if owner.runs_classes %}
 <p><span class="badge">{{ m("runs_classes") }}</span></p>
 {% endif %}
@@ -44,6 +45,7 @@
 {% else %}
 <h3><a href="/hub/{{ locale }}/t/{{ owner.slug }}/{{ batch.slug }}">{{ title(batch) }}</a></h3>
 {% endif %}
+{% with rating = batch.rating %}{% include "_rating.html" %}{% endwith %}
 {% include "_batch.html" %}
 </li>
 {% endfor %}

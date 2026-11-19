@@ -1,0 +1,47 @@
+{#- A batch's reviews [H4], only while reviews are on: the batch's rating
+    is None while they are off, and then nothing here renders. Below the
+    threshold every batch shows the same line, whatever its count, and no
+    number [F18, T9-a]. The distribution is five <meter> elements sized by
+    hub.css, never by an inline style. A review names its author by a
+    tenure label and its date by a month. -#}
+{% set rating = view.batch.rating %}
+{% if rating is not none %}
+<section class="reviews" aria-labelledby="reviews">
+<h2 id="reviews">{{ m("reviews_heading") }}</h2>
+{% if rating.state == "shown" %}
+{% include "_rating.html" %}
+<dl class="distribution">
+{% for stars in [5, 4, 3, 2, 1] %}
+{% set count = rating.distribution[stars - 1] %}
+<dt>{{ m("rating_stars", stars=stars) }}</dt>
+<dd><meter min="0" max="{{ rating.count }}" value="{{ count }}">{{ count }}</meter> {{ count }}</dd>
+{% endfor %}
+</dl>
+<ol class="review-list">
+{% for review in view.reviews %}
+<li class="review">
+<p class="stars">{{ m("rating_out_of", average=review.rating) }}</p>
+<p class="meta">{{ review.author_label }} · {{ review.month_label }}</p>
+{% if review.body %}
+<p class="prose">{{ review.body }}</p>
+{% endif %}
+{% if review.reply %}
+<div class="reply">
+<h3>{{ m("reply_heading") }}</h3>
+<p class="meta">{{ review.reply.month_label }}</p>
+<p class="prose">{{ review.reply.body }}</p>
+<p><a href="{{ report_reply(review) }}">{{ m("report_reply") }}</a></p>
+</div>
+{% endif %}
+<p><a href="{{ report_review(review) }}">{{ m("report_review") }}</a></p>
+</li>
+{% endfor %}
+</ol>
+{% if rating.count > view.reviews | length %}
+<p class="muted">{{ m("reviews_most_recent", shown=view.reviews | length) }}</p>
+{% endif %}
+{% else %}
+<p class="muted">{{ m("reviews_below_threshold") }}</p>
+{% endif %}
+</section>
+{% endif %}

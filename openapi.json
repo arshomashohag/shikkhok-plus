@@ -14415,7 +14415,7 @@
     },
     "/hub/{locale}": {
       "get": {
-        "description": "Serve the landing page, or a page of search results.\n\n:param locale: ``en`` or ``bn``\n:param request: The incoming request, whose six keys are read\n:param allowed: Whether this read was within the ceiling\n:return: The page, the 404 page, or the 429 page",
+        "description": "Serve the landing page, or a page of search results.\n\n:param locale: ``en`` or ``bn``\n:param request: The incoming request, whose seven keys are read\n:param allowed: Whether this read was within the ceiling\n:return: The page, the 404 page, or the 429 page",
         "operationId": "hub_search_hub__locale__get",
         "parameters": [
           {
@@ -14470,6 +14470,14 @@
           {
             "in": "query",
             "name": "page",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
             "required": false,
             "schema": {
               "type": "string"

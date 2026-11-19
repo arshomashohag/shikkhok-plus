@@ -26,7 +26,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.db.models import Account, Batch, Enrollment, Owner, Profile, Student
-from tests.batches.conftest import make_teacher
+from tests.batches.conftest import enroll, make_teacher
 from tests.hub.support import add_member, assign_slot, centre_with_manager
 
 __all__ = [
@@ -73,6 +73,19 @@ class CanaryWorld:
         owner's pending, held and rejected photos; all are canaries
     :ivar pending_photo_strings: The pending photo's share of them, which
         the owner's own preview SHOULD show, marked as awaiting review
+    :ivar review_strings: Every review canary: the bodies and ids (in two
+        spellings) of the solo batch's pending, approved, held and rejected
+        reviews, the pending reply's body, the centre batch's two
+        below-threshold reviews' bodies and ids, and every author's seat
+        name, seat id (two spellings), guardian phone and account phone
+    :ivar below_threshold_strings: The centre batch's share of them: two
+        published reviews, under the threshold, so nothing of them is public
+    :ivar published_review_bodies: The solo batch's three published
+        reviews' bodies, which its batch page SHOULD show
+    :ivar published_review_ids: Their ids, which the page's report links
+        SHOULD carry
+    :ivar published_reply_body: The published reply's body, which the
+        batch page SHOULD show
     """
 
     strings: frozenset[str]
@@ -94,6 +107,11 @@ class CanaryWorld:
     approved_alt_bn: str
     unapproved_photo_strings: frozenset[str]
     pending_photo_strings: frozenset[str]
+    review_strings: frozenset[str]
+    below_threshold_strings: frozenset[str]
+    published_review_bodies: tuple[str, ...]
+    published_review_ids: tuple[uuid.UUID, ...]
+    published_reply_body: str
 
 
 def _canary(label: str) -> str:
@@ -141,6 +159,7 @@ class _Centre:
     """The seeded published centre.
 
     :ivar slug: The centre listing's slug
+    :ivar batch_id: Its published batch
     :ivar batch_slug: Its batch listing's slug
     :ivar member_name: The unconsented member's display name
     :ivar member_phone: The unconsented member's invited phone
@@ -148,6 +167,7 @@ class _Centre:
     """
 
     slug: str
+    batch_id: uuid.UUID
     batch_slug: str
     member_name: str
     member_phone: str
@@ -246,6 +266,193 @@ def _seed_photos(session: Session, owner_id: uuid.UUID, batch_id: uuid.UUID) -> 
     return _Photos(
         unapproved=frozenset().union(*strings.values()),
         pending=strings["pending_review"],
+    )
+
+
+#: The month every shown review and reply carries.
+REVIEW_MONTH = dt.date(2026, 11, 1)
+
+
+@dataclass(frozen=True)
+class _Reviews:
+    """The seeded reviews.
+
+    :ivar canaries: Every review string no public page may show
+    :ivar below_threshold: The centre batch's share of them
+    :ivar published_bodies: The solo batch's published bodies
+    :ivar published_ids: Their ids
+    :ivar reply_body: The published reply's body
+    """
+
+    canaries: frozenset[str]
+    below_threshold: frozenset[str]
+    published_bodies: tuple[str, ...]
+    published_ids: tuple[uuid.UUID, ...]
+    reply_body: str
+
+
+def _review_author(
+    session: Session, batch_id: uuid.UUID, label: str
+) -> tuple[uuid.UUID, uuid.UUID, frozenset[str]]:
+    """Seat a guardian in a batch, every identifying value a canary.
+
+    :param session: An arranging session
+    :param batch_id: The batch the guardian's child sits in
+    :param label: A short label for the canaries
+    :return: The account, the seat, and the canaries naming them
+    """
+    phone = "+8801" + _digits(9)
+    guardian_phone = "+8801" + _digits(9)
+    name = _canary(f"{label}-seat-name")
+    account = Account(phone=phone, created_at=dt.datetime.now(tz=dt.UTC))
+    session.add(account)
+    session.commit()
+    seat = enroll(
+        session,
+        batch_id=batch_id,
+        display_name=name,
+        guardian_account_id=account.id,
+        guardian_phone=guardian_phone,
+        guardian_decision="accepted",
+    )
+    return (
+        account.id,
+        seat,
+        frozenset({phone, guardian_phone, name, str(seat), seat.hex}),
+    )
+
+
+def _insert_review(
+    session: Session,
+    batch_id: uuid.UUID,
+    label: str,
+    *,
+    status: str,
+    rating: int,
+    body: str,
+) -> tuple[uuid.UUID, frozenset[str]]:
+    """Insert one review by a freshly seated guardian.
+
+    :param session: An arranging session
+    :param batch_id: The reviewed batch
+    :param label: A short label for the author's canaries
+    :param status: The review's status
+    :param rating: 1 to 5
+    :param body: Its text
+    :return: The review id, and its author's canaries
+    """
+    account_id, seat, author = _review_author(session, batch_id, label)
+    review_id: uuid.UUID = session.execute(
+        sa.text(
+            "INSERT INTO review (batch_id, author_account_id, enrollment_id, "
+            "author_role, rating, body, status, tenure_bucket, published_month, "
+            "approved_at, rejection_code) VALUES (:b, :a, :e, 'guardian', :r, "
+            ":body, CAST(:st AS hub_review_status), 'lt_6m', :m, :aa, :rc) "
+            "RETURNING id"
+        ),
+        {
+            "b": batch_id,
+            "a": account_id,
+            "e": seat,
+            "r": rating,
+            "body": body,
+            "st": status,
+            "m": REVIEW_MONTH if status in ("published", "held") else None,
+            "aa": dt.datetime.now(tz=dt.UTC) if status == "approved" else None,
+            "rc": "abusive" if status == "rejected" else None,
+        },
+    ).scalar_one()
+    session.commit()
+    return review_id, author
+
+
+def _insert_reply(
+    session: Session, review_id: uuid.UUID, status: str, body: str
+) -> None:
+    """Insert the owner's reply to one review.
+
+    :param session: An arranging session
+    :param review_id: The review answered
+    :param status: ``published`` or ``pending``
+    :param body: Its text
+    :return: None
+    """
+    session.execute(
+        sa.text(
+            "INSERT INTO review_reply (review_id, body, status, published_month) "
+            "VALUES (:r, :body, CAST(:st AS hub_reply_status), :m)"
+        ),
+        {
+            "r": review_id,
+            "body": body,
+            "st": status,
+            "m": REVIEW_MONTH if status == "published" else None,
+        },
+    )
+    session.commit()
+
+
+def _seed_reviews(
+    session: Session, solo_batch: uuid.UUID, centre_batch: uuid.UUID
+) -> _Reviews:
+    """Seed reviews the threshold and the status must keep off every page.
+
+    The solo batch holds three published reviews [F12] -- one with a
+    published reply, one with a pending canary reply -- beside a pending,
+    an approved, a held and a rejected review with canary bodies, each
+    rated 1 so a leak into the average would move it off 4.3. The centre
+    batch holds exactly two published reviews with canary bodies: published,
+    so only the threshold keeps them off its page. Every author's seat name,
+    seat id, guardian phone and account phone is a canary.
+
+    :param session: An arranging session
+    :param solo_batch: The solo owner's published batch
+    :param centre_batch: The centre's published batch
+    :return: The seeded reviews
+    """
+    canaries: set[str] = set()
+    published: list[tuple[uuid.UUID, str]] = []
+    for index, rating in enumerate((5, 4, 4)):
+        body = f"Published review {index} {uuid.uuid4().hex}"
+        review_id, author = _insert_review(
+            session,
+            solo_batch,
+            f"published-{index}",
+            status="published",
+            rating=rating,
+            body=body,
+        )
+        canaries |= author
+        published.append((review_id, body))
+    reply_body = f"Published reply {uuid.uuid4().hex}"
+    _insert_reply(session, published[0][0], "published", reply_body)
+    pending_reply = _canary("pending-reply")
+    _insert_reply(session, published[1][0], "pending", pending_reply)
+    canaries.add(pending_reply)
+    for status in ("pending", "approved", "held", "rejected"):
+        body = _canary(f"{status}-review")
+        review_id, author = _insert_review(
+            session, solo_batch, status, status=status, rating=1, body=body
+        )
+        canaries |= {body, str(review_id), review_id.hex, *author}
+    below: set[str] = set()
+    for index in range(2):
+        body = _canary(f"below-threshold-review-{index}")
+        review_id, author = _insert_review(
+            session,
+            centre_batch,
+            f"below-{index}",
+            status="published",
+            rating=1,
+            body=body,
+        )
+        below |= {body, str(review_id), review_id.hex, *author}
+    return _Reviews(
+        canaries=frozenset(canaries | below),
+        below_threshold=frozenset(below),
+        published_bodies=tuple(body for _, body in published),
+        published_ids=tuple(review_id for review_id, _ in published),
+        reply_body=reply_body,
     )
 
 
@@ -372,6 +579,7 @@ def _seed_centre(session: Session, now: dt.datetime) -> _Centre:
     session.commit()
     return _Centre(
         slug=slug,
+        batch_id=centre.batch_id,
         batch_slug=batch_slug,
         member_name=member_name,
         member_phone=member_phone,
@@ -479,6 +687,7 @@ def seed_canaries(session: Session) -> CanaryWorld:
     photos = _seed_photos(session, owner.id, batch.id)
     draft = _seed_draft(session, now)
     centre = _seed_centre(session, now)
+    reviews = _seed_reviews(session, batch.id, centre.batch_id)
 
     return CanaryWorld(
         strings=frozenset(
@@ -495,6 +704,7 @@ def seed_canaries(session: Session) -> CanaryWorld:
                 *photos.unapproved,
                 *draft.strings,
                 *centre.strings,
+                *reviews.canaries,
             }
         ),
         owner_id=owner.id,
@@ -515,6 +725,11 @@ def seed_canaries(session: Session) -> CanaryWorld:
         approved_alt_bn=APPROVED_ALT_BN,
         unapproved_photo_strings=photos.unapproved,
         pending_photo_strings=photos.pending,
+        review_strings=reviews.canaries,
+        below_threshold_strings=reviews.below_threshold,
+        published_review_bodies=reviews.published_bodies,
+        published_review_ids=reviews.published_ids,
+        published_reply_body=reviews.reply_body,
     )
 
 

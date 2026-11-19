@@ -17,11 +17,14 @@ missing or unpublished owner, a draft, hidden or suspended batch, an
 inactive batch, and a batch under an unpublished owner all answer the same
 bytes, built once, echoing nothing from the request.
 
-**Only six query keys are read** -- ``q``, ``district``, ``upazila``,
-``subject``, ``level``, ``page`` -- each at its first value, so a tracking
-parameter or a repeated key never changes a page and a cache key stays
-bounded. ``q`` is cut to :data:`MAX_QUERY_LENGTH` characters before it is
-searched or echoed.
+**Only seven query keys are read** -- ``q``, ``district``, ``upazila``,
+``subject``, ``level``, ``page``, ``sort`` -- each at its first value, so a
+tracking parameter or a repeated key never changes a page and a cache key
+stays bounded. ``q`` is cut to :data:`MAX_QUERY_LENGTH` characters before it
+is searched or echoed. ``sort`` is read only for search, and only while
+reviews are on (Call 11). The edge function and the CDN cache policy name
+the same seven; ``tests/gates/test_hub_query_keys_agree.py`` holds all three
+lists, and this count, together.
 
 No ``from __future__ import annotations`` here: the handlers' dependency
 annotations name a closure variable, which FastAPI can resolve only from a
@@ -59,6 +62,7 @@ QUERY_KEYS: Final[tuple[str, ...]] = (
     "subject",
     "level",
     "page",
+    "sort",
 )
 
 #: The longest search text read or echoed; the edge cuts it the same way.
@@ -100,7 +104,7 @@ _XML: Final[dict[int | str, dict[str, Any]]] = {
     429: _HTML[429],
 }
 
-#: The six read keys, documented; the handler reads them from the request
+#: The seven read keys, documented; the handler reads them from the request
 #: itself so a repeated key yields its first value.
 _SEARCH_PARAMETERS: Final[dict[str, Any]] = {
     "parameters": [
@@ -260,7 +264,7 @@ def build_router(read_allowed: Callable[..., bool]) -> APIRouter:
         """Serve the landing page, or a page of search results.
 
         :param locale: ``en`` or ``bn``
-        :param request: The incoming request, whose six keys are read
+        :param request: The incoming request, whose seven keys are read
         :param allowed: Whether this read was within the ceiling
         :return: The page, the 404 page, or the 429 page
         """
@@ -279,6 +283,7 @@ def build_router(read_allowed: Callable[..., bool]) -> APIRouter:
                 subject=_first(request, "subject"),
                 level=_first(request, "level"),
                 page=_page_number(_first(request, "page")),
+                sort=_first(request, "sort"),
             )
             body = render.page(view, "search.html", page_locale)
         return html_response(body, csp=HUB_PAGE_CSP, cache_control=SEARCH_CACHE)

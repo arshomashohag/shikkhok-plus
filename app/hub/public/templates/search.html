@@ -32,6 +32,13 @@
 {% endfor %}
 </select>
 {% endif %}
+{% if view.offers_sort %}
+<label for="sort">{{ m("sort_label") }}</label>
+<select id="sort" name="sort">
+<option value="relevance"{% if view.sort == "relevance" %} selected{% endif %}>{{ m("sort_relevance") }}</option>
+<option value="rating"{% if view.sort == "rating" %} selected{% endif %}>{{ m("sort_rating") }}</option>
+</select>
+{% endif %}
 {% for name, value in hidden_filters %}
 <input type="hidden" name="{{ name }}" value="{{ value }}">
 {% endfor %}
@@ -47,6 +54,7 @@
 <li class="card">
 <h2><a href="/hub/{{ locale }}/t/{{ card.slug }}">{{ card.public_name }}</a></h2>
 <p class="meta">{{ m("kind_" ~ card.kind) }}{% if area(card) %} · {{ area(card) }}{% endif %}</p>
+{% with rating = card.rating %}{% include "_rating.html" %}{% endwith %}
 {% if card.runs_classes %}
 <p><span class="badge">{{ m("runs_classes") }}</span></p>
 {% endif %}

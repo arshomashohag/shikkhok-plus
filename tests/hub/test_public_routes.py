@@ -431,7 +431,7 @@ def test_csp_exact_and_no_script_or_inline_style(
 def test_unknown_query_keys_are_ignored(
     api_client: TestClient, owner_session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Only the six allowlisted keys reach the page, each at its first value."""
+    """Only the allowlisted keys reach the page, each at its first value."""
     client = _client(api_client, monkeypatch)
     _published_tutor(owner_session)
 

@@ -1,0 +1,8 @@
+{#- A rating as a card or a page header shows it: the average out of 5
+    and the review count, only once shown. A card says nothing below the
+    threshold; the batch page's review section says the one line that
+    every batch under it shares [F18, T9-a]. The caller sets ``rating``,
+    which is None while reviews are off. -#}
+{% if rating is not none and rating.state == "shown" %}
+<p class="rating">{{ m("rating_out_of", average=rating.average_label) }} · {{ m("reviews_count", count=rating.count) }}</p>
+{% endif %}

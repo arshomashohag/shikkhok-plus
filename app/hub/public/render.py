@@ -46,6 +46,7 @@ from app.hub.public.views import (
     HubImage,
     HubOwnerCard,
     HubOwnerPage,
+    HubReview,
     HubSearchPage,
     HubSitemap,
 )
@@ -190,8 +191,9 @@ def _summary(text: str | None, fallback: str) -> str:
 def _search_query(view: HubSearchPage, page_number: int) -> str:
     """Build a search page's query string from what the search applied.
 
-    Only the six allowlisted keys, in a fixed order, and only those set,
-    so one search has one URL.
+    Only the allowlisted keys, in a fixed order, and only those set, so
+    one search has one URL. ``sort`` is written only when it is ``rating``,
+    which a search reports only while reviews are on.
 
     :param view: The search page
     :param page_number: The page to link to
@@ -205,6 +207,7 @@ def _search_query(view: HubSearchPage, page_number: int) -> str:
             ("upazila", view.filters.upazila),
             ("subject", view.filters.subject),
             ("level", view.filters.level),
+            ("sort", "rating" if view.sort == "rating" else None),
             ("page", str(page_number) if page_number > 1 else None),
         )
         if value
@@ -229,9 +232,10 @@ def _links(path: str, locale: Locale) -> tuple[str, tuple[tuple[str, str], ...]]
 
 
 def _report_href(kind: str, report_id: object) -> str:
-    """Build the report form's URL for one listing or photo.
+    """Build the report form's URL for one listing, photo, review or reply.
 
-    :param kind: ``owner_listing``, ``batch_listing`` or ``media``
+    :param kind: ``owner_listing``, ``batch_listing``, ``media``, ``review``
+        or ``reply``; a reply is reported by its review's id
     :param report_id: The id ``POST /v1/hub/reports`` expects [R2]
     :return: The URL on the web app
     """
@@ -447,6 +451,22 @@ def _helpers(locale: Locale) -> dict[str, Any]:
         """
         return _report_href("media", image.media_id)
 
+    def report_review(review: HubReview) -> str:
+        """Build the report form's URL for one review.
+
+        :param review: The review
+        :return: The URL, ``kind=review`` with the review's id
+        """
+        return _report_href("review", review.review_id)
+
+    def report_reply(review: HubReview) -> str:
+        """Build the report form's URL for a review's reply.
+
+        :param review: The review the reply answers
+        :return: The URL, ``kind=reply`` with the review's id
+        """
+        return _report_href("reply", review.review_id)
+
     def title(batch: HubBatchCard) -> str:
         """Name a batch by its public title, never by ``batch.name``.
 
@@ -464,6 +484,8 @@ def _helpers(locale: Locale) -> dict[str, Any]:
         "area_name": area_name,
         "by_name": by_name,
         "report_photo": report_photo,
+        "report_review": report_review,
+        "report_reply": report_reply,
         "title": title,
     }
 
@@ -495,7 +517,16 @@ def _search_context(view: HubSearchPage, locale: Locale) -> dict[str, Any]:
         for key, value in applied.items()
         if value not in shown.get(key, set())
     ]
-    clear = base + ("?" + urlencode({"q": view.query}) if view.query else "")
+    # Clearing the filters keeps what was typed and how it is sorted.
+    kept = [
+        (key, value)
+        for key, value in (
+            ("q", view.query),
+            ("sort", "rating" if view.sort == "rating" else None),
+        )
+        if value
+    ]
+    clear = base + ("?" + urlencode(kept) if kept else "")
     # Past the end, "previous" is the last page that has results.
     previous = min(view.page - 1, view.pages) if view.page > 1 else None
     following = view.page + 1 if view.page < view.pages else None

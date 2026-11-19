@@ -15,6 +15,13 @@ they agreed to be named, otherwise "Centre faculty"; a street address for a
 centre only. A batch listing that could not be public whatever its status
 -- hidden, suspended, or on an inactive batch -- is left out.
 
+**Ratings** [F19]. While reviews are on, the owner card and each batch
+card carry the rating the public pages would show, read from the same
+public views (``hub_public_rating``, granted to the application role) by
+:mod:`app.hub.public.ratings`, so a draft batch -- which the views do not
+hold -- has none. The preview has no review section and no review text: an
+owner reads their reviews in the app, not on their own preview.
+
 **Photos.** The owner's own gallery, as the owner page shows it: approved
 photos, and photos awaiting review marked as such, in gallery order; never
 a batch's photos, which are on batch pages only, and never a rejected,
@@ -43,6 +50,7 @@ from app.hub.listings.owner import get_or_draft
 from app.hub.media.storage import MediaStore, archive_prefix
 from app.hub.public.images import hub_image, image_alt, public_path
 from app.hub.public.messages import LOCALES, Locale, t
+from app.hub.public.ratings import batch_ratings, owner_rating_of_batches
 from app.hub.public.settings import site_url
 from app.hub.public.views import (
     AreaNames,
@@ -51,6 +59,7 @@ from app.hub.public.views import (
     HubOwnerCard,
     HubOwnerPage,
     PublicSlot,
+    RatingSummary,
 )
 from app.money import Money
 
@@ -218,6 +227,7 @@ def _batch_card(
     teachers: list[str],
     schedule: list[PublicSlot] | None,
     locale: Locale,
+    rating: RatingSummary | None,
 ) -> HubBatchCard:
     """Build one batch's card from the owner's own listing row.
 
@@ -226,6 +236,7 @@ def _batch_card(
     :param teachers: The names the card may show
     :param schedule: The weekly times, or None when not shown
     :param locale: The page's locale
+    :param rating: The batch's public rating, or None while reviews are off
     :return: The card
     """
     fee = None if row.fee is None else Money(row.fee)
@@ -246,6 +257,7 @@ def _batch_card(
             t("centre_faculty", locale) if name == CENTRE_FACULTY else name
             for name in teachers
         ],
+        rating=rating,
     )
 
 
@@ -264,6 +276,9 @@ def owner_page(
     """
     listing = get_or_draft(session, lens)
     kind: str = session.execute(_KIND, {"owner": lens.owner_id}).scalar_one()
+    rows = session.execute(_BATCHES, {"owner": lens.owner_id}).all()
+    batch_ids = [row.batch_id for row in rows]
+    ratings = batch_ratings(session, batch_ids)
     owner = HubOwnerCard(
         report_id=lens.owner_id,
         slug=listing.slug or "",
@@ -271,9 +286,8 @@ def owner_page(
         kind="organisation" if kind == "organisation" else "teacher",
         area_names=_area_names(session, listing.district_code, listing.upazila_code),
         runs_classes=listing.runs_classes,
+        rating=owner_rating_of_batches(session, batch_ids),
     )
-    rows = session.execute(_BATCHES, {"owner": lens.owner_id}).all()
-    batch_ids = [row.batch_id for row in rows]
     names = teacher_names(session, lens.owner_id, batch_ids)
     schedules = _schedules(session, [row.batch_id for row in rows if row.show_schedule])
     return HubOwnerPage(
@@ -293,6 +307,7 @@ def owner_page(
                 names[row.batch_id],
                 schedules.get(row.batch_id) if row.show_schedule else None,
                 locale,
+                ratings.get(row.batch_id),
             )
             for row in rows
         ],

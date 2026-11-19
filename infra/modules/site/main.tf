@@ -75,7 +75,7 @@ locals {
   # distribution uses: nginx requires the origin secret on every request,
   # so this second door must present it too.
   hub_origin_id     = "shikkhokplus-hub-api"
-  hub_query_strings = ["q", "district", "upazila", "subject", "level", "page"]
+  hub_query_strings = ["q", "district", "upazila", "subject", "level", "page", "sort"]
   # The hub's photo bucket (modules/media), read through OAC at /m/*.
   media_origin_id = "shikkhokplus-media"
 }
@@ -267,7 +267,7 @@ resource "aws_cloudfront_function" "hub_query" {
 # header that asks for more. default_ttl applies only to a response with
 # no Cache-Control, which the hub never sends.
 #
-# Only the six allowed query strings are in the key, and hub-query.js has
+# Only the seven allowed query strings are in the key, and hub-query.js has
 # already refused everything else and collapsed repeats, so the key space
 # is bounded. No header and no cookie is in the key: in particular
 # CloudFront-Viewer-Address, which the origin policy forwards for the

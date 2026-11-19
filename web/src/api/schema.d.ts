@@ -124,7 +124,7 @@ export interface paths {
      * @description Serve the landing page, or a page of search results.
      *
      *     :param locale: ``en`` or ``bn``
-     *     :param request: The incoming request, whose six keys are read
+     *     :param request: The incoming request, whose seven keys are read
      *     :param allowed: Whether this read was within the ceiling
      *     :return: The page, the 404 page, or the 429 page
      */
@@ -13270,6 +13270,7 @@ export interface operations {
         subject?: string
         level?: string
         page?: string
+        sort?: string
       }
       header?: never
       path: {
