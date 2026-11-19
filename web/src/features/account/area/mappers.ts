@@ -43,6 +43,8 @@ export const INBOX_KINDS = [
   'hub_feedback_question',
   'hub_review_outcome',
   'hub_reviews_published',
+  'hub_enquiry_received',
+  'hub_enquiry_answered',
 ] as const satisfies readonly ApiInboxKind[]
 
 export type InboxKind = (typeof INBOX_KINDS)[number]
@@ -93,12 +95,12 @@ export interface InboxMessage {
   classChange: ClassChange | null
   /** For the hub's demand question, which one: 60 or 90. */
   feedbackDay: FeedbackDay | null
-  /** For a hub review message, its line, worded from the server's `preview`. */
-  reviewLine: ReviewLine | null
+  /** For a hub review or join-request message, its line, worded from the server's `preview`. */
+  wordedLine: WordedLine | null
 }
 
 /** A string key and its arguments. */
-export interface ReviewLine {
+export interface WordedLine {
   key: string
   args: string[]
 }
@@ -123,15 +125,33 @@ const REVIEW_OUTCOME_KEY: Record<string, string> = {
   removed: 'inbox_hub_review_outcome_removed',
 }
 
+/**
+ * A join request's answer: its `preview` is the outcome code, worded as
+ * the guardian's list words it. A request received carries no preview at
+ * all, since nothing a guardian typed is ever in an inbox [H5].
+ */
+const ENQUIRY_ANSWER_KEY: Record<string, string> = {
+  added: 'hub_enquiry_outcome_added',
+  not_now: 'hub_enquiry_outcome_not_now',
+  call_us: 'hub_enquiry_outcome_call_us',
+}
+
 /** Kinds whose `preview` is a value to word, not a line to show as sent. */
 const WORDED_PREVIEW: readonly InboxKind[] = [
   'hub_feedback_question',
   'hub_review_outcome',
   'hub_reviews_published',
+  'hub_enquiry_received',
+  'hub_enquiry_answered',
 ]
 
-/** The line for a hub review message, from its `preview`; null for any other kind. */
-function reviewLineOf(kind: InboxKind, preview: string | null): ReviewLine | null {
+/** The line for a hub review or join-request message; null for any other kind. */
+function wordedLineOf(kind: InboxKind, preview: string | null): WordedLine | null {
+  if (kind === 'hub_enquiry_received') return { key: 'hub_enquiry_inbox_received_body', args: [] }
+  if (kind === 'hub_enquiry_answered') {
+    const key = preview ? ENQUIRY_ANSWER_KEY[preview] : undefined
+    return key ? { key, args: [] } : null
+  }
   if (kind === 'hub_review_outcome') {
     const key = preview ? REVIEW_OUTCOME_KEY[preview] : undefined
     return key ? { key, args: [] } : null
@@ -169,7 +189,7 @@ export function mapInbox(dto: Schemas['InboxResponse']): InboxModel {
               preview: WORDED_PREVIEW.includes(i.kind) ? null : (i.preview ?? null),
               classChange: classChangeOf(i),
               feedbackDay: feedbackDayOf(i.kind, i.preview ?? null),
-              reviewLine: reviewLineOf(i.kind, i.preview ?? null),
+              wordedLine: wordedLineOf(i.kind, i.preview ?? null),
             },
           ]
         : [],
@@ -195,6 +215,8 @@ export const TITLE_KEY: Record<InboxKind, string> = {
   hub_feedback_question: 'inbox_hub_feedback_question_title',
   hub_review_outcome: 'inbox_hub_review_outcome_title',
   hub_reviews_published: 'inbox_hub_reviews_published_title',
+  hub_enquiry_received: 'hub_enquiry_inbox_received_title',
+  hub_enquiry_answered: 'hub_enquiry_inbox_answered_title',
 }
 
 /** "Child · Batch", or just the batch for the reader's own seat. */
@@ -243,7 +265,7 @@ export function inboxBody(
   const line = classLine(m.kind, m.classChange, t, when)
   if (line) return line
   if (m.feedbackDay) return t('hub_feedback_day', String(m.feedbackDay))
-  if (m.reviewLine) return t(m.reviewLine.key, ...m.reviewLine.args)
+  if (m.wordedLine) return t(m.wordedLine.key, ...m.wordedLine.args)
   if (m.preview) return m.preview
   if (!m.amount) return null
   const money = m.amount.format()
@@ -300,6 +322,12 @@ export function targetOf(m: InboxMessage): InboxTarget {
     return { to: reviewPaths.editor(m.sourceId), lens: 'guardian' }
   }
   if (m.kind === 'hub_reviews_published') return { to: paths.hubReviews(), lens: 'teacher' }
+  // A request to the owner opens under the current teacher workspace, as
+  // new reviews do; an answer opens the guardian's own list, under any lens.
+  if (m.kind === 'hub_enquiry_received' && m.sourceId) {
+    return { to: paths.hubEnquiry(m.sourceId), lens: 'teacher' }
+  }
+  if (m.kind === 'hub_enquiry_answered') return { to: accountPaths.myEnquiries(), lens: null }
   return { to: accountPaths.inboxItem(m.id), lens: null }
 }
 

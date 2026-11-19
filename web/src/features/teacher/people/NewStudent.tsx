@@ -14,12 +14,21 @@
  *   already on the list (`student.email.taken`) is shown under it.
  *
  * Opened from a roster's "New student" with that batch already chosen.
+ *
+ * **From a join request** (`?enquiry=<id>`, the owner's "Add as student"
+ * [H5]) the form reads that request from the server and fills the name,
+ * the guardian's phone or email when the guardian shared one, and the
+ * batch asked about; the teacher checks and saves as usual, and the seat
+ * starts pending like any other. Once the student is saved, the request is
+ * answered `added` when the server still offers that answer. If only the
+ * answer fails, the student stays saved and is never saved twice: the form
+ * offers Retry for the answer alone.
  */
 import { useId, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { listBatches } from '../../../api/endpoints'
 import { ApiError } from '../../../api/errors'
-import { normalisePhone } from '../../../core/format'
+import { formatPhone, normalisePhone } from '../../../core/format'
 import { Money } from '../../../core/money'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
@@ -27,27 +36,35 @@ import { ErrorCard, Loading, TopBar } from '../../../ui/components'
 import { mapBatch, type BatchSummary } from '../mappers'
 import { sameNameMatch } from '../students/mappers'
 import { mutationId } from '../classes/api'
+import { closeEnquiry, readOwnerEnquiry, type OwnerEnquiry } from '../hub/enquiries.api'
+import { failureText } from '../hub/hubUi'
 import { createStudent, listStudents } from './api'
 import { typedEmail } from './mappers'
 
 interface Context {
   batches: BatchSummary[]
   names: string[]
+  /** The join request the form was opened from, as the server holds it. */
+  enquiry: OwnerEnquiry | null
 }
 
-async function loadContext(signal?: AbortSignal): Promise<Context> {
-  const [batches, students] = await Promise.all([
+async function loadContext(enquiryId: string | null, signal?: AbortSignal): Promise<Context> {
+  const [batches, students, enquiry] = await Promise.all([
     listBatches(signal),
     listStudents({ kind: 'all' }, '', signal),
+    enquiryId ? readOwnerEnquiry(enquiryId, signal) : null,
   ])
-  return { batches: batches.map(mapBatch), names: students.map((s) => s.display_name) }
+  return { batches: batches.map(mapBatch), names: students.map((s) => s.display_name), enquiry }
 }
 
 export function NewStudent() {
   const { t } = useT()
   const [params] = useSearchParams()
-  const preselected = params.get('batch')
-  const { resource, reload } = useResource(loadContext, [])
+  const enquiryId = params.get('enquiry')
+  const { resource, reload } = useResource((signal) => loadContext(enquiryId, signal), [enquiryId])
+  const preselected =
+    params.get('batch') ??
+    (resource.state === 'loaded' ? (resource.data.enquiry?.batch_id ?? null) : null)
 
   return (
     <>
@@ -61,6 +78,7 @@ export function NewStudent() {
           batches={resource.data.batches}
           names={resource.data.names}
           preselected={preselected}
+          enquiry={resource.data.enquiry}
         />
       ) : null}
     </>
@@ -71,19 +89,24 @@ function StudentForm({
   batches,
   names,
   preselected,
+  enquiry,
 }: {
   batches: BatchSummary[]
   names: string[]
   preselected: string | null
+  enquiry: OwnerEnquiry | null
 }) {
   const { t, message } = useT()
   const navigate = useNavigate()
   const ids = useId()
-  const [name, setName] = useState('')
+  // From a join request: what the guardian sent, and their contact only if shared.
+  const [name, setName] = useState(enquiry?.student_name ?? '')
   const [phone, setPhone] = useState('')
-  const [guardian, setGuardian] = useState('')
+  const [guardian, setGuardian] = useState(
+    enquiry?.guardian_phone ? formatPhone(enquiry.guardian_phone) : '',
+  )
   const [studentEmailTyped, setStudentEmail] = useState('')
-  const [guardianEmailTyped, setGuardianEmail] = useState('')
+  const [guardianEmailTyped, setGuardianEmail] = useState(enquiry?.guardian_email ?? '')
   /** `student.email.taken`, shown under the student email until it is edited. */
   const [emailTaken, setEmailTaken] = useState<string | null>(null)
   // Batch id → the fee typed for it; blank inherits the batch's fee.
@@ -93,6 +116,11 @@ function StudentForm({
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The student is saved; only the join request's answer is outstanding.
+  const [saved, setSaved] = useState(false)
+  const [closeFailure, setCloseFailure] = useState<{ text: string; retryable: boolean } | null>(
+    null,
+  )
 
   const studentPhone = normalisePhone(phone)
   const guardianPhone = normalisePhone(guardian)
@@ -107,6 +135,7 @@ function StudentForm({
   const feesOk = fees.every((f) => f.typed.trim() === '' || f.money !== null)
   const ready =
     !busy &&
+    !saved &&
     name.trim() !== '' &&
     (phone.trim() === '' || studentPhone !== null) &&
     (guardian.trim() === '' || guardianPhone !== null) &&
@@ -127,6 +156,22 @@ function StudentForm({
   // response returns the student the first one made [audit C-25].
   const [retryKey] = useState(mutationId)
 
+  /** Answer the join request `added`, once the student is saved; then leave. */
+  async function answerEnquiry(id: string) {
+    setBusy(true)
+    setCloseFailure(null)
+    try {
+      await closeEnquiry(id, 'added')
+      navigate(-1)
+    } catch (err) {
+      setCloseFailure({
+        text: `${t('hub_enquiry_saved_not_closed')} ${failureText(err, t, message)}`,
+        retryable: !(err instanceof ApiError) || err.offline || err.retryable,
+      })
+      setBusy(false)
+    }
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (!ready) return
@@ -143,13 +188,18 @@ function StudentForm({
         ...(guardianEmail ? { guardian_email: guardianEmail } : {}),
         enrollments: fees.map((f) => ({ batch_id: f.batch.id, fee_amount: f.money?.wire ?? null })),
       })
-      navigate(-1)
     } catch (err) {
       const key = err instanceof ApiError ? err.messageKey : 'error.unexpected'
       if (key === 'student.email.taken') setEmailTaken(message(key))
       else setError(message(key))
       setBusy(false)
+      return
     }
+    // Answer only what the server still offers; a request already answered is left as it is.
+    if (enquiry && enquiry.outcomes_allowed.includes('added')) {
+      setSaved(true)
+      await answerEnquiry(enquiry.id)
+    } else navigate(-1)
   }
 
   const emailField = (
@@ -188,6 +238,11 @@ function StudentForm({
 
   return (
     <form className="card" onSubmit={onSubmit} noValidate>
+      {enquiry ? (
+        <div className="banner info" role="status" style={{ marginBottom: 16 }}>
+          {t('hub_enquiry_prefilled')}
+        </div>
+      ) : null}
       <div className="field">
         <label htmlFor={`${ids}-name`}>{t('student_add_name')}</label>
         <input
@@ -316,6 +371,21 @@ function StudentForm({
       {error ? (
         <div className="banner error" role="alert" style={{ marginTop: 16 }}>
           {error}
+        </div>
+      ) : null}
+      {closeFailure && enquiry ? (
+        <div className="banner error" role="alert" style={{ marginTop: 16 }}>
+          <span className="grow">{closeFailure.text}</span>
+          {closeFailure.retryable ? (
+            <button
+              type="button"
+              className="btn btn-text btn-small"
+              disabled={busy}
+              onClick={() => void answerEnquiry(enquiry.id)}
+            >
+              {t('auth_retry')}
+            </button>
+          ) : null}
         </div>
       ) : null}
       <div className="form-actions">

@@ -9,6 +9,11 @@
  * offline write queue [TC-8]. "Preview as public" opens the saved page as
  * it would read (Preview.tsx); "View public page" is offered only while
  * the server says the listing is published.
+ *
+ * Join requests [H5]: "Receive join requests" is offered only while the
+ * server says `enquiries_offered`, and saves on its own, apart from the
+ * form, so nothing typed is lost or sent with it. The inbox row is drawn
+ * only once the inbox read succeeds (`OwnerEnquiriesEntry`).
  */
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
@@ -37,7 +42,14 @@ import {
   type Draft,
   type Listing as ListingModel,
 } from './hub.mappers'
-import { Checklist, failureText, FailureBanner, OwnerReviewsEntry, StatusChip } from './hubUi'
+import {
+  Checklist,
+  failureText,
+  FailureBanner,
+  OwnerEnquiriesEntry,
+  OwnerReviewsEntry,
+  StatusChip,
+} from './hubUi'
 import { Photos } from './Photos'
 import { PublishSheet } from './PublishSheet'
 
@@ -278,6 +290,71 @@ function Field({
       )}
       {help ? <span className="help">{help}</span> : null}
     </div>
+  )
+}
+
+/**
+ * Whether the owner receives join requests, saved the moment it changes;
+ * drawn only while the server offers it. A failure leaves the switch at
+ * what the server holds and offers Retry.
+ */
+function EnquiriesSwitch({
+  listing,
+  readOnly,
+  onSaved,
+}: {
+  listing: ListingModel
+  readOnly: boolean
+  onSaved: (next: ListingModel) => void
+}) {
+  const { t, message } = useT()
+  const [busy, setBusy] = useState(false)
+  const [failure, setFailure] = useState<{ text: string; wanted: boolean } | null>(null)
+  if (!listing.enquiries_offered) return null
+
+  async function write(next: boolean) {
+    setBusy(true)
+    setFailure(null)
+    try {
+      onSaved(await saveHubListing({ accepts_enquiries: next }))
+    } catch (e) {
+      setFailure({
+        text: `${t('hub_enquiry_switch_failed')} ${failureText(e, t, message)}`,
+        wanted: next,
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card" style={{ marginTop: 16 }}>
+      <label className="choice" htmlFor="hub-enquiries">
+        <input
+          id="hub-enquiries"
+          type="checkbox"
+          role="switch"
+          checked={listing.accepts_enquiries}
+          disabled={readOnly}
+          aria-disabled={busy || undefined}
+          aria-busy={busy || undefined}
+          aria-labelledby="hub-enquiries-label"
+          aria-describedby="hub-enquiries-help"
+          onChange={() => {
+            if (!busy) void write(!listing.accepts_enquiries)
+          }}
+        />
+        <span>
+          <strong id="hub-enquiries-label">{t('hub_enquiry_switch')}</strong>
+          <span id="hub-enquiries-help" className="help">
+            {t('hub_enquiry_switch_help')}
+          </span>
+        </span>
+      </label>
+      {failure ? (
+        <FailureBanner text={failure.text} onRetry={() => void write(failure.wanted)} />
+      ) : null}
+    </section>
   )
 }
 
@@ -592,7 +669,10 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
           {t('web_hub_batches_link')}
         </Link>
       </p>
+      {/* Only what the switch changed: the draft keeps whatever was typed. */}
+      <EnquiriesSwitch listing={saved} readOnly={suspended} onSaved={setSaved} />
       <OwnerReviewsEntry />
+      <OwnerEnquiriesEntry />
 
       {publishing ? (
         <PublishSheet

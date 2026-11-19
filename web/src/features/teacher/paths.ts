@@ -68,8 +68,14 @@ export const paths = {
 
   // people/ -- a teacher's students, apart from any batch [0018]
   students: () => '/students',
-  studentNew: (batchId?: string) =>
-    batchId ? `/students/new?batch=${id(batchId)}` : '/students/new',
+  // With a join request's id, the form fills itself from that request [H5].
+  studentNew: (batchId?: string, enquiryId?: string) => {
+    const query = [
+      batchId ? `batch=${id(batchId)}` : null,
+      enquiryId ? `enquiry=${id(enquiryId)}` : null,
+    ].filter(Boolean)
+    return query.length ? `/students/new?${query.join('&')}` : '/students/new'
+  },
   studentDetail: (studentId: string) => `/students/${id(studentId)}`,
   pickStudents: (batchId: string) => `/batches/${id(batchId)}/students/pick`,
 
@@ -97,5 +103,7 @@ export const paths = {
   hubPreview: (locale: Lang) => `/more/hub/preview?locale=${locale}`,
   hubFeedback: (ownerId: string, day: number) => `/more/hub/feedback/${id(ownerId)}/${day}`,
   hubReviews: () => '/more/hub/reviews',
+  hubEnquiries: () => '/more/hub/enquiries',
+  hubEnquiry: (enquiryId: string) => `/more/hub/enquiries/${id(enquiryId)}`,
   batchMonth: (batchId: string, period: string) => `/batches/${id(batchId)}/month/${id(period)}`,
 } as const

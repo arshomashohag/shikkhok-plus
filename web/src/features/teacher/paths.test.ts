@@ -20,3 +20,17 @@ describe('seat links', () => {
     expect(readSeatNames({ seatNames: { name: 42, batch: ['x'] } })).toEqual({})
   })
 })
+
+describe('join request links [H5]', () => {
+  it('open the inbox and one request by id', () => {
+    expect(paths.hubEnquiries()).toBe('/more/hub/enquiries')
+    expect(paths.hubEnquiry('e 1')).toBe('/more/hub/enquiries/e%201')
+  })
+
+  it('carry the request id, never its contents, to the add-student form', () => {
+    expect(paths.studentNew()).toBe('/students/new')
+    expect(paths.studentNew('b1')).toBe('/students/new?batch=b1')
+    expect(paths.studentNew('b1', 'e 1')).toBe('/students/new?batch=b1&enquiry=e%201')
+    expect(paths.studentNew(undefined, 'e1')).toBe('/students/new?enquiry=e1')
+  })
+})

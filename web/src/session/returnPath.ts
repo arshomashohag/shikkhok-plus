@@ -2,7 +2,8 @@
  * Where a signed-out visitor was going, kept across sign-in.
  *
  * A hub page's "Report this page" link opens `/hub-report?…` on this app,
- * and the reader is often signed out. The signed-out routes remember the
+ * and its "Ask to join" link opens `/hub-enquiry?…` [H5]; the reader is
+ * often signed out. The signed-out routes remember the
  * address here and send them to sign-in; the first landing after any way
  * in (password, code, sign-up, two-step) takes them on to it.
  *
@@ -16,13 +17,20 @@
 
 const KEY = 'sp.return'
 
-/** Only a report address on this app, never `//other.host` or a sign-in page. */
+/** The public links that may be returned to: exactly these paths, with any query. */
+const RETURNABLE: readonly string[] = ['/hub-report', '/hub-enquiry']
+
+/**
+ * Only a report or join-request address on this app: the exact path, or
+ * the exact path and a query. Never `//other.host`, a sign-in page, or a
+ * path that merely starts the same (`/hub-enquiries`, `/hub-enquiryx`).
+ */
 function safe(path: unknown): string | null {
   if (typeof path !== 'string') return null
-  return path === '/hub-report' || path.startsWith('/hub-report?') ? path : null
+  return RETURNABLE.some((p) => path === p || path.startsWith(`${p}?`)) ? path : null
 }
 
-/** Remember where to go after sign-in; anything but a report address is ignored. */
+/** Remember where to go after sign-in; anything but a returnable address is ignored. */
 export function rememberReturn(path: string): void {
   if (!safe(path)) return
   try {

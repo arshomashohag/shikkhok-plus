@@ -51,6 +51,8 @@ export const reviewPaths = {
 export const accountPaths = {
   inbox: () => '/inbox',
   inboxItem: (notificationId: string) => `/inbox/${id(notificationId)}`,
+  /** The caller's own join requests [H5]; every lens may have sent one. */
+  myEnquiries: () => '/hub-enquiries',
   profileEdit: () => '/profile/edit',
   myChildren: () => '/profile/children',
   deleteAccount: () => '/profile/delete',

@@ -169,6 +169,23 @@ rather than editing the old one.
 | H4 (Android) | Guardian home's Reviews row (under every child, and on the no-children card) and MyReviews (`MyReviewsScreen`: batch title, owner's public name, state with "From {date}") | — | *not yet checked* | `hub_reviews_empty` (38) / `hub_reviews_entry_guardian_sub` (35) / `hub_reviews_state_reviewed` (19) beside a full Bangla batch title | |
 | H4 (Android) | ReviewEditor (`ReviewEditorScreen`): five labelled star rows, the words field with its 1000 counter, the privacy note, status with a reason, "edit until", the not-yet banner with its date, the read-only review with Delete, the delete dialog, and the "cannot be written now" banner (`hub_review_unavailable`, 36) | — | *not yet checked* | `hub_review_privacy_note` (116) / `hub_review_needs_attendance` (75) / `hub_review_not_yet_eligible` (69) / `hub_review_status_not_published` with `hub_review_reason_identifiable_child` | |
 | H4 (Android) | Teacher Reviews (`OwnerReviewsScreen`, and the listing editor's Reviews row): per-batch rating rows including the below-threshold line, review cards with tenure · month, reply field with note and counter, status, Send reply, Delete reply, Report | — | *not yet checked* | `hub_review_tenure_gt_1y` (46) / `hub_reviews_below_threshold` (42) / `hub_reviews_reply_note` (38) with the counter on one help line / `hub_reviews_entry_owner_sub` (37) | |
+| H5 (web) | HubEnquiry (`/hub-enquiry`): "To {owner}" with the batch title, student name, class select, message with its 300 counter, the two share options with the help line, the declaration box, the three "required" lines, the refusal banner with "See my join requests", the sent banner, the already-open banner, and the unavailable line | `web` | *not yet checked* | `hub_enquiry_share_help` (119) / `hub_enquiry_already_open` (92) / `hub_enquiry_contains_contact` (80) / `hub_enquiry_sent` (76) / `hub_enquiry_declaration` (65) beside its checkbox / `hub_enquiry_share_email` (42) with a full Bangla owner name | |
+| H5 (web) | MyEnquiries (`/hub-enquiries`, and More's "My join requests" row): owner name or the no-longer-listed fallback, batch title, student · class · "Sent {date}", the waiting chip or the answer line, "Call {number}", Withdraw on the same row, the withdraw confirmation, the failed-withdraw banner | `web` | *not yet checked* | `hub_enquiry_outcome_added` (49) / `hub_enquiry_withdraw_body` (38) / `hub_enquiry_mine_sub` (34) / `hub_enquiry_owner_unknown` (31) beside `hub_enquiry_withdraw` | |
+| H5 (web) | Enquiries (`/more/hub/enquiries`, and the listing editor's "Receive join requests" switch and "Join requests" row): student name, class · batch · received time, the status chip | `web` | *not yet checked* | `hub_enquiry_switch_help` (101) / `hub_enquiry_inbox_sub` (47) / `hub_enquiry_answered_added` (32) as a chip at the row's end | |
+| H5 (web) | EnquiryDetail (`/more/hub/enquiries/:id`), and the add-student form opened from it: the six labelled fields, "Not shared", the three answer buttons on one row, the refused-answer banner, the prefilled note and the saved-but-not-answered banner with Retry | `web` | *not yet checked* | `hub_enquiry_saved_not_closed` (85) / `hub_enquiry_prefilled` (72) / `hub_enquiry_action_add` (26) beside `hub_enquiry_action_call_us` and `hub_enquiry_action_not_now` | |
+
+**H5's four web rows (2026-11-20) are open, and nothing automated
+discharges them.** The Vitest tests Task 8 added (`HubEnquiry.test.tsx`,
+`MyEnquiries.test.tsx`, `Enquiries.test.tsx`) are correctness tests that
+assert what each state renders and what reaches the server; they measure no
+layout. Lengths are code points from the regenerated
+`web/src/i18n/generated/strings.bn.json`, placeholders unfilled. The row to
+check first is HubEnquiry: `hub_enquiry_share_help` (119) sits under two
+radio labels that each carry the owner's public name, and the declaration
+(65) is a checkbox label. Class levels reuse the listing editor's
+`web_hub_level_*` words. **The Bangla copy itself is awaiting the human
+Bangla review**; a reworded string re-opens its row. Task 9 adds the Android
+rows, with the same strings.
 
 **H4's three Android rows (2026-11-19) are open, and nothing automated
 discharges them.** The Robolectric tests Task 12 added (`HubReviewsRouteTest`,
