@@ -242,6 +242,16 @@ def test_site_qualifies_what_a_teacher_cannot_see() -> None:
         pages / "bn" / "faq" / "index.html": ("নিজের সম্পর্কে যা লেখেন",),
     }
     exception = {"en": "where join requests are offered", "bn": "ভর্তির অনুরোধ চালু আছে"}
+    # The database enforces the separation, not the exception (PRIVACY.md
+    # I-1): a paragraph making the database claim must, after the
+    # exception, say the application keeps it, or a reader takes the
+    # database guarantee to cover it.
+    database = {"en": "database", "bn": "ডেটাবেস"}
+    attribution = {
+        "en": "our application, not the database",
+        "bn": "ডেটাবেস নয়, আমাদের অ্যাপ্লিকেশন",
+    }
+    attributed = 0
     for page, sentences in claims.items():
         language = "bn" if "bn" in page.parts else "en"
         paragraphs = re.findall(r"<p>(.*?)</p>", page.read_text(), re.S)
@@ -249,7 +259,18 @@ def test_site_qualifies_what_a_teacher_cannot_see() -> None:
             holding = [p for p in paragraphs if sentence in p]
             assert holding, f"{page.name}: {sentence!r} not found"
             for paragraph in holding:
-                assert exception[language] in paragraph.lower(), (
+                lowered = paragraph.lower()
+                assert exception[language] in lowered, (
                     f"{page.relative_to(ROOT)} says {sentence!r} unqualified"
                 )
+                if database[language] not in lowered:
+                    continue
+                said = lowered.find(attribution[language])
+                assert said > lowered.index(exception[language]), (
+                    f"{page.relative_to(ROOT)} leaves the join-request "
+                    "exception under the database claim"
+                )
+                attributed += 1
+    # The FAQ and the home page, in both languages, make the claim.
+    assert attributed == 4
     assert "release the site first" not in runbook(RUNBOOK)
