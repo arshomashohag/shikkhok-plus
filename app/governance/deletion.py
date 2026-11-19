@@ -16,10 +16,14 @@ second commit point, on the branch where no account exists):
    number that no longer answers. ``0010`` set ``owner.account_id`` to
    ``SET NULL``, so the account's removal unlinks rather than destroys.
 2. **Delete the rows this account owns** that the manifest marks
-   ``HARD_DELETE``. A solo teacher's photos are read first, and every
-   bucket prefix they may have and every ``/m/`` path they were served
-   at is queued for deletion in this transaction: the rows are the only
-   record of which objects exist [H3 Review Focus 5].
+   ``HARD_DELETE``. Reviews go first and go whole: every review the
+   account wrote, and every review of a solo teacher's listed classes,
+   with its reply and every report on either, whoever filed it, so no
+   report is left naming nothing [T7-f]. A solo teacher's photos are
+   read first, and every bucket prefix they may have and every ``/m/``
+   path they were served at is queued for deletion in this transaction:
+   the rows are the only record of which objects exist [H3 Review
+   Focus 5].
 3. **Delete the account row.** Everything else follows from the database
    constraints: ``SET NULL`` on the references ``0007`` fixed, so the
    enrollments, payment claims and queued submissions survive with their
@@ -77,6 +81,7 @@ from app.hub.media.storage import (
     staged_prefix,
 )
 from app.hub.public import invalidation
+from app.reviews import forget
 from app.students.service import block_relinking
 from app.teaching.unassign import unassign_member
 
@@ -307,8 +312,9 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
         scope=Scope.ACCOUNT_COLUMN,
         column="author_account_id",
         note=(
-            "A guardian's own review. Also deleted with a solo teacher's batch "
-            "listing, by its `ON DELETE CASCADE`; its reply cascades with it."
+            "A guardian's own review, and every review of a solo teacher's "
+            "batch listings, forgotten with their replies and every report on "
+            "either before the listings' `ON DELETE CASCADE` could fire."
         ),
     ),
     "review_reply": _Target(
@@ -330,7 +336,10 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
     "hub_report": _Target(
         scope=Scope.ACCOUNT_COLUMN,
         column="reporter_account_id",
-        note="A complaint the account filed; nobody else has a claim on it.",
+        note=(
+            "A complaint the account filed; nobody else has a claim on it. "
+            "Complaints about a forgotten review or reply go with it."
+        ),
     ),
     "cdn_invalidation": _Target(
         scope=Scope.NOT_PERSONAL,
@@ -442,6 +451,21 @@ _SOLO_MEDIA: Final = sa.text(
     "FROM listing_media m JOIN owner o ON o.id = m.owner_id "
     "WHERE o.account_id = :account_id AND o.kind = 'teacher' "
     "ORDER BY m.id FOR UPDATE OF m"
+)
+
+#: The reviews the account wrote, locked in id order before ``forget``.
+_LOCK_AUTHORED_REVIEWS: Final = sa.text(
+    "SELECT id FROM review WHERE author_account_id = :account_id ORDER BY id FOR UPDATE"
+)
+
+#: The reviews of the solo owners' batch listings, locked in id order
+#: before ``forget``.
+_LOCK_SOLO_OWNER_REVIEWS: Final = sa.text(
+    "SELECT r.id FROM review r "
+    "JOIN batch_listing bl ON bl.batch_id = r.batch_id "
+    "JOIN owner o ON o.id = bl.owner_id "
+    "WHERE o.account_id = :account_id AND o.kind = 'teacher' "
+    "ORDER BY r.id FOR UPDATE OF r"
 )
 
 #: The live memberships whose future classes a deletion frees first.
@@ -609,12 +633,25 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
         unassign_member(session, member_id=member_id)
     session.execute(_END_MEMBERSHIPS, {"account_id": account_id})
 
+    # Reviews are forgotten whole -- the review, its reply and every report
+    # on either, whoever filed it -- before any statement below can remove
+    # one behind `forget`'s back: the author's own delete in the loop, or
+    # the `batch_listing -> review` cascade of a solo teacher's listings
+    # [T7-f]. Each step locks its reviews before `forget` runs, as the
+    # author's delete does, and before any report row [T5-e].
+    reviews_forgotten = _forget_authored_reviews(
+        session, account_id, dt.datetime.now(tz=dt.UTC)
+    ) + _forget_solo_owner_reviews(session, account_id, dt.datetime.now(tz=dt.UTC))
+
     for table, target in sorted(HARD_DELETE_SCOPES.items()):
         if target.scope is not Scope.ACCOUNT_COLUMN or table == "account":
             continue
         rows_deleted[table] = _delete_where(
             session, table, target, account_id=account_id
         )
+    # A review its author wrote after the lock above can only be pending,
+    # so nobody could report it; the loop's own statement removed it.
+    rows_deleted["review"] += reviews_forgotten
 
     # The deletion hold [U1: BR7.5]: 30 days, a keyed digest only, and no
     # releasing account, so nobody -- this person included -- can take the
@@ -665,6 +702,48 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
 
     session.commit()
     return DeletionResult(existed=True, rows_deleted=rows_deleted)
+
+
+def _forget_authored_reviews(
+    session: Session, account_id: uuid.UUID, now: dt.datetime
+) -> int:
+    """Forget every review the account wrote, with its reply and reports.
+
+    The reviews are locked first, in id order, because ``forget`` takes no
+    lock of its own: an owner's reply delete and a moderation decision
+    lock a review before its reply and its reports, and so does this
+    [T5-e]. ``forget`` evicts the pages of the reviews that were visible.
+    Commits nothing.
+
+    :param session: The deletion's session, inside its transaction
+    :param account_id: The account being deleted
+    :param now: The moment of the deletion
+    :return: How many reviews were forgotten
+    """
+    ids = list(session.scalars(_LOCK_AUTHORED_REVIEWS, {"account_id": account_id}))
+    forget.forget(session, ids, now)
+    return len(ids)
+
+
+def _forget_solo_owner_reviews(
+    session: Session, account_id: uuid.UUID, now: dt.datetime
+) -> int:
+    """Forget every review of the account's solo listings, with replies and reports.
+
+    Runs before :func:`_delete_solo_owner_rows`: deleting a batch listing
+    cascades to its reviews, which would leave every report on them and
+    on their replies naming nothing [T7-f]. Locked in id order before
+    ``forget``, as :func:`_forget_authored_reviews` is. A centre's listings
+    have no account, so a manager's deletion matches none. Commits nothing.
+
+    :param session: The deletion's session, inside its transaction
+    :param account_id: The account being deleted
+    :param now: The moment of the deletion
+    :return: How many reviews were forgotten
+    """
+    ids = list(session.scalars(_LOCK_SOLO_OWNER_REVIEWS, {"account_id": account_id}))
+    forget.forget(session, ids, now)
+    return len(ids)
 
 
 def _enqueue_solo_media(

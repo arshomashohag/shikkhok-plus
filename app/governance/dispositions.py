@@ -765,7 +765,9 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         basis=(
             "A complaint a reader filed about something on the public hub, "
             "with the reason they chose and an optional short note. It "
-            "goes when that reader deletes their account."
+            "goes when that reader deletes their account, and a complaint "
+            "about a review or a reply also goes when that review goes, "
+            "whoever's deletion removes it."
         ),
     ),
     "cdn_invalidation": TableGovernance(
@@ -784,8 +786,9 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         basis=(
             "A deletion request does nothing to these rows, because they "
             "are not about a person: a closed-vocabulary record that "
-            "moderation acted on a listing or a report, holding no free "
-            "text, kept twelve months."
+            "moderation acted on a listing, a photo, a review, a reply or a "
+            "report, holding no free text, kept twelve months. A review's "
+            "deletion leaves its rows as bare ids naming nothing that exists."
         ),
     ),
 }
