@@ -557,14 +557,14 @@ hand.
    the Families target-audience declaration have been updated against
    `docs/legal/README.md` item 6 ("New: join requests") and the Families
    note, and the privacy policy on `main` describes join requests
-   (`docs/legal/PRIVACY.md`, "Join requests"). The site's "Private by
-   design" paragraph (`site/src/pages/index.html`) opens "A teacher can
-   never see what a student or guardian writes about themselves", which
-   a join request makes untrue: qualify it as the policy does and
-   release the site first. The policy promises an in-app notice before a
-   material change takes effect; this is one, and nothing in the app
-   sends such a notice, so decide how it is given and give it before
-   step 3 on production.
+   (`docs/legal/PRIVACY.md`, "Join requests"). The site's sentences
+   saying a teacher cannot see what a guardian writes (the home page and
+   the FAQ, in English and Bangla) carry the same "where join requests
+   are offered" exception, so the site needs no change; check only that
+   the site released to the environment is from H5 or later. The policy
+   promises an in-app notice before a material change takes effect; this
+   is one, and nothing in the app sends such a notice, so decide how it
+   is given and give it before step 3 on production.
 3. **Write `on`** to the environment's parameter. **Staging first**, then
    steps 4 and 5 on staging:
 

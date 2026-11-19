@@ -213,3 +213,34 @@ def test_runbook_names_the_data_safety_item_that_exists() -> None:
     families = _flat(legal.split("**Families target-audience declaration.**")[1])
     assert "parent or guardian aged 18 or older" in families
     assert "no message reaches a child account from a teacher" in families
+
+
+def test_site_qualifies_what_a_teacher_cannot_see() -> None:
+    # Runbook step 2 says the site needs no change because every sentence
+    # telling a reader that a teacher cannot see what a guardian writes
+    # already carries the join-request exception, in both languages.
+    pages = ROOT / "site" / "src" / "pages"
+    claims = {
+        pages / "index.html": (
+            "writes about themselves is shown to any teacher",
+            "A teacher can never see what a student or guardian writes",
+        ),
+        pages / "faq" / "index.html": ("or anything a student or guardian writes",),
+        pages / "bn" / "index.html": (
+            "তা কোনো শিক্ষককে দেখানো হয় না",
+            "কোনো শিক্ষক তা কখনো দেখতে পারেন না",
+        ),
+        pages / "bn" / "faq" / "index.html": ("নিজের সম্পর্কে যা লেখেন",),
+    }
+    exception = {"en": "where join requests are offered", "bn": "ভর্তির অনুরোধ চালু আছে"}
+    for page, sentences in claims.items():
+        language = "bn" if "bn" in page.parts else "en"
+        paragraphs = re.findall(r"<p>(.*?)</p>", page.read_text(), re.S)
+        for sentence in sentences:
+            holding = [p for p in paragraphs if sentence in p]
+            assert holding, f"{page.name}: {sentence!r} not found"
+            for paragraph in holding:
+                assert exception[language] in paragraph.lower(), (
+                    f"{page.relative_to(ROOT)} says {sentence!r} unqualified"
+                )
+    assert "release the site first" not in runbook(RUNBOOK)
