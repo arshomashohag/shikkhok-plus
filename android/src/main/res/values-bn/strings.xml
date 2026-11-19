@@ -2131,6 +2131,7 @@
     <string name="hub_review_save">পরিবর্তন সংরক্ষণ করুন</string>
     <string name="hub_review_edit_until">আপনি %1$s পর্যন্ত সম্পাদনা করতে পারবেন</string>
     <string name="hub_review_eligible_from">আপনি %1$s থেকে এটি লিখতে পারবেন।</string>
+    <string name="hub_review_unavailable">এই ক্লাসের রিভিউ এখন লেখা যাচ্ছে না।</string>
     <string name="hub_review_status_pending">পর্যালোচনার অপেক্ষায়</string>
     <string name="hub_review_status_approved">অনুমোদিত, শুক্রবার দেখা যাবে</string>
     <string name="hub_review_status_published">প্রকাশিত</string>

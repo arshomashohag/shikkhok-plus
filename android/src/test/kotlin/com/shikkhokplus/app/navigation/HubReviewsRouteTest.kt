@@ -275,6 +275,20 @@ class HubReviewsRouteTest {
         )
     }
 
+    @Test
+    fun `the editor says a review cannot be written when the server sends nothing to draw`() {
+        // Switched off before a first review: no review, no standing note, no form.
+        host(Destination.HubReviewEditor.of(BATCH, "Physics 9")) { request ->
+            when (request.url.encodedPath) {
+                MY_REVIEW -> ok(NOTHING_TO_WRITE)
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        waitForText("A review of this class can't be written right now.")
+        assertTrue(compose.onAllNodesWithTag(reviewStarTag(1)).fetchSemanticsNodes().isEmpty())
+        assertTrue(compose.onAllNodesWithTag(TAG_REVIEW_SAVE).fetchSemanticsNodes().isEmpty())
+    }
+
     /**
      * Wait for the server to have been asked [count] times, then let the
      * answer reach the screen. The off state draws nothing, so there is
@@ -306,6 +320,10 @@ class HubReviewsRouteTest {
 
         const val ELIGIBLE =
             """{"standing":"eligible","waiting_on":null,"eligible_from":null,"can_write":true,""" +
+                """"edit_until":null,"review":null}"""
+
+        const val NOTHING_TO_WRITE =
+            """{"standing":"eligible","waiting_on":null,"eligible_from":null,"can_write":false,""" +
                 """"edit_until":null,"review":null}"""
 
         const val PENDING =

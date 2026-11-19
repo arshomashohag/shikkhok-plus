@@ -95,6 +95,13 @@ describe('Overview', () => {
     expect(within(reported as HTMLElement).getByText('3')).toBeInTheDocument()
     const shown = screen.getByText(en('web_admin_reviews_public')).closest('.admin-stat')!
     expect(within(shown as HTMLElement).getByText('40')).toBeInTheDocument()
+    // Only removals are windowed; published and held count as they stand now.
+    expect(
+      within(shown as HTMLElement).getByText(en('web_admin_reviews_public_sub')),
+    ).toBeInTheDocument()
+    expect(en('web_admin_reviews_public_sub')).toBe(
+      'Published or held now, or removed in the window',
+    )
   })
 
   it('says nothing of the pull bar while it is not crossed', async () => {

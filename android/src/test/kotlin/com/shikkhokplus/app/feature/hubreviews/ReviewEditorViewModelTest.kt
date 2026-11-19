@@ -122,6 +122,17 @@ class ReviewEditorViewModelTest {
     }
 
     @Test
+    fun `nothing to show is only the server sending no review, no note and no form`() = runTest(dispatcher) {
+        // Switched off before a first review, and an author whose review is gone.
+        assertTrue(ReviewForm(MyReviewResponse(standing = "eligible", canWrite = false)).nothingToShow)
+        assertTrue(ReviewForm(MyReviewResponse(standing = "author_only", canWrite = false)).nothingToShow)
+        // Anything the server sent is drawn instead.
+        assertFalse(ReviewForm(MyReviewResponse(standing = "eligible", canWrite = true)).nothingToShow)
+        assertFalse(ReviewForm(MyReviewResponse(standing = "closed", canWrite = false)).nothingToShow)
+        assertFalse(ReviewForm(mine(status = "published", canWrite = false)).nothingToShow)
+    }
+
+    @Test
     fun `a refused write names its day when the server sends one`() = runTest(dispatcher) {
         val api = FakeReviewsApi().apply {
             reads = listOf(AuthResult.Ok(eligible))

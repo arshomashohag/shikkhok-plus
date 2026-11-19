@@ -115,3 +115,14 @@ export function standingNote(state: MyReviewState): StandingNote | null {
 export function refusedFrom(error: ApiError | null): string | null {
   return error?.details?.eligible_from ?? null
 }
+
+/**
+ * Whether the editor has nothing of the server's to draw: no review, no
+ * standing note and no form. Reviews switched off before a first review,
+ * or an author whose review is gone, read this way; the screen then says
+ * a review cannot be written now rather than drawing an empty page. It
+ * reads only what the server sent.
+ */
+export function nothingToShow(state: MyReviewState): boolean {
+  return !state.review && !state.can_write && standingNote(state) === null
+}

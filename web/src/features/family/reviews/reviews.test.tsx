@@ -176,6 +176,37 @@ describe('Guardian reviews', () => {
     expect(standingNote(mine() as MyReviewState)).toBeNull()
   })
 
+  it('says a review cannot be written when nothing else would show', async () => {
+    // Switched off with no review, and an author whose review is gone:
+    // no review, no standing note and no form, so the screen says so.
+    for (const state of [
+      mine({ can_write: false }),
+      mine({ standing: 'author_only', can_write: false }),
+    ]) {
+      mockSignedIn(
+        (method, url) =>
+          url.endsWith(MY_REVIEW) && method === 'GET' ? json(200, state) : undefined,
+        'guardian',
+      )
+      const { unmount } = renderRoutes(ROUTES, `/reviews/${BATCH}`)
+      expect(await screen.findByText(en('hub_review_unavailable'))).toBeInTheDocument()
+      expect(screen.queryByRole('radio')).toBeNull()
+      unmount()
+    }
+
+    // A waiting member reads their reason instead.
+    mockSignedIn(
+      (method, url) =>
+        url.endsWith(MY_REVIEW) && method === 'GET'
+          ? json(200, mine({ standing: 'not_yet', waiting_on: 'attendance', can_write: false }))
+          : undefined,
+      'guardian',
+    )
+    renderRoutes(ROUTES, `/reviews/${BATCH}`)
+    expect(await screen.findByText(en('hub_review_needs_attendance'))).toBeInTheDocument()
+    expect(screen.queryByText(en('hub_review_unavailable'))).toBeNull()
+  })
+
   it('edit closed shows read-only with delete', async () => {
     mockSignedIn(
       (method, url) =>

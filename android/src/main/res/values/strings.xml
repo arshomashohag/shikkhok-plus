@@ -2202,6 +2202,7 @@
     <string name="hub_review_save">Save changes</string>
     <string name="hub_review_edit_until">You can edit until %1$s</string>
     <string name="hub_review_eligible_from">You can write it from %1$s.</string>
+    <string name="hub_review_unavailable">A review of this class can\'t be written right now.</string>
     <string name="hub_review_status_pending">Awaiting review</string>
     <string name="hub_review_status_approved">Approved, appears Friday</string>
     <string name="hub_review_status_published">Published</string>

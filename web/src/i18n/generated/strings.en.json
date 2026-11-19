@@ -944,6 +944,7 @@
   "hub_review_tenure_6_12m": "Verified guardian · enrolled 6–12 months",
   "hub_review_tenure_gt_1y": "Verified guardian · enrolled over 1 year",
   "hub_review_tenure_lt_6m": "Verified guardian · enrolled under 6 months",
+  "hub_review_unavailable": "A review of this class can't be written right now.",
   "hub_review_window_closed": "Reviews close 180 days after a child leaves the batch.",
   "hub_reviews_average": "{1} out of 5",
   "hub_reviews_below_threshold": "Ratings appear once a class has 3 reviews.",

@@ -96,7 +96,9 @@ data class ReviewEditorActions(
  * accepted, `standing` says why a member cannot write yet, and `status`
  * with `rejection_code` says where the review is in moderation. A failed
  * write keeps the rating and the words [TC-8]. Delete is offered for any
- * review, editable or not.
+ * review, editable or not. When the server sends nothing to draw, or
+ * reviews are off, the screen says a review cannot be written now rather
+ * than leaving the page blank below its title.
  *
  * @param state What to render
  * @param title The batch's public title, when the opener knew it
@@ -125,7 +127,7 @@ fun ReviewEditorScreen(
                     retryLabel = if (state.retryable) stringResource(R.string.auth_retry) else null,
                     onRetry = if (state.retryable) actions.onRetryLoad else null,
                 )
-            ReviewEditorUiState.Off -> Unit
+            ReviewEditorUiState.Off -> Unavailable()
             is ReviewEditorUiState.Ready -> Editor(state.form, busy = false, actions)
             is ReviewEditorUiState.Saving -> Editor(state.form, busy = true, actions)
         }
@@ -154,6 +156,7 @@ fun ReviewEditorScreen(
 @Composable
 private fun Editor(form: ReviewForm, busy: Boolean, actions: ReviewEditorActions) {
     if (form.deleted) Notice(stringResource(R.string.hub_review_deleted), actions.onDismissNotice)
+    if (form.nothingToShow) Unavailable()
     form.note?.let { note ->
         Banner(
             title = stringResource(MessageKeys.resolve(note.messageKey)),
@@ -192,6 +195,16 @@ private fun Editor(form: ReviewForm, busy: Boolean, actions: ReviewEditorActions
             enabled = !busy,
         )
     }
+}
+
+/** Says a review cannot be written now, when the server sent nothing else to draw. */
+@Composable
+private fun Unavailable() {
+    Banner(
+        title = stringResource(R.string.hub_review_unavailable),
+        body = null,
+        tone = BannerTone.INFO,
+    )
 }
 
 /**

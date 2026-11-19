@@ -31,6 +31,14 @@ data class ReviewForm(
 
     /** Why a member cannot write yet, in the server's words; null for an author. */
     val note: StandingNote? get() = review.standingNote()
+
+    /**
+     * Whether the server sent nothing to draw: no review, no standing note and no
+     * form. Reviews switched off before a first review, or an author whose review
+     * is gone, read this way; the screen says a review cannot be written now rather
+     * than drawing an empty page.
+     */
+    val nothingToShow: Boolean get() = review.review == null && !review.canWrite && note == null
 }
 
 /** What the review editor renders. */
@@ -60,7 +68,7 @@ sealed interface ReviewEditorUiState {
      */
     data class Error(val messageKey: String, val retryable: Boolean) : ReviewEditorUiState
 
-    /** Reviews are switched off: nothing is drawn. */
+    /** Reviews are switched off: the screen says a review cannot be written now. */
     data object Off : ReviewEditorUiState
 }
 

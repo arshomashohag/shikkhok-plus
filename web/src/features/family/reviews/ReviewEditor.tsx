@@ -7,6 +7,10 @@
  * with `rejection_code` says where the review is in moderation. The client
  * counts no days, sessions or reviews.
  *
+ * When the server sends nothing to draw -- no review, no standing note,
+ * no form -- the screen says a review cannot be written now, rather than
+ * leaving the page blank below its title.
+ *
  * A failed write keeps the rating and the words; Retry is offered only
  * when the server says trying again can help, or the connection dropped
  * [TC-8]. A delete is sent only from its confirmation, and is never
@@ -33,6 +37,7 @@ import { deleteMyReview, readMyReview, saveMyReview } from './api'
 import {
   MAX_TEXT,
   REVIEW_STATUS_CHIP,
+  nothingToShow,
   STARS,
   TENURE_KEY,
   refusedFrom,
@@ -165,6 +170,14 @@ function Editor({ batchId, initial }: { batchId: string; initial: MyReviewState 
 
   return (
     <>
+      {nothingToShow(state) ? (
+        <div className="banner info" role="status">
+          <div className="grow">
+            <p style={{ margin: 0 }}>{t('hub_review_unavailable')}</p>
+          </div>
+        </div>
+      ) : null}
+
       {note ? (
         <div className="banner info" role="status">
           <div className="grow">
