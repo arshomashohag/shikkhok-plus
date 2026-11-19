@@ -277,7 +277,10 @@ def _require_rating(rating: int) -> None:
 
 
 def _dated(assessment: Assessment) -> dict[str, str] | None:
-    """Give a refusal's ``eligible_from`` detail, when tenure is unmet [F20].
+    """Give a refusal's ``eligible_from`` detail, when tenure alone is unmet.
+
+    The assessment carries a date only then [FR-c], so a refusal naming
+    attendance never carries one.
 
     :param assessment: The caller's standing
     :return: The detail, or None when no date is known
@@ -310,7 +313,6 @@ def _refuse_create(assessment: Assessment) -> None:
         raise ConflictError(
             code="REVIEW_NOT_YET_ELIGIBLE",
             message_key="hub.review.needs_attendance",
-            details=_dated(assessment),
         )
     raise ConflictError(
         code="REVIEW_NOT_YET_ELIGIBLE",

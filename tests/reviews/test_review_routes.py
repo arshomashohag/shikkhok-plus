@@ -426,6 +426,40 @@ def test_waiting_and_closed_standings_on_the_wire(
 
 
 @pytest.mark.usefixtures("reviews_on")
+def test_no_date_on_the_wire_while_classes_are_still_needed(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """FR-c: ``eligible_from`` travels only with tenure alone unmet.
+
+    A family short of both tenure and classes is told it needs classes, on
+    the read, the list and the refused write alike, and is given no day.
+    """
+    batch = public_batch(owner_session, title="A new batch")
+    guardian = account(owner_session)
+    _member(owner_session, batch.batch_id, guardian, joined_days_ago=10, attended=1)
+    headers = bearer(owner_session, guardian)
+    path = MY_REVIEW.format(batch_id=batch.batch_id)
+
+    read = api_client.get(path, headers=headers)
+    assert read.status_code == 200, read.text
+    assert (read.json()["waiting_on"], read.json()["eligible_from"]) == (
+        "attendance",
+        None,
+    )
+
+    listed = api_client.get("/v1/hub/reviewable", headers=headers).json()
+    assert [(row["state"], row["eligible_from"]) for row in listed] == [
+        ("not_yet", None)
+    ]
+
+    refused = api_client.put(path, headers=headers, json={"rating": 4})
+    assert refused.status_code == 409, refused.text
+    error = refused.json()["error"]
+    assert error["message_key"] == "hub.review.needs_attendance"
+    assert error.get("details") is None
+
+
+@pytest.mark.usefixtures("reviews_on")
 def test_write_validation_strips_before_counting(
     api_client: TestClient, owner_session: Session
 ) -> None:

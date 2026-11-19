@@ -9884,8 +9884,9 @@ export interface components {
      *
      *     :ivar standing: ``eligible``, ``not_yet``, ``closed`` or ``author_only``
      *     :ivar waiting_on: What a ``not_yet`` caller still needs
-     *     :ivar eligible_from: The day a ``not_yet`` caller's tenure is met;
-     *         never set on a closed window, which has no day to come [T3-b]
+     *     :ivar eligible_from: The day a ``not_yet`` caller's tenure is met,
+     *         sent only when tenure alone is unmet [FR-c]: never while classes
+     *         are also needed, nor on a closed window [T3-b]
      *     :ivar can_write: Whether a write now would be accepted
      *     :ivar edit_until: The last day, in Bangladesh, an edit is accepted
      *     :ivar review: The caller's review, or None
@@ -11348,8 +11349,8 @@ export interface components {
      *     :ivar owner_public_name: Its owner's public name
      *     :ivar state: ``eligible``, ``not_yet``, or ``reviewed`` once the caller
      *         wrote a review, whatever their standing now
-     *     :ivar eligible_from: The day a ``not_yet`` caller's tenure is met, when
-     *         it is still to come; None otherwise
+     *     :ivar eligible_from: The day a ``not_yet`` caller's tenure is met,
+     *         sent only when tenure alone is unmet [FR-c]; None otherwise
      */
     ReviewableBatch: {
       /**

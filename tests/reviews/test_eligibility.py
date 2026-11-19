@@ -213,10 +213,14 @@ def test_attendance_in_another_batch_does_not_count(
     assert found.waiting_on == "attendance"
 
 
-def test_tenure_and_attendance_unmet_waits_on_attendance_with_eligible_from(
+def test_tenure_and_attendance_unmet_waits_on_attendance_without_a_date(
     owner_session: Session, restricted_session: Session
 ) -> None:
-    """F20: the date is given whenever tenure is unmet, not only alone."""
+    """FR-c: the date is given only when tenure alone is unmet.
+
+    Day 30 is not a day this family can review on while it still needs
+    classes, so no date is sent at all (revising F20).
+    """
     batch = public_batch(owner_session)
     guardian = account(owner_session)
     joined = TODAY - _days(5)
@@ -226,7 +230,7 @@ def test_tenure_and_attendance_unmet_waits_on_attendance_with_eligible_from(
 
     assert found.standing == "not_yet"
     assert found.waiting_on == "attendance"
-    assert found.eligible_from == joined + _days(30)
+    assert found.eligible_from is None
 
 
 # --- Condition 6: recency --------------------------------------------------
@@ -542,10 +546,15 @@ def test_waiting_siblings_prefer_the_seat_waiting_only_on_tenure(
     assert found.eligible_from == joined + _days(30)
 
 
-def test_waiting_siblings_never_hide_a_known_date(
+def test_siblings_all_needing_classes_are_given_no_date(
     owner_session: Session, restricted_session: Session
 ) -> None:
-    """T3-d: a dated seat beats an earlier undated one."""
+    """FR-c: no seat lacks only tenure, so no real day exists to send.
+
+    One sibling has tenure but too few classes; the other lacks both. Under
+    F20 the second seat's day 30 was shown, though attendance still stood
+    between the family and a review on that day.
+    """
     batch = public_batch(owner_session)
     guardian = account(owner_session)
     _seat(
@@ -555,14 +564,19 @@ def test_waiting_siblings_never_hide_a_known_date(
         joined_on=TODAY - _days(100),
         attended=2,
     )
-    joined = TODAY - _days(20)
-    dated = _seat(owner_session, batch.batch_id, guardian, joined_on=joined, attended=1)
+    _seat(
+        owner_session,
+        batch.batch_id,
+        guardian,
+        joined_on=TODAY - _days(20),
+        attended=1,
+    )
 
     found = _assess(restricted_session, guardian, batch.batch_id)
 
-    assert found.enrollment_id == dated
+    assert found.standing == "not_yet"
     assert found.waiting_on == "attendance"
-    assert found.eligible_from == joined + _days(30)
+    assert found.eligible_from is None
 
 
 @pytest.mark.parametrize(

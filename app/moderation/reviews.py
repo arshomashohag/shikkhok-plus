@@ -10,17 +10,19 @@ A rejection carries one of :data:`~app.moderation.vocab.REVIEW_REJECTION_CODES`.
 reply at once** [H3 deviation 2 applied to reviews]. :func:`hold` runs in
 the report's own transaction, so a report that rolls back leaves the item
 published. A held item keeps its ``published_month`` and leaves the views;
-the owner's pages are evicted. **Except a report by the batch's own owner or
-managers** [F10]: spec section 6 lets the owner "report; never hide or
-delete", so their report holds nothing and waits in the queue on the 24-hour
-child-safety timetable like any other (:func:`runs_batch`).
+the owner's pages are evicted. **Except a report by someone who runs the
+batch** [F10, I-2] -- its owner, its managers, or a teacher assigned to it,
+the very set eligibility refuses as reviewers: spec section 6 lets the owner
+"report; never hide or delete", so their report holds nothing and waits in
+the queue on the 24-hour child-safety timetable like any other
+(:func:`runs_batch`).
 
 **A decision on a report carries to its target** (:func:`settle_report`, in
 the decision's transaction). Upheld: the target is removed whatever its
 status -- published, held, approved or back in ``pending`` after an edit or
 a replacement [F9] -- with the code mapped from the report's reason.
 Dismissed: a held target is restored, unless another open holding report,
-not filed by the batch's owner or managers, still names it.
+not filed by someone who runs the batch, still names it.
 
 **A review's author is told when it is rejected or removed** -- by either
 path above, in the decision's transaction -- as ``hub_review_outcome`` with
@@ -60,15 +62,12 @@ from sqlalchemy.orm import Session
 
 from app.authz.lenses import PlatformAdminLens
 from app.db.models import (
-    BatchListing,
     HubModerationEvent,
     HubReport,
-    Owner,
     Review,
     ReviewReply,
 )
 from app.errors import ConflictError, ValidationError
-from app.hub.listings.shared import managing_accounts
 from app.hub.public import invalidation
 from app.hub.public.settings import reviews_enabled
 from app.local_time import bangladesh_today
@@ -78,6 +77,7 @@ from app.moderation.vocab import (
     REPORT_REJECTION_CODES,
     REVIEW_REJECTION_CODES,
 )
+from app.reviews.eligibility import runs_batch_sql
 from app.reviews.identity import review_author_ref
 from app.reviews.publication import tell_author
 
@@ -137,6 +137,33 @@ _OWNER_SLUG: Final = sa.text(
     """
 )
 
+#: Whether an account runs the batch a review is of [F10, I-2].
+_RUNS_BATCH: Final = sa.text(
+    f"""
+    SELECT {runs_batch_sql("r.batch_id", ":account_id")}
+    FROM review r
+    WHERE r.id = :review_id
+    """  # noqa: S608  module constants, never input
+)
+
+#: Whether an open holding report, other than one being decided, by someone
+#: who does not run the batch, still names a review or reply [T7-c, F10].
+_STILL_HELD: Final = sa.text(
+    f"""
+    SELECT EXISTS (
+        SELECT 1
+        FROM hub_report h
+        JOIN review r ON r.id = h.target_id
+        WHERE h.target_kind = CAST(:target_kind AS hub_report_target)
+          AND h.target_id = :target_id
+          AND h.status = 'open'
+          AND h.reason::text = ANY(:reasons)
+          AND (CAST(:report_id AS uuid) IS NULL
+               OR h.id <> CAST(:report_id AS uuid))
+          AND NOT {runs_batch_sql("r.batch_id", "h.reporter_account_id")})
+    """  # noqa: S608  module constants, never input
+)
+
 #: The latest hold of each held review or reply: when, and the reason [F11].
 _LATEST_HOLD: Final = """
     SELECT DISTINCT ON (target_kind, target_id)
@@ -147,7 +174,10 @@ _LATEST_HOLD: Final = """
 """
 
 #: Every review and reply waiting for a decision, and since when: an edit or
-#: a replacement restarts the wait, a hold starts it at the hold.
+#: a replacement restarts the wait, a hold starts it at the hold. A reply
+#: whose review is rejected or removed is left out: it can never be shown
+#: unless its review's author edits it back to ``pending``, which lists it
+#: again.
 _WAITING: Final = sa.text(
     f"""
     WITH held AS ({_LATEST_HOLD})
@@ -176,6 +206,7 @@ _WAITING: Final = sa.text(
     LEFT JOIN held h ON h.kind = 'reply' AND h.target_id = r.id
                     AND p.status = 'held'
     WHERE p.status IN ('pending', 'held')
+      AND r.status NOT IN ('rejected', 'removed')
     ORDER BY since, review_id, kind
     """  # noqa: S608  module constants, never input
 )
@@ -395,33 +426,27 @@ def lock(
     ).scalar_one_or_none()
 
 
-def _managers(session: Session, review_id: uuid.UUID) -> set[uuid.UUID]:
-    """Find who runs the batch a review is of.
-
-    :param session: The session
-    :param review_id: The review
-    :return: The owner's account and its accepted, unrevoked managers
-    """
-    owner_id = session.scalar(
-        sa.select(BatchListing.owner_id)
-        .join(Review, Review.batch_id == BatchListing.batch_id)
-        .where(Review.id == review_id)
-    )
-    owner = None if owner_id is None else session.get(Owner, owner_id)
-    return set() if owner is None else set(managing_accounts(session, owner))
-
-
 def runs_batch(session: Session, review_id: uuid.UUID, account_id: uuid.UUID) -> bool:
-    """Say whether an account runs the batch a review is of [F10].
+    """Say whether an account runs the batch a review is of [F10, I-2].
 
     Its reports hold nothing: the owner "may report; never hide or delete".
+    "Runs" is eligibility's own exclusion, from the one shared predicate
+    (:func:`~app.reviews.eligibility.runs_batch_sql`): the owner's account,
+    its accepted, unrevoked managers, and any such member assigned to teach
+    the batch by slot or by class. Whoever may not review a batch may not
+    take its reviews down either.
 
     :param session: The session
     :param review_id: The review, or the review a reply answers
     :param account_id: The reporter
-    :return: True for the owner's account or an accepted, unrevoked manager
+    :return: True when the account runs the batch; False for anyone else,
+        and for a review that does not exist
     """
-    return account_id in _managers(session, review_id)
+    return bool(
+        session.execute(
+            _RUNS_BATCH, {"review_id": review_id, "account_id": account_id}
+        ).scalar_one_or_none()
+    )
 
 
 def _event(
@@ -581,12 +606,15 @@ def decide(
     A held item keeps its month on a restore; a rejection or removal clears
     it. A change to what the public sees evicts the owner's pages.
 
-    **A held item is not approved over a standing report** [T7-c]: while an
-    open child-safety or personal-information report holds it, approval is
-    refused, as a photo's is (``MEDIA_REPORT_OPEN``). Deciding that report
-    is what restores it. A report by the batch's own owner or managers holds
-    nothing [F10] and so blocks nothing. A rejection is never refused for
-    an open report.
+    **Nothing is approved over a standing report** [T7-c, I-1]: while an
+    open child-safety or personal-information report names the item,
+    approval is refused, as a photo's is (``MEDIA_REPORT_OPEN``) -- whether
+    the item is still ``held`` or was moved back to ``pending`` by its
+    author's edit or its owner's replacement, which change the words but
+    settle no report. Deciding that report is what restores a held item,
+    or frees a pending one for approval. A report by someone who runs the
+    batch holds nothing [F10, I-2] and so blocks nothing. A rejection is
+    never refused for an open report.
 
     :param session: The session
     :param lens: The administrator's lens
@@ -602,8 +630,8 @@ def decide(
         approval, or a rejection without one of the five codes
     :raises AuthorizationError: No such review, or no reply to it
     :raises ConflictError: ``REVIEW_ALREADY_DECIDED``: the target is neither
-        pending nor held; ``REVIEW_REPORT_OPEN``: an approval of a held
-        target an open holding report still names
+        pending nor held; ``REVIEW_REPORT_OPEN``: an approval of a
+        target, held or pending, an open holding report still names
     """
     fits = code is None if approve else code in REVIEW_REJECTION_CODES
     if not fits:
@@ -615,11 +643,9 @@ def decide(
         before = item.status
         if before not in DECIDABLE:
             raise _already_decided()
-        if (
-            approve
-            and before == "held"
-            and _still_held(session, target_kind, target_id, None)
-        ):
+        # Whatever the status: an author's edit or an owner's replacement
+        # moves a held item to pending without settling its report [I-1].
+        if approve and _still_held(session, target_kind, target_id, None):
             raise _report_open()
         if approve and before == "held":
             act = "restored"
@@ -667,7 +693,7 @@ def _still_held(
 ) -> bool:
     """Say whether an open report keeps a review or reply held.
 
-    A report by the batch's owner or managers holds nothing [F10], so it
+    A report by someone who runs the batch holds nothing [F10, I-2], so it
     keeps nothing held either.
 
     :param session: The session
@@ -679,19 +705,17 @@ def _still_held(
         (other than ``report_id``), by someone who does not run the batch,
         names the target
     """
-    query = sa.select(HubReport.reporter_account_id).where(
-        HubReport.target_kind == target_kind,
-        HubReport.target_id == target_id,
-        HubReport.status == "open",
-        HubReport.reason.in_(sorted(HOLD_REASONS)),
+    return bool(
+        session.execute(
+            _STILL_HELD,
+            {
+                "target_kind": target_kind,
+                "target_id": target_id,
+                "reasons": sorted(HOLD_REASONS),
+                "report_id": report_id,
+            },
+        ).scalar_one()
     )
-    if report_id is not None:
-        query = query.where(HubReport.id != report_id)
-    reporters = session.scalars(query).all()
-    if not reporters:
-        return False
-    managers = _managers(session, target_id)
-    return any(reporter not in managers for reporter in reporters)
 
 
 def settle_report(

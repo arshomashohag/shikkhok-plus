@@ -26,9 +26,9 @@ Conditions 4-6 apply to a member, and decide the **standing**:
 batch is assessed once. The seat standing for them is the eligible one with
 the earliest join date; when none is eligible, a seat still inside the
 recency window comes before a closed one, so a long-gone child does not
-close the batch for a newer sibling; among waiting seats, the one with the
-earliest known ``eligible_from`` is shown, so a known date is never hidden;
-then the earliest join date.
+close the batch for a newer sibling; among waiting seats, one lacking only
+tenure comes first, so its known ``eligible_from`` is never hidden; then
+the earliest join date.
 
 **Nobody who runs the batch reviews it** [T3-c]: its owner, its managers
 and its assigned teachers are refused as non-members, revealing nothing.
@@ -42,9 +42,10 @@ unpublished listing.
 from __future__ import annotations
 
 import datetime as dt
+import re
 import uuid
 from dataclasses import dataclass
-from typing import Literal, cast
+from typing import Final, Literal, cast
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Row
@@ -57,6 +58,7 @@ __all__ = [
     "Tenure",
     "assess",
     "reviewable",
+    "runs_batch_sql",
 ]
 
 #: Where an account stands with one batch.
@@ -68,6 +70,64 @@ Tenure = Literal["lt_6m", "6_12m", "gt_1y"]
 #: Which unmet condition a ``not_yet`` member waits on.
 WaitingOn = Literal["tenure", "attendance"]
 
+#: What :func:`runs_batch_sql` accepts as an operand: a column, a qualified
+#: column or a bound parameter, never anything a caller typed.
+_OPERAND: Final = re.compile(r"^:?[a-z_]+(?:\.[a-z_]+)?$")
+
+
+def runs_batch_sql(batch_id: str, account_id: str) -> str:
+    """Write the SQL predicate "this account runs this batch" [T3-c, F10].
+
+    **The one definition of who runs a batch**, shared by eligibility (who
+    may not review it) and by moderation (whose report holds nothing, and
+    keeps nothing held), so the two sets cannot drift apart [I-2]. Running
+    it means being any of:
+
+    * the owner's own account (a solo tutor);
+    * an accepted, unrevoked manager of the owner;
+    * an accepted, unrevoked member assigned to teach this batch, by a
+      weekly slot or by a single class.
+
+    All three set ``joined_on``, mark attendance or control the seat, so
+    they could otherwise be a "verified guardian" of their own batch, or
+    take its reviews down at once with a report.
+
+    The predicate is an ``EXISTS``, so it is true or false and never NULL,
+    and its aliases are prefixed ``rb_`` so it nests inside any statement.
+
+    :param batch_id: A SQL expression naming the batch, e.g. ``e.batch_id``
+    :param account_id: A SQL expression naming the account, e.g.
+        ``:account_id`` or ``h.reporter_account_id``
+    :return: The predicate, to embed in a statement
+    :raises ValueError: An operand that is not a plain column or parameter
+    """
+    for operand in (batch_id, account_id):
+        if not _OPERAND.match(operand):
+            msg = f"not a column or parameter: {operand!r}"
+            raise ValueError(msg)
+    return f"""EXISTS (
+        SELECT 1
+        FROM batch rb_batch
+        JOIN owner rb_owner ON rb_owner.id = rb_batch.owner_id
+        WHERE rb_batch.id = {batch_id}
+          AND (rb_owner.account_id = {account_id}
+               OR EXISTS (
+                   SELECT 1 FROM owner_member rb_member
+                   WHERE rb_member.owner_id = rb_batch.owner_id
+                     AND rb_member.account_id = {account_id}
+                     AND rb_member.decision = 'accepted'
+                     AND rb_member.revoked_at IS NULL
+                     AND (rb_member.role = 'manager'
+                          OR EXISTS (
+                              SELECT 1 FROM schedule_slot rb_slot
+                              WHERE rb_slot.batch_id = rb_batch.id
+                                AND rb_slot.teacher_member_id = rb_member.id)
+                          OR EXISTS (
+                              SELECT 1 FROM session rb_class
+                              WHERE rb_class.batch_id = rb_batch.id
+                                AND rb_class.teacher_member_id = rb_member.id)))))"""  # noqa: S608  module constants, never input
+
+
 #: ONE statement: every condition, the seat choice and the standing.
 #:
 #: ``:batch_id`` NULL means every batch, which is how the reviewable list
@@ -75,24 +135,23 @@ WaitingOn = Literal["tenure", "attendance"]
 #:
 #: ``seat`` applies membership (conditions 1-3) as joins and filters, so a
 #: seat failing one never reaches the rest. It also refuses membership to
-#: anyone who runs the batch [T3-c]: the owner's own account, the accepted,
-#: unrevoked managers (``managing_accounts``'s set) and any live member
-#: assigned to teach it, by weekly slot or by a single class. They set
-#: ``joined_on`` and mark attendance, so they could otherwise be "verified
-#: guardians" of their own batch on day one.
+#: anyone who runs the batch [T3-c], as :func:`runs_batch_sql` defines it.
 #:
 #: ``judged`` computes 4-6 per seat. ``evidence`` keeps one seat per batch:
 #: eligible first; then one still inside the recency window; then, among
-#: waiting seats, one lacking only tenure, whose ``eligible_from`` is a real
-#: day; then one lacking tenure at all, so a known date is never hidden
-#: behind an undated seat [T3-d]; then the earliest join. The final
-#: ``UNION ALL`` adds the batches the account reviewed without being a
-#: member.
+#: waiting seats, one lacking only tenure [T3-g]; then the earliest join,
+#: which among seats lacking only tenure is the earliest ``eligible_from``,
+#: so a known date is never hidden [T3-d]. The final ``UNION ALL`` adds the
+#: batches the account reviewed without being a member.
+#:
+#: ``eligible_from`` is set **only when tenure alone is unmet** [FR-c,
+#: revising F20]: for a seat still short of classes, day 30 is not a day
+#: the family can review on, so no date is given at all.
 #:
 #: The tenure date is ``created_at`` read in Bangladesh when ``joined_on``
 #: is unset: a seat created at 20:00 UTC was created the next day there.
 ELIGIBILITY_QUERY = sa.text(
-    """
+    f"""
     WITH seat AS (
         SELECT e.id AS enrollment_id,
                e.batch_id,
@@ -112,28 +171,7 @@ ELIGIBILITY_QUERY = sa.text(
           AND e.guardian_relink_blocked_at IS NULL
           AND (CAST(:batch_id AS uuid) IS NULL
                OR e.batch_id = CAST(:batch_id AS uuid))
-          AND NOT EXISTS (
-              SELECT 1 FROM owner o
-              WHERE o.id = b.owner_id AND o.account_id = :account_id)
-          AND NOT EXISTS (
-              SELECT 1 FROM owner_member m
-              WHERE m.owner_id = b.owner_id
-                AND m.account_id = :account_id
-                AND m.decision = 'accepted'
-                AND m.revoked_at IS NULL
-                AND m.role = 'manager')
-          AND NOT EXISTS (
-              SELECT 1 FROM owner_member m
-              WHERE m.owner_id = b.owner_id
-                AND m.account_id = :account_id
-                AND m.decision = 'accepted'
-                AND m.revoked_at IS NULL
-                AND (EXISTS (SELECT 1 FROM schedule_slot ss
-                             WHERE ss.batch_id = e.batch_id
-                               AND ss.teacher_member_id = m.id)
-                     OR EXISTS (SELECT 1 FROM session s
-                                WHERE s.batch_id = e.batch_id
-                                  AND s.teacher_member_id = m.id)))
+          AND NOT {runs_batch_sql("e.batch_id", ":account_id")}
     ),
     judged AS (
         SELECT seat.*,
@@ -157,7 +195,6 @@ ELIGIBILITY_QUERY = sa.text(
                  (tenure_ok AND attendance_ok AND recent) DESC,
                  recent DESC,
                  attendance_ok DESC,
-                 tenure_ok,
                  joined,
                  enrollment_id
     )
@@ -172,7 +209,7 @@ ELIGIBILITY_QUERY = sa.text(
            CASE WHEN ev.eligible OR NOT ev.recent THEN NULL
                 WHEN NOT ev.attendance_ok THEN 'attendance'
                 ELSE 'tenure' END AS waiting_on,
-           CASE WHEN ev.recent AND NOT ev.tenure_ok
+           CASE WHEN ev.recent AND ev.attendance_ok AND NOT ev.tenure_ok
                 THEN ev.joined + 30 END AS eligible_from,
            CASE WHEN ev.joined + interval '6 months' > CAST(:today AS date)
                 THEN 'lt_6m'
@@ -200,7 +237,7 @@ ELIGIBILITY_QUERY = sa.text(
            OR r.batch_id = CAST(:batch_id AS uuid))
       AND NOT EXISTS (SELECT 1 FROM seat WHERE seat.batch_id = r.batch_id)
     ORDER BY batch_title, batch_id
-    """
+    """  # noqa: S608  module constants, never input
 )
 
 
@@ -218,8 +255,9 @@ class Assessment:
     :ivar standing: ``eligible``, ``not_yet``, ``closed`` or ``author_only``
     :ivar waiting_on: For ``not_yet``, the unmet condition the refusal
         names; attendance when both tenure and attendance are unmet
-    :ivar eligible_from: The day tenure is met, whenever a ``not_yet``
-        member has not met it yet [F20]
+    :ivar eligible_from: The day tenure is met, only for a ``not_yet``
+        member who lacks tenure alone [FR-c]; None while classes are also
+        still needed
     :ivar tenure: The evidencing seat's tenure bucket, for a member
     """
 

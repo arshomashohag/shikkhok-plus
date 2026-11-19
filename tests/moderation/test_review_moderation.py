@@ -27,7 +27,7 @@ from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
 
 from app.authz.admin import PLATFORM_ADMIN_PHONES_ENV
-from app.authz.lenses import PlatformAdminLens
+from app.authz.lenses import PlatformAdminLens, TeacherLens
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.hub.public.invalidation import owner_paths
 from app.hub.public.settings import HUB_REVIEWS_ENV
@@ -39,16 +39,19 @@ from app.moderation.vocab import (
     ReviewRejectionCode,
 )
 from app.reviews import authoring
+from app.reviews import owner as owner_reviews
 from app.reviews.eligibility import Assessment
 from app.reviews.identity import review_author_ref
 from app.reviews.lens import ReviewerLens
 from tests.help.conftest import People, phone_of
+from tests.hub.support import add_member, assign_slot
 from tests.moderation.conftest import admin_headers
 from tests.reviews.support import (
     PublicBatch,
     account,
     add_review,
     guardian_seat,
+    hold_classes,
     public_batch,
     public_centre_batch,
 )
@@ -688,6 +691,102 @@ def test_approving_a_held_item_waits_for_its_open_holding_report(
     assert approve(other) == "published"
 
 
+def _editing_lens(batch: PublicBatch, author: uuid.UUID) -> ReviewerLens:
+    """Build an eligible author's reviewer lens, for an edit inside the window.
+
+    :param batch: The batch
+    :param author: The author
+    :return: The lens
+    """
+    return ReviewerLens(
+        account_id=author,
+        batch_id=batch.batch_id,
+        assessment=Assessment(
+            batch_id=batch.batch_id,
+            batch_title="HSC Physics",
+            owner_public_name="Rahim Sir",
+            enrollment_id=None,
+            review_id=None,
+            standing="eligible",
+            waiting_on=None,
+            eligible_from=None,
+            tenure="lt_6m",
+        ),
+    )
+
+
+@pytest.mark.usefixtures("reviews_on")
+@pytest.mark.parametrize("kind", ["review", "reply"])
+def test_an_edit_does_not_take_a_held_item_past_its_open_report(
+    owner_session: Session, restricted_session: Session, kind: str
+) -> None:
+    """I-1, T7-c: no approval at all while a holding report stands.
+
+    A child-safety report holds a review or reply. The author edits the
+    review, or the owner replaces the reply, through the services: either
+    moves it from ``held`` to ``pending``. Approving it now would publish
+    the reply at once, or queue the review for Friday, over a report nobody
+    has decided. It is refused, and stays pending, until the report is
+    settled; then it is approved like any pending item.
+    """
+    batch = public_batch(owner_session)
+    author = account(owner_session)
+    target = _reviewed(owner_session, batch.batch_id, "published", author=author)
+    _published(owner_session, batch.batch_id, n=2)
+    _reply(owner_session, target)
+    _file(restricted_session, kind, target, "child_safety", owner_session=owner_session)
+    (standing,) = _report_id(owner_session, kind, target)
+    admin = _admin(owner_session)
+
+    def status_of() -> str:
+        if kind == "review":
+            return str(_review(owner_session, target).status)
+        return str(_reply_row(owner_session, target).status)
+
+    def approve() -> str:
+        return reviews.decide(
+            restricted_session,
+            admin,
+            kind,  # type: ignore[arg-type]
+            target,
+            approve=True,
+            code=None,
+            now=_now(),
+            correlation_id="c1",
+        )
+
+    assert status_of() == "held"
+    if kind == "review":
+        authoring.write(
+            restricted_session,
+            _editing_lens(batch, author),
+            rating=2,
+            body="Changed my mind.",
+            now=_now(),
+        )
+    else:
+        owner_reviews.put_reply(
+            restricted_session,
+            TeacherLens(account_id=batch.teacher_account_id, owner_id=batch.owner_id),
+            target,
+            "A different reply.",
+            _now(),
+        )
+    assert status_of() == "pending"
+
+    with pytest.raises(ConflictError) as caught:
+        approve()
+    restricted_session.rollback()
+    assert (caught.value.code, caught.value.status) == ("REVIEW_REPORT_OPEN", 409)
+    assert status_of() == "pending"
+    assert [e for e in _events(owner_session) if e[0].endswith("_approved")] == []
+
+    reports.decide(restricted_session, admin, standing, "dismissed", _now())
+    assert status_of() == "pending"
+    assert approve() == ("approved" if kind == "review" else "published")
+    assert status_of() == ("approved" if kind == "review" else "published")
+
+
 @pytest.mark.usefixtures("reviews_on")
 @pytest.mark.parametrize("kind", ["review", "reply"])
 def test_rejecting_a_held_item_with_an_open_report_is_allowed(
@@ -859,6 +958,74 @@ def test_owner_report_does_not_hold_review(
         _now(),
     )
     assert _review(owner_session, target).status == "published"
+
+
+@pytest.mark.usefixtures("reviews_on")
+@pytest.mark.parametrize("assigned_by", ["weekly-slot", "one-class"])
+def test_class_teacher_report_holds_nothing_and_keeps_nothing_held(
+    owner_session: Session, restricted_session: Session, assigned_by: str
+) -> None:
+    """I-2: whoever may not review a batch may not hide its reviews either.
+
+    A centre teacher assigned to the batch, by weekly slot or by a single
+    class, runs it exactly as eligibility counts it [T3-c]: their
+    child-safety report goes to the queue and holds nothing, it does not
+    keep an item held once a stranger's report is dismissed, and it does
+    not block an approval. An unrelated guardian's report still holds.
+    """
+    batch = public_centre_batch(owner_session)
+    member_id, teacher = add_member(owner_session, batch.owner_id)
+    if assigned_by == "weekly-slot":
+        assign_slot(owner_session, batch.batch_id, member_id)
+    else:
+        (klass,) = hold_classes(owner_session, batch.batch_id, 1)
+        owner_session.execute(
+            sa.text("UPDATE session SET teacher_member_id = :m WHERE id = :s"),
+            {"m": member_id, "s": klass},
+        )
+        owner_session.commit()
+    target, other, third = _published(owner_session, batch.batch_id)
+    _reply(owner_session, other)
+
+    for kind, item in (("reply", other), ("review", target)):
+        _file(restricted_session, kind, item, "child_safety", teacher)
+
+    assert _reply_row(owner_session, other).status == "published"
+    assert _review(owner_session, target).status == "published"
+    assert _invalidated(owner_session) == set()
+
+    # An unrelated guardian's report holds; dismissed, the teacher's does
+    # not keep the review held.
+    _file(
+        restricted_session,
+        "review",
+        target,
+        "child_safety",
+        owner_session=owner_session,
+    )
+    assert _review(owner_session, target).status == "held"
+    stranger_report = _report_id(owner_session, "review", target)[-1]
+    reports.decide(
+        restricted_session, _admin(owner_session), stranger_report, "dismissed", _now()
+    )
+    assert _review(owner_session, target).status == "published"
+
+    # Held another way, the teacher's open report blocks no approval.
+    _set_status(owner_session, third, "held")
+    _open_report(owner_session, "review", third, "child_safety", reporter=teacher)
+    assert (
+        reviews.decide(
+            restricted_session,
+            _admin(owner_session),
+            "review",
+            third,
+            approve=True,
+            code=None,
+            now=_now(),
+            correlation_id="c1",
+        )
+        == "published"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1139,6 +1306,32 @@ def test_review_queue_lists_pending_and_held_oldest_first(
     assert items[2].author_ref == review_author_ref(author)
     assert items[2].author_role == "guardian"
     assert ("reply_body", "Thanks.") in items[1].fields
+
+
+@pytest.mark.usefixtures("reviews_on")
+@pytest.mark.parametrize("review_status", ["removed", "rejected"])
+@pytest.mark.parametrize("reply_status", ["pending", "held"])
+def test_queue_leaves_out_a_reply_whose_review_can_never_be_shown(
+    owner_session: Session,
+    restricted_session: Session,
+    review_status: str,
+    reply_status: str,
+) -> None:
+    """A reply under a removed or rejected review has nothing to answer.
+
+    Only an edit by its author brings such a review back, as ``pending``;
+    until then its reply waits on nothing a moderator can usefully decide.
+    A reply under a review that can still be shown stays listed.
+    """
+    batch = public_batch(owner_session)
+    gone = _reviewed(owner_session, batch.batch_id, review_status)
+    live = _reviewed(owner_session, batch.batch_id, "published")
+    _reply(owner_session, gone, status=reply_status)
+    _reply(owner_session, live, status=reply_status)
+
+    items = reports.queue(restricted_session, "review")
+
+    assert [i.target_id for i in items if i.target_kind == "reply"] == [live]
 
 
 @pytest.mark.usefixtures("reviews_on")

@@ -7724,7 +7724,7 @@
         "type": "object"
       },
       "MyReviewResponse": {
-        "description": "Where the caller stands with one batch's review.\n\n:ivar standing: ``eligible``, ``not_yet``, ``closed`` or ``author_only``\n:ivar waiting_on: What a ``not_yet`` caller still needs\n:ivar eligible_from: The day a ``not_yet`` caller's tenure is met;\n    never set on a closed window, which has no day to come [T3-b]\n:ivar can_write: Whether a write now would be accepted\n:ivar edit_until: The last day, in Bangladesh, an edit is accepted\n:ivar review: The caller's review, or None",
+        "description": "Where the caller stands with one batch's review.\n\n:ivar standing: ``eligible``, ``not_yet``, ``closed`` or ``author_only``\n:ivar waiting_on: What a ``not_yet`` caller still needs\n:ivar eligible_from: The day a ``not_yet`` caller's tenure is met,\n    sent only when tenure alone is unmet [FR-c]: never while classes\n    are also needed, nor on a closed window [T3-b]\n:ivar can_write: Whether a write now would be accepted\n:ivar edit_until: The last day, in Bangladesh, an edit is accepted\n:ivar review: The caller's review, or None",
         "properties": {
           "can_write": {
             "title": "Can Write",
@@ -10856,7 +10856,7 @@
         "type": "object"
       },
       "ReviewableBatch": {
-        "description": "One batch the caller may review, is waiting to, or has reviewed.\n\n:ivar batch_id: The batch\n:ivar batch_title: Its public title\n:ivar owner_public_name: Its owner's public name\n:ivar state: ``eligible``, ``not_yet``, or ``reviewed`` once the caller\n    wrote a review, whatever their standing now\n:ivar eligible_from: The day a ``not_yet`` caller's tenure is met, when\n    it is still to come; None otherwise",
+        "description": "One batch the caller may review, is waiting to, or has reviewed.\n\n:ivar batch_id: The batch\n:ivar batch_title: Its public title\n:ivar owner_public_name: Its owner's public name\n:ivar state: ``eligible``, ``not_yet``, or ``reviewed`` once the caller\n    wrote a review, whatever their standing now\n:ivar eligible_from: The day a ``not_yet`` caller's tenure is met,\n    sent only when tenure alone is unmet [FR-c]; None otherwise",
         "properties": {
           "batch_id": {
             "format": "uuid",

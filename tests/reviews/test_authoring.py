@@ -196,7 +196,8 @@ def test_first_write_creates_a_pending_review(
     [
         ({"joined_days_ago": 10}, "hub.review.not_yet_eligible", True),
         ({"attended": 3}, "hub.review.needs_attendance", False),
-        ({"joined_days_ago": 10, "attended": 3}, "hub.review.needs_attendance", True),
+        # FR-c: a date only when tenure alone is unmet.
+        ({"joined_days_ago": 10, "attended": 3}, "hub.review.needs_attendance", False),
         ({"inactive_days_ago": 181}, "hub.review.window_closed", False),
     ],
     ids=["tenure", "attendance", "tenure-and-attendance", "closed"],
