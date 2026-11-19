@@ -124,6 +124,29 @@ class HubReportRouteTest {
         compose.runOnIdle { assertNull(pending) }
     }
 
+    /** Open a link of [kind] for the review, report it as abusive, and assert what was sent. */
+    private fun reportsReview(kind: String, label: String) {
+        // A reply's report id is its review's [T9-e].
+        var pending: ReportLink? by mutableStateOf(ReportLink(kind, REVIEW))
+        host({ pending }, { true }) { pending = null }
+
+        compose.onNodeWithText(label).assertExists()
+        compose.onNodeWithTag(hubReportReasonTag(ReportReason.ABUSIVE)).performScrollTo().performClick()
+        compose.onNodeWithText("Send report").performScrollTo().performClick()
+
+        compose.waitUntil(timeoutMillis = 5_000) { sent.isNotEmpty() }
+        assertEquals(
+            listOf("/v1/hub/reports" to """{"target_kind":"$kind","target_id":"$REVIEW","reason":"abusive"}"""),
+            sent.toList(),
+        )
+    }
+
+    @Test
+    fun `a review link reports the review`() = reportsReview("review", "A guardian's review")
+
+    @Test
+    fun `a reply link reports the reply by its review's id`() = reportsReview("reply", "A teacher's reply to a review")
+
     @Test
     fun `a malformed link says so and sends nothing`() {
         var pending: ReportLink? by mutableStateOf(ReportLink("media", "sumi-apa"))
@@ -139,6 +162,7 @@ class HubReportRouteTest {
         const val HOME = "home"
         const val OWNER = "6f1c2b0e-3a4d-4e5f-8a9b-0c1d2e3f4a5b"
         const val BATCH = "0b9e8d7c-6b5a-4c3d-9e2f-1a0b9c8d7e6f"
+        const val REVIEW = "a1111111-1111-4111-8111-111111111111"
 
         /** What the screen says once the server accepted the report. */
         const val THANKS = "Thank you. We will look at this page."

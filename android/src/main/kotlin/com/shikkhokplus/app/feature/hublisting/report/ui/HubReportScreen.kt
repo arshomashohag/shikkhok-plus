@@ -186,6 +186,8 @@ private fun kindLabel(kind: ReportKind): Int =
         ReportKind.OWNER_LISTING -> R.string.hub_report_target_owner
         ReportKind.BATCH_LISTING -> R.string.hub_report_target_batch
         ReportKind.MEDIA -> R.string.hub_report_target_media
+        ReportKind.REVIEW -> R.string.hub_report_target_review
+        ReportKind.REPLY -> R.string.hub_report_target_reply
     }
 
 /**

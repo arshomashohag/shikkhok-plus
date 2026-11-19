@@ -95,6 +95,9 @@ const val TAG_HUB_VIEW_PUBLIC: String = "hub_view_public"
 /** "Photos": opens the page's photo gallery. */
 const val TAG_HUB_PHOTOS: String = "hub_photos"
 
+/** "Reviews": opens the owner's Reviews screen; drawn only once the server answered. */
+const val TAG_HUB_REVIEWS: String = "hub_reviews"
+
 /** How long a confirmation stays up. */
 private const val NOTICE_MILLIS: Long = 3_000
 
@@ -123,6 +126,8 @@ private const val NOTICE_MILLIS: Long = 3_000
  * @property onPreview Opens "Preview as public"
  * @property onViewPublic Opens the published page for a slug in the browser; null
  *   when the build names no public site, and then the action is not offered
+ * @property onReviews Opens the owner's Reviews screen; null when `GET /v1/hub/reviews`
+ *   did not answer, switched off included, and then the row is not drawn [T11-d]
  * @property onAppeal Opens Help to appeal a suspension
  * @property onBack Leaves the screen
  */
@@ -147,6 +152,7 @@ data class HubListingActions(
     val onPhotos: (Boolean) -> Unit = {},
     val onPreview: () -> Unit = {},
     val onViewPublic: ((String) -> Unit)? = null,
+    val onReviews: (() -> Unit)? = null,
     val onAppeal: () -> Unit = {},
     val onBack: () -> Unit = {},
 )
@@ -235,6 +241,16 @@ private fun ListingBody(
         Modifier.fillMaxWidth().testTag(TAG_HUB_PHOTOS),
     )
     TextAction(stringResource(R.string.hub_batches_link), actions.onBatches, Modifier.fillMaxWidth())
+    actions.onReviews?.let { open ->
+        ShikkhokCard(modifier = Modifier.testTag(TAG_HUB_REVIEWS), onClick = open) {
+            Text(stringResource(R.string.hub_reviews_title), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.hub_reviews_entry_owner_sub),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 /**

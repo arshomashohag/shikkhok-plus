@@ -77,6 +77,15 @@ class DestinationTest {
     }
 
     @Test
+    fun `the review routes do not overlap and a title keeps its spaces`() {
+        // `hub/reviews/mine` would have matched the editor's `{batchId}`.
+        assertEquals("hub/reviews", Destination.HubMyReviews.route)
+        assertEquals("hub/listing/reviews", Destination.HubOwnerReviews.route)
+        // Navigation does not read `+` as a space, so a space is `%20`.
+        assertEquals("hub/reviews/b-1?title=Physics%209", Destination.HubReviewEditor.of("b-1", "Physics 9"))
+    }
+
+    @Test
     fun `every built route substitutes every placeholder`() {
         // **The failure mode this file names in its own header**: a
         // builder that leaves `{arg}` in place produces a route the
@@ -105,6 +114,8 @@ class DestinationTest {
                 Destination.HubReport.of(null, null),
                 Destination.HubPhotos.of(null, readOnly = false),
                 Destination.HubPhotos.of("b-1", readOnly = true),
+                Destination.HubReviewEditor.of("b-1", "Physics 9"),
+                Destination.HubReviewEditor.of("b-1"),
             )
 
         built.forEach {

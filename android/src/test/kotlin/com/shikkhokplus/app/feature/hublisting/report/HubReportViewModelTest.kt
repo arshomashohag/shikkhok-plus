@@ -116,7 +116,7 @@ class HubReportViewModelTest {
     fun rejects_bad_kind_or_id_without_a_request() = runTest(dispatcher) {
         val bad =
             listOf(
-                ReportLink("review", OWNER),
+                ReportLink("reviews", OWNER),
                 ReportLink("media", "photo-1"),
                 ReportLink(null, OWNER),
                 ReportLink("owner_listing", null),
@@ -201,6 +201,22 @@ class HubReportViewModelTest {
         assertEquals(reasons.toSet(), ReportReason.entries.map { it.wire }.toSet())
         assertEquals(ReportReason.entries.size, ReportReason.entries.map { it.wire }.toSet().size)
         assertEquals(note, NOTE_MAX)
+    }
+
+    @Test
+    fun the_kinds_are_the_servers_and_a_reply_is_reported_by_its_review() = runTest(dispatcher) {
+        val kinds =
+            OpenApi.resolve(schema("HubReportRequest")["properties"]!!.jsonObject["target_kind"]!!.jsonObject)["enum"]!!
+                .jsonArray.map { it.jsonPrimitive.content }
+        assertEquals(kinds.toSet(), ReportKind.entries.map { it.wire }.toSet())
+
+        val api = FakeReportApi()
+        val vm = HubReportViewModel(api, ReportLink("reply", PHOTO))
+        assertEquals(ReportTarget(ReportKind.REPLY, PHOTO), vm.state.value.target)
+        vm.pickReason(ReportReason.ABUSIVE)
+        vm.send()
+        advanceUntilIdle()
+        assertEquals(listOf(HubReportRequest("reply", PHOTO, "abusive", null)), api.sent)
     }
 
     private fun schema(name: String): JsonObject =

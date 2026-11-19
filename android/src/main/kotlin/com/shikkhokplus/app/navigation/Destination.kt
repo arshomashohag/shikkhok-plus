@@ -815,6 +815,58 @@ sealed interface Destination {
                 "&id=${java.net.URLEncoder.encode(id.orEmpty(), "UTF-8")}"
     }
 
+    /**
+     * A guardian's reviews [H4]: the batches they may review, are waiting
+     * to, or have reviewed. Opened from the guardian home's Reviews row.
+     */
+    data object HubMyReviews : Destination {
+        override val route: String = "hub/reviews"
+    }
+
+    /**
+     * One batch's review, as its guardian author writes, edits and
+     * deletes it; opened from [HubMyReviews] or a review-outcome inbox
+     * item. The title is the batch's public title, shown under the
+     * screen's own, and only shown.
+     */
+    data object HubReviewEditor : Destination {
+        override val route: String = "hub/reviews/{batchId}?title={title}"
+
+        /** The batch argument's name. */
+        const val ARG_BATCH: String = "batchId"
+
+        /** The title argument's name; empty when the opener did not know it. */
+        const val ARG_TITLE: String = "title"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param batchId The batch
+         * @param title The batch's public title, if known
+         * @return The route to navigate to
+         */
+        fun of(batchId: String, title: String? = null): String =
+            "hub/reviews/${pathEncode(batchId)}?title=${pathEncode(title.orEmpty())}"
+
+        /**
+         * Percent-encode one argument. `URLEncoder` writes a space as `+`,
+         * which navigation does not decode back, so it is written `%20`.
+         *
+         * @param value The argument
+         * @return Its encoded form
+         */
+        private fun pathEncode(value: String): String =
+            java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+    }
+
+    /**
+     * The owner's Reviews screen [H4], pushed over [HubListing] from its
+     * Reviews row, or opened from a new-reviews inbox item.
+     */
+    data object HubOwnerReviews : Destination {
+        override val route: String = "hub/listing/reviews"
+    }
+
     /** Adding a payment method (P2, P3). */
     data object AddPaymentMethod : Destination {
         override val route: String = "payment-methods/new?kind={kind}"

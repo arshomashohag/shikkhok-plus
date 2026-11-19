@@ -45,6 +45,24 @@ enum class InboxKind {
 
     /** "Did the hub bring you a student?", asked 60 and 90 days after the first publish. */
     HUB_FEEDBACK_QUESTION,
+
+    /** What moderation did with the reader's own review [H4]. */
+    HUB_REVIEW_OUTCOME,
+
+    /** The weekly publication made reviews of the owner's batch public [H4]. */
+    HUB_REVIEWS_PUBLISHED,
+}
+
+/** What moderation did with a review, as its outcome message's one word names it. */
+enum class ReviewOutcome {
+    /** It is public now. */
+    PUBLISHED,
+
+    /** It was not published; the review itself says why. */
+    REJECTED,
+
+    /** It was taken down; the review itself says why. */
+    REMOVED,
 }
 
 /**
@@ -78,6 +96,8 @@ data class ClassChange(
  * @property preview A short line of its content, if any
  * @property classChange The class it names, for a class change
  * @property feedbackDay For the hub's demand question, which one: 60 or 90
+ * @property reviewOutcome For a review outcome, what happened; null for a word this version does not know
+ * @property reviewsPublished For new reviews, how many were published, in Latin digits
  */
 data class InboxMessage(
     val id: String,
@@ -93,6 +113,8 @@ data class InboxMessage(
     val preview: String? = null,
     val classChange: ClassChange? = null,
     val feedbackDay: Int? = null,
+    val reviewOutcome: ReviewOutcome? = null,
+    val reviewsPublished: String? = null,
 )
 
 /** Where tapping an item leads, decided from the server's fields. */
@@ -134,6 +156,17 @@ sealed interface InboxTarget {
      * @property day Which question: 60 or 90
      */
     data class HubFeedback(val ownerId: String, val day: Int) : InboxTarget
+
+    /**
+     * The reader's own review of a batch, in its editor.
+     *
+     * @property batchId The batch
+     * @property title The batch's public title, as the message named it
+     */
+    data class HubReviewEditor(val batchId: String, val title: String) : InboxTarget
+
+    /** The owner's Reviews screen. */
+    data object HubOwnerReviews : InboxTarget
 
     /**
      * One payment to check, opened at its review.

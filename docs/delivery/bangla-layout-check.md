@@ -166,6 +166,18 @@ rather than editing the old one.
 | H4 (web) | Teacher Reviews (the listing editor's Reviews row, per-batch rating rows including the below-threshold line, review cards with tenure and month, reply box with counter and status, Delete reply, Report) | `web` | *not yet checked* | `hub_review_tenure_gt_1y` (46) / `hub_reviews_below_threshold` (42) / `hub_reviews_reply_note` (38) / `hub_reviews_entry_owner_sub` (37) | |
 | H4 (web admin) | Admin Reviews tab (`web/src/admin/hub/Queue.tsx`, `ReviewRow.tsx`): author reference and role, tenure, rating, words, the review a reply answers, the checklist line, approve and reject with a code, the held notice | `web` | *not yet checked* | `web_admin_hub_review_check` (70) / `web_admin_hub_review_held` (31) | |
 | H4 (public) | Hub batch page review section (`app/hub/public/templates/_reviews.html`): rating summary or the below-threshold line, the "most recent" line, review cards with tenure and month, the teacher's reply, the report links | `web` | *not yet checked* | `review_by_gt_1y` (46) / `reviews_below_threshold` (42) / `reviews_most_recent` (42) in `app/hub/public/messages.py` | |
+| H4 (Android) | Guardian home's Reviews row (under every child, and on the no-children card) and MyReviews (`MyReviewsScreen`: batch title, owner's public name, state with "From {date}") | — | *not yet checked* | `hub_reviews_empty` (38) / `hub_reviews_entry_guardian_sub` (35) / `hub_reviews_state_reviewed` (19) beside a full Bangla batch title | |
+| H4 (Android) | ReviewEditor (`ReviewEditorScreen`): five labelled star rows, the words field with its 1000 counter, the privacy note, status with a reason, "edit until", the not-yet banner with its date, the read-only review with Delete, the delete dialog | — | *not yet checked* | `hub_review_privacy_note` (116) / `hub_review_needs_attendance` (75) / `hub_review_not_yet_eligible` (69) / `hub_review_status_not_published` with `hub_review_reason_identifiable_child` | |
+| H4 (Android) | Teacher Reviews (`OwnerReviewsScreen`, and the listing editor's Reviews row): per-batch rating rows including the below-threshold line, review cards with tenure · month, reply field with note and counter, status, Send reply, Delete reply, Report | — | *not yet checked* | `hub_review_tenure_gt_1y` (46) / `hub_reviews_below_threshold` (42) / `hub_reviews_reply_note` (38) with the counter on one help line / `hub_reviews_entry_owner_sub` (37) | |
+
+**H4's three Android rows (2026-11-19) are open, and nothing automated
+discharges them.** The Robolectric tests Task 12 added (`HubReviewsRouteTest`,
+`InboxRouteTest`) drive the routes and assert what reached the server and which
+screen opened; they measure no layout. The strings are the web rows' strings,
+shared through `strings.xml`, with the same lengths. The Android row to check
+first is the teacher Reviews card: `hub_reviews_reply_note` and the `0/1000`
+counter share one help line under the reply field, which the web draws as two
+spans on one row.
 
 **H4's five rows (2026-11-19) are open, and nothing automated discharges
 them.** The Vitest tests H4 added (`reviews.test.tsx`, `Reviews.test.tsx`)

@@ -39,11 +39,12 @@ class InboxMapperTest {
                 "fee_reminder", "payment_approved", "payment_partial", "payment_rejected",
                 "payment_recorded", "notice", "exam_scheduled", "exam_cancelled",
                 "marks_available", "claim_to_verify", "class_cancelled", "class_rescheduled",
-                "hub_listing_suspended", "hub_feedback_question",
+                "hub_listing_suspended", "hub_feedback_question", "hub_review_outcome",
+                "hub_reviews_published",
             )
         val kept = messages(*(known + "future").map { dto(it) }.toTypedArray())
 
-        assertEquals(14, kept.size)
+        assertEquals(16, kept.size)
         assertEquals(InboxKind.entries.toSet(), kept.map { it.kind }.toSet())
     }
 
@@ -270,6 +271,45 @@ class InboxMapperTest {
 
         assertEquals(null, message.feedbackDay)
         assertEquals(InboxTarget.Detail("n-1"), InboxMapper.targetOf(message))
+    }
+
+    @Test
+    fun `a review outcome is worded from its one word and opens the review`() {
+        listOf(
+            "published" to ReviewOutcome.PUBLISHED,
+            "rejected" to ReviewOutcome.REJECTED,
+            "removed" to ReviewOutcome.REMOVED,
+        ).forEach { (word, outcome) ->
+            val message =
+                messages(dto("hub_review_outcome", enrollment = null, source = "b-1").copy(preview = word)).single()
+
+            assertEquals(InboxKind.HUB_REVIEW_OUTCOME, message.kind)
+            assertEquals(outcome, message.reviewOutcome)
+            // The word is the server's, never a line shown raw.
+            assertEquals(null, message.preview)
+            assertEquals(InboxTarget.HubReviewEditor("b-1", "Physics"), InboxMapper.targetOf(message))
+        }
+        val unknown =
+            messages(dto("hub_review_outcome", enrollment = null, source = "b-1").copy(preview = "approved")).single()
+        assertEquals(null, unknown.reviewOutcome)
+        assertEquals(null, unknown.preview)
+        val sourceless = messages(dto("hub_review_outcome", enrollment = null, source = null)).single()
+        assertEquals(InboxTarget.Detail("n-1"), InboxMapper.targetOf(sourceless))
+    }
+
+    @Test
+    fun `new reviews carry their count in Latin digits and open the owner's reviews`() {
+        val message =
+            messages(dto("hub_reviews_published", enrollment = null, source = "o-1").copy(preview = "2")).single()
+
+        assertEquals(InboxKind.HUB_REVIEWS_PUBLISHED, message.kind)
+        assertEquals("2", message.reviewsPublished)
+        assertEquals(null, message.preview)
+        assertEquals(InboxTarget.HubOwnerReviews, InboxMapper.targetOf(message))
+
+        val odd =
+            messages(dto("hub_reviews_published", enrollment = null, source = "o-1").copy(preview = "২")).single()
+        assertEquals(null, odd.reviewsPublished)
     }
 
     @Test

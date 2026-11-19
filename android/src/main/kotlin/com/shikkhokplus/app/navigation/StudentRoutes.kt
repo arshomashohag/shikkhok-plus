@@ -200,5 +200,7 @@ internal fun InboxTarget.route(): String =
         InboxTarget.Verify -> Destination.Verify.route
         InboxTarget.HubListing -> Destination.HubListing.route
         is InboxTarget.HubFeedback -> Destination.HubFeedback.of(ownerId, day)
+        is InboxTarget.HubReviewEditor -> Destination.HubReviewEditor.of(batchId, title)
+        InboxTarget.HubOwnerReviews -> Destination.HubOwnerReviews.route
         is InboxTarget.Payment -> Destination.PaymentReview.of(submissionId)
     }

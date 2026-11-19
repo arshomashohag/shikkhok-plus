@@ -44,6 +44,18 @@ import com.shikkhokplus.app.feature.hublisting.report.ReportLink
 import com.shikkhokplus.app.feature.hublisting.report.ui.HubReportActions
 import com.shikkhokplus.app.feature.hublisting.report.ui.HubReportScreen
 import com.shikkhokplus.app.feature.hublisting.ui.NameConsentScreen
+import com.shikkhokplus.app.feature.hubreviews.HttpHubReviewsApi
+import com.shikkhokplus.app.feature.hubreviews.MyReviewsViewModel
+import com.shikkhokplus.app.feature.hubreviews.OwnerReviewsViewModel
+import com.shikkhokplus.app.feature.hubreviews.ReviewEditorViewModel
+import com.shikkhokplus.app.feature.hubreviews.showsEntry
+import com.shikkhokplus.app.feature.hubreviews.ui.MyReviewsActions
+import com.shikkhokplus.app.feature.hubreviews.ui.MyReviewsScreen
+import com.shikkhokplus.app.feature.hubreviews.ui.OwnerReviewsActions
+import com.shikkhokplus.app.feature.hubreviews.ui.OwnerReviewsScreen
+import com.shikkhokplus.app.feature.hubreviews.ui.ReviewEditorActions
+import com.shikkhokplus.app.feature.hubreviews.ui.ReviewEditorScreen
+import com.shikkhokplus.app.feature.hublisting.report.ReportKind
 import com.shikkhokplus.app.feature.hubmedia.BucketClient
 import com.shikkhokplus.app.feature.hubmedia.HttpHubMediaApi
 import com.shikkhokplus.app.feature.hubmedia.HubMediaViewModel
@@ -55,7 +67,7 @@ import io.ktor.client.HttpClient
 /**
  * The public hub's owner screens, pushed over More: the listing editor,
  * its preview, its batch listings, the photos of either, and a centre
- * member's name consent;
+ * member's name consent; guardian reviews and the owner's Reviews screen;
  * and the demand question, opened from its inbox item; and, for any
  * signed-in reader, reporting a public hub page, opened from that page's
  * App Link.
@@ -76,10 +88,18 @@ internal fun NavGraphBuilder.hubRoutes(
     composable(Destination.HubListing.route) {
         val model: HubListingViewModel = viewModel { HubListingViewModel(HttpHubApi(client)) }
         val state by model.state.collectAsState()
+        // The Reviews row is drawn only once `GET /v1/hub/reviews` answered:
+        // switched off, or on any failure, it is simply not there [T11-d].
+        val reviews: OwnerReviewsViewModel =
+            viewModel(key = "hub-reviews-entry") { OwnerReviewsViewModel(HttpHubReviewsApi(client)) }
+        val reviewsState by reviews.state.collectAsState()
         val context = LocalContext.current
         // The language the app is drawn in, which the public pages share.
         val locale = hubLocale(LocalConfiguration.current.locales[0].language)
-        LaunchedEffect(Unit) { model.load() }
+        LaunchedEffect(Unit) {
+            model.load()
+            reviews.load()
+        }
         HubListingScreen(
             state = state,
             actions =
@@ -103,6 +123,9 @@ internal fun NavGraphBuilder.hubRoutes(
                     onBatches = { navController.navigate(Destination.BatchListings.route) },
                     onPhotos = { readOnly -> navController.navigate(Destination.HubPhotos.of(null, readOnly)) },
                     onPreview = { navController.navigate(Destination.HubPreview.of(locale)) },
+                    onReviews =
+                        { navController.navigate(Destination.HubOwnerReviews.route) }
+                            .takeIf { reviewsState.showsEntry },
                     onViewPublic =
                         siteUrl?.let { site ->
                             { slug -> openInBrowser(context, publicPageUrl(site, locale, slug)) }
@@ -163,6 +186,7 @@ internal fun NavGraphBuilder.hubRoutes(
     }
 
     hubPhotosRoute(client, bucket, navController)
+    hubReviewsRoutes(client, navController)
 
     composable(Destination.NameConsent.route) {
         val model: NameConsentViewModel = viewModel { NameConsentViewModel(HttpHubApi(client)) }
@@ -293,6 +317,95 @@ private fun NavGraphBuilder.hubPhotosRoute(
                     onConfirmDelete = model::confirmDelete,
                     onCancelDelete = model::cancelDelete,
                     onRetryWrite = model::retryWrite,
+                    onBack = { navController.popBackStack() },
+                ),
+        )
+    }
+}
+
+/**
+ * Guardian reviews and the owner's Reviews screen [H4]: the guardian's
+ * list, opened from the guardian home's Reviews row; one batch's review,
+ * opened from the list or a review-outcome inbox item; and the owner's
+ * Reviews screen, opened from the listing editor's Reviews row or a
+ * new-reviews inbox item, whose Report opens [Destination.HubReport] for
+ * the review.
+ *
+ * @param client The authenticated HTTP client
+ * @param navController The app's controller
+ */
+private fun NavGraphBuilder.hubReviewsRoutes(client: HttpClient, navController: NavHostController) {
+    composable(Destination.HubMyReviews.route) {
+        val model: MyReviewsViewModel = viewModel { MyReviewsViewModel(HttpHubReviewsApi(client)) }
+        val state by model.state.collectAsState()
+        LaunchedEffect(Unit) { model.load() }
+        MyReviewsScreen(
+            state = state,
+            actions =
+                MyReviewsActions(
+                    onOpen = { row ->
+                        navController.navigate(Destination.HubReviewEditor.of(row.batchId, row.batchTitle))
+                    },
+                    onRetry = model::load,
+                    onBack = { navController.popBackStack() },
+                ),
+        )
+    }
+
+    composable(
+        route = Destination.HubReviewEditor.route,
+        arguments =
+            listOf(
+                navArgument(Destination.HubReviewEditor.ARG_BATCH) { type = NavType.StringType },
+                navArgument(Destination.HubReviewEditor.ARG_TITLE) {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+            ),
+    ) { entry ->
+        val batchId = entry.arguments?.getString(Destination.HubReviewEditor.ARG_BATCH).orEmpty()
+        val title = entry.arguments?.getString(Destination.HubReviewEditor.ARG_TITLE)
+        val model: ReviewEditorViewModel =
+            viewModel(key = "hub-review/$batchId") { ReviewEditorViewModel(HttpHubReviewsApi(client), batchId) }
+        val state by model.state.collectAsState()
+        LaunchedEffect(batchId) { model.load() }
+        ReviewEditorScreen(
+            state = state,
+            title = title,
+            actions =
+                ReviewEditorActions(
+                    onRating = model::pickRating,
+                    onText = model::editText,
+                    onSave = model::save,
+                    onDelete = model::askDelete,
+                    onConfirmDelete = model::confirmDelete,
+                    onCancelDelete = model::cancelDelete,
+                    onRetry = model::retry,
+                    onRetryLoad = model::retryLoad,
+                    onDismissNotice = model::dismissNotice,
+                    onBack = { navController.popBackStack() },
+                ),
+        )
+    }
+
+    composable(Destination.HubOwnerReviews.route) {
+        val model: OwnerReviewsViewModel = viewModel { OwnerReviewsViewModel(HttpHubReviewsApi(client)) }
+        val state by model.state.collectAsState()
+        LaunchedEffect(Unit) { model.load() }
+        OwnerReviewsScreen(
+            state = state,
+            actions =
+                OwnerReviewsActions(
+                    onReply = model::editReply,
+                    onSend = model::sendReply,
+                    onDelete = model::askDeleteReply,
+                    onConfirmDelete = model::confirmDeleteReply,
+                    onCancelDelete = model::cancelDeleteReply,
+                    onRetry = model::retry,
+                    // A review is reported by its id [T9-e].
+                    onReport = { id -> navController.navigate(Destination.HubReport.of(ReportKind.REVIEW.wire, id)) },
+                    onRetryLoad = model::retryLoad,
+                    onDismissNotice = model::dismissNotice,
                     onBack = { navController.popBackStack() },
                 ),
         )
