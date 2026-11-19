@@ -263,6 +263,56 @@ release that ships the code: reviews ship off; `infra/README.md`,
   for whoever submits the form. No new SDK, no new Android permission, no
   new identifier.
 
+**6. New: join requests [H5].** A signed-in parent or guardian can ask a
+teacher or centre with a public listing to take their child into a class
+("Ask to join"). **Review the Play Data Safety form against this list
+before the release that turns join requests on** (the switch, not the
+release that ships the code: join requests ship off; `infra/README.md`,
+"Switching join requests on").
+
+- **Who sends.** A signed-in account that declares, on each request, that
+  it is the child's parent or guardian aged 18 or older; a request
+  without that declaration is refused. Nobody who runs the listing can
+  send one to it. A teacher or centre chooses whether to accept requests
+  at all.
+- **What is collected.** For a request (`listing_enquiry`): the student's
+  name (up to 80 characters) and school class as the guardian typed them,
+  an optional message of up to 300 characters (a phone number or web
+  address in either is refused), the listed class it is about if any,
+  the sending account, whether the guardian chose to share their
+  contact, its status, the owner's answer (one of three fixed outcomes)
+  and the times it was sent and answered. **The phone number or email
+  address is not collected anew**: it is the one already on the account,
+  read live and only on a request where the guardian chose to share it,
+  never copied into the request.
+- **Shared with whom.** Only with the one teacher or centre the guardian
+  chose, at the guardian's direction: a solo teacher, or each of a
+  centre's managers and nobody else who works there. The contact goes
+  with it only if the guardian chose to share it on that request: the
+  phone number, or the email address when the account has no phone
+  number. What comes back to the guardian is a fixed answer, never words
+  the teacher writes.
+- **Never.** Shown on any public page, or to platform administrators:
+  no administrator route reads join requests, and the role the public
+  pages are rendered through cannot read the table.
+- **Deleted.** When the guardian withdraws it, **which they can do at any
+  time**, answered or not and with the switch off too; withdrawal is
+  total (the request and every inbox item about it, the teacher's and the
+  guardian's). **With the guardian's account**, and with a solo
+  teacher's. And **90 days after it was sent** in any case, by the
+  retention purge, which the switch never stops (`PRIVACY.md`, generated
+  from `listing_enquiry`, and its "Join requests" section).
+- **Form category:** name (the student's, as typed) and user-generated
+  content (the message), collected from guardians and **shared with the
+  one teacher or centre they choose, at their request**; phone number or
+  email address, already declared as collected, now also **shared with
+  that teacher or centre only when the user chooses to, per request**.
+  Purpose: app functionality. Whether Play counts a transfer the user
+  initiates, to a recipient the user chooses, as "shared" is a judgement
+  for whoever submits the form, against Play's current definitions; it
+  is not decided here. No new SDK, no new Android permission, no new
+  identifier.
+
 **Families target-audience declaration.** The app's audience includes
 children, so the declaration must say the app carries **user-generated
 content** (teachers' listing text and photos, guardians' reviews and
@@ -272,7 +322,14 @@ teachers and centres, reviews from guardians), and that **every public
 listing, photo, review and reply can be reported from inside the app** by
 a signed-in user, with a child-safety or personal-information report
 taking a photo, review or reply down at once (for a review or reply,
-unless someone who runs or teaches the class filed it). Whoever submits the
+unless someone who runs or teaches the class filed it). Once join
+requests are switched on, the declaration also says that **a join
+request comes only from an account declaring, on that request, that it
+is a parent or guardian aged 18 or older**, that it goes only to the one
+teacher or centre chosen and is never public (so it is not moderated:
+nobody but that recipient reads it), and that **no message reaches a
+child account from a teacher through this feature**: the only reply is a
+fixed answer, delivered to the guardian who asked. Whoever submits the
 declaration confirms this against Play's current wording; it is recorded
 here because nothing in the repository checks it.
 

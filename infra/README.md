@@ -510,9 +510,17 @@ Its name is `/shikkhokplus/${var.name_prefix}/hub-enquiries`
 (`modules/app/deployment_state.tf`) with `name_prefix =
 "shikkhokplus-${var.environment}"` (`main.tf`), the same path the release
 reads (`ses_param hub-enquiries` in `deploy.yml`);
-`tests/gates/test_hub_enquiries_switch_infra.py` keeps this table equal
-to it. Terraform creates it `off` and ignores its value afterwards, so
-an apply never changes it.
+`tests/gates/test_hub_enquiries_switch_infra.py` keeps the table and the
+commands below equal to it. Terraform creates it `off` and ignores its
+value afterwards, so an apply never changes it.
+
+**The parameter must exist before anyone writes to it.** It is created
+when you apply `infra/` with H5's change, which the first deploy of an
+H5 ref does: its `infrastructure` job applies before the release reads
+the switch ("Terraform runs in GitHub Actions" above). Writing `on` to a
+name that does not exist yet creates a parameter outside Terraform's
+state, which the next apply then fails on, so check with `aws ssm
+get-parameter --name <path>` first.
 
 **The deploy role must be able to read it.** Every release reads the
 switch, on or off, so if the last deploy succeeded this is already true.
@@ -521,10 +529,91 @@ re-apply `bootstrap/` once from a laptop: H5 added `hub-enquiries` to the
 parameters the deploy role may read (`bootstrap/deploy_role.tf`). The
 release stops before changing anything.
 
-**Do not turn it on yet.** The human checks that come before writing
-`on` (the `project.md` rule amendment and the D6 declarations) and the
-staging check after it are not written here yet; until they are, the
-parameter stays `off` in every environment.
+**Turning it on lets a guardian's own words reach a teacher**, which the
+project's rules forbid as they stand, so each step below is a human
+check, done in this order, and a step that is not met stops the list.
+Steps 3 to 5 run on staging first; production repeats steps 3 and 4 only
+after step 5 has passed on staging. No step reads production data by
+hand.
+
+1. **The `project.md` rule is amended first.** Its Forbidden rule
+   beginning "NEVER expose anything a student or guardian writes to any
+   teacher" forbids join requests as worded: a request is written by a
+   guardian to a teacher. The owner amends it **through the learnings
+   ritual** (AI-DLC's human-gated learnings write path), never by
+   editing `aidlc/spaces/default/memory/project.md` by hand, and the
+   runbook does not do it for them. Its first sentence becomes:
+
+   > NEVER expose anything a student or guardian writes to any teacher,
+   > except a hub review its author explicitly submitted for public
+   > display, and a join request a guardian explicitly sent to that
+   > owner, which only that owner's managers see, never with the
+   > guardian's contact unless they chose to share it on that request.
+
+   The rule's existing review clauses ("Such a review reaches anyone
+   ...", to "deletion is total.") stay as they are, after it. If the
+   owner declines the amendment, stop here: the switch stays `off`.
+2. **D6: the declarations are published.** The Play Data Safety form and
+   the Families target-audience declaration have been updated against
+   `docs/legal/README.md` item 6 ("New: join requests") and the Families
+   note, and the privacy policy on `main` describes join requests
+   (`docs/legal/PRIVACY.md`, "Join requests"). The site's "Private by
+   design" paragraph (`site/src/pages/index.html`) opens "A teacher can
+   never see what a student or guardian writes about themselves", which
+   a join request makes untrue: qualify it as the policy does and
+   release the site first. The policy promises an in-app notice before a
+   material change takes effect; this is one, and nothing in the app
+   sends such a notice, so decide how it is given and give it before
+   step 3 on production.
+3. **Write `on`** to the environment's parameter. **Staging first**, then
+   steps 4 and 5 on staging:
+
+   ```bash
+   # staging
+   aws ssm put-parameter --overwrite --name /shikkhokplus/shikkhokplus-staging/hub-enquiries --type String --value on
+   ```
+
+   **Production only after step 5 has passed on staging**, followed by
+   step 4 on production:
+
+   ```bash
+   # production -- only once step 5 has passed on staging
+   aws ssm put-parameter --overwrite --name /shikkhokplus/shikkhokplus-production/hub-enquiries --type String --value on
+   ```
+
+   Writing the parameter changes nothing by itself: the container reads
+   its runtime env, which only a release writes.
+4. **Dispatch a deploy** of the same environment (`Actions -> deploy ->
+   Run workflow`; any ref already deployed will do). The release
+   validates the value (`on` or `off`, nothing else), writes
+   `SHIKKHOKPLUS_HUB_ENQUIRIES` into the runtime env, and the application
+   reads it at each call.
+5. **Check in staging that a seeded owner with requests on shows "Ask to
+   join", and that a test guardian's request reaches the owner's
+   inbox.** The staging seeder publishes no listing, so sign in as a
+   seeded teacher (`deploy/README.md`, "Seeding test data"), publish
+   their listing and one batch, and turn on **Receive join requests**
+   for the listing (the choice appears only once the switch is on).
+   Their page on the staging site, `{site}/hub/en/t/<owner>`, must now
+   carry an **Ask to join** link; with the switch off there is none.
+   Owner and batch pages are cached at the edge for up to ten minutes
+   (`s-maxage=600`), so open one not fetched since the deploy, or wait.
+   Then sign in as one of the family numbers the seeder's `seed.json`
+   lists, follow the link, send a request with **Share** chosen, and
+   check that a "New join request" item reaches the teacher's inbox and
+   that the request, opened from it, shows the family number. Withdraw
+   it from the guardian's side afterwards; the teacher's copy goes with
+   it.
+
+**Switching off is the same with `off`**: write `off` to the parameter
+and dispatch a deploy. It removes every "Ask to join" link and the
+owner's join-request routes, but **never blocks a deletion** and deletes
+nothing: guardians can still read and withdraw the requests they sent,
+every request is still purged 90 days after it was sent, and the
+owner's join requests list shows the rest again if the switch is turned
+back on before then. Cached pages keep showing the link for up to ten minutes; a
+request sent from one is refused. Switch off without waiting for
+anything whenever a safety reason calls for it.
 
 ## Reading the outputs
 

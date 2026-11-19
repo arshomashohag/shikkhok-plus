@@ -673,3 +673,117 @@ def test_life_of_account_is_not_rendered_as_deletion_of_the_account() -> None:
         "'until the account is deleted'"
     )
     assert heading is not None
+
+
+# ---------------------------------------------------------------------
+# Join requests [H5]. The generated row is the manifest's; the prose
+# around it is hand-written, so it is pinned here phrase by phrase:
+# without it, the hand prose said things that become false the day the
+# switch is turned on (preflight F16).
+# ---------------------------------------------------------------------
+
+
+def _hand_prose(document: str) -> str:
+    """Return the policy outside its generated region, on one line.
+
+    :param document: A full policy document
+    :return: Everything but the generated region, whitespace collapsed
+    """
+    begin = document.find(BEGIN_MARKER)
+    end = document.find(END_MARKER)
+    assert begin != -1 and end > begin, "the document has no generated region"
+    return " ".join((document[:begin] + document[end:]).split())
+
+
+def _subsection(document: str, heading: str) -> str:
+    """Return one ``### `` subsection, whitespace collapsed.
+
+    :param document: A full policy document
+    :param heading: The heading's text, without the ``### ``
+    :return: The subsection, up to the next heading or rule
+    """
+    _, found, rest = document.partition(f"\n### {heading}\n")
+    assert found, f"the policy has no {heading!r} subsection"
+    body = rest.split("\n### ", 1)[0].split("\n---", 1)[0]
+    return " ".join(body.split())
+
+
+def test_the_generated_policy_deletes_a_join_request_after_90_days() -> None:
+    """The join-request row is deleted with the account and after 90 days.
+
+    Asserted through ``describe``, so the row is the one the manifest's
+    ``listing_enquiry`` entry renders, under the hard-delete heading.
+
+    :return: None
+    """
+    region = _generated_region(COMMITTED.read_text(encoding="utf-8"))
+    deleted = region.split("### Deleted outright when you delete your account")[1]
+    deleted = deleted.split("\n### ", 1)[0]
+
+    assert f"| {describe('listing_enquiry')} | 90 days |" in deleted
+
+
+def test_the_hand_prose_is_true_once_join_requests_are_on() -> None:
+    """No sentence outside the markers is falsified by the switch.
+
+    Each of these was an unconditional statement before H5, and each
+    becomes false the moment join requests are offered: the policy is
+    hosted from ``main``, so it must already read correctly while the
+    switch is off, and stay correct when it is turned on.
+
+    :return: None
+    """
+    document = COMMITTED.read_text(encoding="utf-8")
+    prose = _hand_prose(document)
+
+    assert "There is no messaging between users." not in prose
+    assert (
+        "There is no messaging between users, with one exception where "
+        "join requests are offered" in prose
+    )
+    assert (
+        "or anything a student or guardian writes about themselves. Where "
+        "join requests are offered, the one exception is a request a "
+        "guardian chooses to send" in prose
+    )
+    assert (
+        "about themselves, other than a join request a guardian chooses to "
+        "send them" in prose
+    )
+    # The "When you use the app" table gains the row.
+    table = document.split("### When you use the app", 1)[1].split("\n### ", 1)[0]
+    assert "| A request to join a class on the public hub" in table
+    # And nobody at ShikkhokPlus reads them.
+    assert "Join requests are not among them" in prose
+
+
+def test_the_policy_describes_join_requests() -> None:
+    """The "Join requests" subsection says what spec D6 needs it to say.
+
+    What the owner sees, that the contact is seen only on Share and read
+    live, total withdrawal, the 90-day limit, and no administrator view.
+
+    :return: None
+    """
+    section = _subsection(COMMITTED.read_text(encoding="utf-8"), "Join requests")
+
+    assert section.startswith("Where join requests are offered on the public hub")
+    # What the owner sees, and who the owner is.
+    assert (
+        "sees the student's name and class as you typed them, your message, "
+        "the class it is about, and when it was received" in section
+    )
+    assert "each manager of the centre" in section
+    # The contact: only on Share, read live, gone with the request.
+    assert "only if you choose **Share**" in section
+    assert "read from your account while the request exists" in section
+    assert "the phone number on your account, or your email address" in section
+    # Withdrawal is total and always available.
+    assert "withdraw a request at any time" in section
+    assert "withdrawal is total" in section
+    # Retention, and what happens when the switch goes off.
+    assert "deleted 90 days after it was sent" in section
+    assert "still see and withdraw" in section
+    # Never public, never an administrator's.
+    assert "never shown on any public page" in section
+    assert "no administrator view of join requests" in section

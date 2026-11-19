@@ -26,8 +26,9 @@ the code does cannot drift apart.
   **not** use analytics or advertising SDKs, and we do **not** sell
   or share your data with anyone.
 - A teacher **cannot** see anything a student or guardian writes
-  about themselves. That boundary is enforced by the database, not by
-  our good intentions.
+  about themselves, other than a join request a guardian chooses to
+  send them. That boundary is enforced by the database, not by our
+  good intentions.
 - Where reviews are offered on our public hub, only a **verified
   guardian** can review a class their child attends. A review shows a
   star rating, any words you add, how long your child has been enrolled
@@ -35,6 +36,12 @@ the code does cannot drift apart.
   child's** — and only after we have checked it. The words you write are
   read by a moderator, who rejects anything that names or could identify
   a child. You can delete it at any time.
+- Where join requests are offered on our public hub, a parent or
+  guardian can ask a teacher or coaching centre to take their child
+  into a class. Only that teacher, or the centre's managers, see the
+  request, and your phone number or email address only if you choose
+  to share it. You can withdraw it at any time, and it is deleted after
+  90 days in any case.
 - You can delete your account from inside the app, or from a web page
   without installing anything.
 
@@ -69,6 +76,7 @@ password is, and is deleted after a short period. We never log either.
 | Fee payments and claims | The teacher and the student | Both parties to that fee |
 | A review of a class on the public hub: a star rating and any words you add | A verified guardian of a student in that class, only if they choose to | Anyone, once we have checked it and the class has at least three published reviews; never with the guardian's name (see "Reviews" below) |
 | A reply to a review | The teacher or centre that runs the class | Anyone, with the review, once we have checked it |
+| A request to join a class on the public hub: the student's name and class, and any message you add | A signed-in parent or guardian, only if they choose to | Only the teacher it was sent to, or the managers of the centre; your phone number or email address only if you choose to share it; never public, and never us (see "Join requests" below) |
 
 ### What we deliberately do not collect
 
@@ -106,13 +114,17 @@ central rather than incidental.
   child's attendance, marks and fees.
 - **We show no advertising**, of any kind, to anyone.
 - **We do not profile** children or build behavioural models.
-- There is no messaging between users. A teacher or centre may choose to
-  publish a public listing, with photos they upload; each photo is
-  reviewed by us before anyone else can see it, is re-encoded with its
-  EXIF data and location removed, and is deleted with the teacher's
-  account. **No student is ever shown on a public page, no photo of a
-  student is published, and a guardian appears only as the unnamed
-  author of a review they chose to write.**
+- There is no messaging between users, with one exception where join
+  requests are offered on the public hub: a parent or guardian can send
+  a teacher or centre a request to join a class, with a short message of
+  their own, and the only thing that comes back is one of three fixed
+  answers, never words the teacher writes (see "Join requests" below).
+  A teacher or centre may choose to publish a public listing, with
+  photos they upload; each photo is reviewed by us before anyone else
+  can see it, is re-encoded with its EXIF data and location removed,
+  and is deleted with the teacher's account. **No student is ever shown
+  on a public page, no photo of a student is published, and a guardian
+  appears only as the unnamed author of a review they chose to write.**
 
 If you are a parent or guardian and want to see, correct or delete
 your child's data, contact us at the address above. If you believe a
@@ -161,6 +173,56 @@ class their child attends. Students cannot write reviews.
   a coaching centre's listing, and the reviews on it, stay with the
   centre.
 
+### Join requests
+
+Where join requests are offered on the public hub, a parent or guardian
+can ask a teacher or coaching centre with a public listing to take their
+child into a class. A teacher or centre chooses whether to accept
+requests at all.
+
+- **Who can send one.** Someone signed in to ShikkhokPlus who confirms,
+  on that request, that they are the child's parent or guardian and aged
+  18 or over. Nobody can send one to a listing they run. You can have
+  one open request with each teacher or centre at a time.
+- **What it holds.** The student's name and school class as you type
+  them, a message of up to 300 characters if you add one, the class it
+  is about if you picked one, and whether you chose to share your
+  contact. A message or name containing a phone number or a web address
+  is refused.
+- **What the teacher sees.** The teacher, or each manager of the centre
+  and nobody else who works there, sees the student's name and class as
+  you typed them, your message, the class it is about, and when it was
+  received. Never your own name, your username, your address or
+  anything in your profile.
+- **Your contact.** The teacher sees your phone number or email address
+  only if you choose **Share**, which you decide on each request. If you
+  share, they see the phone number on your account, or your email
+  address if your account has no phone number. It is read from your
+  account while the request exists, not copied into it, so it is gone
+  when the request is. If you do not share, they see neither. Once a
+  teacher has seen your number we cannot make them forget it: if they
+  add your child to a class from your request, the name and number they
+  enter become part of their own record of that class, like any a
+  teacher types ("What we keep" below), and your child's place starts
+  as an invitation you can decline.
+- **The answer.** The teacher answers with one of three fixed replies —
+  your child is being added, there is no place for now, or call the
+  number on their listing — which reaches your inbox. They cannot write
+  to you through it, and nothing in a request reaches a student's
+  account.
+- **Not public, and not seen by us.** A request is never shown on any
+  public page, and there is no administrator view of join requests: our
+  moderators never see one.
+- **Withdrawing it.** You can withdraw a request at any time, answered
+  or not, and withdrawal is total: the request and every inbox notice
+  about it, the teacher's and yours, are deleted, and your contact goes
+  with them.
+- **How long.** Every request is deleted 90 days after it was sent,
+  answered or not. It is also deleted when you delete your account, and
+  when a solo teacher you sent it to deletes theirs. If join requests
+  are switched off, you can still see and withdraw the ones you sent,
+  and they are still deleted after 90 days.
+
 ---
 
 ## Who can see what
@@ -177,9 +239,13 @@ exactly as the public sees them, and never who wrote one.
 
 **A teacher cannot see** a student's own profile, a guardian's
 details, or anything a student or guardian writes about themselves.
+Where join requests are offered, the one exception is a request a
+guardian chooses to send: the teacher or centre it is sent to sees what
+it says, and the guardian's phone number or email address only if they
+chose to share it (see "Join requests" above).
 
-**A student or guardian can see** their own profile, and their own
-attendance, marks and fees.
+**A student or guardian can see** their own profile, their own
+attendance, marks and fees, and the join requests they have sent.
 
 **Nobody else can see anything.** There is no administrator view of
 student data. Our own operational access is limited to information
@@ -187,10 +253,11 @@ about teachers and coaching centres — a teacher's or centre's name,
 which of our apps its people use, when it joined and when it was last
 signed in — to the questions someone asks us in the Help centre, and to
 what someone submits for publication on the public hub: listing text,
-photos, reviews, replies and reports. The app charges nobody, so there
-is no plan or payment information to see. Our moderators see a review, a
-reply or a report with an opaque reference in place of its author,
-never a name or phone number.
+photos, reviews, replies and reports. Join requests are not among them:
+they are never published, and we have no view of them. The app charges
+nobody, so there is no plan or payment information to see. Our
+moderators see a review, a reply or a report with an opaque reference
+in place of its author, never a name or phone number.
 
 ---
 
