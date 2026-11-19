@@ -1098,10 +1098,10 @@ criterion = "Neither the seat's rows at another batch's classes nor a sibling se
 rule = "spec §6"
 
 [[test]]
-id = "test_tenure_and_attendance_unmet_waits_on_attendance_with_eligible_from"
+id = "test_tenure_and_attendance_unmet_waits_on_attendance_without_a_date"
 file = "tests/reviews/test_eligibility.py"
-criterion = "With tenure and attendance both unmet the member waits on attendance and still gets eligible_from (F20)"
-rule = "spec §6"
+criterion = "With tenure and attendance both unmet the member waits on attendance and gets no eligible_from (FR-c, revising F20)"
+rule = "spec §6, ruling FR-c"
 
 [[test]]
 id = "test_inactive_180_days_eligible"
@@ -1170,10 +1170,10 @@ criterion = "Among waiting siblings, the seat lacking only tenure stands, with w
 rule = "spec §6, ruling T3-d"
 
 [[test]]
-id = "test_waiting_siblings_never_hide_a_known_date"
+id = "test_siblings_all_needing_classes_are_given_no_date"
 file = "tests/reviews/test_eligibility.py"
-criterion = "A sibling with an eligible_from stands over an earlier sibling with tenure but too few classes, so the date is shown"
-rule = "spec §6, ruling T3-d"
+criterion = "Siblings who all still need classes wait on attendance with no eligible_from, whatever their tenure (FR-c)"
+rule = "spec §6, rulings T3-d and FR-c"
 
 [[test]]
 id = "test_author_keeps_lens_after_losing_membership"
@@ -1210,3 +1210,21 @@ id = "test_reviewer_lens_refusal_is_identical_for_nonmember_and_missing_batch"
 file = "tests/reviews/test_reviewer_lens.py"
 criterion = "A non-member of a real batch and a caller naming a nonexistent batch get the same 403 status and body bytes"
 rule = "spec §6"
+
+[[test]]
+id = "test_no_date_on_the_wire_while_classes_are_still_needed"
+file = "tests/reviews/test_review_routes.py"
+criterion = "A member short of tenure and classes gets no eligible_from on GET my-review, GET reviewable or the refused PUT (needs_attendance, no details)"
+rule = "spec §6, ruling FR-c"
+
+[[test]]
+id = "test_an_edit_does_not_take_a_held_item_past_its_open_report"
+file = "tests/moderation/test_review_moderation.py"
+criterion = "A held review edited, or a held reply replaced, back to pending is refused approval with REVIEW_REPORT_OPEN until its holding report is settled"
+rule = "ruling T7-c, final fix I-1"
+
+[[test]]
+id = "test_class_teacher_report_holds_nothing_and_keeps_nothing_held"
+file = "tests/moderation/test_review_moderation.py"
+criterion = "A centre teacher assigned to the batch by slot or class files child-safety reports that hold nothing, keep nothing held and block no approval; a stranger's report still holds"
+rule = "ruling F10 with T3-c, final fix I-2"
