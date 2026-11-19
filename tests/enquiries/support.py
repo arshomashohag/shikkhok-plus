@@ -135,7 +135,13 @@ def close(
     outcome: str,
     now: dt.datetime | None = None,
 ) -> None:
-    """Close a request directly, standing in for the owner's close (Task 4).
+    """Close a request directly, as arrangement only.
+
+    Writes the row and nothing else: no answer is delivered and no inbox
+    item is marked read. A test about closing uses
+    :func:`app.hub.enquiries.owner.close`; this is for tests that only need
+    a request to be closed already, such as one carrying an outcome the
+    owner could not choose today.
 
     :param session: An arranging session
     :param enquiry_id: The request

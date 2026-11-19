@@ -1238,7 +1238,13 @@ rule = "H5 Global Constraints"
 [[test]]
 id = "test_contact_in_text_refused_both_ways"
 file = "tests/enquiries/test_sending.py"
-criterion = "A phone number in Bangla or spaced digits, a country-code number, or a web address in the student name or message is refused with ENQUIRY_CONTAINS_CONTACT naming the field, storing and counting nothing; ordinary text such as 4.30 pm passes"
+criterion = "A phone number in Bangla or spaced digits, a country-code number, or a web address in the student name or message is refused with ENQUIRY_CONTAINS_CONTACT naming the field, storing and counting nothing"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_contact_in_text_refused_both_ways_passes_ordinary_text"
+file = "tests/enquiries/test_sending.py"
+criterion = "Ordinary text is not a contact: a class and subject, a time such as 4.30 pm, and fee amounts and years are each stored as sent"
 rule = "H5 Global Constraints"
 
 [[test]]
@@ -1268,5 +1274,41 @@ rule = "H5 ruling F8"
 [[test]]
 id = "test_close_and_withdraw_race_without_deadlock"
 file = "tests/enquiries/test_forget.py"
-criterion = "A close-shaped transaction and a withdrawal racing in either order both finish without a deadlock and leave no request and no inbox item"
+criterion = "The owner's real close and a withdrawal racing in either order, each stopped while holding the request row, both finish without a deadlock and leave no request and no inbox item; the close reports a closed request only when it went first"
 rule = "H5 ruling F7"
+
+[[test]]
+id = "test_contact_shared_only_with_consent"
+file = "tests/enquiries/test_owner.py"
+criterion = "On list_for and get, an account with phone and email that did not share shows neither, one that shared shows the phone and no email, and an email-only account that shared shows the email; no inbox item of either party carries the contact"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_other_owner_cannot_list_read_or_close"
+file = "tests/enquiries/test_owner.py"
+criterion = "Teacher B's get and close with each outcome on teacher A's request answer the same 404 ENQUIRY_NOT_FOUND bytes as a random id and change nothing; B's list_for holds only B's own request"
+rule = "H5 Global Constraints"
+
+[[test]]
+id = "test_call_us_invalid_while_listing_not_public"
+file = "tests/enquiries/test_owner.py"
+criterion = "With a public contact phone stored but the owner listing hidden or suspended, call_us is absent from outcomes_allowed and close refuses it with ENQUIRY_OUTCOME_INVALID, changing nothing, while not_now still closes"
+rule = "H5 ruling F11"
+
+[[test]]
+id = "test_student_added_from_enquiry_starts_pending"
+file = "tests/enquiries/test_add_from_enquiry.py"
+criterion = "A student created from a shared request's prefill and closed as added has a seat whose guardian link is the guardian, pending; the guardian holds that invitation and no GuardianLens until accept_seat"
+rule = "H5 Review Focus 5"
+
+[[test]]
+id = "test_enquiry_changes_no_seat"
+file = "tests/enquiries/test_add_from_enquiry.py"
+criterion = "Sending, closing with each outcome and withdrawing, including requests from guardians already seated with the owner, leave every enrollment row byte-identical"
+rule = "H5 Review Focus 5"
+
+[[test]]
+id = "test_enquiries_package_imports_nothing_private"
+file = "tests/gates/test_enquiries_imports.py"
+criterion = "No module under app/hub/enquiries imports app.students, app.fees, app.marks, app.guardians, app.authz.invitations or app.accounts.decisions, and the walk reaches owner.py, sending.py, forget.py and target.py"
+rule = "H5 Task 4"

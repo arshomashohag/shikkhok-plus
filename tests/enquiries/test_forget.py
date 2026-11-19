@@ -6,11 +6,9 @@ nothing of the request remains: not the row, not the owners'
 ``hub_enquiry_answered`` item. Withdrawing someone else's request, or one
 that does not exist, changes nothing and is not an error.
 
-A withdrawal and the owner's close lock the request row first, in that
-order, so the two never deadlock [F7]. The owner's close is Task 4's; until
-it exists the race runs against :func:`_close_shaped`, a transaction that
-does what the close is specified to do. Task 4 switches the race to
-``app.hub.enquiries.owner.close``.
+A withdrawal and the owner's close (:func:`app.hub.enquiries.owner.close`)
+each lock the request row before touching an inbox item, so the two never
+deadlock [F7].
 """
 
 from __future__ import annotations
@@ -26,14 +24,11 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.hub.enquiries import forget, sending
-from app.notifications.inbox import (
-    HUB_ENQUIRY_ANSWERED,
-    HUB_ENQUIRY_RECEIVED,
-    deliver,
-    mark_read_for_source,
-)
-from tests.enquiries.support import EnquirableWorld, close, enquirable_owner, guardian
+from app.authz.lenses import TeacherLens
+from app.errors import AuthorizationError
+from app.hub.enquiries import forget, owner, sending
+from app.notifications.inbox import HUB_ENQUIRY_ANSWERED, HUB_ENQUIRY_RECEIVED
+from tests.enquiries.support import EnquirableWorld, enquirable_owner, guardian
 
 NOW = dt.datetime(2026, 11, 19, 4, 0, tzinfo=dt.UTC)
 
@@ -52,31 +47,6 @@ def _send(
         share_contact=True,
         now=NOW,
     )
-
-
-def _answer(
-    session: Session, enquiry: sending.MyEnquiry, enquirer: uuid.UUID, outcome: str
-) -> None:
-    """Close a request and tell its guardian, as the owner's close will.
-
-    :param session: An arranging session
-    :param enquiry: The request
-    :param enquirer: The guardian who sent it
-    :param outcome: The closing outcome
-    :return: None
-    """
-    close(session, enquiry.id, outcome, NOW)
-    deliver(
-        session,
-        account_ids=[enquirer],
-        kind=HUB_ENQUIRY_ANSWERED,
-        batch_name=enquiry.batch_title or enquiry.owner_public_name or "",
-        now=NOW,
-        source_id=enquiry.id,
-        preview=outcome,
-    )
-    mark_read_for_source(session, kind=HUB_ENQUIRY_RECEIVED, source_id=enquiry.id)
-    session.commit()
 
 
 def _traces(session: Session, enquiry_id: uuid.UUID) -> tuple[int, int]:
@@ -106,7 +76,7 @@ def test_withdraw_is_total(owner_session: Session, restricted_session: Session) 
     other = guardian(owner_session, phone="01812345678")
     answered = _send(restricted_session, caller, world)
     untouched = _send(restricted_session, other, world)
-    _answer(owner_session, answered, caller, "not_now")
+    owner.close(restricted_session, world.lens, answered.id, "not_now", NOW)
     kinds = owner_session.execute(
         sa.text(
             "SELECT account_id, kind FROM notification WHERE source_id = :e "
@@ -178,56 +148,19 @@ def test_forget_commits_nothing(
     assert _traces(owner_session, sent.id) == (1, 1)
 
 
-def _close_shaped(session: Session, enquiry_id: uuid.UUID) -> bool:
-    """Do what the owner's close does, in its order [F7; Task 4 ``close``].
-
-    Lock the request, close it, tell its guardian and mark every manager's
-    copy read. Task 4 replaces this with ``app.hub.enquiries.owner.close``.
+def _close(session: Session, lens: TeacherLens, enquiry_id: uuid.UUID) -> bool:
+    """Close a request as its owner, saying whether one was left to close.
 
     :param session: A restricted session, outside any transaction
+    :param lens: The owner's lens
     :param enquiry_id: The request
     :return: True when it closed the request, False when none was left
     """
-    row = session.execute(
-        sa.text(
-            "SELECT enquirer_account_id FROM listing_enquiry WHERE id = :e FOR UPDATE"
-        ),
-        {"e": enquiry_id},
-    ).one_or_none()
-    if row is None:
-        session.rollback()
+    try:
+        owner.close(session, lens, enquiry_id, "not_now", NOW)
+    except AuthorizationError as missing:
+        assert missing.code == "ENQUIRY_NOT_FOUND"
         return False
-    return _finish_close(session, enquiry_id, row.enquirer_account_id)
-
-
-def _finish_close(session: Session, enquiry_id: uuid.UUID, enquirer: uuid.UUID) -> bool:
-    """Close a request whose row this session already holds locked.
-
-    :param session: The session holding the row lock
-    :param enquiry_id: The request
-    :param enquirer: Its guardian
-    :return: True
-    """
-    session.execute(
-        sa.text(
-            "UPDATE listing_enquiry SET status = 'closed', outcome = 'not_now', "
-            "closed_at = :t WHERE id = :e"
-        ),
-        {"t": NOW, "e": enquiry_id},
-    )
-    deliver(
-        session,
-        account_ids=[enquirer],
-        kind=HUB_ENQUIRY_ANSWERED,
-        batch_name="HSC Physics",
-        now=NOW,
-        source_id=enquiry_id,
-        preview="not_now",
-    )
-    mark_read_for_source(
-        session, kind=HUB_ENQUIRY_RECEIVED, source_id=enquiry_id, now=NOW
-    )
-    session.commit()
     return True
 
 
@@ -289,10 +222,11 @@ def test_close_and_withdraw_race_without_deadlock(
     would then wait on those items while the withdrawal waited on the row:
     a deadlock, which PostgreSQL ends by failing one of them.
 
-    *Close first*: the close holds the row; the withdrawal waits; the close
-    finishes and commits; the withdrawal then removes everything, the
-    answer included. *Withdraw first*: the withdrawal holds the row and is
-    held up on the inbox items (by a third session); the close waits on
+    *Close first*: the close holds the row and is held up on the inbox
+    items (by a third session); the withdrawal waits on the row; once
+    released, the close commits and the withdrawal then removes
+    everything, the answer included. *Withdraw first*: the withdrawal
+    holds the row and is held up on the inbox items; the close waits on
     the row; once released, the withdrawal commits and the close finds no
     request. Either way no request and no inbox item remain.
     """
@@ -307,37 +241,25 @@ def test_close_and_withdraw_race_without_deadlock(
         with factory() as session:
             sending.withdraw(session, caller, sent.id)
 
-    if first == "close":
-        with factory() as closer:
-            enquirer = closer.execute(
-                sa.text(
-                    "SELECT enquirer_account_id FROM listing_enquiry "
-                    "WHERE id = :e FOR UPDATE"
-                ),
-                {"e": sent.id},
-            ).scalar_one()
-            withdrawing = _in_thread(errors, withdraw)
-            _wait_for_waiters(owner_session, 1)
-            closed.append(_finish_close(closer, sent.id, enquirer))
-        withdrawing.join(timeout=30)
-    else:
-        owner_session.execute(
-            sa.text("SELECT id FROM notification WHERE source_id = :e FOR UPDATE"),
-            {"e": sent.id},
-        ).all()
-        with factory() as watcher:
-            withdrawing = _in_thread(errors, withdraw)
-            _wait_for_waiters(watcher, 1)
+    def close_it() -> None:
+        with factory() as session:
+            closed.append(_close(session, world.lens, sent.id))
 
-            def close_it() -> None:
-                with factory() as session:
-                    closed.append(_close_shaped(session, sent.id))
-
-            closing = _in_thread(errors, close_it)
-            _wait_for_waiters(watcher, 2)
-        owner_session.commit()
-        withdrawing.join(timeout=30)
-        closing.join(timeout=30)
+    order = [close_it, withdraw] if first == "close" else [withdraw, close_it]
+    # Hold the inbox items, so whichever goes first stops while holding
+    # the request row, inside the window a deadlock would need.
+    owner_session.execute(
+        sa.text("SELECT id FROM notification WHERE source_id = :e FOR UPDATE"),
+        {"e": sent.id},
+    ).all()
+    with factory() as watcher:
+        threads = []
+        for waiters, work in enumerate(order, start=1):
+            threads.append(_in_thread(errors, work))
+            _wait_for_waiters(watcher, waiters)
+    owner_session.commit()
+    for thread in threads:
+        thread.join(timeout=30)
 
     assert errors == []
     assert closed == [first == "close"]

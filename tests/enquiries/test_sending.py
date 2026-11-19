@@ -501,6 +501,34 @@ def test_call_us_shows_published_number_and_hides_it_after_unpublish(
     assert hidden[call_us.id].owner_public_name == "Rahim Sir"
 
 
+def test_mine_keeps_a_request_whose_listing_is_gone(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """The guardian's list joins the listing LEFT, so it can always withdraw.
+
+    ``mine`` is the only list a guardian withdraws from. A request whose
+    owner listing no longer exists must still appear there, with no owner
+    name, or it could not be withdrawn, and "withdrawal is total" would be
+    false. An inner join would drop it silently.
+    """
+    world = enquirable_owner(owner_session)
+    caller = guardian(owner_session)
+    sent = _send(restricted_session, caller, world.owner_slug)
+    owner_session.execute(
+        sa.text("DELETE FROM owner_listing WHERE owner_id = :o"),
+        {"o": world.lens.owner_id},
+    )
+    owner_session.commit()
+
+    (listed,) = sending.mine(restricted_session, caller)
+
+    assert listed.id == sent.id
+    assert listed.owner_public_name is None
+    assert listed.owner_contact_phone is None
+    sending.withdraw(restricted_session, caller, sent.id)
+    assert sending.mine(restricted_session, caller) == []
+
+
 def test_inbox_kinds_are_new_and_not_legacy() -> None:
     from app.notifications.inbox import LEGACY_KINDS
 
@@ -514,6 +542,9 @@ NEW_KEYS = (
     "hub.enquiry.already_open",
     "hub.enquiry.ceiling",
     "hub.enquiry.contains_contact",
+    "hub.enquiry.not_found",
+    "hub.enquiry.already_closed",
+    "hub.enquiry.outcome_invalid",
 )
 
 

@@ -1889,6 +1889,9 @@
     <string name="hub_enquiry_already_open">এই শিক্ষকের কাছে আপনার একটি ভর্তির অনুরোধ এখনও খোলা আছে। নতুন অনুরোধ পাঠাতে আগেরটি তুলে নিন।</string>
     <string name="hub_enquiry_ceiling">আজ আপনি অনেকগুলো ভর্তির অনুরোধ পাঠিয়েছেন। কাল আবার চেষ্টা করুন।</string>
     <string name="hub_enquiry_contains_contact">ফোন নম্বর ও ওয়েব ঠিকানা সরিয়ে দিন। শিক্ষককে আপনার নম্বর দিতে শেয়ার-এ টিক দিন।</string>
+    <string name="hub_enquiry_not_found">এই ভর্তির অনুরোধটি পাওয়া যাচ্ছে না।</string>
+    <string name="hub_enquiry_already_closed">এই ভর্তির অনুরোধের উত্তর আগেই দেওয়া হয়েছে।</string>
+    <string name="hub_enquiry_outcome_invalid">এই অনুরোধে এই উত্তর দেওয়া যাবে না। দেখানো উত্তরগুলোর একটি বেছে নিন।</string>
     <string name="hub_review_ceiling">আজ আপনি অনেকবার রিভিউ পরিবর্তন করেছেন। কাল আবার চেষ্টা করুন।</string>
     <string name="hub_review_already_decided">এই রিভিউ বা উত্তরের সিদ্ধান্ত আগেই নেওয়া হয়েছে।</string>
     <string name="hub_review_code_invalid">তালিকা থেকে বাতিলের একটি কারণ বেছে নিন।</string>
