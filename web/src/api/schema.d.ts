@@ -10000,6 +10000,8 @@ export interface components {
         | 'fee_reminder'
         | 'hub_feedback_question'
         | 'hub_listing_suspended'
+        | 'hub_review_outcome'
+        | 'hub_reviews_published'
         | 'marks_available'
         | 'notice'
         | 'payment_approved'
@@ -10042,7 +10044,10 @@ export interface components {
      *     :ivar child_name: Which child it is about, for a guardian's copy
      *     :ivar preview: A short line of its content, if any; for a
      *         ``hub_feedback_question``, the question's day, ``60`` or ``90``,
-     *         which the answer sends back
+     *         which the answer sends back; for a ``hub_review_outcome``,
+     *         ``published``, ``rejected`` or ``removed``; for a
+     *         ``hub_reviews_published``, how many reviews of the batch were just
+     *         published, in Latin digits
      *     :ivar class_date: For a class change, the day the class is now on, or
      *         was on if cancelled
      *     :ivar class_time: For a class change, its start time that day
@@ -10079,6 +10084,8 @@ export interface components {
         | 'fee_reminder'
         | 'hub_feedback_question'
         | 'hub_listing_suspended'
+        | 'hub_review_outcome'
+        | 'hub_reviews_published'
         | 'marks_available'
         | 'notice'
         | 'payment_approved'

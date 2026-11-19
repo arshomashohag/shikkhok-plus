@@ -760,6 +760,7 @@ install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-badge-re
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-feedback-question.log
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-invalidation.log
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-media-objects.log
+install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-hub-review-publication.log
 cat > /etc/cron.d/shikkhokplus-fee-generation <<'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -845,6 +846,25 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 0 3 * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.hub.feedback_commands ask >> /var/log/shikkhokplus-hub-feedback-question.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/shikkhokplus-hub-feedback-question
+
+# **The hub review publication** [0045, hub spec D7]. A moderator's
+# approval only queues a guardian's review; this publishes every review
+# approved before the latest Friday 00:00 in Dhaka, tells each author, and
+# tells the people who run a batch once it is at or above the public
+# threshold. 21:10 UTC is 03:10 in Dhaka: the first run after Friday
+# midnight publishes the week's approvals, while families are asleep and
+# clear of every other job; later runs that week find nothing. Daily rather
+# than weekly so a missed Friday is made good the next day. While reviews
+# are switched off it publishes nothing and still stamps its heartbeat.
+echo "Installing the hub-review-publication cron entry..." \
+  >> /var/log/shikkhokplus-provision.log
+cat > /etc/cron.d/shikkhokplus-hub-review-publication <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# min hour dom mon dow user command
+10 21 * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.reviews.commands publish >> /var/log/shikkhokplus-hub-review-publication.log 2>&1
+CRON
+chmod 0644 /etc/cron.d/shikkhokplus-hub-review-publication
 
 # **Sending the hub's edge-cache invalidations, from the HOST** [0041, R8].
 # Every takedown enqueues the paths to evict in its own transaction. The

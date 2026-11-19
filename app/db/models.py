@@ -313,6 +313,16 @@ HUB_FEEDBACK_JOB = "hub_feedback_question"
 #: public objects in the bucket.
 HUB_MEDIA_OBJECT_JOB = "hub_media_objects"
 
+#: H4's publication of approved guardian reviews [0045, hub spec D7]. A
+#: moderator's approval only queues a review; ``app.reviews.commands
+#: publish`` makes public every review approved before the latest Friday
+#: 00:00 in Dhaka, so a family cannot match a review to the day it was
+#: approved. Runs daily and is idempotent, so a missed run publishes on the
+#: next one. A job that stopped would leave approved reviews unpublished
+#: and their authors unanswered. Stamped on every completed run, including
+#: while reviews are switched off.
+HUB_REVIEW_PUBLISH_JOB = "hub_review_publication"
+
 #: Every job the host is expected to run [audit C-01]. The freshness check
 #: reports each of these even when it has no heartbeat row: enumerating
 #: rows alone protected only jobs that had already run once, and the
@@ -328,6 +338,7 @@ EXPECTED_JOBS: frozenset[str] = frozenset(
         HUB_INVALIDATION_JOB,
         HUB_FEEDBACK_JOB,
         HUB_MEDIA_OBJECT_JOB,
+        HUB_REVIEW_PUBLISH_JOB,
     }
 )
 
@@ -429,6 +440,7 @@ __all__ = [
     "HUB_FEEDBACK_JOB",
     "HUB_INVALIDATION_JOB",
     "HUB_MEDIA_OBJECT_JOB",
+    "HUB_REVIEW_PUBLISH_JOB",
     "HUB_SEARCH_NORM_FUNCTION",
     "HUB_TAGS_TEXT_FUNCTION",
     "LEDGER_KIND_VALUES",

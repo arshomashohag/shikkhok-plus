@@ -7970,6 +7970,8 @@
               "fee_reminder",
               "hub_feedback_question",
               "hub_listing_suspended",
+              "hub_review_outcome",
+              "hub_reviews_published",
               "marks_available",
               "notice",
               "payment_approved",
@@ -8082,7 +8084,7 @@
       },
       "NotificationResponse": {
         "additionalProperties": false,
-        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any; for a\n    ``hub_feedback_question``, the question's day, ``60`` or ``90``,\n    which the answer sends back\n:ivar class_date: For a class change, the day the class is now on, or\n    was on if cancelled\n:ivar class_time: For a class change, its start time that day\n:ivar moved_from_date: For a reschedule, the day it was moved from\n:ivar moved_from_time: For a reschedule, the start time it was moved from",
+        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any; for a\n    ``hub_feedback_question``, the question's day, ``60`` or ``90``,\n    which the answer sends back; for a ``hub_review_outcome``,\n    ``published``, ``rejected`` or ``removed``; for a\n    ``hub_reviews_published``, how many reviews of the batch were just\n    published, in Latin digits\n:ivar class_date: For a class change, the day the class is now on, or\n    was on if cancelled\n:ivar class_time: For a class change, its start time that day\n:ivar moved_from_date: For a reschedule, the day it was moved from\n:ivar moved_from_time: For a reschedule, the start time it was moved from",
         "properties": {
           "amount": {
             "anyOf": [
@@ -8160,6 +8162,8 @@
               "fee_reminder",
               "hub_feedback_question",
               "hub_listing_suspended",
+              "hub_review_outcome",
+              "hub_reviews_published",
               "marks_available",
               "notice",
               "payment_approved",

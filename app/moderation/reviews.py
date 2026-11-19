@@ -22,6 +22,13 @@ a replacement [F9] -- with the code mapped from the report's reason.
 Dismissed: a held target is restored, unless another open holding report,
 not filed by the batch's owner or managers, still names it.
 
+**A review's author is told when it is rejected or removed** -- by either
+path above, in the decision's transaction -- as ``hub_review_outcome`` with
+the preview ``rejected`` or ``removed`` and never the code, which only the
+author's own ``my-review`` shows (:func:`app.reviews.publication.tell_author`).
+An approval tells nobody: the weekly publication does. A reply's outcome
+tells nobody in H4.
+
 **Lock order: content, then reports** [T4-c, T5-d]. Every path here locks
 the review (and, for a reply, the review then the reply) before it reads or
 writes a ``hub_report`` row -- the same order the author's delete and the
@@ -72,6 +79,7 @@ from app.moderation.vocab import (
     REVIEW_REJECTION_CODES,
 )
 from app.reviews.identity import review_author_ref
+from app.reviews.publication import tell_author
 
 __all__ = [
     "DECIDABLE",
@@ -519,6 +527,35 @@ def _take_down(item: Review | ReviewReply, status: str, code: str) -> None:
         item.approved_at = None
 
 
+def _tell(
+    session: Session,
+    item: Review | ReviewReply,
+    outcome: Literal["rejected", "removed"],
+    now: dt.datetime,
+) -> None:
+    """Tell a review's author it was rejected or removed, never why.
+
+    In the decision's transaction, so a decision that rolls back sends
+    nothing. The code stays on the review, for the author's own
+    ``my-review``. A reply's rejection or removal tells nobody: reply
+    notifications are not part of H4.
+
+    :param session: The decision's session
+    :param item: The locked review or reply, already taken down
+    :param outcome: ``rejected`` or ``removed``
+    :param now: The moment of the decision
+    :return: None
+    """
+    if isinstance(item, Review):
+        tell_author(
+            session,
+            author_account_id=item.author_account_id,
+            batch_id=item.batch_id,
+            outcome=outcome,
+            now=now,
+        )
+
+
 def decide(
     session: Session,
     lens: PlatformAdminLens,
@@ -598,6 +635,7 @@ def decide(
         else:
             act = "removed" if before == "held" else "rejected"
             _take_down(item, act, cast("str", code))
+            _tell(session, item, "removed" if act == "removed" else "rejected", now)
         item.decided_at = now
         item.decided_by_account_id = lens.account_id
         if before == "held" or item.status == "published":
@@ -700,6 +738,7 @@ def settle_report(
             return
         code = REPORT_REJECTION_CODES.get(reason, "other")
         _take_down(item, "removed", code)
+        _tell(session, item, "removed", now)
         act = "removed"
     else:
         if before != "held" or _still_held(session, target_kind, target_id, report_id):
