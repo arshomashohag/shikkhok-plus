@@ -107,6 +107,54 @@ def test_unenquirable_targets_answer_identically(
     assert _rows(owner_session, "notification") == 0
 
 
+def _statements(session: Session, call: Callable[[], object]) -> list[str]:
+    """Record the SQL a refused call executes, in order.
+
+    :param session: The session the call runs through
+    :param call: A call that must refuse
+    :return: Each statement's text, without its parameters
+    """
+    executed: list[str] = []
+
+    def record(*args: object) -> None:
+        executed.append(str(args[2]))
+
+    engine = session.get_bind()
+    sa.event.listen(engine, "before_cursor_execute", record)
+    try:
+        _refusal(call)
+    finally:
+        sa.event.remove(engine, "before_cursor_execute", record)
+    session.rollback()
+    return executed
+
+
+@pytest.mark.parametrize("name", list(CASES))
+def test_every_refusal_runs_the_same_statements(
+    owner_session: Session, restricted_session: Session, name: str
+) -> None:
+    """A registered slug that is not public refuses as a slug never registered.
+
+    Not only the same bytes: the same statements, in the same order, so the
+    number of round trips cannot tell them apart [H5 T7 re-review]. The
+    send's hold runs and ``resolve`` runs whichever condition failed.
+    """
+    world = enquirable_owner(owner_session)
+    slug, batch_id, caller = CASES[name](owner_session, world)
+    stranger = guardian(owner_session, phone="01812345678")
+
+    never = _statements(
+        restricted_session, lambda: _send(restricted_session, stranger, NEVER, None)
+    )
+    refused = _statements(
+        restricted_session, lambda: _send(restricted_session, caller, slug, batch_id)
+    )
+
+    assert refused == never
+    # The key, the account read, the hold and `resolve`.
+    assert len(never) == 4
+
+
 def test_the_same_world_unbroken_is_enquirable(
     owner_session: Session, restricted_session: Session
 ) -> None:

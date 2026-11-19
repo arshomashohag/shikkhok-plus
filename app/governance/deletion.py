@@ -666,12 +666,15 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
     # One rare cycle is left to the retry, not to lock order. A review
     # forget here deletes OTHER accounts' inbox items about the review,
     # while the generic loop below deletes this account's own inbox without
-    # locking what each item is about. So an account that is both a solo
+    # locking what each item is about. Take an account that is both a solo
     # teacher and a centre manager, deleted while the author of a review of
-    # its centre is deleted too, can hold an item the author's forget wants
-    # while waiting on a join request the author locked. PostgreSQL ends it
-    # with `40P01`, and `run_with_retry` around both deletion routes re-runs
-    # the losing side [U2: NFR4.3].
+    # its centre is deleted too, the two sharing a join request. The
+    # author's review forget deletes, and so holds, the manager's inbox
+    # item about the review. The manager's `for_account` locks the shared
+    # request, then its generic loop waits on that inbox item; the author's
+    # `for_account` waits on the request the manager holds. PostgreSQL ends
+    # it with `40P01`, and `run_with_retry` around both deletion routes
+    # re-runs the losing side [U2: NFR4.3].
     reviews_forgotten = _forget_authored_reviews(
         session, account_id, dt.datetime.now(tz=dt.UTC)
     ) + _forget_solo_owner_reviews(session, account_id, dt.datetime.now(tz=dt.UTC))

@@ -25,17 +25,23 @@ answers ``ENQUIRY_ALREADY_OPEN``.
 account that runs the listing gets one ``hub_enquiry_received`` item naming
 the batch's public title (else the listing's public name), with no preview.
 
-**A send never outlives either party's deletion** [H5 T7 review]. Before
-it decides, a send takes the caller's account key -- the first lock an
-account deletion takes -- and then the owner listing's row ``FOR SHARE``,
-holding both until it commits. The ``owner`` row is retained by a deletion,
-so its foreign key would never notice one; the listing is the row that goes,
-and a deletion locks it ``FOR UPDATE`` before it collects the owner's
-requests. So a send already holding either lock is collected by the
+**A send never outlives either party's deletion** [H5 T7 review]. Before it
+decides, a send takes the caller's account key -- the first lock an account
+deletion takes -- and then the owner listing's row ``FOR SHARE`` when it is
+enquirable, holding both until it commits. The ``owner`` row is retained by
+a deletion, so its foreign key would never notice one; the listing is the
+row that goes, and a deletion locks it ``FOR UPDATE`` before it collects the
+owner's requests. So a send already holding either lock is collected by the
 deletion that waits for it, and a send that waits on a deletion finds the
 account gone (the 401 a deleted account's token gets) or the listing gone
 (the one ``ENQUIRY_TARGET_NOT_FOUND``). The order is key, listing, request,
 inbox, as in the deletion; nothing locks a request and then a listing.
+
+**Every refusal runs the same statements** [H5 T7 re-review]: the key, the
+account read, the hold and ``resolve``, whichever condition failed. Only an
+enquirable listing -- already public -- is locked, so a slug that never
+existed and a registered slug that is not public neither differ in what
+runs nor in what they can wait on.
 
 **Withdrawal is total and never switch-gated**: :func:`withdraw` locks the
 caller's row, then hands it to :func:`app.hub.enquiries.forget.forget`.
@@ -113,9 +119,15 @@ _CALLER: Final = sa.text(
 _ACCOUNT_EXISTS: Final = sa.text("SELECT 1 FROM account WHERE id = :account_id")
 
 #: The asked owner's listing, held until the send commits, so a deletion
-#: cannot remove it between the decision and the insert.
+#: cannot remove it between the decision and the insert. Only an enquirable
+#: listing is locked: one that is not public is never waited on.
 _HOLD_LISTING: Final = sa.text(
-    "SELECT owner_id FROM owner_listing WHERE slug = :slug FOR SHARE"
+    """
+    SELECT l.owner_id FROM owner_listing l
+    JOIN hub_public_enquirable e ON e.owner_id = l.owner_id
+    WHERE e.slug = :slug
+    FOR SHARE OF l
+    """
 )
 
 #: A new request; nothing when one is already open with this owner.
@@ -302,7 +314,7 @@ def _refuse_contact(field: str, text: str | None) -> None:
         )
 
 
-def _hold(session: Session, account_id: uuid.UUID, owner_slug: str) -> None:
+def _hold(session: Session, account_id: uuid.UUID, owner_slug: str) -> bool:
     """Take the send's locks, before anything is decided.
 
     The caller's account key first, then the listing ``FOR SHARE``: the
@@ -312,10 +324,11 @@ def _hold(session: Session, account_id: uuid.UUID, owner_slug: str) -> None:
     :param session: The send's session, inside its transaction
     :param account_id: The authenticated guardian
     :param owner_slug: The owner's public slug
-    :return: None
+    :return: Whether an enquirable listing is now held; False when none has
+        the slug, or it was deleted while this waited. The caller refuses
+        only after ``resolve`` has run, so every refusal runs alike
     :raises AuthorizationError: ``NOT_AUTHENTICATED`` (401) when the account
-        was deleted after authentication; ``ENQUIRY_TARGET_NOT_FOUND`` (404)
-        when no listing has the slug, or it was deleted while this waited
+        was deleted after authentication
     """
     lock_keys(session, [account_key(account_id)])
     if session.execute(_ACCOUNT_EXISTS, {"account_id": account_id}).first() is None:
@@ -324,8 +337,7 @@ def _hold(session: Session, account_id: uuid.UUID, owner_slug: str) -> None:
         raise AuthorizationError(
             code="NOT_AUTHENTICATED", message_key="auth.token.not_valid", status=401
         )
-    if session.execute(_HOLD_LISTING, {"slug": owner_slug}).first() is None:
-        raise target.not_found()
+    return session.execute(_HOLD_LISTING, {"slug": owner_slug}).first() is not None
 
 
 def _notify_owners(
@@ -399,12 +411,16 @@ def send(
     _refuse_contact("student_name", name)
     _refuse_contact("message", text)
     try:
-        _hold(session, account_id, owner_slug)
+        held = _hold(session, account_id, owner_slug)
         # Decided after the locks, so a listing deleted while this waited is
         # refused rather than trusted from an earlier read. The slug is
         # unique and cannot change while held, so `resolve` reads the row
-        # held above.
+        # held above. It runs even when nothing is held, and only then is
+        # the absence refused, so no refusal is quicker than another; a
+        # listing that claimed the slug after the hold is refused too.
         found = target.resolve(session, account_id, owner_slug, batch_id)
+        if not held:
+            raise target.not_found()
         enquiry_id = session.execute(
             _CREATE,
             {
