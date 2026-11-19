@@ -61,9 +61,10 @@ under the same threshold, grants and ``security_barrier``.
 role. The application role already reads both base tables, so its grant
 adds no reach; it lets the teacher API read reviews through the same
 threshold as the public inside a write transaction, without
-``SET LOCAL ROLE``. Unlike ``0040``'s views, the application role's grant is
-stated rather than inherited, so it is a reviewed audience. The reader is
-granted nothing on either table.
+``SET LOCAL ROLE``. Unlike ``0040``'s views, which the application role
+reads only by becoming the reader (it is ``NOINHERIT``), its grant here is
+stated, so it is a reviewed audience. The reader is granted nothing on
+either table. (Corrected 2026-11-20: this said "rather than inherited".)
 
 **Cascades.** A review goes with its author's account and with its batch's
 listing (a solo owner's listing goes with their account); deleting the

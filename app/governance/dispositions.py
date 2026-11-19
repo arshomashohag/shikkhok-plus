@@ -79,6 +79,8 @@ class RetentionClass(enum.Enum):
     #: Kept until the row's own expiry and no longer [U1: BR7.6]: the
     #: purge's window is zero, measured from the expiry column.
     UNTIL_EXPIRY = "until_expiry"
+    #: Ninety days from the row's own creation, answered or not [0047].
+    DAYS_90 = "90_days"
     LIFE_OF_ACCOUNT = "life_of_account"
 
 
@@ -747,6 +749,21 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "coaching centre's reply belongs to the centre, so it stays when "
             "the manager who wrote it deletes their account, and no longer "
             "says who wrote it."
+        ),
+    ),
+    "listing_enquiry": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.DAYS_90,
+        basis=(
+            "A request to join that a signed-in guardian sent to a teacher or "
+            "centre: the student's name and class as they typed them, an "
+            "optional message, and whether they chose to share their phone "
+            "number or email address, which is read from their account only "
+            "while the request exists and only if they chose. Seen only by "
+            "the people who run that listing; never public, never shown to "
+            "platform administrators. It goes when the guardian withdraws it "
+            "or deletes their account, when a solo teacher deletes theirs, "
+            "and 90 days after it was sent in any case."
         ),
     ),
     "media_object_task": TableGovernance(

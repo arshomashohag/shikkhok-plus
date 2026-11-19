@@ -97,6 +97,8 @@ _CLASS_AGE: Final[dict[RetentionClass, dt.timedelta]] = {
     # [U1: BR7.6] A username hold is purged at its own expiry: the age
     # column is `held_until`, and an expired hold already blocks nobody.
     RetentionClass.UNTIL_EXPIRY: dt.timedelta(0),
+    # [0047] A join request, answered or not, from when it was sent.
+    RetentionClass.DAYS_90: dt.timedelta(days=90),
 }
 
 #: Which column carries each purgeable table's age.
@@ -125,6 +127,7 @@ _AGE_COLUMN: Final[dict[str, str]] = {
     # than the cutoff, so a deletion still to be done is never purged and
     # a photo's objects cannot outlive the only record that they must go.
     "media_object_task": "done_at",
+    "listing_enquiry": "created_at",
 }
 
 

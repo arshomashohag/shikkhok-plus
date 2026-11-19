@@ -213,6 +213,7 @@ actually does, and our build fails if the two stop matching.
 | A complaint you filed about something on the public hub | no time limit |
 | A place a teacher accepts payment, such as a number | no time limit |
 | A record that a teacher sent a fee reminder | 12 months |
+| A request to join a class that you sent to a teacher or centre: the student's name and class, any message, and whether you chose to share your phone number or email address | 90 days |
 | A review you wrote of a class on the public hub, with its star rating | no time limit |
 | A sign-up form you submitted, kept until you enter the code we sent | 48 hours |
 | A solo teacher's answers to whether the public hub brought them a student | no time limit |
@@ -285,7 +286,7 @@ These records are about how the service itself is running, not about any person.
 
 **A coaching centre's public listing stays with the centre.** If you are a manager of a coaching centre and delete your account, what the centre published on the public hub -- its own page, its class pages and their photos, and its replies to reviews -- and its answers to whether the hub brought it students are kept, because they belong to the centre and not to you, and the centre's other managers may still run it. Your own account is removed as described above. A solo teacher's public listing is not kept: it is deleted with their account.
 
-<!-- governance manifest digest: fba6530d36d3a605029ec266a172573d4fddcb4e081888066fa0d659ebff4d70
+<!-- governance manifest digest: 5c2f99837b497fb845782175229c293be25c6b288a06dcb71f31d4462df7eaae
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

@@ -325,6 +325,16 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
             "deletion, its writer cleared by its foreign key."
         ),
     ),
+    "listing_enquiry": _Target(
+        scope=Scope.ACCOUNT_COLUMN,
+        column="enquirer_account_id",
+        note=(
+            "A join request the account sent. A solo owner's received "
+            "requests, and the inbox items of both parties, are removed "
+            "first by `app.hub.enquiries.forget`: the `owner` row stays, so "
+            "its cascade never fires."
+        ),
+    ),
     "media_object_task": _Target(
         scope=Scope.NOT_PERSONAL,
         column=None,

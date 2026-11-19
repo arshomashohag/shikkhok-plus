@@ -283,9 +283,10 @@ def test_every_finite_retention_class_has_a_window(
     # 10 since 0036 added `hub_moderation_event`, kept twelve months;
     # 11 since 0038 added `username_hold`, kept until its own expiry;
     # 12 since 0041 added `cdn_invalidation`, kept seven days;
-    # 13 since 0043 added `media_object_task`, kept seven days once done.
-    assert len(finite) == 13, (
-        f"the manifest now carries {len(finite)} finite windows, not 13."
+    # 13 since 0043 added `media_object_task`, kept seven days once done;
+    # 14 since 0047 added `listing_enquiry`, kept 90 days from sending.
+    assert len(finite) == 14, (
+        f"the manifest now carries {len(finite)} finite windows, not 14."
     )
 
 
@@ -457,6 +458,23 @@ def _plant(
                 "VALUES ('delete', :prefix, :at, :at)"
             ),
             {"prefix": _media_prefix_of(row_id), "at": at},
+        )
+    elif table == "listing_enquiry":
+        # Asked of the shared seat's owner. Closed, because the account
+        # plants two rows and only one may be open per owner; an open
+        # request ages out alike, in `test_enquiry_retention.py`.
+        session.execute(
+            sa.text(
+                "INSERT INTO listing_enquiry "
+                "(id, owner_id, enquirer_account_id, student_name, "
+                " class_level, share_contact, status, outcome, created_at, "
+                " closed_at) "
+                "SELECT :id, b.owner_id, :account_id, 'Aged', 'class_9', "
+                "       false, 'closed', 'not_now', :at, :at "
+                "FROM enrollment e JOIN batch b ON b.id = e.batch_id "
+                "WHERE e.id = :enrollment_id"
+            ),
+            shared | {"account_id": account_id, "enrollment_id": enrollment_id},
         )
     else:  # pragma: no cover - guarded by the assertion below
         raise AssertionError(

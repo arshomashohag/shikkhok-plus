@@ -204,10 +204,12 @@ def upgrade() -> None:
     for name, body in VIEWS.items():
         op.execute(sa.text(f"CREATE VIEW {name} WITH (security_barrier) AS {body}"))
         # The reader is the only grantee. The application role reaches the
-        # views too, but only by inheritance: ``0034`` made it a member of
-        # the reader so it can ``SET LOCAL ROLE``, and a member inherits
-        # its role's grants. Granting the application role directly would
-        # add nothing and would read as a second, unreviewed audience.
+        # views only by becoming the reader: ``0034`` made it a member so it
+        # can ``SET LOCAL ROLE``, and ``0001`` created it ``NOINHERIT``, so
+        # it holds none of the reader's grants as itself. (Corrected
+        # 2026-11-20: this comment said the role inherited them; it does
+        # not, and ``test_app_role_does_not_inherit_reader_grants`` pins
+        # that. ``0047`` later grants it two of these views directly.)
         op.execute(sa.text(f"GRANT SELECT ON {name} TO {HUB_READER_ROLE}"))
 
 

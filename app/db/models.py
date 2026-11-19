@@ -3746,6 +3746,8 @@ class OwnerListing(Base):
         read ``enrollment`` to compute it, so the application sets it from
         ``app.hub.listings.badge`` on save, on publish and daily
     :ivar search_text: The indexed text, computed by the database
+    :ivar accepts_enquiries: Whether the owner agreed to receive join
+        requests [0047]; separate from publishing, and false until they do
     """
 
     __tablename__ = "owner_listing"
@@ -3807,6 +3809,9 @@ class OwnerListing(Base):
         String(40), nullable=True
     )
     runs_classes: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    accepts_enquiries: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
     search_text: Mapped[str | None] = mapped_column(
@@ -4629,4 +4634,130 @@ class ReviewReply(Base):
             _MONTH_IS_FIRST, name=conv("ck_review_reply_published_month_first")
         ),
         CheckConstraint(_REJECTION_CODE, name=conv("ck_review_reply_rejection_code")),
+    )
+
+
+#: A join request's statuses [0047]: ``open`` until the owner answers.
+HUB_ENQUIRY_STATUS_VALUES: tuple[str, ...] = ("open", "closed")
+#: The owner's closed answer to a join request (Call 7).
+HUB_ENQUIRY_OUTCOME_VALUES: tuple[str, ...] = ("added", "not_now", "call_us")
+
+_HUB_ENQUIRY_STATUS = PgEnum(
+    *HUB_ENQUIRY_STATUS_VALUES, name="hub_enquiry_status", create_type=False
+)
+_HUB_ENQUIRY_OUTCOME = PgEnum(
+    *HUB_ENQUIRY_OUTCOME_VALUES, name="hub_enquiry_outcome", create_type=False
+)
+
+
+class ListingEnquiry(Base):
+    """A signed-in guardian's request to join a listed owner's class [0047].
+
+    Seen only by the people who run that listing; never public, never shown
+    to a platform administrator. **Never in any response, page or log
+    line:** ``enquirer_account_id``; ``student_name`` and ``message`` are
+    never logged. The guardian's contact is not stored here: it is read
+    live from ``account``, and only while ``share_contact`` is true.
+
+    :ivar id: Surrogate key, random
+    :ivar owner_id: The owner asked
+    :ivar batch_id: The listed class it is about, if any; cleared if that
+        listing goes
+    :ivar enquirer_account_id: The guardian who sent it; it goes with them
+    :ivar student_name: 1 to 80 characters, as the guardian typed it
+    :ivar class_level: One of :data:`HUB_CLASS_LEVELS`
+    :ivar message: 1 to 300 characters, or NULL
+    :ivar share_contact: Whether the guardian chose to share their contact;
+        no default, so it is always their stated answer
+    :ivar status: One of :data:`HUB_ENQUIRY_STATUS_VALUES`
+    :ivar outcome: One of :data:`HUB_ENQUIRY_OUTCOME_VALUES`; set exactly
+        while closed, and ``added`` only with a shared contact
+    :ivar created_at: When it was sent; the 90-day retention runs from it
+    :ivar closed_at: When the owner answered; set exactly while closed
+    """
+
+    __tablename__ = "listing_enquiry"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "owner.id", ondelete="CASCADE", name=conv("fk_listing_enquiry_owner_id")
+        ),
+        nullable=False,
+    )
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "batch_listing.batch_id",
+            ondelete="SET NULL",
+            name=conv("fk_listing_enquiry_batch_id"),
+        ),
+        nullable=True,
+    )
+    enquirer_account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey(
+            "account.id",
+            ondelete="CASCADE",
+            name=conv("fk_listing_enquiry_enquirer_account_id"),
+        ),
+        nullable=False,
+    )
+    student_name: Mapped[str] = mapped_column(Text, nullable=False)
+    class_level: Mapped[str] = mapped_column(String(20), nullable=False)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    share_contact: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    status: Mapped[str] = mapped_column(
+        _HUB_ENQUIRY_STATUS, nullable=False, server_default=text("'open'")
+    )
+    outcome: Mapped[str | None] = mapped_column(_HUB_ENQUIRY_OUTCOME, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    closed_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "char_length(btrim(student_name)) BETWEEN 1 AND 80",
+            name=conv("ck_listing_enquiry_student_name"),
+        ),
+        CheckConstraint(
+            "class_level IN (" + ", ".join(repr(c) for c in HUB_CLASS_LEVELS) + ")",
+            name=conv("ck_listing_enquiry_class_level"),
+        ),
+        CheckConstraint(
+            "message IS NULL OR char_length(message) BETWEEN 1 AND 300",
+            name=conv("ck_listing_enquiry_message"),
+        ),
+        CheckConstraint(
+            "(status = 'closed') = (outcome IS NOT NULL)",
+            name=conv("ck_listing_enquiry_outcome_iff_closed"),
+        ),
+        CheckConstraint(
+            "(status = 'closed') = (closed_at IS NOT NULL)",
+            name=conv("ck_listing_enquiry_closed_at_iff_closed"),
+        ),
+        CheckConstraint(
+            "outcome IS DISTINCT FROM 'added' OR share_contact",
+            name=conv("ck_listing_enquiry_added_needs_contact"),
+        ),
+        # One open request per owner and guardian (Call 9): the send is
+        # ``ON CONFLICT DO NOTHING`` against this, never a check first.
+        Index(
+            "uq_listing_enquiry_open",
+            "owner_id",
+            "enquirer_account_id",
+            unique=True,
+            postgresql_where=text("status = 'open'"),
+        ),
+        Index("ix_listing_enquiry_owner_created", "owner_id", "created_at"),
+        Index("ix_listing_enquiry_enquirer", "enquirer_account_id"),
     )

@@ -286,7 +286,8 @@ def upgrade() -> None:
         sa.text(f"CREATE VIEW hub_public_media WITH (security_barrier) AS {VIEW}")
     )
     # The reader is the only grantee, as for ``0040``'s views: the
-    # application role reaches it only by inheriting the reader's grants.
+    # application role reaches it only by becoming the reader with
+    # ``SET LOCAL ROLE``, since it is ``NOINHERIT`` (corrected 2026-11-20).
     op.execute(sa.text(f"GRANT SELECT ON hub_public_media TO {HUB_READER_ROLE}"))
 
 

@@ -120,6 +120,7 @@ _RETENTION_TEXT: Final[dict[RetentionClass, str]] = {
     RetentionClass.MONTHS_12: "12 months",
     RetentionClass.UNTIL_EXPIRY_PLUS_30_DAYS: "30 days after it expires",
     RetentionClass.UNTIL_EXPIRY: "30 days, when the hold expires",
+    RetentionClass.DAYS_90: "90 days",
     RetentionClass.LIFE_OF_ACCOUNT: "no time limit",
 }
 
@@ -171,6 +172,11 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
     ),
     "review_reply": (
         "A teacher's reply to a review on the public hub, removed with the review"
+    ),
+    "listing_enquiry": (
+        "A request to join a class that you sent to a teacher or centre: the "
+        "student's name and class, any message, and whether you chose to share "
+        "your phone number or email address"
     ),
     "hub_moderation_event": (
         "A record that moderation acted on a hub listing, photo, review, reply "
