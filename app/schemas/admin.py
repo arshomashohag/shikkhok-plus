@@ -100,6 +100,11 @@ class AdminOverviewResponse(BaseModel):
     :ivar help_open: Tickets waiting on support
     :ivar help_answered: Tickets waiting on the requester
     :ivar help_closed: Closed tickets
+    :ivar hub_reviews_public: Reviews public at some point in the trailing 91
+        days: published or held now, or removed inside the window
+    :ivar hub_reviews_reported: Of those, the ones reported inside the window
+    :ivar hub_reviews_pull_bar: Whether reported reviews exceed 5% of public
+        ones, the spec's "Pull reviews" bar (section 9)
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -124,6 +129,9 @@ class AdminOverviewResponse(BaseModel):
     help_open: int
     help_answered: int
     help_closed: int
+    hub_reviews_public: int
+    hub_reviews_reported: int
+    hub_reviews_pull_bar: bool
 
 
 class AdminWorkspace(BaseModel):

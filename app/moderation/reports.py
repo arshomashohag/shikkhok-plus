@@ -4,11 +4,19 @@
 stranger cannot take a teacher's page down by filing one; only an
 administrator's suspension (see :mod:`app.moderation.suspension`) does.
 
-**A photo is the one exception, and only for two reasons.** A
-``child_safety`` or ``personal_info`` report on a photo holds it at once, in
-the report's own transaction (:func:`app.moderation.media.hold`): a photo of
-a child that should not be public comes down before anyone reviews it, and
-an administrator restores it if the report was wrong [H3 deviation 2].
+**A photo, a review and a reply are the exceptions, and only for two
+reasons.** A ``child_safety`` or ``personal_info`` report on one holds it at
+once, in the report's own transaction (:func:`app.moderation.media.hold`,
+:func:`app.moderation.reviews.hold`): a photo of a child, or a child named in
+a review, that should not be public comes down before anyone reviews it,
+and an administrator restores it if the report was wrong [H3 deviation 2].
+A report on a review or reply filed by the batch's own owner or managers
+holds nothing [F10]: the owner "may report; never hide or delete".
+
+**A review or reply is locked before its report rows** [T4-c, T5-d], when a
+report is filed and when one is decided, in the order the author's delete
+takes, so neither can deadlock with it
+(:func:`app.moderation.reviews.lock`).
 
 **Every unreportable target answers identically.** A draft, hidden, suspended
 or missing listing, and a target kind R1 has not built, all raise the same
@@ -40,7 +48,7 @@ from app.errors import ConflictError, ValidationError
 from app.help.identity import requester_ref
 from app.hub.listings.shared import refuse_phone_in
 from app.hub.media.storage import MediaStore
-from app.moderation import media
+from app.moderation import media, reviews
 from app.moderation.refusals import admin_not_found, not_found
 from app.moderation.vocab import HOLD_REASONS, REASONS
 
@@ -99,7 +107,7 @@ _AREA_NAMES: Final = sa.text(
 class QueueItem:
     """One row of the administrator's queue.
 
-    :ivar kind: ``report``, ``listing`` or ``media``
+    :ivar kind: ``report``, ``listing``, ``media`` or ``review``
     :ivar report_id: The report, for a report row
     :ivar target_kind: What was reported or suspended
     :ivar target_id: The target's id
@@ -113,10 +121,13 @@ class QueueItem:
     :ivar note: The reporter's note, for a report row
     :ivar reporter_ref: The opaque reporter label, for a report row
     :ivar waited_hours: Whole hours since the report, the suspension, the
-        hold or the upload
+        hold, the upload, or a review's or reply's submit or edit
+    :ivar author_ref: For a review or reply, the opaque reference of the
+        review's author; for a reply, of the review it answers
+    :ivar author_role: That author's role
     """
 
-    kind: Literal["report", "listing", "media"]
+    kind: Literal["report", "listing", "media", "review"]
     report_id: uuid.UUID | None
     target_kind: str
     target_id: uuid.UUID
@@ -127,22 +138,28 @@ class QueueItem:
     note: str | None
     reporter_ref: str | None
     waited_hours: int
+    author_ref: str | None = None
+    author_role: str | None = None
 
 
 def _reportable(session: Session, target_kind: str, target_id: uuid.UUID) -> bool:
-    """Say whether a target is public: a published listing, or a shown photo.
+    """Say whether a target is public: a listing, a photo, a review or a reply.
 
     The kind decides the one table looked in: an owner listing by owner id,
-    a batch listing by batch id, a photo by media id. A batch listing counts
-    only while its owner listing is published too; a photo only where the
-    public view shows it -- approved, on a published page.
+    a batch listing by batch id, a photo by media id, a review or reply by
+    review id. A batch listing counts only while its owner listing is
+    published too; a photo only where the public view shows it -- approved,
+    on a published page; a review or reply only where ``hub_public_review``
+    shows it, and never while reviews are switched off.
 
     :param session: The session
     :param target_kind: The reported kind
     :param target_id: The reported id
-    :return: True only for a published owner or batch listing, or a photo
-        on a public page
+    :return: True only for a published owner or batch listing, a photo on a
+        public page, or a review or reply text the public can read
     """
+    if target_kind in reviews.REVIEW_TARGETS:
+        return reviews.is_public(session, target_kind, target_id)
     if target_kind == "media":
         return media.is_public(session, target_id)
     if target_kind == "owner_listing":
@@ -178,7 +195,8 @@ def file(
     """File one report and log the event; change no listing.
 
     A ``child_safety`` or ``personal_info`` report on a photo also holds the
-    photo, in this same transaction.
+    photo, in this same transaction; on a review or a reply, it holds that
+    item, unless the reporter runs the reviewed batch [F10].
 
     :param session: The session
     :param account_id: The reporter
@@ -193,8 +211,8 @@ def file(
     :raises ValidationError: The reason is unknown or the note carries a phone
         number
     :raises CeilingBreach: The account has filed ten reports today
-    :raises AuthorizationError: The target is not a published listing or a
-        photo on a public page
+    :raises AuthorizationError: The target is not a published listing, a
+        photo on a public page, or a review or reply the public can read
     :raises ConflictError: This account already reported this target
     """
     if reason not in REASONS:
@@ -203,7 +221,11 @@ def file(
         )
     refuse_phone_in([("note", note)])
     CeilingChecker(session).check_and_consume_hub_report(account_id, now)
+    if target_kind in reviews.REVIEW_TARGETS:
+        # The content row before any report row [T4-c, T5-d].
+        reviews.lock(session, target_kind, target_id)
     if not _reportable(session, target_kind, target_id):
+        session.rollback()
         raise not_found()
     try:
         with session.begin_nested():
@@ -238,6 +260,19 @@ def file(
     if target_kind == "media" and reason in HOLD_REASONS:
         media.hold(
             session, target_id, reason=reason, now=now, correlation_id=correlation_id
+        )
+    elif (
+        target_kind in reviews.REVIEW_TARGETS
+        and reason in HOLD_REASONS
+        and not reviews.runs_batch(session, target_id, account_id)
+    ):
+        reviews.hold(
+            session,
+            target_kind,
+            target_id,
+            reason=reason,
+            now=now,
+            correlation_id=correlation_id,
         )
     session.commit()
 
@@ -311,22 +346,47 @@ def _batch_fields(listing: BatchListing) -> Fields:
     return _present([(k, values[k]) for k in BATCH_FIELDS])
 
 
+@dataclass(frozen=True, slots=True)
+class _Target:
+    """What a report row shows of what was reported.
+
+    :ivar owner_id: The owner it belongs to
+    :ivar title: Its public name or title; for a review or reply, the
+        batch's public title
+    :ivar fields: What was submitted for display on it
+    :ivar author_ref: For a review or reply, the review author's reference
+    :ivar author_role: That author's role
+    """
+
+    owner_id: uuid.UUID | None
+    title: str | None
+    fields: Fields
+    author_ref: str | None = None
+    author_role: str | None = None
+
+
+#: What a report row shows when its target is gone.
+_GONE: Final = _Target(owner_id=None, title=None, fields=())
+
+
 def _targets(
     session: Session, reports: list[HubReport]
-) -> dict[tuple[str, uuid.UUID], tuple[uuid.UUID, str | None, Fields]]:
-    """Look up the submitted public text of reported listings.
+) -> dict[tuple[str, uuid.UUID], _Target]:
+    """Look up the submitted public text of reported targets.
 
     Each report's kind names its table, so an owner id is never read as a
-    batch id or the reverse.
+    batch id or the reverse. A review or reply is described by its batch's
+    public title, its rating and words, and its author's role and opaque
+    reference -- never the author.
 
     :param session: The session
     :param reports: The reports
-    :return: ``{(kind, id): (owner id, title, fields)}`` for those that exist
+    :return: ``{(kind, id): target}`` for those that exist
     """
     wanted: dict[str, list[uuid.UUID]] = {}
     for report in reports:
         wanted.setdefault(report.target_kind, []).append(report.target_id)
-    found: dict[tuple[str, uuid.UUID], tuple[uuid.UUID, str | None, Fields]] = {}
+    found: dict[tuple[str, uuid.UUID], _Target] = {}
     owners = list(
         session.scalars(
             sa.select(OwnerListing).where(
@@ -336,19 +396,22 @@ def _targets(
     )
     for owner_id, fields in _owner_fields(session, owners).items():
         title = next((v for k, v in fields if k == "public_name"), None)
-        found["owner_listing", owner_id] = (owner_id, title, fields)
+        found["owner_listing", owner_id] = _Target(owner_id, title, fields)
     for batch in session.scalars(
         sa.select(BatchListing).where(
             BatchListing.batch_id.in_(wanted.get("batch_listing", []))
         )
     ):
-        found["batch_listing", batch.batch_id] = (
-            batch.owner_id,
-            batch.public_title,
-            _batch_fields(batch),
+        found["batch_listing", batch.batch_id] = _Target(
+            batch.owner_id, batch.public_title, _batch_fields(batch)
         )
     for media_id, described in media.describe(session, wanted.get("media", [])).items():
-        found["media", media_id] = described
+        found["media", media_id] = _Target(*described)
+    for kind in sorted(reviews.REVIEW_TARGETS):
+        for review_id, about in reviews.describe(
+            session, kind, wanted.get(kind, [])
+        ).items():
+            found[kind, review_id] = _Target(*about)
     return found
 
 
@@ -377,16 +440,45 @@ def _waiting_media(session: Session, moment: dt.datetime) -> list[QueueItem]:
     ]
 
 
+def _waiting_reviews(session: Session, moment: dt.datetime) -> list[QueueItem]:
+    """List the reviews and replies waiting for a decision as queue rows.
+
+    :param session: The session
+    :param moment: The moment waits are measured to
+    :return: Pending and held reviews and replies, oldest wait first
+    """
+    return [
+        QueueItem(
+            kind="review",
+            report_id=None,
+            target_kind=w.target_kind,
+            target_id=w.review_id,
+            owner_id=w.owner_id,
+            title=w.title,
+            fields=w.fields,
+            reason=w.held_reason,
+            note=None,
+            reporter_ref=None,
+            waited_hours=_hours(w.since, moment),
+            author_ref=w.author_ref,
+            author_role=w.author_role,
+        )
+        for w in reviews.waiting(session)
+    ]
+
+
 def queue(
     session: Session,
-    kind: Literal["report", "listing", "media"],
+    kind: Literal["report", "listing", "media", "review"],
     now: dt.datetime | None = None,
 ) -> list[QueueItem]:
     """List what an administrator should look at, oldest first.
 
     ``report`` lists open reports; ``listing`` lists suspended owner
     listings; ``media`` lists photos waiting for review or held after a
-    report. None carries a reporter's phone, name or account id.
+    report; ``review`` lists reviews and replies waiting for review or held
+    after a report. None carries a reporter's or an author's phone, name or
+    account id.
 
     :param session: The session
     :param kind: Which queue
@@ -396,6 +488,8 @@ def queue(
     moment = now or dt.datetime.now(tz=dt.UTC)
     if kind == "media":
         return _waiting_media(session, moment)
+    if kind == "review":
+        return _waiting_reviews(session, moment)
     if kind == "listing":
         suspended = list(
             session.scalars(
@@ -431,22 +525,22 @@ def queue(
     targets = _targets(session, open_reports)
     items = []
     for report in open_reports:
-        owner_id, title, fields = targets.get(
-            (report.target_kind, report.target_id), (None, None, ())
-        )
+        target = targets.get((report.target_kind, report.target_id), _GONE)
         items.append(
             QueueItem(
                 kind="report",
                 report_id=report.id,
                 target_kind=report.target_kind,
                 target_id=report.target_id,
-                owner_id=owner_id,
-                title=title,
-                fields=fields,
+                owner_id=target.owner_id,
+                title=target.title,
+                fields=target.fields,
                 reason=report.reason,
                 note=report.note,
                 reporter_ref=requester_ref(report.reporter_account_id),
                 waited_hours=_hours(report.created_at, moment),
+                author_ref=target.author_ref,
+                author_role=target.author_role,
             )
         )
     return items
@@ -467,7 +561,10 @@ def decide(
     Upholding a listing report suspends nothing by itself; suspension is its
     own act. A decision on a photo report carries to the photo in the same
     transaction [R11]: upheld removes it, and dismissing the report that
-    holds it restores it (:func:`app.moderation.media.settle_report`).
+    holds it restores it (:func:`app.moderation.media.settle_report`). A
+    decision on a review or reply report carries to that item the same way
+    (:func:`app.moderation.reviews.settle_report`); the item is locked
+    before the report [T4-c, T5-d].
 
     :param session: The session
     :param admin: The administrator's lens
@@ -482,10 +579,23 @@ def decide(
     :raises TransientError: A held photo could not be restored; nothing
         was decided
     """
+    # A report's target never changes, so it is read unlocked to know which
+    # content row to lock first; the report is locked after it.
+    named = session.execute(
+        sa.select(HubReport.target_kind, HubReport.target_id).where(
+            HubReport.id == report_id
+        )
+    ).one_or_none()
+    if named is not None and named.target_kind in reviews.REVIEW_TARGETS:
+        reviews.lock(session, named.target_kind, named.target_id)
     report = session.scalar(
-        sa.select(HubReport).where(HubReport.id == report_id).with_for_update()
+        sa.select(HubReport)
+        .where(HubReport.id == report_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if report is None:
+        session.rollback()
         raise admin_not_found()
     if report.status != "open":
         raise ConflictError(
@@ -506,7 +616,19 @@ def decide(
         )
     )
     fresh = None
-    if report.target_kind == "media":
+    if report.target_kind in reviews.REVIEW_TARGETS:
+        reviews.settle_report(
+            session,
+            admin,
+            report.target_kind,
+            report.target_id,
+            upheld=decision == "upheld",
+            reason=report.reason,
+            report_id=report.id,
+            now=now,
+            correlation_id=correlation_id,
+        )
+    elif report.target_kind == "media":
         fresh = media.settle_report(
             session,
             store,

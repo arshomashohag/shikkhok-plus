@@ -324,11 +324,14 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # owner from the request, and any signed-in reader -- student,
         # guardian or someone holding no lens at all -- may report what
         # they see. A lens would scope nothing here. What bounds it is that
-        # only a PUBLISHED listing or a photo on a public page is
-        # reportable, every other target answers one identical refusal, a
+        # only a PUBLISHED listing, a photo on a public page, or a review or
+        # reply the public view shows while reviews are on is reportable,
+        # every other target answers one identical refusal, a
         # report changes no listing -- a child-safety or personal-information
         # report holds the one photo it names until an administrator
-        # decides [H3] -- and an account may file ten a day.
+        # decides [H3], and so it does the one review or reply it names
+        # [H4], unless filed by the batch's own owner or managers, who may
+        # report but never hide [F10] -- and an account may file ten a day.
         ("POST", "/v1/hub/reports"),
         # The batches the caller may review, is waiting to, or reviewed
         # [H4], exempt on exactly GET /v1/invitations's reasoning: it
@@ -344,7 +347,7 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
 )
 
 #: Every route a :class:`~app.authz.lenses.PlatformAdminLens` reaches,
-#: and exactly those [TC-14, D-6] -- twelve, a count
+#: and exactly those [TC-14, D-6] -- fourteen, a count
 #: ``tests/contract/test_admin_contract.py`` pins. Asserted in both directions by
 #: ``tests/contract/test_admin_routes.py``: a route taking the lens that
 #: is not listed fails, and so does a ``/v1/admin`` route that does not
@@ -369,6 +372,11 @@ PLATFORM_ADMIN_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # variants and its page's public names, and the decision on it.
         ("GET", "/v1/admin/hub/media/{media_id}"),
         ("POST", "/v1/admin/hub/media/{media_id}/decision"),
+        # Review moderation [H4]: one review or reply, its batch's public
+        # names and its author only by role and opaque reference, and the
+        # decision on it. Both answer HUB_REVIEWS_OFF while reviews are off.
+        ("GET", "/v1/admin/hub/reviews/{review_id}"),
+        ("POST", "/v1/admin/hub/reviews/{review_id}/decision"),
     }
 )
 

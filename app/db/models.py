@@ -3640,6 +3640,20 @@ HUB_MODERATION_EVENT_VALUES: tuple[str, ...] = (
     "media_rejected",
     "media_held",
     "media_restored",
+    # [0046] What moderation did to a review or a reply: an administrator's
+    # approval, rejection, restore or removal, a report's hold, and the
+    # weekly publication of an approved review.
+    "review_approved",
+    "review_rejected",
+    "review_held",
+    "review_restored",
+    "review_removed",
+    "review_published",
+    "reply_approved",
+    "reply_rejected",
+    "reply_held",
+    "reply_restored",
+    "reply_removed",
 )
 
 _HUB_LISTING_STATUS = PgEnum(

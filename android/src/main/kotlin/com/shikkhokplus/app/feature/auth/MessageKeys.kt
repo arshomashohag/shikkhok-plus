@@ -85,6 +85,8 @@ object MessageKeys {
         "hub.report_target_not_found" to R.string.hub_report_target_not_found,
         "hub.review.off" to R.string.hub_review_off,
         "hub.review.ceiling" to R.string.hub_review_ceiling,
+        "hub.review.already_decided" to R.string.hub_review_already_decided,
+        "hub.review.code_invalid" to R.string.hub_review_code_invalid,
         "hub.review.contains_contact" to R.string.hub_review_contains_contact,
         "hub.review.edit_closed" to R.string.hub_review_edit_closed,
         "hub.review.needs_attendance" to R.string.hub_review_needs_attendance,

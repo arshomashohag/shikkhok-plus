@@ -1,12 +1,12 @@
 /**
- * Public-hub moderation: open reports, suspended listings and photos
- * waiting for a decision, oldest first as the server sends them.
+ * Public-hub moderation: open reports, suspended listings, and photos and
+ * reviews waiting for a decision, oldest first as the server sends them.
  *
  * Every act (uphold, dismiss, suspend, lift, approve, reject) asks for an
  * in-page confirmation first and sends nothing until it is confirmed. What
- * may be seen is the server's decision: a reporter is an opaque reference,
- * a photo names only its page, and nothing about a student or guardian is
- * in the queue [TC-14] [D-6].
+ * may be seen is the server's decision: a reporter or a review's author is
+ * an opaque reference, a photo names only its page, and nothing else about
+ * a student or guardian is in the queue [TC-14] [D-6].
  */
 import { useState } from 'react'
 import { useSearchParams } from 'react-router'
@@ -18,6 +18,7 @@ import { AdminFailure, AdminFrame } from '../screens/AdminFrame'
 import { ApiError } from '../../api/errors'
 import type { Schemas } from '../../api/endpoints'
 import { MediaRow } from './MediaRow'
+import { ReviewRow } from './ReviewRow'
 import {
   ConfirmBanner,
   REASONS,
@@ -34,7 +35,10 @@ const EMPTY: Record<Tab, string> = {
   report: 'web_admin_hub_reports_empty',
   listing: 'web_admin_hub_suspended_empty',
   media: 'web_admin_hub_media_empty',
+  review: 'web_admin_hub_reviews_empty',
 }
+
+const TABS: readonly Tab[] = ['report', 'listing', 'media', 'review']
 
 type Act = { kind: 'uphold' | 'dismiss' } | { kind: 'suspend'; reason: Reason } | { kind: 'lift' }
 
@@ -86,6 +90,9 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
   const heading = t(`web_admin_hub_kind_${item.target_kind}`)
   // The public name or title is already the row's title; the rest is listed.
   const fields = item.fields.filter((f) => !(TITLE_KEYS.has(f.key) && f.value === item.title))
+  // A review or reply is what a family or the owner wrote, not the owner's
+  // listing, so its report row offers no suspension.
+  const aboutReview = item.target_kind === 'review' || item.target_kind === 'reply'
 
   return (
     <li ref={row}>
@@ -123,6 +130,13 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
           <br />
           <span className="meta">
             {[
+              item.author_ref && item.author_role
+                ? t(
+                    'web_admin_hub_review_author',
+                    item.author_ref,
+                    t(`web_admin_hub_review_role_${item.author_role}`),
+                  )
+                : null,
               item.reporter_ref ? t('web_admin_hub_reporter', item.reporter_ref) : null,
               t('web_admin_hub_waited', item.waited_hours),
             ]
@@ -161,7 +175,7 @@ function QueueRow({ item, onDone }: { item: Item; onDone: (text: string) => void
               >
                 {t('web_admin_hub_dismiss')}
               </button>
-              {item.owner_id ? (
+              {item.owner_id && !aboutReview ? (
                 <>
                   <label className="visually-hidden" htmlFor={`reason-${rowKey(item)}`}>
                     {t('web_admin_hub_reason_label')}
@@ -208,7 +222,7 @@ export function AdminHubQueue() {
   const { t } = useT()
   const [params, setParams] = useSearchParams()
   const asked = params.get('tab')
-  const tab: Tab = asked === 'listing' || asked === 'media' ? asked : 'report'
+  const tab: Tab = TABS.find((x) => x !== 'report' && x === asked) ?? 'report'
   const { resource, reload } = useResource(() => readHubQueue(tab), [tab])
   const [snack, setSnack] = useState<string | null>(null)
 
@@ -242,11 +256,9 @@ export function AdminHubQueue() {
               setSnack(text)
               reload()
             }
-            return i.kind === 'media' ? (
-              <MediaRow key={rowKey(i)} item={i} onDone={onDone} />
-            ) : (
-              <QueueRow key={rowKey(i)} item={i} onDone={onDone} />
-            )
+            if (i.kind === 'media') return <MediaRow key={rowKey(i)} item={i} onDone={onDone} />
+            if (i.kind === 'review') return <ReviewRow key={rowKey(i)} item={i} onDone={onDone} />
+            return <QueueRow key={rowKey(i)} item={i} onDone={onDone} />
           })}
         </ul>
       </>
@@ -256,6 +268,7 @@ export function AdminHubQueue() {
     { id: 'report', label: 'web_admin_hub_tab_reports' },
     { id: 'listing', label: 'web_admin_hub_tab_suspended' },
     { id: 'media', label: 'web_admin_hub_tab_media' },
+    { id: 'review', label: 'web_admin_hub_tab_reviews' },
   ]
 
   return (

@@ -1952,6 +1952,8 @@
     <string name="hub_write_ceiling">You have changed your listing a lot today. Try again tomorrow.</string>
     <string name="hub_review_off">Reviews are not available right now.</string>
     <string name="hub_review_ceiling">You have changed your reviews a lot today. Try again tomorrow.</string>
+    <string name="hub_review_already_decided">This review or reply has already been decided.</string>
+    <string name="hub_review_code_invalid">Choose one of the listed rejection reasons.</string>
     <string name="hub_review_contains_contact">Remove phone numbers and web addresses from your review.</string>
     <string name="hub_review_edit_closed">This review can no longer be changed.</string>
     <string name="hub_review_needs_attendance">You can review this batch once your child has attended 4 classes.</string>

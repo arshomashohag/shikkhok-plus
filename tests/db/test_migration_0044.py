@@ -82,7 +82,8 @@ def test_0044_adds_photo_acts_and_downgrade_removes_them(staged: Engine) -> None
     command.upgrade(_alembic_config(url), "0044")
     with staged.connect() as connection:
         assert _labels(connection) == EARLIER + MEDIA
-    assert HUB_MODERATION_EVENT_VALUES == EARLIER + MEDIA
+    # Later revisions (0046) append their own labels after these.
+    assert HUB_MODERATION_EVENT_VALUES[: len(EARLIER + MEDIA)] == EARLIER + MEDIA
 
     command.downgrade(_alembic_config(url), "0043")
     with staged.connect() as connection:

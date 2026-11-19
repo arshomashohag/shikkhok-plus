@@ -628,12 +628,16 @@ export interface paths {
     }
     /**
      * Hub Queue
-     * @description List open reports, suspended listings, or photos to decide, oldest first.
+     * @description List open reports, suspended listings, photos or reviews to decide.
+     *
+     *     Oldest first. ``kind=review`` answers ``HUB_REVIEWS_OFF`` while reviews
+     *     are off.
      *
      *     :param lens: The administrator's lens
      *     :param session: The request-scoped session
-     *     :param kind: ``report``, ``listing`` or ``media``
-     *     :return: The queue; a reporter appears only as an opaque label
+     *     :param kind: ``report``, ``listing``, ``media`` or ``review``
+     *     :return: The queue; a reporter or a review's author appears only as an
+     *         opaque label
      */
     get: operations['hub_queue_v1_admin_hub_queue_get']
     put?: never
@@ -666,6 +670,60 @@ export interface paths {
      *     :return: The report and its new status
      */
     post: operations['decide_report_v1_admin_hub_reports__report_id__decision_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/hub/reviews/{review_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Review
+     * @description Read one review, or its reply, for moderation.
+     *
+     *     :param review_id: The review; a reply's id is its review's
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :param target: ``review`` or ``reply``
+     *     :return: The item, its batch's public title and owner's public name, and
+     *         its author only as a role and an opaque reference
+     */
+    get: operations['hub_review_v1_admin_hub_reviews__review_id__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/hub/reviews/{review_id}/decision': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Decide Review
+     * @description Approve or reject a review or reply waiting for review or held.
+     *
+     *     :param review_id: The review; a reply's id is its review's
+     *     :param body: The target, the decision, and the code for a rejection
+     *     :param request: The incoming request
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The item and its new status
+     */
+    post: operations['decide_review_v1_admin_hub_reviews__review_id__decision_post']
     delete?: never
     options?: never
     head?: never
@@ -5666,6 +5724,9 @@ export interface components {
         | 'public_name'
         | 'public_title'
         | 'qualifications'
+        | 'reply_body'
+        | 'review_body'
+        | 'review_rating'
         | 'street_address'
         | 'subject_tags'
         | 'syllabus_bn'
@@ -5772,29 +5833,38 @@ export interface components {
      * AdminHubQueueItem
      * @description One row of the moderation queue.
      *
-     *     :ivar kind: ``report``, ``listing`` or ``media``
+     *     :ivar kind: ``report``, ``listing``, ``media`` or ``review``
      *     :ivar report_id: The report, for a report row
      *     :ivar target_kind: What was reported or suspended
-     *     :ivar target_id: The target's id
+     *     :ivar target_id: The target's id; a reply's is its review's
      *     :ivar owner_id: The owner the listing belongs to, when known
      *     :ivar title: The target's public name: an owner's public name or a
      *         batch's public title
-     *     :ivar fields: Everything the owner submitted for display on the target
+     *     :ivar fields: Everything the owner, or a review's author, submitted for
+     *         display on the target
      *     :ivar reason: The report reason, the suspension reason code, or why a
-     *         held photo was held; None for a photo waiting for review
+     *         held photo, review or reply was held; None for one waiting for
+     *         review
      *     :ivar note: The reporter's note, for a report row
      *     :ivar reporter_ref: The opaque reporter label, for a report row
      *     :ivar waited_hours: Whole hours since the report, the suspension, the
-     *         hold or the upload
+     *         hold, the upload, or a review's or reply's submit or edit
+     *     :ivar author_ref: For a review or reply, the review author's opaque
+     *         reference; for a reply, the author of the review it answers
+     *     :ivar author_role: That author's role
      */
     AdminHubQueueItem: {
+      /** Author Ref */
+      author_ref: string | null
+      /** Author Role */
+      author_role: string | null
       /** Fields */
       fields: components['schemas']['AdminHubField'][]
       /**
        * Kind
        * @enum {string}
        */
-      kind: 'listing' | 'media' | 'report'
+      kind: 'listing' | 'media' | 'report' | 'review'
       /** Note */
       note: string | null
       /** Owner Id */
@@ -5831,7 +5901,7 @@ export interface components {
        * Kind
        * @enum {string}
        */
-      kind: 'listing' | 'media' | 'report'
+      kind: 'listing' | 'media' | 'report' | 'review'
     }
     /**
      * AdminHubReportDecided
@@ -5851,6 +5921,118 @@ export interface components {
        * @enum {string}
        */
       status: 'dismissed' | 'upheld'
+    }
+    /**
+     * AdminHubReviewDecided
+     * @description A review or reply after its decision.
+     *
+     *     :ivar review_id: The review; a reply's id is its review's
+     *     :ivar target: ``review`` or ``reply``
+     *     :ivar status: ``approved`` (a review, awaiting the weekly publication),
+     *         ``published``, ``rejected`` or ``removed``
+     */
+    AdminHubReviewDecided: {
+      /**
+       * Review Id
+       * Format: uuid
+       */
+      review_id: string
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'approved' | 'published' | 'rejected' | 'removed'
+      /**
+       * Target
+       * @enum {string}
+       */
+      target: 'reply' | 'review'
+    }
+    /**
+     * AdminHubReviewDecisionRequest
+     * @description An administrator's decision on a review or a reply.
+     *
+     *     :ivar target: ``review`` or ``reply``
+     *     :ivar decision: ``approve`` or ``reject``
+     *     :ivar code: Why, for a rejection; omitted for an approval
+     */
+    AdminHubReviewDecisionRequest: {
+      /** Code */
+      code?: ('abusive' | 'identifiable_child' | 'off_topic' | 'other' | 'personal_info') | null
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: 'approve' | 'reject'
+      /**
+       * Target
+       * @enum {string}
+       */
+      target: 'reply' | 'review'
+    }
+    /**
+     * AdminHubReviewDetail
+     * @description One review or reply as an administrator moderates it.
+     *
+     *     Names the batch and its owner's public name, and the review's author
+     *     only by role and reference.
+     *
+     *     :ivar target_kind: ``review`` or ``reply``
+     *     :ivar review_id: The review; a reply's id is its review's
+     *     :ivar rating: The review's rating, 1 to 5
+     *     :ivar body: The review's words, or None
+     *     :ivar tenure: The review author's tenure bucket
+     *     :ivar author_role: The review author's role
+     *     :ivar author_ref: The review author's opaque reference
+     *     :ivar status: The target's status
+     *     :ivar batch_title: The batch's public title
+     *     :ivar owner_public_name: The owner listing's public name
+     *     :ivar reply_body: The reply's words, in any status, or None
+     *     :ivar open_reports: Open reports naming the target
+     *     :ivar waited_hours: Whole hours waited, while pending or held
+     */
+    AdminHubReviewDetail: {
+      /** Author Ref */
+      author_ref: string
+      /**
+       * Author Role
+       * @enum {string}
+       */
+      author_role: 'guardian' | 'student'
+      /** Batch Title */
+      batch_title: string | null
+      /** Body */
+      body: string | null
+      /** Open Reports */
+      open_reports: number
+      /** Owner Public Name */
+      owner_public_name: string | null
+      /** Rating */
+      rating: number
+      /** Reply Body */
+      reply_body: string | null
+      /**
+       * Review Id
+       * Format: uuid
+       */
+      review_id: string
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'approved' | 'held' | 'pending' | 'published' | 'rejected' | 'removed'
+      /**
+       * Target Kind
+       * @enum {string}
+       */
+      target_kind: 'reply' | 'review'
+      /**
+       * Tenure
+       * @enum {string}
+       */
+      tenure: '6_12m' | 'gt_1y' | 'lt_6m'
+      /** Waited Hours */
+      waited_hours: number | null
     }
     /**
      * AdminHubSuspensionRequest
@@ -5938,6 +6120,11 @@ export interface components {
      *     :ivar help_open: Tickets waiting on support
      *     :ivar help_answered: Tickets waiting on the requester
      *     :ivar help_closed: Closed tickets
+     *     :ivar hub_reviews_public: Reviews public at some point in the trailing 91
+     *         days: published or held now, or removed inside the window
+     *     :ivar hub_reviews_reported: Of those, the ones reported inside the window
+     *     :ivar hub_reviews_pull_bar: Whether reported reviews exceed 5% of public
+     *         ones, the spec's "Pull reviews" bar (section 9)
      */
     AdminOverviewResponse: {
       /** Accounts */
@@ -5967,6 +6154,12 @@ export interface components {
       help_closed: number
       /** Help Open */
       help_open: number
+      /** Hub Reviews Public */
+      hub_reviews_public: number
+      /** Hub Reviews Pull Bar */
+      hub_reviews_pull_bar: boolean
+      /** Hub Reviews Reported */
+      hub_reviews_reported: number
       /** New 30 Days */
       new_30_days: number
       /** New 7 Days */
@@ -14006,7 +14199,7 @@ export interface operations {
   hub_queue_v1_admin_hub_queue_get: {
     parameters: {
       query?: {
-        kind?: 'listing' | 'media' | 'report'
+        kind?: 'listing' | 'media' | 'report' | 'review'
       }
       header?: never
       path?: never
@@ -14021,6 +14214,15 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['AdminHubQueueResponse']
+        }
+      }
+      /** @description HUB_REVIEWS_OFF: kind=review while reviews are switched off. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
         }
       }
       /** @description The request could not be parsed */
@@ -14074,6 +14276,146 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['AdminHubReportDecided']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  hub_review_v1_admin_hub_reviews__review_id__get: {
+    parameters: {
+      query?: {
+        target?: 'reply' | 'review'
+      }
+      header?: never
+      path: {
+        review_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminHubReviewDetail']
+        }
+      }
+      /** @description HUB_REVIEWS_OFF: reviews are switched off. HUB_ADMIN_TARGET_NOT_FOUND: no such review, or no reply to it. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  decide_review_v1_admin_hub_reviews__review_id__decision_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        review_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminHubReviewDecisionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminHubReviewDecided']
+        }
+      }
+      /** @description REVIEW_CODE_INVALID: a code with an approval, or a rejection without one. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_REVIEWS_OFF: reviews are switched off. HUB_ADMIN_TARGET_NOT_FOUND: no such review, or no reply to it. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description REVIEW_ALREADY_DECIDED: the item is neither pending nor held. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
         }
       }
       /** @description The request could not be parsed */

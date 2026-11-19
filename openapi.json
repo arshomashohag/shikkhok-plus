@@ -225,6 +225,9 @@
               "public_name",
               "public_title",
               "qualifications",
+              "reply_body",
+              "review_body",
+              "review_rating",
               "street_address",
               "subject_tags",
               "syllabus_bn",
@@ -436,8 +439,30 @@
         "type": "object"
       },
       "AdminHubQueueItem": {
-        "description": "One row of the moderation queue.\n\n:ivar kind: ``report``, ``listing`` or ``media``\n:ivar report_id: The report, for a report row\n:ivar target_kind: What was reported or suspended\n:ivar target_id: The target's id\n:ivar owner_id: The owner the listing belongs to, when known\n:ivar title: The target's public name: an owner's public name or a\n    batch's public title\n:ivar fields: Everything the owner submitted for display on the target\n:ivar reason: The report reason, the suspension reason code, or why a\n    held photo was held; None for a photo waiting for review\n:ivar note: The reporter's note, for a report row\n:ivar reporter_ref: The opaque reporter label, for a report row\n:ivar waited_hours: Whole hours since the report, the suspension, the\n    hold or the upload",
+        "description": "One row of the moderation queue.\n\n:ivar kind: ``report``, ``listing``, ``media`` or ``review``\n:ivar report_id: The report, for a report row\n:ivar target_kind: What was reported or suspended\n:ivar target_id: The target's id; a reply's is its review's\n:ivar owner_id: The owner the listing belongs to, when known\n:ivar title: The target's public name: an owner's public name or a\n    batch's public title\n:ivar fields: Everything the owner, or a review's author, submitted for\n    display on the target\n:ivar reason: The report reason, the suspension reason code, or why a\n    held photo, review or reply was held; None for one waiting for\n    review\n:ivar note: The reporter's note, for a report row\n:ivar reporter_ref: The opaque reporter label, for a report row\n:ivar waited_hours: Whole hours since the report, the suspension, the\n    hold, the upload, or a review's or reply's submit or edit\n:ivar author_ref: For a review or reply, the review author's opaque\n    reference; for a reply, the author of the review it answers\n:ivar author_role: That author's role",
         "properties": {
+          "author_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Ref"
+          },
+          "author_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Role"
+          },
           "fields": {
             "items": {
               "$ref": "#/components/schemas/AdminHubField"
@@ -449,7 +474,8 @@
             "enum": [
               "listing",
               "media",
-              "report"
+              "report",
+              "review"
             ],
             "title": "Kind",
             "type": "string"
@@ -537,6 +563,8 @@
           }
         },
         "required": [
+          "author_ref",
+          "author_role",
           "fields",
           "kind",
           "note",
@@ -566,7 +594,8 @@
             "enum": [
               "listing",
               "media",
-              "report"
+              "report",
+              "review"
             ],
             "title": "Kind",
             "type": "string"
@@ -601,6 +630,218 @@
           "status"
         ],
         "title": "AdminHubReportDecided",
+        "type": "object"
+      },
+      "AdminHubReviewDecided": {
+        "description": "A review or reply after its decision.\n\n:ivar review_id: The review; a reply's id is its review's\n:ivar target: ``review`` or ``reply``\n:ivar status: ``approved`` (a review, awaiting the weekly publication),\n    ``published``, ``rejected`` or ``removed``",
+        "properties": {
+          "review_id": {
+            "format": "uuid",
+            "title": "Review Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "published",
+              "rejected",
+              "removed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target": {
+            "enum": [
+              "reply",
+              "review"
+            ],
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "review_id",
+          "status",
+          "target"
+        ],
+        "title": "AdminHubReviewDecided",
+        "type": "object"
+      },
+      "AdminHubReviewDecisionRequest": {
+        "additionalProperties": false,
+        "description": "An administrator's decision on a review or a reply.\n\n:ivar target: ``review`` or ``reply``\n:ivar decision: ``approve`` or ``reject``\n:ivar code: Why, for a rejection; omitted for an approval",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "abusive",
+                  "identifiable_child",
+                  "off_topic",
+                  "other",
+                  "personal_info"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "target": {
+            "enum": [
+              "reply",
+              "review"
+            ],
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "target"
+        ],
+        "title": "AdminHubReviewDecisionRequest",
+        "type": "object"
+      },
+      "AdminHubReviewDetail": {
+        "description": "One review or reply as an administrator moderates it.\n\nNames the batch and its owner's public name, and the review's author\nonly by role and reference.\n\n:ivar target_kind: ``review`` or ``reply``\n:ivar review_id: The review; a reply's id is its review's\n:ivar rating: The review's rating, 1 to 5\n:ivar body: The review's words, or None\n:ivar tenure: The review author's tenure bucket\n:ivar author_role: The review author's role\n:ivar author_ref: The review author's opaque reference\n:ivar status: The target's status\n:ivar batch_title: The batch's public title\n:ivar owner_public_name: The owner listing's public name\n:ivar reply_body: The reply's words, in any status, or None\n:ivar open_reports: Open reports naming the target\n:ivar waited_hours: Whole hours waited, while pending or held",
+        "properties": {
+          "author_ref": {
+            "title": "Author Ref",
+            "type": "string"
+          },
+          "author_role": {
+            "enum": [
+              "guardian",
+              "student"
+            ],
+            "title": "Author Role",
+            "type": "string"
+          },
+          "batch_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Title"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "open_reports": {
+            "title": "Open Reports",
+            "type": "integer"
+          },
+          "owner_public_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Public Name"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "integer"
+          },
+          "reply_body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply Body"
+          },
+          "review_id": {
+            "format": "uuid",
+            "title": "Review Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "held",
+              "pending",
+              "published",
+              "rejected",
+              "removed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_kind": {
+            "enum": [
+              "reply",
+              "review"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          },
+          "tenure": {
+            "enum": [
+              "6_12m",
+              "gt_1y",
+              "lt_6m"
+            ],
+            "title": "Tenure",
+            "type": "string"
+          },
+          "waited_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waited Hours"
+          }
+        },
+        "required": [
+          "author_ref",
+          "author_role",
+          "batch_title",
+          "body",
+          "open_reports",
+          "owner_public_name",
+          "rating",
+          "reply_body",
+          "review_id",
+          "status",
+          "target_kind",
+          "tenure",
+          "waited_hours"
+        ],
+        "title": "AdminHubReviewDetail",
         "type": "object"
       },
       "AdminHubSuspensionRequest": {
@@ -728,7 +969,7 @@
       },
       "AdminOverviewResponse": {
         "additionalProperties": false,
-        "description": "The platform at a glance. Every figure is an aggregate.\n\n:ivar generated_at: When these figures were read\n:ivar accounts: Accounts that have signed in at least once\n:ivar new_7_days: First signed in during the last 7 days\n:ivar new_30_days: First signed in during the last 30 days\n:ivar active_7_days: Seen on any app in the last 7 days\n:ivar active_30_days: Seen on any app in the last 30 days\n:ivar teachers: Accounts owning a solo-tutor workspace\n:ivar centres: Coaching centres\n:ivar centre_members: Accounts holding a live centre membership\n:ivar students: Accounts holding an accepted student seat\n:ivar guardians: Accounts holding an accepted guardian seat\n:ivar batches: Active batches\n:ivar seats: Accepted student seats in active batches\n:ivar platforms: Usage per app\n:ivar both_platforms: Accounts seen on both apps\n:ivar no_platform: Signed-in accounts no app has reported yet, such\n    as those last seen on an app build that predates reporting\n:ivar versions: App versions seen in the last 30 days\n:ivar help_open: Tickets waiting on support\n:ivar help_answered: Tickets waiting on the requester\n:ivar help_closed: Closed tickets",
+        "description": "The platform at a glance. Every figure is an aggregate.\n\n:ivar generated_at: When these figures were read\n:ivar accounts: Accounts that have signed in at least once\n:ivar new_7_days: First signed in during the last 7 days\n:ivar new_30_days: First signed in during the last 30 days\n:ivar active_7_days: Seen on any app in the last 7 days\n:ivar active_30_days: Seen on any app in the last 30 days\n:ivar teachers: Accounts owning a solo-tutor workspace\n:ivar centres: Coaching centres\n:ivar centre_members: Accounts holding a live centre membership\n:ivar students: Accounts holding an accepted student seat\n:ivar guardians: Accounts holding an accepted guardian seat\n:ivar batches: Active batches\n:ivar seats: Accepted student seats in active batches\n:ivar platforms: Usage per app\n:ivar both_platforms: Accounts seen on both apps\n:ivar no_platform: Signed-in accounts no app has reported yet, such\n    as those last seen on an app build that predates reporting\n:ivar versions: App versions seen in the last 30 days\n:ivar help_open: Tickets waiting on support\n:ivar help_answered: Tickets waiting on the requester\n:ivar help_closed: Closed tickets\n:ivar hub_reviews_public: Reviews public at some point in the trailing 91\n    days: published or held now, or removed inside the window\n:ivar hub_reviews_reported: Of those, the ones reported inside the window\n:ivar hub_reviews_pull_bar: Whether reported reviews exceed 5% of public\n    ones, the spec's \"Pull reviews\" bar (section 9)",
         "properties": {
           "accounts": {
             "title": "Accounts",
@@ -777,6 +1018,18 @@
           },
           "help_open": {
             "title": "Help Open",
+            "type": "integer"
+          },
+          "hub_reviews_public": {
+            "title": "Hub Reviews Public",
+            "type": "integer"
+          },
+          "hub_reviews_pull_bar": {
+            "title": "Hub Reviews Pull Bar",
+            "type": "boolean"
+          },
+          "hub_reviews_reported": {
+            "title": "Hub Reviews Reported",
             "type": "integer"
           },
           "new_30_days": {
@@ -831,6 +1084,9 @@
           "help_answered",
           "help_closed",
           "help_open",
+          "hub_reviews_public",
+          "hub_reviews_pull_bar",
+          "hub_reviews_reported",
           "new_30_days",
           "new_7_days",
           "no_platform",
@@ -15470,7 +15726,7 @@
     },
     "/v1/admin/hub/queue": {
       "get": {
-        "description": "List open reports, suspended listings, or photos to decide, oldest first.\n\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param kind: ``report``, ``listing`` or ``media``\n:return: The queue; a reporter appears only as an opaque label",
+        "description": "List open reports, suspended listings, photos or reviews to decide.\n\nOldest first. ``kind=review`` answers ``HUB_REVIEWS_OFF`` while reviews\nare off.\n\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param kind: ``report``, ``listing``, ``media`` or ``review``\n:return: The queue; a reporter or a review's author appears only as an\n    opaque label",
         "operationId": "hub_queue_v1_admin_hub_queue_get",
         "parameters": [
           {
@@ -15482,7 +15738,8 @@
               "enum": [
                 "listing",
                 "media",
-                "report"
+                "report",
+                "review"
               ],
               "title": "Kind",
               "type": "string"
@@ -15499,6 +15756,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_REVIEWS_OFF: kind=review while reviews are switched off."
           },
           "422": {
             "content": {
@@ -15606,6 +15873,198 @@
           }
         },
         "summary": "Decide Report",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/hub/reviews/{review_id}": {
+      "get": {
+        "description": "Read one review, or its reply, for moderation.\n\n:param review_id: The review; a reply's id is its review's\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:param target: ``review`` or ``reply``\n:return: The item, its batch's public title and owner's public name, and\n    its author only as a role and an opaque reference",
+        "operationId": "hub_review_v1_admin_hub_reviews__review_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": false,
+            "schema": {
+              "default": "review",
+              "enum": [
+                "reply",
+                "review"
+              ],
+              "title": "Target",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHubReviewDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_REVIEWS_OFF: reviews are switched off. HUB_ADMIN_TARGET_NOT_FOUND: no such review, or no reply to it."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Review",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/hub/reviews/{review_id}/decision": {
+      "post": {
+        "description": "Approve or reject a review or reply waiting for review or held.\n\n:param review_id: The review; a reply's id is its review's\n:param body: The target, the decision, and the code for a rejection\n:param request: The incoming request\n:param lens: The administrator's lens\n:param session: The request-scoped session\n:return: The item and its new status",
+        "operationId": "decide_review_v1_admin_hub_reviews__review_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminHubReviewDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHubReviewDecided"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "REVIEW_CODE_INVALID: a code with an approval, or a rejection without one."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_REVIEWS_OFF: reviews are switched off. HUB_ADMIN_TARGET_NOT_FOUND: no such review, or no reply to it."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "REVIEW_ALREADY_DECIDED: the item is neither pending nor held."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Decide Review",
         "tags": [
           "admin"
         ]
