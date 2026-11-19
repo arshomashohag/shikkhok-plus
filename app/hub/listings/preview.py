@@ -22,6 +22,11 @@ public views (``hub_public_rating``, granted to the application role) by
 hold -- has none. The preview has no review section and no review text: an
 owner reads their reviews in the app, not on their own preview.
 
+**The "Ask to join" link** [H5 Task 6] comes from the owner's own row, so a
+draft shows the link it would carry once published: join requests are
+switched on, the owner accepts them, and the listing has a slug for the
+link to name.
+
 **Photos.** The owner's own gallery, as the owner page shows it: approved
 photos, and photos awaiting review marked as such, in gallery order; never
 a batch's photos, which are on batch pages only, and never a rejected,
@@ -51,7 +56,7 @@ from app.hub.media.storage import MediaStore, archive_prefix
 from app.hub.public.images import hub_image, image_alt, public_path
 from app.hub.public.messages import LOCALES, Locale, t
 from app.hub.public.ratings import batch_ratings, owner_rating_of_batches
-from app.hub.public.settings import site_url
+from app.hub.public.settings import enquiries_enabled, site_url
 from app.hub.public.views import (
     AreaNames,
     HubBatchCard,
@@ -312,4 +317,7 @@ def owner_page(
             for row in rows
         ],
         images=_images(session, lens, locale, store),
+        enquiry_open=enquiries_enabled()
+        and listing.accepts_enquiries
+        and bool(listing.slug),
     )

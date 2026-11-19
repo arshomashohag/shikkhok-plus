@@ -9,6 +9,10 @@ is not a green probe over nothing.
 holds published reviews on the solo batch, so the walk renders a review
 section, and below-threshold and unpublished reviews beside them, so the
 walk proves the threshold and the status keep their canaries off.
+
+The solo owner also accepts join requests and holds one [H5 Task 6]; the
+join-request probes switch those on too, so the walk renders the "Ask to
+join" link beside a request it must never show.
 """
 
 from __future__ import annotations
@@ -159,6 +163,70 @@ def test_canary_published_review_does_appear(
         for review_id in world.published_review_ids:
             assert f"kind=review&amp;id={review_id}" in page
     assert canary_leaks(bodies, world) == []
+
+
+@pytest.mark.usefixtures("enquiries_on")
+def test_canary_enquiry_never_public(
+    owner_session: Session, api_client: TestClient
+) -> None:
+    """Nothing of a join request, nor of its sender, is on any public page.
+
+    The solo owner accepts requests and holds one that shares its sender's
+    contact, with join requests and reviews both switched on, so the walk
+    renders the link beside the request it must never show.
+
+    :param owner_session: A session able to arrange the seeded world
+    :param api_client: A client over the real application
+    :return: None
+    """
+    world = seed_canaries(owner_session)
+
+    bodies = walk_cacheable_routes(api_client, world, PUBLIC_CACHEABLE_ROUTES)
+
+    # Student name, message, request id twice, sender phone, email, id twice.
+    assert len(world.enquiry_strings) == 8
+    assert len(bodies) == 11
+    leaked = [
+        (path, canary)
+        for path, canary in canary_leaks(bodies, world)
+        if canary in world.enquiry_strings
+    ]
+    assert leaked == []
+    assert canary_leaks(bodies, world) == []
+
+
+@pytest.mark.usefixtures("enquiries_on")
+def test_canary_link_does_appear(
+    owner_session: Session, api_client: TestClient
+) -> None:
+    """The solo owner's pages link to the form; the centre's do not.
+
+    The positive control for the probe above: the walk that hid the request
+    rendered the link, so a page that rendered nothing of join requests
+    could not pass for one that hides the right things.
+
+    :param owner_session: A session able to arrange the seeded world
+    :param api_client: A client over the real application
+    :return: None
+    """
+    world = seed_canaries(owner_session)
+
+    bodies = walk_cacheable_routes(api_client, world, PUBLIC_CACHEABLE_ROUTES)
+
+    form = "/ui/hub-enquiry?owner="
+    for locale in LOCALES:
+        owner = bodies[f"/hub/{locale}/t/{world.owner_slug}"]
+        assert f'{form}{world.owner_slug}"' in owner
+        assert t("enquiry_link", locale) in owner
+        batch = bodies[f"/hub/{locale}/t/{world.owner_slug}/{world.batch_slug}"]
+        assert f'{form}{world.owner_slug}&amp;batch={world.batch_id}"' in batch
+        assert t("enquiry_link_batch", locale) in batch
+        for path in (
+            f"/hub/{locale}/t/{world.centre_slug}",
+            f"/hub/{locale}/t/{world.centre_slug}/{world.centre_batch_slug}",
+        ):
+            assert "hub-enquiry" not in bodies[path], path
+    assert "hub-enquiry" not in bodies["/hub/sitemap.xml"]
 
 
 def test_canary_probe_fires_on_planted_page(owner_session: Session) -> None:

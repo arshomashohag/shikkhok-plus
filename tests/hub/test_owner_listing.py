@@ -8,6 +8,7 @@ import uuid
 
 import pytest
 import sqlalchemy as sa
+from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.accounts.phone import contains_phone
@@ -17,6 +18,8 @@ from app.hub.listings import owner
 from app.hub.listings.checklist import owner_checklist, owner_publishable
 from app.hub.listings.consent import HUB_CONSENT_VERSION
 from app.hub.listings.owner import OwnerListingUpdate
+from app.hub.public.settings import HUB_ENQUIRIES_ENV
+from tests.conftest import bearer
 from tests.hub.support import areas, centre_lens, solo_lens
 
 NOW = dt.datetime(2026, 11, 14, 9, 0, tzinfo=dt.UTC)
@@ -738,3 +741,86 @@ def test_an_empty_district_alone_clears_the_upazila_too(
     )
 
     assert (listing.district_code, listing.upazila_code) == (None, None)
+
+
+def _edits_today(session: Session, owner_id: uuid.UUID) -> int:
+    """Count the owner's listing edits in the current day's window.
+
+    :param session: Any session able to read the counters
+    :param owner_id: The owner
+    :return: The count, 0 when none was made
+    """
+    count = session.execute(
+        sa.text(
+            "SELECT coalesce(max(count), 0) FROM rate_limit_counter "
+            "WHERE scope_kind = 'hub_owner_day' AND scope_value = :o"
+        ),
+        {"o": str(owner_id)},
+    ).scalar_one()
+    return int(count)
+
+
+def test_listing_toggle_round_trips_and_reports_offered(
+    api_client: TestClient,
+    owner_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The owner's choice round-trips and ``enquiries_offered`` is the switch.
+
+    ``accepts_enquiries`` is stored whatever the switch, and a PUT carrying
+    it consumes one listing edit like any other.
+
+    :param api_client: A client over the real application
+    :param owner_session: An arranging session
+    :param monkeypatch: Sets and clears the switch
+    :return: None
+    """
+    lens = solo_lens(owner_session)
+    headers = bearer(owner_session, lens.account_id)
+    monkeypatch.delenv(HUB_ENQUIRIES_ENV, raising=False)
+
+    first = api_client.get("/v1/hub/listing", headers=headers)
+    assert first.status_code == 200, first.text
+    assert first.json()["accepts_enquiries"] is False
+    assert first.json()["enquiries_offered"] is False
+
+    # Off: the owner's choice is still stored, and still costs one edit.
+    stored = api_client.put(
+        "/v1/hub/listing", json={"accepts_enquiries": True}, headers=headers
+    )
+    assert stored.status_code == 200, stored.text
+    assert stored.json()["accepts_enquiries"] is True
+    assert stored.json()["enquiries_offered"] is False
+    assert _edits_today(owner_session, lens.owner_id) == 1
+
+    monkeypatch.setenv(HUB_ENQUIRIES_ENV, "on")
+    read = api_client.get("/v1/hub/listing", headers=headers).json()
+    assert read["accepts_enquiries"] is True
+    assert read["enquiries_offered"] is True
+
+    # An edit that omits the field leaves it alone.
+    other = api_client.put(
+        "/v1/hub/listing", json={"headline_en": "Maths"}, headers=headers
+    )
+    assert other.json()["accepts_enquiries"] is True
+    assert _edits_today(owner_session, lens.owner_id) == 2
+
+    cleared = api_client.put(
+        "/v1/hub/listing", json={"accepts_enquiries": False}, headers=headers
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["accepts_enquiries"] is False
+    assert cleared.json()["enquiries_offered"] is True
+    assert _edits_today(owner_session, lens.owner_id) == 3
+    stored_value = owner_session.execute(
+        sa.text("SELECT accepts_enquiries FROM owner_listing WHERE owner_id = :o"),
+        {"o": lens.owner_id},
+    ).scalar_one()
+    assert stored_value is False
+
+    # Any other spelling of the switch is off.
+    monkeypatch.setenv(HUB_ENQUIRIES_ENV, "ON")
+    assert (
+        api_client.get("/v1/hub/listing", headers=headers).json()["enquiries_offered"]
+        is False
+    )

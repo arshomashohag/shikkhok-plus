@@ -99,6 +99,8 @@ class OwnerListingUpdateRequest(BaseModel):
     :ivar upazila_code: The upazila's BBS code; must lie in the district
     :ivar street_address: A centre's street address
     :ivar public_contact_phone: The one number shown publicly
+    :ivar accepts_enquiries: Whether the owner agrees to receive join
+        requests; stored even while join requests are switched off
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -116,6 +118,7 @@ class OwnerListingUpdateRequest(BaseModel):
     upazila_code: str | None = Field(default=None, max_length=12)
     street_address: str | None = Field(default=None, max_length=200)
     public_contact_phone: str | None = Field(default=None, max_length=40)
+    accepts_enquiries: bool | None = None
 
 
 class OwnerListingResponse(BaseModel):
@@ -143,6 +146,10 @@ class OwnerListingResponse(BaseModel):
     :ivar consent_version_current: The consent text version to agree to now
     :ivar is_centre: Whether the owner is a coaching centre, the only kind
         that may show a street address
+    :ivar accepts_enquiries: Whether the owner agreed to receive join
+        requests
+    :ivar enquiries_offered: Whether join requests are switched on, so the
+        editor offers the choice; false whatever the owner chose while off
     """
 
     status: ListingStatus
@@ -166,6 +173,8 @@ class OwnerListingResponse(BaseModel):
     runs_classes: bool
     consent_version_current: str
     is_centre: bool
+    accepts_enquiries: bool
+    enquiries_offered: bool
 
 
 class PublishRequest(BaseModel):

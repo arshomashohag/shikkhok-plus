@@ -25,6 +25,7 @@ from __future__ import annotations
 import functools
 import hashlib
 import json
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -124,6 +125,8 @@ class _Meta:
     :ivar noindex: Whether crawlers are asked not to index the page
     :ivar json_ld: The escaped JSON-LD block, or None
     :ivar report_href: The report form's URL for this page, or None
+    :ivar enquiry_href: The join-request form's URL for this page, or None
+        unless the page's view says it is open to requests
     """
 
     title: str
@@ -135,6 +138,7 @@ class _Meta:
     noindex: bool
     json_ld: Markup | None
     report_href: str | None
+    enquiry_href: str | None
 
 
 def _require_registered(view: BaseModel) -> None:
@@ -243,6 +247,19 @@ def _report_href(kind: str, report_id: object) -> str:
     return f"{web_app_url()}/ui/hub-report?{query}"
 
 
+def _enquiry_href(owner_slug: str, batch_id: uuid.UUID | None) -> str:
+    """Build the join-request form's URL for an owner, or one of its batches.
+
+    :param owner_slug: The owner's public slug
+    :param batch_id: The batch the request is for, or None for the owner
+    :return: The URL on the web app, ``owner`` then any ``batch``
+    """
+    pairs = [("owner", owner_slug)]
+    if batch_id is not None:
+        pairs.append(("batch", str(batch_id)))
+    return f"{web_app_url()}/ui/hub-enquiry?{urlencode(pairs)}"
+
+
 def _ld_image(images: Sequence[HubImage]) -> str | None:
     """Name a page's first approved photo for its structured data.
 
@@ -315,6 +332,7 @@ def _meta(view: BaseModel, locale: Locale, *, preview: bool) -> _Meta:
     hub = m("hub_name")
     json_ld: Markup | None = None
     report: str | None = None
+    enquiry: str | None = None
     if isinstance(view, HubOwnerPage):
         owner = view.owner
         path = f"/t/{owner.slug}"
@@ -324,6 +342,8 @@ def _meta(view: BaseModel, locale: Locale, *, preview: bool) -> _Meta:
         description = _summary(view.headline or view.bio, fallback)
         json_ld = _json_ld(_owner_ld(view, canonical, locale))
         report = _report_href("owner_listing", owner.report_id)
+        if view.enquiry_open:
+            enquiry = _enquiry_href(owner.slug, None)
         noindex = preview
     elif isinstance(view, HubBatchPage):
         owner, batch = view.owner, view.batch
@@ -353,6 +373,8 @@ def _meta(view: BaseModel, locale: Locale, *, preview: bool) -> _Meta:
             course["image"] = image
         json_ld = _json_ld(course)
         report = _report_href("batch_listing", batch.report_id)
+        if view.enquiry_open:
+            enquiry = _enquiry_href(owner.slug, batch.report_id)
         noindex = preview
     elif isinstance(view, HubSearchPage):
         path = _search_query(view, view.page)
@@ -373,6 +395,7 @@ def _meta(view: BaseModel, locale: Locale, *, preview: bool) -> _Meta:
         noindex=noindex,
         json_ld=json_ld,
         report_href=report,
+        enquiry_href=enquiry,
     )
 
 

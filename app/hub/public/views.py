@@ -261,6 +261,8 @@ class HubOwnerPage(BaseModel):
     :ivar batches: The owner's published batches
     :ivar images: The owner's own approved photos, by position; never a
         batch's, which are on that batch's page only
+    :ivar enquiry_open: Whether the page offers the "Ask to join" link:
+        join requests are switched on and the owner accepts them
     """
 
     model_config = _FROZEN
@@ -274,6 +276,7 @@ class HubOwnerPage(BaseModel):
     public_contact_phone: str | None
     batches: list[HubBatchCard]
     images: list[HubImage]
+    enquiry_open: bool
 
 
 @register_view
@@ -291,6 +294,9 @@ class HubBatchPage(BaseModel):
     :ivar reviews: The newest published reviews, at most
         :data:`~app.hub.public.ratings.MAX_REVIEWS`, newest month first then
         by id; empty below the threshold and while reviews are off
+    :ivar enquiry_open: Whether the page offers the "Ask to join this
+        class" link: join requests are switched on, the owner accepts them,
+        and the batch's admissions are not ``closed``
     """
 
     model_config = _FROZEN
@@ -300,6 +306,7 @@ class HubBatchPage(BaseModel):
     description: str | None
     syllabus: str | None
     images: list[HubImage]
+    enquiry_open: bool
     reviews: list[HubReview] = []
 
 

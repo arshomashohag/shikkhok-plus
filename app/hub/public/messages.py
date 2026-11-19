@@ -119,6 +119,13 @@ MESSAGES: Final[dict[str, dict[Locale, str]]] = {
     },
     # Reporting, preview, and the two fixed pages.
     "report_page": {"en": "Report this page", "bn": "এই পাতাটি রিপোর্ট করুন"},
+    # Join requests [H5]. Shown only while join requests are switched on and
+    # the owner accepts them; "join request" is ভর্তির অনুরোধ, as the apps say.
+    "enquiry_link": {"en": "Ask to join", "bn": "ভর্তির অনুরোধ পাঠান"},
+    "enquiry_link_batch": {
+        "en": "Ask to join this class",
+        "bn": "এই ক্লাসে ভর্তির অনুরোধ পাঠান",
+    },
     "report_photo": {"en": "Report this photo", "bn": "এই ছবিটি রিপোর্ট করুন"},
     "preview_banner": {
         "en": "Preview — not public yet",

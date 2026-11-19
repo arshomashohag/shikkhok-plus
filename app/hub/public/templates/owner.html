@@ -53,5 +53,8 @@
 {% else %}
 <p class="muted">{{ m("owner_no_batches") }}</p>
 {% endif %}
+{% if meta.enquiry_href %}
+<p><a href="{{ meta.enquiry_href }}">{{ m("enquiry_link") }}</a></p>
+{% endif %}
 <p><a href="{{ meta.report_href }}">{{ m("report_page") }}</a></p>
 {% endblock %}

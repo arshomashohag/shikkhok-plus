@@ -51,6 +51,7 @@ from app.hub.listings.owner import OwnerListingUpdate
 from app.hub.listings.preview import owner_page as preview_owner_page
 from app.hub.media.storage import MediaStore
 from app.hub.public import render
+from app.hub.public.settings import enquiries_enabled
 from app.local_time import bangladesh_today
 from app.moderation import reports
 from app.money.wire import to_wire
@@ -153,6 +154,8 @@ def _owner_response(
             "runs_classes": runs_classes(session, lens.owner_id, bangladesh_today()),
             "consent_version_current": HUB_CONSENT_VERSION,
             "is_centre": _is_centre(session, lens),
+            "accepts_enquiries": listing.accepts_enquiries,
+            "enquiries_offered": enquiries_enabled(),
         }
     )
 

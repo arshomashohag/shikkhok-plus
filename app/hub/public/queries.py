@@ -6,7 +6,13 @@ relation would fail on a missing grant rather than return a row; and each
 reads only ``hub_public_owner``, ``hub_public_batch``,
 ``hub_public_teacher_name``, ``hub_public_area`` and ``hub_public_media``,
 and -- through :mod:`app.hub.public.ratings`, only while reviews are on --
-``hub_public_rating`` and ``hub_public_review``.
+``hub_public_rating`` and ``hub_public_review``; and, only while join
+requests are on, ``hub_public_enquirable``.
+
+**The "Ask to join" link** [H5 Task 6] is offered on an owner page when
+join requests are switched on and the owner is in ``hub_public_enquirable``,
+and on a batch page when, besides, the batch's admissions are not
+``closed``. While the switch is off no query here reads that view.
 
 **Sort by rating** (Call 11) orders by the owner's Bayesian score over its
 qualifying batches, then by the relevance order. While reviews are off a
@@ -47,7 +53,7 @@ from app.hub.public.ratings import (
     batch_reviews,
     owner_ratings,
 )
-from app.hub.public.settings import reviews_enabled, site_url
+from app.hub.public.settings import enquiries_enabled, reviews_enabled, site_url
 from app.hub.public.views import (
     AreaNames,
     AreaOption,
@@ -602,6 +608,28 @@ def _owner_row(session: Session, owner_slug: str) -> Any:
     ).one_or_none()
 
 
+def _enquirable(session: Session, owner_slug: str) -> bool:
+    """Say whether an owner's pages offer the "Ask to join" link.
+
+    Reads ``hub_public_enquirable`` only while join requests are on, so an
+    off switch reaches no join-request view at all.
+
+    :param session: A session already reading as the hub reader
+    :param owner_slug: The owner's slug
+    :return: True when the switch is on and the owner accepts requests
+    """
+    if not enquiries_enabled():
+        return False
+    return bool(
+        session.execute(
+            sa.text(
+                "SELECT EXISTS (SELECT 1 FROM hub_public_enquirable WHERE slug = :slug)"
+            ),
+            {"slug": owner_slug},
+        ).scalar_one()
+    )
+
+
 def owner_page(
     session: Session, locale: Locale, owner_slug: str
 ) -> HubOwnerPage | None:
@@ -636,6 +664,7 @@ def owner_page(
         public_contact_phone=row.public_contact_phone,
         batches=[_batch_card(b, owner, names, locale, ratings) for b in batches],
         images=_images(session, locale, owner_slug, None),
+        enquiry_open=_enquirable(session, owner_slug),
     )
 
 
@@ -669,6 +698,7 @@ def batch_page(
         description=_localised(batch, "description", locale),
         syllabus=_localised(batch, "syllabus", locale),
         images=_images(session, locale, owner_slug, batch_slug),
+        enquiry_open=batch.admissions != "closed" and _enquirable(session, owner_slug),
         reviews=batch_reviews(session, batch.batch_id, locale),
     )
 

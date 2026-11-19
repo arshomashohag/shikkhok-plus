@@ -10685,8 +10685,14 @@ export interface components {
      *     :ivar consent_version_current: The consent text version to agree to now
      *     :ivar is_centre: Whether the owner is a coaching centre, the only kind
      *         that may show a street address
+     *     :ivar accepts_enquiries: Whether the owner agreed to receive join
+     *         requests
+     *     :ivar enquiries_offered: Whether join requests are switched on, so the
+     *         editor offers the choice; false whatever the owner chose while off
      */
     OwnerListingResponse: {
+      /** Accepts Enquiries */
+      accepts_enquiries: boolean
       /** Bio Bn */
       bio_bn: string | null
       /** Bio En */
@@ -10699,6 +10705,8 @@ export interface components {
       consent_version_current: string
       /** District Code */
       district_code: string | null
+      /** Enquiries Offered */
+      enquiries_offered: boolean
       /** Headline Bn */
       headline_bn: string | null
       /** Headline En */
@@ -10753,8 +10761,12 @@ export interface components {
      *     :ivar upazila_code: The upazila's BBS code; must lie in the district
      *     :ivar street_address: A centre's street address
      *     :ivar public_contact_phone: The one number shown publicly
+     *     :ivar accepts_enquiries: Whether the owner agrees to receive join
+     *         requests; stored even while join requests are switched off
      */
     OwnerListingUpdateRequest: {
+      /** Accepts Enquiries */
+      accepts_enquiries?: boolean | null
       /** Bio Bn */
       bio_bn?: string | null
       /** Bio En */

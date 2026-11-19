@@ -86,6 +86,11 @@ class CanaryWorld:
         SHOULD carry
     :ivar published_reply_body: The published reply's body, which the
         batch page SHOULD show
+    :ivar batch_id: The solo batch, which its page's join-request link
+        SHOULD name
+    :ivar enquiry_strings: The join request the solo owner holds: its
+        student name, message and id (two spellings), and its sender's
+        account phone, email and id (two spellings); all are canaries
     """
 
     strings: frozenset[str]
@@ -112,6 +117,8 @@ class CanaryWorld:
     published_review_bodies: tuple[str, ...]
     published_review_ids: tuple[uuid.UUID, ...]
     published_reply_body: str
+    batch_id: uuid.UUID
+    enquiry_strings: frozenset[str]
 
 
 def _canary(label: str) -> str:
@@ -597,6 +604,67 @@ def _seed_centre(session: Session, now: dt.datetime) -> _Centre:
     )
 
 
+def _seed_enquiry(
+    session: Session, owner_id: uuid.UUID, batch_id: uuid.UUID
+) -> frozenset[str]:
+    """Turn join requests on for the solo owner and hold one request.
+
+    The request shares its sender's contact, so every value an owner may
+    see of it is set; none of it is for a public page.
+
+    :param session: An arranging session
+    :param owner_id: The solo owner
+    :param batch_id: The solo batch, which the request names
+    :return: The request's canaries
+    """
+    phone = "+8801" + _digits(9)
+    email = f"{_canary('enquirer-email')}@example.test"
+    student_name = _canary("enquiry-student-name")
+    message = _canary("enquiry-message")
+    account = Account(
+        phone=phone,
+        email=email,
+        created_at=dt.datetime.now(tz=dt.UTC),
+        activated_at=dt.datetime.now(tz=dt.UTC),
+    )
+    session.add(account)
+    session.flush()
+    enquiry_id: uuid.UUID = session.execute(
+        sa.text(
+            "INSERT INTO listing_enquiry (owner_id, batch_id, "
+            "enquirer_account_id, student_name, class_level, message, "
+            "share_contact) VALUES (:o, :b, :a, :name, 'class_9', :message, "
+            "true) RETURNING id"
+        ),
+        {
+            "o": owner_id,
+            "b": batch_id,
+            "a": account.id,
+            "name": student_name,
+            "message": message,
+        },
+    ).scalar_one()
+    session.execute(
+        sa.text(
+            "UPDATE owner_listing SET accepts_enquiries = true WHERE owner_id = :o"
+        ),
+        {"o": owner_id},
+    )
+    session.commit()
+    return frozenset(
+        {
+            phone,
+            email,
+            student_name,
+            message,
+            str(enquiry_id),
+            enquiry_id.hex,
+            str(account.id),
+            account.id.hex,
+        }
+    )
+
+
 def seed_canaries(session: Session) -> CanaryWorld:
     """Seed one solo owner whose every private field holds a unique string.
 
@@ -688,6 +756,7 @@ def seed_canaries(session: Session) -> CanaryWorld:
     draft = _seed_draft(session, now)
     centre = _seed_centre(session, now)
     reviews = _seed_reviews(session, batch.id, centre.batch_id)
+    enquiry = _seed_enquiry(session, owner.id, batch.id)
 
     return CanaryWorld(
         strings=frozenset(
@@ -705,6 +774,7 @@ def seed_canaries(session: Session) -> CanaryWorld:
                 *draft.strings,
                 *centre.strings,
                 *reviews.canaries,
+                *enquiry,
             }
         ),
         owner_id=owner.id,
@@ -730,6 +800,8 @@ def seed_canaries(session: Session) -> CanaryWorld:
         published_review_bodies=reviews.published_bodies,
         published_review_ids=reviews.published_ids,
         published_reply_body=reviews.reply_body,
+        batch_id=batch.id,
+        enquiry_strings=enquiry,
     )
 
 
