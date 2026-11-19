@@ -180,3 +180,70 @@ def test_the_parser_reads_escapes_lists_and_multi_token_fields() -> None:
             "sub": {"_node": "VAR", "varno": "1"},
         }
     ]
+
+
+def _plant_renamed(session: Session) -> None:
+    """Plant ``probe_view`` whose money name now labels the computed column.
+
+    ``ALTER VIEW ... RENAME COLUMN`` renames the view's attribute and leaves
+    the stored rule's ``resname`` as it was, so after these two renames the
+    rule still calls the pass-through ``fee`` and the arithmetic ``markup``,
+    while the view's ``fee`` is the arithmetic and ``shown`` the
+    pass-through.
+
+    :param session: The planting session
+    :return: None
+    """
+    _plant(
+        session,
+        "SELECT b.default_fee AS fee, b.default_fee * 1.5 AS markup FROM batch b",
+    )
+    session.execute(sa.text("ALTER VIEW probe_view RENAME COLUMN fee TO shown"))
+    session.execute(sa.text("ALTER VIEW probe_view RENAME COLUMN markup TO fee"))
+
+
+def test_a_renamed_column_is_checked_by_position_not_by_its_old_name(
+    planting: Session,
+) -> None:
+    """The column called ``fee`` now is the one checked, not the stale label.
+
+    :param planting: The planting session
+    :return: None
+    """
+    _plant_renamed(planting)
+
+    offence = money_source_offence(planting, "probe_view", "fee")
+    assert offence is not None
+    assert "computed" in offence
+    assert money_source_offence(planting, "probe_view", "shown") is None
+
+
+@pytest.mark.parametrize(
+    ("inner", "verdict"),
+    [("shown", None), ("fee", "computed")],
+    ids=["renamed-pass-through", "renamed-computed"],
+)
+def test_a_view_over_a_renamed_view_follows_the_column_by_position(
+    planting: Session, inner: str, verdict: str | None
+) -> None:
+    """The walk into an inner view follows its column number, not its name.
+
+    :param planting: The planting session
+    :param inner: The inner view's column the outer one shows as ``fee``
+    :param verdict: None when accepted, else text the refusal must contain
+    :return: None
+    """
+    _plant_renamed(planting)
+    planting.execute(
+        sa.text(
+            f"CREATE VIEW probe_outer AS SELECT v.{inner} AS fee "  # noqa: S608  parametrised constants
+            "FROM probe_view v"
+        )
+    )
+
+    offence = money_source_offence(planting, "probe_outer", "fee")
+    if verdict is None:
+        assert offence is None
+    else:
+        assert offence is not None
+        assert verdict in offence

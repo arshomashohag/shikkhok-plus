@@ -14,6 +14,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.contract.money_names import NON_MONEY_COLUMNS, is_money_name
+from app.db.roles import APP_ROLE
 from app.governance.dispositions import DISPOSITIONS, RETENTION
 from tests.db.view_lineage import money_source_offence
 
@@ -133,10 +134,10 @@ def test_no_money_column_is_a_floating_point_type(
     assert offenders == [], f"floating-point money columns: {offenders}"
 
 
-def test_every_money_column_is_numeric_12_2(
-    restricted_session: Session,
-) -> None:
-    """A table stores money as NUMERIC(12,2); a view only passes such a column on.
+def _money_type_offenders(
+    session: Session,
+) -> tuple[list[tuple[object, ...]], list[tuple[object, ...]]]:
+    """Find every money column a session can read that breaks the type rule.
 
     **A table's money column** must be NUMERIC(12,2), exactly: an
     unconstrained numeric silently accepts more precision than the ledger
@@ -152,18 +153,18 @@ def test_every_money_column_is_numeric_12_2(
     half is no weaker than the table half: neither lets a value of another
     precision reach the application.
 
-    :param restricted_session: A session as the application role
-    :return: None
+    :param session: The session whose readable columns are checked
+    :return: The offending table columns and the offending view columns
     """
     tables: list[tuple[object, ...]] = []
     views: list[tuple[object, ...]] = []
-    for row in _money_columns(restricted_session):
+    for row in _money_columns(session):
         table, column, data_type, precision, scale, kind = row
         if kind == "VIEW":
             offence = (
                 f"reported as {data_type}"
                 if data_type != REQUIRED_MONEY_TYPE
-                else money_source_offence(restricted_session, table, column)
+                else money_source_offence(session, table, column)
             )
             if offence is not None:
                 views.append((table, column, offence))
@@ -173,6 +174,21 @@ def test_every_money_column_is_numeric_12_2(
             REQUIRED_SCALE,
         ):
             tables.append((table, column, data_type, precision, scale, kind))
+    return tables, views
+
+
+def test_every_money_column_is_numeric_12_2(
+    restricted_session: Session,
+) -> None:
+    """A table stores money as NUMERIC(12,2); a view only passes such a column on.
+
+    The rule is :func:`_money_type_offenders`; that it fires on both halves
+    is proved by ``test_the_money_type_rule_fires_on_tables_and_views``.
+
+    :param restricted_session: A session as the application role
+    :return: None
+    """
+    tables, views = _money_type_offenders(restricted_session)
     assert tables == [], (
         f"money columns not NUMERIC(12,2): {tables}. An unconstrained "
         "numeric silently accepts more precision than the ledger models."
@@ -180,6 +196,51 @@ def test_every_money_column_is_numeric_12_2(
     assert views == [], (
         f"view money columns that are not a NUMERIC(12,2) pass-through: {views}."
     )
+
+
+def test_the_money_type_rule_fires_on_tables_and_views(
+    owner_session: Session,
+) -> None:
+    """Planted offenders the application role can read are each reported.
+
+    One transaction, rolled back: the table owner plants a loose-numeric
+    table, a computed view, a float view and a correct view, grants each to
+    the application role, then becomes that role so the rule reads what it
+    would read. Dropping either half of the rule fails this test.
+
+    :param owner_session: The table owner's session, which may create views
+    :return: None
+    """
+    planted = {
+        "probe_loose_fee": "CREATE TABLE probe_loose_fee (fee numeric)",
+        "probe_marked_up": (
+            "CREATE VIEW probe_marked_up AS "
+            "SELECT b.default_fee * 1.5 AS fee FROM batch b"
+        ),
+        "probe_float_fee": (
+            "CREATE VIEW probe_float_fee AS "
+            "SELECT b.default_fee::float8 AS fee FROM batch b"
+        ),
+        "probe_shown_fee": (
+            "CREATE VIEW probe_shown_fee AS SELECT CASE WHEN b.active "
+            "THEN b.default_fee END AS fee FROM batch b"
+        ),
+    }
+    try:
+        for name, ddl in planted.items():
+            owner_session.execute(sa.text(ddl))
+            owner_session.execute(sa.text(f"GRANT SELECT ON {name} TO {APP_ROLE}"))
+        owner_session.execute(sa.text(f"SET LOCAL ROLE {APP_ROLE}"))
+
+        tables, views = _money_type_offenders(owner_session)
+    finally:
+        owner_session.rollback()
+
+    assert [row[:3] for row in tables] == [("probe_loose_fee", "fee", "numeric")]
+    reasons = {table: offence for table, _, offence in views}
+    assert set(reasons) == {"probe_marked_up", "probe_float_fee"}
+    assert "computed" in str(reasons["probe_marked_up"])
+    assert reasons["probe_float_fee"] == "reported as double precision"
 
 
 def test_the_money_assertion_is_no_longer_vacuous(

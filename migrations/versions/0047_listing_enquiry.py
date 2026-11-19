@@ -18,7 +18,7 @@ that exists when this runs is unaffected.
 guardian's answer; an insert that does not state it fails.
 
 **States.** A request is ``open`` until the owner closes it with one of
-three outcomes (Call 7). Three CHECKs keep that honest: a closed request
+three outcomes (Call 7). CHECKs keep that honest: a closed request
 carries its outcome and its closing time, an open one neither, and
 ``added`` needs a shared contact, since without one the owner cannot seat
 anyone.
@@ -36,9 +36,9 @@ model changed. The model's CHECK reads the tuple, and
 those in ``hub_public_owner`` whose listing accepts requests. It reads that
 view rather than restating its filter, so a draft, hidden or suspended
 listing is never a target, and from ``owner_listing`` only ``owner_id`` and
-``accepts_enquiries``. A new view rather than a changed one: altering
-``hub_public_owner`` would need ``CREATE OR REPLACE`` under two dependent
-views, and its downgrade could not drop the column.
+``accepts_enquiries``. A new view rather than a changed one: adding the
+flag to ``hub_public_owner`` would put a column on every public owner
+read, and its downgrade could not drop the column again.
 
 **Deviation from spec section 2, recorded** [F22]: the spec lists four
 reader views; ``0043`` and ``0045`` made seven, and this is the eighth. It
@@ -53,7 +53,8 @@ new view (Call 16), so a send's target checks and a guardian's view of a
 ``call_us`` number use the public pages' own predicates inside a write
 transaction, without ``SET LOCAL ROLE``. It already reads every base table
 those views read, so nothing new is reachable. The downgrade revokes the
-two ``0040`` grants, which outlive this revision's own objects.
+grants on ``hub_public_owner`` and ``hub_public_batch``, which outlive this
+revision's own objects.
 
 **Cascades.** A request goes with the guardian's account and with its owner
 row; deleting the batch listing it named only clears ``batch_id``.
