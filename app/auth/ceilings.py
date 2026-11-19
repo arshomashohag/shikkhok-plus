@@ -417,8 +417,9 @@ HUB_REPORT_ACCOUNT_DAILY: Final = 10
 HUB_REVIEW_ACCOUNT_DAILY: Final = 5
 
 #: Join requests one account may send in a day [H5 Call 9]. Only a request
-#: actually stored counts; one open request per owner bounds the rest, so
-#: five is five different teachers asked in a day.
+#: actually stored counts, to any teachers: one open request per owner
+#: stops a duplicate, but a withdrawal and a resend to the same teacher
+#: counts again.
 HUB_ENQUIRY_ACCOUNT_DAILY: Final = 5
 
 #: Public hub page reads one network may make at the origin in a minute.
