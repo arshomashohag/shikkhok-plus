@@ -695,6 +695,18 @@ def _hand_prose(document: str) -> str:
     return " ".join((document[:begin] + document[end:]).split())
 
 
+def _section(document: str, heading: str) -> str:
+    """Return one ``## `` section, whitespace collapsed.
+
+    :param document: A full policy document
+    :param heading: The heading's text, without the ``## ``
+    :return: The section, up to the next rule
+    """
+    _, found, rest = document.partition(f"\n## {heading}\n")
+    assert found, f"the policy has no {heading!r} section"
+    return " ".join(rest.split("\n---", 1)[0].split())
+
+
 def _subsection(document: str, heading: str) -> str:
     """Return one ``### `` subsection, whitespace collapsed.
 
@@ -741,15 +753,38 @@ def test_the_hand_prose_is_true_once_join_requests_are_on() -> None:
         "There is no messaging between users, with one exception where "
         "join requests are offered" in prose
     )
+    # The short version keeps the database claim for the boundary it is
+    # true of, and states the exception after it, as the app's doing.
     assert (
-        "or anything a student or guardian writes about themselves. Where "
-        "join requests are offered, the one exception is a request a "
-        "guardian chooses to send" in prose
+        "A teacher **cannot** see anything a student or guardian writes "
+        "about themselves, and the database enforces that boundary, not our "
+        "good intentions. Where join requests are offered, a request a "
+        "guardian chooses to send is the exception" in prose
     )
+    assert "other than a join request" not in prose
+    # Join requests have no row-level security: owner scoping is a WHERE
+    # clause in the application's own SQL. No sentence may put them under
+    # the database's enforcement.
+    who = _section(document, "Who can see what")
+    lead, _, rest = who.partition("**A teacher can see**")
+    assert lead.startswith(
+        "The separation below, except for join requests, is enforced by the "
+        "database itself"
+    ), "the database-enforcement lead-in covers join requests again"
+    cannot = rest.split("**A teacher cannot see**", 1)[1].split("**", 1)[0]
+    assert "join request" not in cannot, (
+        "the join-request exception is back inside a paragraph the "
+        "database-enforcement lead-in covers"
+    )
+    _, found, joins = who.partition("**Join requests are kept apart differently.**")
+    assert found, "Who can see what has no join-request paragraph"
     assert (
-        "about themselves, other than a join request a guardian chooses to "
-        "send them" in prose
+        "enforced by our application's queries, which read a request only "
+        "for the teacher or centre it was sent to" in joins
     )
+    assert "not by the database's row-level security" in joins
+    for text in (cannot, joins):
+        assert "row-level security policies" not in text
     # The "When you use the app" table gains the row.
     table = document.split("### When you use the app", 1)[1].split("\n### ", 1)[0]
     assert "| A request to join a class on the public hub" in table
@@ -770,9 +805,24 @@ def test_the_policy_describes_join_requests() -> None:
     assert section.startswith("Where join requests are offered on the public hub")
     # What the owner sees, and who the owner is.
     assert (
-        "sees the student's name and class as you typed them, your message, "
-        "the class it is about, and when it was received" in section
+        "sees the student's name as you typed it, their school class as you "
+        "chose it, your message, the class it is about, and when it was "
+        "received" in section
     )
+    # The school class is picked from a list; only the name is typed.
+    assert "class as you type" not in section
+    # Everything the request holds, as Data Safety item 6 lists it.
+    assert (
+        "The student's name as you type it, their school class as you "
+        "choose it from a list" in section
+    )
+    for held in (
+        "the account that sent it",
+        "whether it is open or answered",
+        "the teacher's answer",
+        "when it was sent and when it was answered",
+    ):
+        assert held in section, f"What it holds omits {held!r}"
     assert "each manager of the centre" in section
     # The contact: only on Share, read live, gone with the request.
     assert "only if you choose **Share**" in section

@@ -276,12 +276,13 @@ release that ships the code: join requests ship off; `infra/README.md`,
   send one to it. A teacher or centre chooses whether to accept requests
   at all.
 - **What is collected.** For a request (`listing_enquiry`): the student's
-  name (up to 80 characters) and school class as the guardian typed them,
-  an optional message of up to 300 characters (a phone number or web
-  address in either is refused), the listed class it is about if any,
-  the sending account, whether the guardian chose to share their
-  contact, its status, the owner's answer (one of three fixed outcomes)
-  and the times it was sent and answered. **The phone number or email
+  name (up to 80 characters) as the guardian typed it, their school
+  class, chosen from a fixed list, an optional message of up to 300
+  characters (a phone number or web address in the name or the message
+  is refused), the listed class it is about if any, the sending account,
+  whether the guardian chose to share their contact, its status, the
+  owner's answer (one of three fixed outcomes) and the times it was sent
+  and answered. **The phone number or email
   address is not collected anew**: it is the one already on the account,
   read live and only on a request where the guardian chose to share it,
   never copied into the request.

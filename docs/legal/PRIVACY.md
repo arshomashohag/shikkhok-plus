@@ -26,9 +26,11 @@ the code does cannot drift apart.
   **not** use analytics or advertising SDKs, and we do **not** sell
   or share your data with anyone.
 - A teacher **cannot** see anything a student or guardian writes
-  about themselves, other than a join request a guardian chooses to
-  send them. That boundary is enforced by the database, not by our
-  good intentions.
+  about themselves, and the database enforces that boundary, not our
+  good intentions. Where join requests are offered, a request a
+  guardian chooses to send is the exception: it reaches the teacher or
+  centre it was sent to, and our application, not the database, keeps
+  it to them.
 - Where reviews are offered on our public hub, only a **verified
   guardian** can review a class their child attends. A review shows a
   star rating, any words you add, how long your child has been enrolled
@@ -184,15 +186,17 @@ requests at all.
   on that request, that they are the child's parent or guardian and aged
   18 or over. Nobody can send one to a listing they run. You can have
   one open request with each teacher or centre at a time.
-- **What it holds.** The student's name and school class as you type
-  them, a message of up to 300 characters if you add one, the class it
-  is about if you picked one, and whether you chose to share your
-  contact. A message or name containing a phone number or a web address
-  is refused.
+- **What it holds.** The student's name as you type it, their school
+  class as you choose it from a list, a message of up to 300 characters
+  if you add one, the class it is about if you picked one, whether you
+  chose to share your contact, the account that sent it, whether it is
+  open or answered, the teacher's answer, and when it was sent and when
+  it was answered. A message or name containing a phone number or a web
+  address is refused.
 - **What the teacher sees.** The teacher, or each manager of the centre
-  and nobody else who works there, sees the student's name and class as
-  you typed them, your message, the class it is about, and when it was
-  received. Never your own name, your username, your address or
+  and nobody else who works there, sees the student's name as you typed
+  it, their school class as you chose it, your message, the class it is
+  about, and when it was received. Never your own name, your username, your address or
   anything in your profile.
 - **Your contact.** The teacher sees your phone number or email address
   only if you choose **Share**, which you decide on each request. If you
@@ -227,10 +231,11 @@ requests at all.
 
 ## Who can see what
 
-The separation below is enforced by the database itself — by row-level
-security policies and by the fact that a teacher's view of the data is
-built from different tables than a student's. It is not a filter in
-application code that someone could forget to apply.
+The separation below, except for join requests, is enforced by the
+database itself — by row-level security policies and by the fact that
+a teacher's view of the data is built from different tables than a
+student's. It is not a filter in application code that someone could
+forget to apply.
 
 **A teacher can see** their own classes, the students enrolled in
 them, and the attendance, marks and fees they themselves recorded. A
@@ -239,13 +244,18 @@ exactly as the public sees them, and never who wrote one.
 
 **A teacher cannot see** a student's own profile, a guardian's
 details, or anything a student or guardian writes about themselves.
-Where join requests are offered, the one exception is a request a
-guardian chooses to send: the teacher or centre it is sent to sees what
-it says, and the guardian's phone number or email address only if they
-chose to share it (see "Join requests" above).
 
 **A student or guardian can see** their own profile, their own
 attendance, marks and fees, and the join requests they have sent.
+
+**Join requests are kept apart differently.** Where join requests are
+offered, a request a guardian chooses to send is the one exception to
+what a teacher cannot see: the teacher or centre it is sent to sees
+what it says, and the guardian's phone number or email address only if
+they chose to share it (see "Join requests" above). That is enforced by
+our application's queries, which read a request only for the teacher or
+centre it was sent to and for the guardian who sent it, and not by the
+database's row-level security described above.
 
 **Nobody else can see anything.** There is no administrator view of
 student data. Our own operational access is limited to information

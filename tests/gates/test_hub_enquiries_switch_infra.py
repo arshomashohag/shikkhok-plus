@@ -174,10 +174,16 @@ def test_runbook_lists_rule_amendment_and_d6_before_flip() -> None:
 
     # Switching off is the same command with `off`, and it never strands a
     # guardian's request: they can still read and withdraw it, and the
-    # 90-day purge still runs.
-    assert re.search(r"(?i)switch(ing)? off.*`off`", section, re.S)
-    flat = _flat(section)
-    assert "withdraw" in flat and "90 days" in flat
+    # 90-day purge still runs. Asserted inside the switch-off paragraph
+    # alone, so step 5's own "withdraw" cannot satisfy it.
+    _, found, off = section.partition("**Switching off is the same with `off`**")
+    assert found, "the runbook has no switch-off paragraph"
+    off = _flat(off).lower()
+    assert "write `off` to the parameter" in off
+    assert "dispatch a deploy" in off
+    assert "never blocks a deletion" in off
+    assert "read and withdraw the requests they sent" in off
+    assert "purged 90 days after it was sent" in off
     # The stub's "not written here yet" warning goes once the checks are.
     assert "not written here yet" not in section
 
@@ -209,6 +215,9 @@ def test_runbook_names_the_data_safety_item_that_exists() -> None:
     assert body is not None, "the runbook names an item the README lacks"
     for answer in ("What is collected", "Shared with whom", "Never", "Deleted"):
         assert f"- **{answer}.**" in body.group(1)
+    # The school class is chosen from a list; only the name is typed.
+    assert "chosen from a fixed list" in _flat(body.group(1))
+    assert "class as the guardian typed" not in _flat(body.group(1))
     assert "90 days after it was sent" in _flat(body.group(1))
     families = _flat(legal.split("**Families target-audience declaration.**")[1])
     assert "parent or guardian aged 18 or older" in families
