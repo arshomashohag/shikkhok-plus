@@ -296,6 +296,7 @@ CASES: dict[str, Case] = {
     "batch_of_another_owner": _batch_of_another_owner,
     "batch_draft": _batch_status("draft"),
     "batch_hidden": _batch_status("hidden"),
+    "batch_suspended": _batch_status("suspended"),
     "batch_inactive": _batch_inactive,
     "batch_unknown": _unknown_batch,
     "caller_centre_manager": _centre_manager,
