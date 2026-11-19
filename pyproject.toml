@@ -56,6 +56,10 @@ api = [
 dev = [
     "pytest==9.2.0",
     "pytest-cov==7.1.0",
+    # Runs the suite across the runner's cores, each worker with its own
+    # PostgreSQL container (tests/conftest.py). The suite is ~3,000
+    # database tests run one at a time otherwise.
+    "pytest-xdist==3.8.0",
     "hypothesis==6.170.13",
     "mypy==2.4.1",
     "ruff==0.17.3",

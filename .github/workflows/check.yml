@@ -61,13 +61,20 @@ jobs:
     # without hiding a trend: a job that starts taking 30 is telling you
     # something, and the next raise should come with a look at test cost.
     #
+    # **Lowered from 35 on 2026-11-18, after that look.** Run 44238954384
+    # ran pytest in 5m39s against 22m43s on run 44228447514: the
+    # suite now runs on every core (pytest-xdist, one PostgreSQL per
+    # worker), empties tables with DELETE rather than TRUNCATE, and hashes
+    # test passwords at a test-only scrypt cost. The job is ~7 min, so 15
+    # is double that: the same headroom-without-hiding-a-trend rule.
+    #
     # The length is not waste and is not to be optimised away by dropping
     # a floor. `make test` runs the suite once and enforces both floors
     # from that one run -- 100% branch on app.money, 80% line on the rest
     # -- through two `coverage report` passes over the same data file
     # (see the Makefile), because the floor that is not enforced is the
     # one that quietly erodes.
-    timeout-minutes: 35
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

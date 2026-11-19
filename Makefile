@@ -11,6 +11,10 @@
 PY ?= python3
 ## Where `make test` writes its JUnit report; CI reads it for skips.
 PYTEST_JUNIT ?= build/pytest-junit.xml
+## How many processes `make test` runs the suite in: `auto` is one per
+## core. `make test PYTEST_WORKERS=0` runs it in one process, which is
+## the way to read a failure that only shows up in sequence.
+PYTEST_WORKERS ?= auto
 
 .PHONY: check format lint typecheck test gates contract openapi install clean android lock audit android-quality web web-dev site infra-functions lambda-test lambda-image lambda-lock
 
@@ -285,7 +289,17 @@ test:
 	@# [ARC-1]. tests/db/test_schema_parity.py migrates a fresh database
 	@# to head and fails if app/db/models.py describes anything else, so
 	@# drift an autogenerate would turn into a DROP is red here and in CI.
+	@#
+	@# **In parallel, one PostgreSQL per worker** (pytest-xdist). Each
+	@# worker is its own process, so the session fixtures in
+	@# tests/conftest.py start and migrate a container per worker:
+	@# migrations create cluster-wide roles, and the migration tests
+	@# change them, so workers never share a cluster. `loadfile` keeps a
+	@# test file on one worker, so its module fixtures are built once.
+	@# pytest-cov merges every worker's data into the one file the
+	@# reports below read, and the JUnit report still lists every test.
 	$(PY) -m pytest tests -q -p no:cacheprovider \
+		-n $(PYTEST_WORKERS) --dist loadfile \
 		--junitxml=$(PYTEST_JUNIT) \
 		--cov=app.money \
 		--cov=app.accounts --cov=app.admin --cov=app.analytics --cov=app.expenses \
