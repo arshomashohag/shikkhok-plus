@@ -908,6 +908,7 @@
   "hub_review_not_found": "This review is no longer available.",
   "hub_review_not_yet_eligible": "You can review this batch once your child has been enrolled for 30 days.",
   "hub_review_off": "Reviews are not available right now.",
+  "hub_review_report_open": "A report about this review or reply is still open. Decide the report first.",
   "hub_review_window_closed": "Reviews close 180 days after a child leaves the batch.",
   "hub_save": "Save changes",
   "hub_save_failed": "Your changes were not saved. Nothing you typed is lost.",

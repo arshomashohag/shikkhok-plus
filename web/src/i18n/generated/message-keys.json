@@ -160,6 +160,7 @@
   "hub.review.not_found": "hub_review_not_found",
   "hub.review.not_yet_eligible": "hub_review_not_yet_eligible",
   "hub.review.off": "hub_review_off",
+  "hub.review.report_open": "hub_review_report_open",
   "hub.review.window_closed": "hub_review_window_closed",
   "hub.slug_invalid": "hub_slug_invalid",
   "hub.slug_taken": "hub_slug_taken",

@@ -92,6 +92,7 @@ object MessageKeys {
         "hub.review.needs_attendance" to R.string.hub_review_needs_attendance,
         "hub.review.not_found" to R.string.hub_review_not_found,
         "hub.review.not_yet_eligible" to R.string.hub_review_not_yet_eligible,
+        "hub.review.report_open" to R.string.hub_review_report_open,
         "hub.review.window_closed" to R.string.hub_review_window_closed,
         "hub.report_already_filed" to R.string.hub_report_already_filed,
         "hub.report_ceiling" to R.string.hub_report_ceiling,

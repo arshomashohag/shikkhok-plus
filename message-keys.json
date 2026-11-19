@@ -143,6 +143,7 @@
     "hub.review.not_found",
     "hub.review.not_yet_eligible",
     "hub.review.off",
+    "hub.review.report_open",
     "hub.review.window_closed",
     "hub.slug_invalid",
     "hub.slug_taken",

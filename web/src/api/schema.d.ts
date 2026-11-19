@@ -14409,7 +14409,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorEnvelope']
         }
       }
-      /** @description REVIEW_ALREADY_DECIDED: the item is neither pending nor held. */
+      /** @description REVIEW_ALREADY_DECIDED: the item is neither pending nor held. REVIEW_REPORT_OPEN: an approval of a held item an open child-safety or personal-information report still names; deciding that report is what restores it. */
       409: {
         headers: {
           [name: string]: unknown

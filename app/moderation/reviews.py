@@ -287,6 +287,16 @@ def _already_decided() -> ConflictError:
     )
 
 
+def _report_open() -> ConflictError:
+    """Build the refusal for approving an item a report still holds [T7-c].
+
+    :return: The error
+    """
+    return ConflictError(
+        code="REVIEW_REPORT_OPEN", message_key="hub.review.report_open"
+    )
+
+
 def _hours(since: dt.datetime, now: dt.datetime) -> int:
     """Count whole hours waited, never negative.
 
@@ -534,6 +544,13 @@ def decide(
     A held item keeps its month on a restore; a rejection or removal clears
     it. A change to what the public sees evicts the owner's pages.
 
+    **A held item is not approved over a standing report** [T7-c]: while an
+    open child-safety or personal-information report holds it, approval is
+    refused, as a photo's is (``MEDIA_REPORT_OPEN``). Deciding that report
+    is what restores it. A report by the batch's own owner or managers holds
+    nothing [F10] and so blocks nothing. A rejection is never refused for
+    an open report.
+
     :param session: The session
     :param lens: The administrator's lens
     :param target_kind: ``review`` or ``reply``
@@ -548,7 +565,8 @@ def decide(
         approval, or a rejection without one of the five codes
     :raises AuthorizationError: No such review, or no reply to it
     :raises ConflictError: ``REVIEW_ALREADY_DECIDED``: the target is neither
-        pending nor held
+        pending nor held; ``REVIEW_REPORT_OPEN``: an approval of a held
+        target an open holding report still names
     """
     fits = code is None if approve else code in REVIEW_REJECTION_CODES
     if not fits:
@@ -560,6 +578,12 @@ def decide(
         before = item.status
         if before not in DECIDABLE:
             raise _already_decided()
+        if (
+            approve
+            and before == "held"
+            and _still_held(session, target_kind, target_id, None)
+        ):
+            raise _report_open()
         if approve and before == "held":
             act = "restored"
             item.status = "published"
@@ -598,9 +622,12 @@ def decide(
 
 
 def _still_held(
-    session: Session, target_kind: str, target_id: uuid.UUID, report_id: uuid.UUID
+    session: Session,
+    target_kind: str,
+    target_id: uuid.UUID,
+    report_id: uuid.UUID | None,
 ) -> bool:
-    """Say whether another open report keeps a review or reply held.
+    """Say whether an open report keeps a review or reply held.
 
     A report by the batch's owner or managers holds nothing [F10], so it
     keeps nothing held either.
@@ -608,19 +635,21 @@ def _still_held(
     :param session: The session
     :param target_kind: ``review`` or ``reply``
     :param target_id: The review
-    :param report_id: The report being dismissed, left out
-    :return: True when another open child-safety or personal-information
-        report, by someone who does not run the batch, names the target
+    :param report_id: The report being dismissed, left out; or None to
+        consider every open report
+    :return: True when an open child-safety or personal-information report
+        (other than ``report_id``), by someone who does not run the batch,
+        names the target
     """
-    reporters = session.scalars(
-        sa.select(HubReport.reporter_account_id).where(
-            HubReport.target_kind == target_kind,
-            HubReport.target_id == target_id,
-            HubReport.status == "open",
-            HubReport.reason.in_(sorted(HOLD_REASONS)),
-            HubReport.id != report_id,
-        )
-    ).all()
+    query = sa.select(HubReport.reporter_account_id).where(
+        HubReport.target_kind == target_kind,
+        HubReport.target_id == target_id,
+        HubReport.status == "open",
+        HubReport.reason.in_(sorted(HOLD_REASONS)),
+    )
+    if report_id is not None:
+        query = query.where(HubReport.id != report_id)
+    reporters = session.scalars(query).all()
     if not reporters:
         return False
     managers = _managers(session, target_id)

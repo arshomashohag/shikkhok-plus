@@ -283,6 +283,43 @@ def _report_id(session: Session, kind: str, target: uuid.UUID) -> list[uuid.UUID
     )
 
 
+def _open_report(
+    session: Session,
+    kind: str,
+    target: uuid.UUID,
+    reason: str,
+    reporter: uuid.UUID | None = None,
+) -> uuid.UUID:
+    """Store an open report directly, bypassing the filing path.
+
+    :param session: An arranging session
+    :param kind: ``review`` or ``reply``
+    :param target: The target id
+    :param reason: The reason
+    :param reporter: The reporting account; a fresh one by default
+    :return: The report id
+    """
+    report_id = uuid.uuid4()
+    session.execute(
+        sa.text(
+            "INSERT INTO hub_report (id, target_kind, target_id, "
+            "reporter_account_id, reason, created_at) VALUES (:i, "
+            "CAST(:k AS hub_report_target), :t, :a, "
+            "CAST(:r AS hub_report_reason), :c)"
+        ),
+        {
+            "i": report_id,
+            "k": kind,
+            "t": target,
+            "a": reporter or account(session),
+            "r": reason,
+            "c": _now() + dt.timedelta(seconds=1),
+        },
+    )
+    session.commit()
+    return report_id
+
+
 def _file(
     session: Session,
     kind: str,
@@ -580,6 +617,102 @@ def test_held_review_approve_restores_and_reject_removes(
     assert _invalidated(owner_session) == _owner_pages(owner_session, batch.owner_id)
 
 
+@pytest.mark.usefixtures("reviews_on")
+@pytest.mark.parametrize("kind", ["review", "reply"])
+def test_approving_a_held_item_waits_for_its_open_holding_report(
+    owner_session: Session, restricted_session: Session, kind: str
+) -> None:
+    """T7-c: no re-publishing over a standing child-safety report.
+
+    Approval of a held review or reply is refused while an open holding
+    report names it; once that report is settled, approval succeeds. A
+    report by the batch's own owner, which holds nothing [F10], blocks
+    nothing either.
+    """
+    batch = public_batch(owner_session)
+    target, other, _ = _published(owner_session, batch.batch_id)
+    _reply(owner_session, target)
+    _reply(owner_session, other)
+    _file(restricted_session, kind, target, "child_safety", owner_session=owner_session)
+    (standing,) = _report_id(owner_session, kind, target)
+    admin = _admin(owner_session)
+
+    def approve(item: uuid.UUID) -> str:
+        return reviews.decide(
+            restricted_session,
+            admin,
+            kind,  # type: ignore[arg-type]
+            item,
+            approve=True,
+            code=None,
+            now=_now(),
+            correlation_id="c1",
+        )
+
+    def status_of(item: uuid.UUID) -> str:
+        if kind == "review":
+            return str(_review(owner_session, item).status)
+        return str(_reply_row(owner_session, item).status)
+
+    with pytest.raises(ConflictError) as caught:
+        approve(target)
+    restricted_session.rollback()
+    assert (caught.value.code, caught.value.message_key, caught.value.status) == (
+        "REVIEW_REPORT_OPEN",
+        "hub.review.report_open",
+        409,
+    )
+    assert status_of(target) == "held"
+    assert [e for e in _events(owner_session) if e[0].endswith("_restored")] == []
+
+    # Settled without restoring, as an earlier decision can leave it.
+    owner_session.execute(
+        sa.text("UPDATE hub_report SET status = 'dismissed' WHERE id = :r"),
+        {"r": standing},
+    )
+    owner_session.commit()
+    assert approve(target) == "published"
+    assert status_of(target) == "published"
+
+    # The owner's own open holding report blocks nothing [F10].
+    table = "review" if kind == "review" else "review_reply"
+    key = "id" if kind == "review" else "review_id"
+    owner_session.execute(
+        sa.text(f"UPDATE {table} SET status = 'held' WHERE {key} = :r"),  # noqa: S608
+        {"r": other},
+    )
+    owner_session.commit()
+    _open_report(
+        owner_session, kind, other, "child_safety", reporter=batch.teacher_account_id
+    )
+    assert approve(other) == "published"
+
+
+@pytest.mark.usefixtures("reviews_on")
+@pytest.mark.parametrize("kind", ["review", "reply"])
+def test_rejecting_a_held_item_with_an_open_report_is_allowed(
+    owner_session: Session, restricted_session: Session, kind: str
+) -> None:
+    """Removal never waits on a report."""
+    batch = public_batch(owner_session)
+    target = _published(owner_session, batch.batch_id)[0]
+    _reply(owner_session, target)
+    _file(restricted_session, kind, target, "child_safety", owner_session=owner_session)
+
+    status = reviews.decide(
+        restricted_session,
+        _admin(owner_session),
+        kind,  # type: ignore[arg-type]
+        target,
+        approve=False,
+        code="identifiable_child",
+        now=_now(),
+        correlation_id="c1",
+    )
+
+    assert status == "removed"
+
+
 # ---------------------------------------------------------------------------
 # A report's hold
 # ---------------------------------------------------------------------------
@@ -739,9 +872,9 @@ def test_upheld_report_removes_and_dismissed_restores_unless_another_hold(
 ) -> None:
     """Two holding reports: one dismissed keeps it held, both restore it.
 
-    A held review cannot be reported again, so the two arise as they would:
-    held, restored by an administrator with its report still open, then
-    held again by a second report.
+    A held review cannot be reported again through the service, so the
+    second holding report is stored directly, as one that arrived while
+    the review was still public would stand.
     """
     batch = public_batch(owner_session)
     target, second, _ = _published(owner_session, batch.batch_id)
@@ -753,23 +886,7 @@ def test_upheld_report_removes_and_dismissed_restores_unless_another_hold(
         "child_safety",
         owner_session=owner_session,
     )
-    reviews.decide(
-        restricted_session,
-        admin,
-        "review",
-        target,
-        approve=True,
-        code=None,
-        now=_now(),
-        correlation_id="c1",
-    )
-    _file(
-        restricted_session,
-        "review",
-        target,
-        "personal_info",
-        owner_session=owner_session,
-    )
+    _open_report(owner_session, "review", target, "personal_info")
     first_report, second_report = _report_id(owner_session, "review", target)
 
     reports.decide(restricted_session, admin, first_report, "dismissed", _now())
@@ -1352,7 +1469,7 @@ def test_error_envelopes(
     people: People,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """T6-b: the two new codes, through the admin decision route."""
+    """T6-b and T7-c: the three new codes, through the admin decision route."""
     batch = public_batch(owner_session)
     published = _published(owner_session, batch.batch_id)[0]
     pending = _reviewed(owner_session, batch.batch_id, "pending")
@@ -1375,7 +1492,17 @@ def test_error_envelopes(
         headers=headers,
     )
 
+    held = _published(owner_session, batch.batch_id, n=1)[0]
+    _set_status(owner_session, held, "held")
+    _open_report(owner_session, "review", held, "personal_info")
+    report_open = api_client.post(
+        decide.format(review_id=held),
+        json={"target": "review", "decision": "approve"},
+        headers=headers,
+    )
+
     cases = [(decided, 409, "REVIEW_ALREADY_DECIDED", "hub.review.already_decided")]
+    cases += [(report_open, 409, "REVIEW_REPORT_OPEN", "hub.review.report_open")]
     cases += [
         (r, 400, "REVIEW_CODE_INVALID", "hub.review.code_invalid")
         for r in (no_code, code_on_approval)
@@ -1385,3 +1512,4 @@ def test_error_envelopes(
         error = response.json()["error"]
         assert (error["code"], error["message_key"]) == (code, key)
     assert _review(owner_session, pending).status == "pending"
+    assert _review(owner_session, held).status == "held"

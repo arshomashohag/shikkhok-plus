@@ -238,6 +238,42 @@ describe('Admin hub queue', () => {
     )
   })
 
+  it('says a held review waits for its open report', async () => {
+    const calls = serveAdmin((method, url) => {
+      if (url.includes('/v1/admin/hub/queue'))
+        return json(200, { kind: 'review', items: [reviewItem(4, 'review', 'child_safety')] })
+      if (method === 'POST')
+        return json(409, {
+          error: {
+            code: 'REVIEW_REPORT_OPEN',
+            message_key: 'hub.review.report_open',
+            retryable: false,
+          },
+        })
+      if (method === 'GET' && url.includes('/v1/admin/hub/reviews/v4'))
+        return json(200, reviewDetail(4, 'review', 'held'))
+      return undefined
+    })
+    renderAdmin('/hub?tab=review')
+
+    const [row] = await screen.findAllByRole('listitem')
+    await within(row!).findByText('Held after a report')
+    await userEvent.click(
+      within(row!).getByRole('checkbox', {
+        name: 'No child named or identifiable; no contact details',
+      }),
+    )
+    await userEvent.click(within(row!).getByRole('button', { name: 'Approve' }))
+    await userEvent.click(within(row!).getByRole('button', { name: 'Confirm' }))
+
+    expect(
+      await within(row!).findByText(
+        /A report about this review or reply is still open. Decide the report first./,
+      ),
+    ).toBeInTheDocument()
+    expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1)
+  })
+
   it('names the review checklist line in Bangla too', async () => {
     const { ADMIN_BN } = await import('../strings')
     expect(ADMIN_BN['web_admin_hub_review_check']).toBe(
