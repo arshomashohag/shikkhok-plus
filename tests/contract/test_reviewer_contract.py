@@ -34,7 +34,7 @@ from app.contract.routes import (
     reviewer_routes,
 )
 from app.reviews.lens import ReviewerLens
-from app.reviews.switch import require_reviews_on
+from app.reviews.switch import REVIEWS_OFF_DESCRIPTION, require_reviews_on
 
 #: The one reviewer path: an author's review of one batch.
 MY_REVIEW: Final = "/v1/hub/batches/{batch_id}/my-review"
@@ -54,6 +54,16 @@ GATED: Final = frozenset(
         ("PUT", MY_REVIEW),
         ("GET", "/v1/hub/reviews"),
         ("PUT", "/v1/hub/reviews/{review_id}/reply"),
+    }
+)
+
+#: The administrator's review routes, gated in the handler after the admin
+#: lens (the queue only for ``kind=review``).
+ADMIN_GATED: Final = frozenset(
+    {
+        ("GET", "/v1/admin/hub/queue"),
+        ("GET", "/v1/admin/hub/reviews/{review_id}"),
+        ("POST", "/v1/admin/hub/reviews/{review_id}/decision"),
     }
 )
 
@@ -226,6 +236,23 @@ def test_off_response_documented_in_openapi(app: FastAPI) -> None:
         assert "HUB_REVIEWS_OFF" in documented["description"], (method, path)
         schema = documented["content"]["application/json"]["schema"]
         assert schema == {"$ref": "#/components/schemas/ErrorEnvelope"}
+
+
+def test_every_gated_route_documents_the_switch_from_one_place(app: FastAPI) -> None:
+    """Every gated 404, reviewer, teacher and admin, opens with one sentence.
+
+    Each route merges :func:`~app.reviews.switch.reviews_off_responses`, so
+    the description begins with the shared text rather than a hand-written
+    copy of it that could drift.
+    """
+    paths = app.openapi()["paths"]
+    for method, path in GATED | ADMIN_GATED:
+        documented = paths[path][method.lower()]["responses"]["404"]
+        assert documented["description"].startswith(REVIEWS_OFF_DESCRIPTION), (
+            method,
+            path,
+            documented["description"],
+        )
 
 
 def test_each_review_route_documents_the_statuses_it_can_answer(

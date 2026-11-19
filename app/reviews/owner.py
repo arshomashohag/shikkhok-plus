@@ -508,7 +508,9 @@ def delete_reply(
             return
         keys = {"review_id": review_id}
         # The review (above), then the reply, then its reports: the order
-        # the author's delete and every report decision take.
+        # every report decision takes. The author's delete takes the review,
+        # then the reports, then the reply by cascade; both hold the review
+        # lock first, so they serialize there and cannot deadlock.
         current = session.execute(_LOCK_REPLY, keys).one_or_none()
         if current is not None:
             session.execute(_DELETE_REPORTS, keys)

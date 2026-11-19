@@ -521,6 +521,37 @@ def test_label_month_and_order(
 
 
 @pytest.mark.usefixtures("reviews_on")
+def test_batch_page_shows_at_most_fifty_most_recent_with_a_note(
+    api_client: TestClient, owner_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Volume: at most 50 reviews on a page, newest month first, and a note.
+
+    Fifty-one published: the October one is the oldest and is left out, the
+    count still says 51, and the page says it shows the 50 most recent.
+    Exactly fifty: all shown, and no note.
+    """
+    client = _client(api_client, monkeypatch)
+    _, capped = _tutor(owner_session, "fifty-one")
+    _, full = _tutor(owner_session, "exactly-fifty")
+    oldest = f"body-{uuid.uuid4().hex}"
+    _review(owner_session, capped, 4, body=oldest, month=OCTOBER)
+    newest = _reviews(owner_session, capped, [5] * 50)
+    _reviews(owner_session, full, [4] * 50)
+
+    for locale in ("en", "bn"):
+        section = _section(client.get(f"/hub/{locale}/t/fifty-one/{BATCH}").text)
+        assert section.count('<li class="review"') == 50
+        assert all(body in section for body in newest)
+        assert oldest not in section
+        assert t("reviews_count", locale, count=51) in section
+        assert t("reviews_most_recent", locale, shown=50) in section
+
+        whole = _section(client.get(f"/hub/{locale}/t/exactly-fifty/{BATCH}").text)
+        assert whole.count('<li class="review"') == 50
+        assert t("reviews_most_recent", locale, shown=50) not in whole
+
+
+@pytest.mark.usefixtures("reviews_on")
 def test_review_and_reply_report_links(
     api_client: TestClient, owner_session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -661,6 +692,7 @@ def test_sort_by_rating_orders_by_bayesian_score(
         assert '<option value="relevance" selected>' in plain
 
 
+@pytest.mark.usefixtures("reviews_off")
 def test_switch_off_hides_reviews_on_every_public_page(
     api_client: TestClient, owner_session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:

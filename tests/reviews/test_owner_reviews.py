@@ -780,15 +780,27 @@ def test_teacher_deletes_their_reply_on_a_held_review(
 def test_teacher_deletes_their_reply_below_threshold(
     owner_session: Session, restricted_session: Session
 ) -> None:
+    """Below the threshold the owner still deletes their reply, and only it.
+
+    Another owner's delete of the same reply is a quiet no-op that leaves
+    it in place; the owner's own delete removes it and leaves the reply to
+    their other review standing.
+    """
     batch = public_batch(owner_session)
     target, other = _published(owner_session, batch.batch_id, (5, 4))
     _reply(owner_session, target, status="pending")
+    _reply(owner_session, other, status="pending")
+    stranger = public_batch(owner_session, title="Someone else's batch")
+
+    owner.delete_reply(restricted_session, _lens(stranger), target, _now())
+
+    assert _reply_row(owner_session, target) is not None
 
     owner.delete_reply(restricted_session, _lens(batch), target, _now())
 
     assert _reply_row(owner_session, target) is None
+    assert _reply_row(owner_session, other) is not None
     assert owner.owner_reviews(restricted_session, _lens(batch))[1] == []
-    assert other != target
 
 
 def test_teacher_deletes_their_reply_on_a_suspended_listing(

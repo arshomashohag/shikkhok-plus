@@ -403,6 +403,39 @@ def test_owner_notified_only_at_or_above_threshold(
 
 
 @pytest.mark.usefixtures("reviews_on")
+@pytest.mark.parametrize(
+    "hidden",
+    [
+        {"batch_status": "hidden"},
+        {"owner_status": "suspended"},
+        {"active": False},
+    ],
+    ids=["batch-hidden", "owner-suspended", "batch-inactive"],
+)
+def test_owner_of_a_hidden_batch_is_not_told_whatever_the_count(
+    owner_session: Session, restricted_session: Session, hidden: dict[str, object]
+) -> None:
+    """T8-a: the notice reads ``hub_public_rating``, not a count of rows.
+
+    Three published reviews after the run, but the batch is off the public
+    hub, so the view holds no row for it and its owner hears nothing; the
+    author is still told the review was published.
+    """
+    batch = public_batch(owner_session, title="Off the hub", **hidden)
+    _published(owner_session, batch.batch_id, 2)
+    due = _approved(owner_session, batch.batch_id)
+
+    assert publication.publish_due(restricted_session, RUN) == 1
+    restricted_session.commit()
+
+    assert _review(owner_session, due).status == "published"
+    assert _notes(owner_session, "hub_reviews_published") == []
+    assert [n[0] for n in _notes(owner_session, "hub_review_outcome")] == [
+        _author(owner_session, due)
+    ]
+
+
+@pytest.mark.usefixtures("reviews_on")
 def test_a_second_run_finds_nothing(
     owner_session: Session, restricted_session: Session
 ) -> None:

@@ -19,6 +19,7 @@ from app.reviews.switch import (
     REVIEWS_OFF_RESPONSES,
     require_reviews_on,
     reviews_off,
+    reviews_off_responses,
 )
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -95,7 +96,16 @@ def test_reviews_off_builds_the_verbatim_response() -> None:
 def test_off_responses_document_the_404_envelope() -> None:
     entry = REVIEWS_OFF_RESPONSES[404]
 
-    assert entry["description"] == "Reviews are switched off (HUB_REVIEWS_OFF)"
+    assert entry["description"] == "HUB_REVIEWS_OFF: reviews are switched off."
+    assert entry["model"].__name__ == "ErrorEnvelope"
+
+
+def test_off_responses_name_the_switch_before_another_404() -> None:
+    entry = reviews_off_responses("REVIEW_NOT_FOUND: no such review.")[404]
+
+    assert entry["description"] == (
+        "HUB_REVIEWS_OFF: reviews are switched off. REVIEW_NOT_FOUND: no such review."
+    )
     assert entry["model"].__name__ == "ErrorEnvelope"
 
 

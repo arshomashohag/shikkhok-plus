@@ -44,7 +44,11 @@ from app.reviews.authoring import MyReview, MyReviewState
 from app.reviews.eligibility import Assessment
 from app.reviews.lens import ReviewerLens
 from app.reviews.owner import OwnerBatchRating, OwnerReview
-from app.reviews.switch import require_reviews_on
+from app.reviews.switch import (
+    REVIEWS_OFF_RESPONSES,
+    require_reviews_on,
+    reviews_off_responses,
+)
 from app.schemas.errors import ErrorEnvelope
 from app.schemas.reviews import (
     MyReviewBody,
@@ -92,8 +96,6 @@ _NO_TEACHER: Final = _envelope(
     "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
 )
 
-_OFF: Final = "HUB_REVIEWS_OFF: reviews are switched off."
-
 #: The reviewable list: authentication only.
 _LIST_ERRORS: Final[_Responses] = {401: _UNAUTHENTICATED}
 
@@ -108,7 +110,7 @@ _WRITE_ERRORS: Final[_Responses] = {
     ),
     401: _UNAUTHENTICATED,
     403: _NOT_A_MEMBER,
-    404: _envelope(_OFF),
+    **REVIEWS_OFF_RESPONSES,
     409: _envelope(
         "REVIEW_NOT_YET_ELIGIBLE: a first review by a member not yet, or no "
         "longer, eligible (hub.review.not_yet_eligible with eligible_from, "
@@ -122,7 +124,7 @@ _WRITE_ERRORS: Final[_Responses] = {
 _OWNER_READ_ERRORS: Final[_Responses] = {
     401: _UNAUTHENTICATED,
     403: _NO_TEACHER,
-    404: _envelope(_OFF),
+    **REVIEWS_OFF_RESPONSES,
 }
 
 #: The teacher's reply.
@@ -133,8 +135,8 @@ _REPLY_ERRORS: Final[_Responses] = {
     ),
     401: _UNAUTHENTICATED,
     403: _NO_TEACHER,
-    404: _envelope(
-        f"{_OFF} REVIEW_NOT_FOUND: no published review of yours by that id; "
+    **reviews_off_responses(
+        "REVIEW_NOT_FOUND: no published review of yours by that id; "
         "another owner's review answers the same."
     ),
     409: _envelope(

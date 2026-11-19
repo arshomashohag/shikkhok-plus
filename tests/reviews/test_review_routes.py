@@ -234,6 +234,7 @@ def _refused(
     return error
 
 
+@pytest.mark.usefixtures("reviews_off")
 def test_gated_routes_answer_reviews_off_and_deletes_still_work(
     api_client: TestClient, owner_session: Session
 ) -> None:

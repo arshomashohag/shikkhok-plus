@@ -194,6 +194,9 @@ REVIEW_RESPONSE_ROUTES: Final[frozenset[tuple[str, str]]] = REVIEWER_ROUTES | fr
     }
 )
 
+#: The one success status whose response has no body to walk.
+_NO_CONTENT: Final = 204
+
 #: The manager-only staff console, the one place staff fields are served.
 STAFF_ROUTE_PREFIX: Final = "/v1/centre/staff"
 
@@ -598,12 +601,16 @@ def review_field_leaks(app: FastAPI) -> list[tuple[str, str, str]]:
     """List forbidden fields reachable from any review route's response.
 
     Walks the 2xx response of every route in :data:`REVIEW_RESPONSE_ROUTES`
-    the application registers; a route answering 204 has no body to walk.
-    A listed route declaring a response model whose schema cannot be found
-    fails closed, as the public walk does.
+    the application registers. **Fails closed**: only a route answering 204,
+    which has no body, is skipped. A listed route with no response model
+    and any other success status -- a handler returning a bare dict, say --
+    has a body nothing can walk, and is an error rather than a pass; so is
+    a declared response model whose schema cannot be found, as in the
+    public walk.
 
     :param app: The application whose generated schema is checked
     :return: ``(method path, component, field)`` per leak, empty when clean
+    :raises LookupError: A listed route whose response cannot be walked
     """
     document = app.openapi()
     definitions: dict[str, dict[str, object]] = (
@@ -611,11 +618,17 @@ def review_field_leaks(app: FastAPI) -> list[tuple[str, str, str]]:
     )
     leaks: list[tuple[str, str, str]] = []
     for route in _api_routes(app):
-        if route.response_model is None:
-            continue
         for method in sorted(route.methods or ()):
             if (method, route.path) not in REVIEW_RESPONSE_ROUTES:
                 continue
+            if route.response_model is None:
+                if route.status_code == _NO_CONTENT:
+                    continue
+                msg = (
+                    f"review route {method} {route.path} answers "
+                    f"{route.status_code or 200} with no response model to walk"
+                )
+                raise LookupError(msg)
             resolved = _response_schema(document, route.path, method)
             for schema_name, field in _walk(
                 resolved, definitions, set(), _review_field

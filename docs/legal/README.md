@@ -72,7 +72,7 @@ These claims are outside the generated region and were checked by hand:
 | Month and year only; a tenure label, never a name | `month_label` in `app/hub/public/ratings.py`, the labels in `app/hub/public/messages.py` |
 | Published weekly; an edit within 30 days goes back to be checked | `app/reviews/publication.py`, `EDIT_WINDOW` in `app/reviews/authoring.py` |
 | A teacher reads reviews only as the public does | `app/reviews/owner.py`, `tests/gates/test_teacher_reviews_read_views.py` |
-| A teacher's own report holds nothing; a child-safety or personal-information report from anyone else takes a review down | `app/moderation/reports.py`, `app/moderation/reviews.py` [F10] |
+| A report by anyone who runs or teaches the class holds nothing; a child-safety or personal-information report from anyone else takes a review down | `runs_batch_sql` in `app/reviews/eligibility.py`, shared by `app/moderation/reviews.py` and eligibility [F10, I-2] |
 | Deleting a review removes its reply and every report on either | `app/reviews/forget.py` |
 
 ## NOT YET TRUE: account deletion
@@ -233,12 +233,17 @@ release that ships the code: reviews ship off; `infra/README.md`,
   student in that class, at least 30 days in it and 4 attended sessions,
   and, after the child leaves, for no more than 180 days. Students cannot
   write reviews in V1, and nobody who runs or teaches the class can.
-- **What is stored.** A star rating (1–5), optional words of up to 1,000
-  characters (a phone number or web address is refused), the class, the
-  author's account, the evidence enrollment, a tenure bucket frozen at
-  first submit, its submission, edit and decision times (never shown),
-  and the moderation state (`review`). A teacher's reply
-  is one per review, up to 1,000 characters (`review_reply`).
+- **What is stored.** For a review (`review`): a star rating (1–5),
+  optional words of up to 1,000 characters (a phone number or web address
+  is refused), the class, the author's account and role, the evidence
+  enrollment, a tenure bucket frozen at first submit, the moderation
+  state and any rejection code, the administrator who last decided it,
+  and its submission, edit, approval and decision times (never shown),
+  and the month it was published (shown). For a teacher's reply
+  (`review_reply`), one per review: up to 1,000 characters, the account
+  that wrote it, the moderation state and any rejection code, the
+  administrator who last decided it, its creation, edit and decision
+  times (never shown), and the month it was published (shown).
 - **When it is public.** Only after a platform administrator has approved
   it, at the next weekly publication, and only once the class has at
   least **three** published reviews; below that nothing shows, not even
@@ -267,7 +272,7 @@ teachers and centres, reviews from guardians), and that **every public
 listing, photo, review and reply can be reported from inside the app** by
 a signed-in user, with a child-safety or personal-information report
 taking a photo, review or reply down at once (for a review or reply,
-unless the class's own teacher or centre filed it). Whoever submits the
+unless someone who runs or teaches the class filed it). Whoever submits the
 declaration confirms this against Play's current wording; it is recorded
 here because nothing in the repository checks it.
 

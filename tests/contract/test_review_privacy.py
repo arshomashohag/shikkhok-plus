@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import FastAPI
+import pytest
+from fastapi import FastAPI, Response, status
 from pydantic import BaseModel
 
 from app.contract.privacy import (
@@ -133,3 +134,44 @@ def test_fixture_leak_is_caught() -> None:
         ("GET /v1/hub/batches/{batch_id}/my-review", "_Author", "author_account_id"),
         ("GET /v1/hub/reviews", "_TimedReview", "submitted_at"),
     ]
+
+
+def test_a_listed_route_with_no_response_model_fails_closed() -> None:
+    """A review route answering 200 with a bare body cannot be walked: error.
+
+    FastAPI documents such a route with no schema, so a field it returns is
+    invisible to the walk; skipping it would pass whatever it leaked.
+    """
+    planted = FastAPI()
+
+    @planted.get("/v1/hub/reviews", response_model=None)
+    def _bare() -> dict[str, str]:
+        """Return a body no model describes.
+
+        :return: A payload carrying the author
+        """
+        return {"author_account_id": str(uuid.uuid4())}
+
+    with pytest.raises(LookupError, match="GET /v1/hub/reviews answers 200"):
+        review_field_leaks(planted)
+
+
+def test_a_listed_204_route_with_no_model_is_skipped() -> None:
+    """A delete answering 204 has no body, so it is the one allowed skip."""
+    planted = FastAPI()
+
+    @planted.delete(
+        "/v1/hub/reviews/{review_id}/reply",
+        status_code=status.HTTP_204_NO_CONTENT,
+        response_class=Response,
+    )
+    def _delete(review_id: uuid.UUID) -> Response:
+        """Delete nothing.
+
+        :param review_id: The review
+        :return: An empty 204
+        """
+        del review_id
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    assert review_field_leaks(planted) == []

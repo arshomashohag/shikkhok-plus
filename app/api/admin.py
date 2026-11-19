@@ -48,7 +48,7 @@ from app.help.tickets import (
 from app.hub.media.storage import MediaStore
 from app.hub.public.settings import reviews_enabled
 from app.moderation import media, reports, reviews, suspension
-from app.reviews.switch import reviews_off
+from app.reviews.switch import reviews_off, reviews_off_responses
 from app.schemas.admin import (
     AdminAppVersion,
     AdminOverviewResponse,
@@ -349,21 +349,14 @@ def _correlation(request: Request) -> str:
 
 
 #: The documented answer of ``kind=review`` while reviews are off.
-_REVIEWS_OFF: Final[dict[int | str, dict[str, Any]]] = {
-    404: {
-        "model": ErrorEnvelope,
-        "description": "HUB_REVIEWS_OFF: kind=review while reviews are switched off.",
-    },
-}
+_REVIEWS_OFF: Final[dict[int | str, dict[str, Any]]] = reviews_off_responses(
+    "Only kind=review answers it; the other kinds are never gated."
+)
 
 #: The 404s of one review's routes.
-_REVIEW_NOT_FOUND: Final[dict[int | str, dict[str, Any]]] = {
-    404: {
-        "model": ErrorEnvelope,
-        "description": "HUB_REVIEWS_OFF: reviews are switched off. "
-        "HUB_ADMIN_TARGET_NOT_FOUND: no such review, or no reply to it.",
-    },
-}
+_REVIEW_NOT_FOUND: Final[dict[int | str, dict[str, Any]]] = reviews_off_responses(
+    "HUB_ADMIN_TARGET_NOT_FOUND: no such review, or no reply to it."
+)
 
 
 def _require_reviews_on() -> None:

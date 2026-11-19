@@ -428,7 +428,16 @@ repeats steps 4 and 5 only after step 6 has passed on staging.
    re-measure at day 120) means stop here. No screen computes these two
    figures yet: they are read by hand from `owner_listing`, `batch` and
    `hub_feedback` in the production database, and the two figures and the
-   date are written down with the decision.
+   date are written down with the decision. Read them **only through the
+   production access path team.md requires** (Deployment, "Production
+   access is named, logged and bounded"): your own named non-superuser
+   role, never the application's `shikkhok_app` role or a superuser,
+   opened through the session wrapper that records the session's start,
+   the person and the stated reason ("D9 measurement") to the append-only
+   log. Run aggregate counts only, and copy no row out of the session:
+   the two percentages are all that leaves it. Neither the role nor the
+   wrapper is defined in this repository; if either does not exist yet,
+   this step waits until it does.
 2. **D8: the legal review of the review policy is recorded** in
    `docs/legal/README.md`, "The D8 legal review of the review policy",
    with a date, a reviewer and an outcome. If the outcome requires a
@@ -441,16 +450,24 @@ repeats steps 4 and 5 only after step 6 has passed on staging.
    policy promises an in-app notice before a material change takes
    effect; this is one, and nothing in the app sends such a notice, so
    decide how it is given and give it before step 4 on production.
-4. **Write `on`** to the environment's parameter:
+4. **Write `on`** to the environment's parameter. **Staging first**, then
+   steps 5 and 6 on staging:
 
    ```bash
+   # staging
    aws ssm put-parameter --overwrite --name /shikkhokplus/shikkhokplus-staging/hub-reviews --type String --value on
+   ```
+
+   **Production only after step 6 has passed on staging**, followed by
+   step 5 on production:
+
+   ```bash
+   # production -- only once step 6 has passed on staging
    aws ssm put-parameter --overwrite --name /shikkhokplus/shikkhokplus-production/hub-reviews --type String --value on
    ```
 
-   The first line is staging, the second production. Writing the
-   parameter changes nothing by itself: the container reads its runtime
-   env, which only a release writes.
+   Writing the parameter changes nothing by itself: the container reads
+   its runtime env, which only a release writes.
 5. **Dispatch a deploy** of the same environment (`Actions -> deploy ->
    Run workflow`; any ref already deployed will do). The release
    validates the value (`on` or `off`, nothing else), writes

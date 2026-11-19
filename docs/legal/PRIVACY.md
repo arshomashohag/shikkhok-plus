@@ -32,8 +32,9 @@ the code does cannot drift apart.
   guardian** can review a class their child attends. A review shows a
   star rating, any words you add, how long your child has been enrolled
   and the month it was published — **never your name or your
-  child's** — and only after we have checked it. You can delete it at
-  any time.
+  child's** — and only after we have checked it. The words you write are
+  read by a moderator, who rejects anything that names or could identify
+  a child. You can delete it at any time.
 - You can delete your account from inside the app, or from a web page
   without installing anything.
 
@@ -181,10 +182,13 @@ details, or anything a student or guardian writes about themselves.
 attendance, marks and fees.
 
 **Nobody else can see anything.** There is no administrator view of
-student data. Our own operational access is limited to subscriber
-information — a teacher's name, plan and payment status — and to what
-someone submits for publication on the public hub: listing text,
-photos, reviews, replies and reports. Our moderators see a review, a
+student data. Our own operational access is limited to information
+about teachers and coaching centres — a teacher's or centre's name,
+which of our apps its people use, when it joined and when it was last
+signed in — to the questions someone asks us in the Help centre, and to
+what someone submits for publication on the public hub: listing text,
+photos, reviews, replies and reports. The app charges nobody, so there
+is no plan or payment information to see. Our moderators see a review, a
 reply or a report with an opaque reference in place of its author,
 never a name or phone number.
 

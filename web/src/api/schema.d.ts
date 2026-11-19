@@ -14225,7 +14225,7 @@ export interface operations {
           'application/json': components['schemas']['AdminHubQueueResponse']
         }
       }
-      /** @description HUB_REVIEWS_OFF: kind=review while reviews are switched off. */
+      /** @description HUB_REVIEWS_OFF: reviews are switched off. Only kind=review answers it; the other kinds are never gated. */
       404: {
         headers: {
           [name: string]: unknown

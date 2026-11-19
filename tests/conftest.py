@@ -340,3 +340,19 @@ def reviews_on(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.hub.public.settings import HUB_REVIEWS_ENV
 
     monkeypatch.setenv(HUB_REVIEWS_ENV, "on")
+
+
+@pytest.fixture
+def reviews_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Switch hub reviews off for one test, whatever the ambient environment.
+
+    Off is the default only while the variable is unset; a developer or CI
+    runner that exports ``SHIKKHOKPLUS_HUB_REVIEWS=on`` would otherwise
+    turn every switch-off test into a switch-on one.
+
+    :param monkeypatch: Restores the environment after the test
+    :return: None
+    """
+    from app.hub.public.settings import HUB_REVIEWS_ENV
+
+    monkeypatch.delenv(HUB_REVIEWS_ENV, raising=False)
