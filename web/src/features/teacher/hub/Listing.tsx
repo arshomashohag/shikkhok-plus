@@ -37,7 +37,7 @@ import {
   type Draft,
   type Listing as ListingModel,
 } from './hub.mappers'
-import { Checklist, failureText, FailureBanner, StatusChip } from './hubUi'
+import { Checklist, failureText, FailureBanner, OwnerReviewsEntry, StatusChip } from './hubUi'
 import { Photos } from './Photos'
 import { PublishSheet } from './PublishSheet'
 
@@ -592,6 +592,7 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
           {t('web_hub_batches_link')}
         </Link>
       </p>
+      <OwnerReviewsEntry />
 
       {publishing ? (
         <PublishSheet

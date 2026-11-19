@@ -494,6 +494,58 @@ describe('class changes (PO-1, PO-10)', () => {
     expect(targetOf({ ...m, feedbackDay: null }).to).toBe('/inbox/n1')
   })
 
+  it('opens a review outcome in its editor and new reviews on the teacher Reviews screen', () => {
+    const outcome = one({
+      kind: 'hub_review_outcome',
+      batch_name: 'Physics · Batch A',
+      amount: null,
+      period: null,
+      enrollment_id: null,
+      source_id: 'batch-1',
+      preview: 'removed',
+    })
+    expect(INBOX_KINDS).toContain('hub_review_outcome')
+    // The preview is a word to translate, never a line to show as sent.
+    expect(outcome.preview).toBeNull()
+    expect(inboxBody(outcome, t, (p) => p)).toBe('inbox_hub_review_outcome_removed()')
+    expect(targetOf(outcome)).toEqual({ to: '/reviews/batch-1', lens: 'guardian' })
+    expect(targetFor(outcome, 'teacher')).toBe('/inbox/n1')
+    // An outcome this client does not know says nothing rather than a raw word.
+    expect(
+      inboxBody(
+        one({
+          ...outcome,
+          kind: 'hub_review_outcome',
+          amount: null,
+          period: null,
+          preview: 'archived',
+        }),
+        t,
+        (p) => p,
+      ),
+    ).toBeNull()
+
+    const published = one({
+      kind: 'hub_reviews_published',
+      batch_name: 'Physics · Batch A',
+      amount: null,
+      period: null,
+      enrollment_id: null,
+      source_id: 'owner-1',
+      preview: '2',
+    })
+    expect(INBOX_KINDS).toContain('hub_reviews_published')
+    expect(inboxBody(published, t, (p) => p)).toBe('inbox_hub_reviews_published_body(2)')
+    expect(targetOf(published)).toEqual({ to: '/more/hub/reviews', lens: 'teacher' })
+    for (const [key, text] of [
+      [TITLE_KEY.hub_review_outcome, 'Your review · Physics · Batch A'],
+      [TITLE_KEY.hub_reviews_published, 'New reviews · Physics · Batch A'],
+    ] as const) {
+      expect(translate('en', key, 'Physics · Batch A')).toBe(text)
+      expect(BUNDLES.bn[key]).toMatch(/[ঀ-৿]/)
+    }
+  })
+
   it('announces every kind it can draw, so the badge counts only those', () => {
     expect(INBOX_KINDS).toContain('class_cancelled')
     expect(INBOX_KINDS).toContain('class_rescheduled')

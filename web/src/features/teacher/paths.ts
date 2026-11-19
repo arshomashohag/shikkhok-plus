@@ -96,5 +96,6 @@ export const paths = {
   hubBatches: () => '/more/hub/batches',
   hubPreview: (locale: Lang) => `/more/hub/preview?locale=${locale}`,
   hubFeedback: (ownerId: string, day: number) => `/more/hub/feedback/${id(ownerId)}/${day}`,
+  hubReviews: () => '/more/hub/reviews',
   batchMonth: (batchId: string, period: string) => `/batches/${id(batchId)}/month/${id(period)}`,
 } as const

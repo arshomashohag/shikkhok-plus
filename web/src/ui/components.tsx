@@ -522,3 +522,18 @@ export function Avatar({ letter, primary }: { letter: string; primary?: boolean 
     </span>
   )
 }
+
+/**
+ * A review's rating as five stars, read aloud as "4 out of 5 stars". The
+ * rating is the server's whole number; nothing here averages or rounds.
+ */
+export function RatingStars({ rating }: { rating: number }) {
+  const { t } = useT()
+  const filled = Math.max(0, Math.min(5, rating))
+  return (
+    <span role="img" aria-label={t('hub_review_stars', filled)} className="rating-stars">
+      {'★'.repeat(filled)}
+      {'☆'.repeat(5 - filled)}
+    </span>
+  )
+}

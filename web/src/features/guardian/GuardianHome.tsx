@@ -1,7 +1,8 @@
 /**
  * G1 · Guardian home. A child switcher pinned at the top, then that
  * child's next payment, payments being checked, latest results and
- * batches.
+ * batches. Below them, the reviews entry, while the server lists a batch
+ * the guardian may review or has reviewed [H4].
  *
  * **One child at a time, and the selected child's name is in every card
  * title**, so a guardian of two never reads one child's marks as the
@@ -11,6 +12,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { familyPaths } from '../family/reader'
+import { ReviewsEntry } from '../family/reviews/MyReviews'
 import { readGuardianHome, type Schemas } from '../../api/endpoints'
 import { formatMark, formatMonth, formatPhone, formatShortDate, initial } from '../../core/format'
 import { Money } from '../../core/money'
@@ -65,6 +67,7 @@ export function GuardianHome() {
           <p className="meta">{t('guardian_empty_body')}</p>
           {phone ? <div className="hero-amount">{phone}</div> : null}
         </div>
+        <ReviewsEntry />
       </>
     )
   }
@@ -95,6 +98,8 @@ export function GuardianHome() {
       ) : null}
       {resource.error ? <StaleBanner error={resource.error} loadedAt={resource.loadedAt} /> : null}
       <ChildView child={child} />
+      {/* Reviews are by batch, not by child: one entry, under every child. */}
+      <ReviewsEntry />
     </>
   )
 }

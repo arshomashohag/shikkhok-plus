@@ -116,8 +116,24 @@ describe('HubReport', () => {
   })
 
   it.each([
+    ['review', "A guardian's review"],
+    ['reply', "A teacher's reply to a review"],
+  ])('reports a %s by the review id the link carries', async (kind, target) => {
+    serve(() => new Response(null, { status: 202 }))
+    renderScreen(<HubReport />, REPORT(kind, BATCH))
+
+    expect(await screen.findByText(target)).toBeInTheDocument()
+    await fill(/It is abusive/, '')
+    await send()
+
+    await waitFor(() =>
+      expect(posts()).toEqual([{ target_kind: kind, target_id: BATCH, reason: 'abusive' }]),
+    )
+  })
+
+  it.each([
     ['an unknown kind', REPORT('bogus', OWNER)],
-    ['a review kind', REPORT('review', OWNER)],
+    ['a kind near a real one', REPORT('reviews', OWNER)],
     ['no kind', `/hub-report?id=${OWNER}`],
     ['no id', '/hub-report?kind=owner_listing'],
     ['an id that is not a UUID', REPORT('owner_listing', 'sumi-apa')],

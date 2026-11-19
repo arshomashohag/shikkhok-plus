@@ -671,6 +671,12 @@ a.card-link:hover {
   color: var(--on-overdue-fill);
   font-weight: 700;
 }
+/* A review's five stars [H4]: the glyphs carry the rating, the label reads it. */
+.rating-stars {
+  color: var(--primary);
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
 .chip-verifying {
   background: var(--verifying-container);
   color: var(--on-verifying-container);

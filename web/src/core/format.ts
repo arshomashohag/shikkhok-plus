@@ -97,6 +97,16 @@ export function formatMonth(period: string, lang: Lang): string {
   return formatter(lang, { month: 'long' }).format(parseDate(`${period.slice(0, 7)}-15`))
 }
 
+/**
+ * "Nov 2026" / "নভেম্বর 2026" from a period: the month and the year in
+ * Latin digits, and never a day, as a review's month is shown everywhere.
+ */
+export function formatMonthYear(period: string, lang: Lang): string {
+  return formatter(lang, { month: lang === 'bn' ? 'long' : 'short', year: 'numeric' }).format(
+    parseDate(`${period.slice(0, 7)}-15`),
+  )
+}
+
 /** "Oct" from a period. */
 export function formatShortMonth(period: string, lang: Lang): string {
   return formatter(lang, { month: 'short' }).format(parseDate(`${period.slice(0, 7)}-15`))

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   formatClock,
   formatMark,
+  formatMonthYear,
   formatPhone,
   howSoon,
   initial,
@@ -69,4 +70,12 @@ it('takes a whole Bangla grapheme for an initial', () => {
   expect(initial('ফারহান ইসলাম')).toBe('ফা')
   expect(initial('  tasnim')).toBe('t')
   expect(initial('')).toBe('?')
+})
+
+describe('a review month', () => {
+  it('is the month and the year in Latin digits, never a day', () => {
+    expect(formatMonthYear('2026-11', 'en')).toBe('Nov 2026')
+    expect(formatMonthYear('2026-11', 'bn')).toBe('নভেম্বর 2026')
+    expect(formatMonthYear('2027-01', 'en')).toBe('Jan 2027')
+  })
 })

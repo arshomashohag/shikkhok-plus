@@ -161,6 +161,24 @@ rather than editing the old one.
 | U4 (web) | Failed start card with Sign out | `web` | *not yet checked* | `error_unexpected` (54) / `more_log_out` (6) | |
 | U4 (web) | Root error card (a page that failed to render) | `web` | *not yet checked* | `error_unexpected` (54) / `auth_retry` (16) | |
 | U4 (web) | Centre members: invite by phone or email; a member with an email only | `web` | *not yet checked* | `centre_member_already_invited` (43) / `centre_invite_by_help` (39) | |
+| H4 (web) | MyReviews: the guardian home's Reviews row, and the list (batch title, owner's public name, state chip with "From {date}") | `web` | *not yet checked* | `hub_reviews_empty` (38) / `hub_reviews_entry_guardian_sub` (35) / `hub_reviews_state_reviewed` beside a full Bangla batch title | |
+| H4 (web) | ReviewEditor: five labelled star radios, body with its 1000 counter, the privacy note, status chip with a reason, "edit until", the not-yet banner with its date, the read-only review with Delete, and the delete confirmation | `web` | *not yet checked* | `hub_review_privacy_note` (116) / `hub_review_needs_attendance` (75) / `hub_review_not_yet_eligible` (69) / `hub_review_status_not_published` with `hub_review_reason_identifiable_child` (30) | |
+| H4 (web) | Teacher Reviews (the listing editor's Reviews row, per-batch rating rows including the below-threshold line, review cards with tenure and month, reply box with counter and status, Delete reply, Report) | `web` | *not yet checked* | `hub_review_tenure_gt_1y` (46) / `hub_reviews_below_threshold` (42) / `hub_reviews_reply_note` (38) / `hub_reviews_entry_owner_sub` (37) | |
+| H4 (web admin) | Admin Reviews tab (`web/src/admin/hub/Queue.tsx`, `ReviewRow.tsx`): author reference and role, tenure, rating, words, the review a reply answers, the checklist line, approve and reject with a code, the held notice | `web` | *not yet checked* | `web_admin_hub_review_check` (70) / `web_admin_hub_review_held` (31) | |
+| H4 (public) | Hub batch page review section (`app/hub/public/templates/_reviews.html`): rating summary or the below-threshold line, the "most recent" line, review cards with tenure and month, the teacher's reply, the report links | `web` | *not yet checked* | `review_by_gt_1y` (46) / `reviews_below_threshold` (42) / `reviews_most_recent` (42) in `app/hub/public/messages.py` | |
+
+**H4's five rows (2026-11-19) are open, and nothing automated discharges
+them.** The Vitest tests H4 added (`reviews.test.tsx`, `Reviews.test.tsx`)
+are correctness tests that assert what each state renders and measure no
+layout. Lengths are code points from the regenerated
+`web/src/i18n/generated/strings.bn.json`, `web/src/admin/i18n/admin.bn.json`
+and `app/hub/public/messages.py`, placeholders unfilled. The row to check
+first is ReviewEditor: `hub_review_privacy_note` (116) sits under a
+textarea and above the submit button, and the five star labels are radios
+whose Bangla adjectives are longer than the English. The admin row and the
+public row were built by Tasks 7 and 9 and are added here because this is
+the unit's edit to this file. **The Bangla copy itself is awaiting the
+human Bangla review** recorded for H4; a reworded string re-opens its row.
 
 **U4's twenty web rows (2026-11-15) are open, and nothing automated
 discharges them.** No screenshot test or browser layout harness exists in

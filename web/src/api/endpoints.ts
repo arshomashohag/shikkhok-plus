@@ -437,6 +437,24 @@ export const answerHubFeedback = (
 export const fileHubReport = (body: Schemas['HubReportRequest']) =>
   request<undefined>('POST', '/v1/hub/reports', { body })
 
+// ---------------------------------------------------------- hub reviews [H4]
+//
+// The teacher's side. Every figure is the server's: below three published
+// reviews a batch's figures arrive as nulls, and the average arrives
+// rendered (`average_label`). `HUB_REVIEWS_OFF` (404) means draw nothing.
+
+/** The owner's batches' ratings and their published reviews. */
+export const readOwnerReviews = (signal?: AbortSignal) =>
+  request<Schemas['OwnerReviewsResponse']>('GET', '/v1/hub/reviews', { signal })
+
+/** Write or replace the reply to a review; it is checked before it appears. */
+export const saveReviewReply = (reviewId: string, body: Schemas['ReplyWrite']) =>
+  request<Schemas['OwnerReviewWire']>('PUT', `/v1/hub/reviews/${enc(reviewId)}/reply`, { body })
+
+/** Delete the reply to a review, whatever its status. */
+export const deleteReviewReply = (reviewId: string) =>
+  request<undefined>('DELETE', `/v1/hub/reviews/${enc(reviewId)}/reply`)
+
 function enc(segment: string): string {
   return encodeURIComponent(segment)
 }

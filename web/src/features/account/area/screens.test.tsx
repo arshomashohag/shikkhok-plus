@@ -153,6 +153,53 @@ describe('Inbox', () => {
     ).toBe(true)
   })
 
+  it('inbox renders both review kinds', async () => {
+    const reviewItem = (over: Record<string, unknown>) => ({
+      notification_id: 'r1',
+      kind: 'hub_review_outcome',
+      batch_name: 'Physics · Batch A',
+      child_name: null,
+      amount: null,
+      period: null,
+      created_at: new Date().toISOString(),
+      read: false,
+      enrollment_id: null,
+      source_id: 'batch1',
+      preview: 'published',
+      ...over,
+    })
+    serve(me('guardian'), (method, url) => {
+      if (url.split('?')[0]!.endsWith('/v1/me/notifications') && method === 'GET')
+        return json(200, {
+          unread: 2,
+          items: [
+            reviewItem({}),
+            reviewItem({
+              notification_id: 'r2',
+              kind: 'hub_reviews_published',
+              source_id: 'owner1',
+              preview: '3',
+            }),
+          ],
+        })
+      if (url.endsWith('/read')) return new Response(null, { status: 204 })
+      return undefined
+    })
+    renderAt('/inbox')
+    expect(await screen.findByText('Your review · Physics · Batch A')).toBeInTheDocument()
+    expect(screen.getByText('Your review is now public.')).toBeInTheDocument()
+    expect(screen.getByText('New reviews · Physics · Batch A')).toBeInTheDocument()
+    expect(screen.getByText('New reviews published: 3')).toBeInTheDocument()
+    // Both kinds are announced, so the server counts them.
+    const read = calls.find((c) => c.url.includes('/v1/me/notifications?'))
+    expect(new URL(read!.url, 'http://x').searchParams.getAll('kind')).toEqual(
+      expect.arrayContaining(['hub_review_outcome', 'hub_reviews_published']),
+    )
+
+    await userEvent.click(screen.getByText('Your review · Physics · Batch A'))
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/reviews/batch1'))
+  })
+
   it('marks everything read with one call', async () => {
     serve(me('guardian'), (method, url) => {
       if (url.split('?')[0]!.endsWith('/v1/me/notifications') && method === 'GET')

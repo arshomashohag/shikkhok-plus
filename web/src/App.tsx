@@ -26,6 +26,7 @@ import { Dues } from './features/teacher/Dues'
 import { Verify } from './features/teacher/Verify'
 import { MyBatches } from './features/student/MyBatches'
 import { GuardianHome } from './features/guardian/GuardianHome'
+import { MyReviews } from './features/family/reviews/MyReviews'
 import { Invitations } from './features/account/Invitations'
 import { ClassScreen } from './features/classTeacher/ClassScreen'
 import { MyClasses } from './features/classTeacher/MyClasses'
@@ -71,6 +72,15 @@ const AREA_ROUTES = [
  * link; any lens may report. A separate chunk: most sessions never open it.
  */
 const HUB_REPORT = lazyScreen(() => import('./features/common/HubReport'), 'HubReport')
+
+/**
+ * One batch's review, by its guardian author [H4]. The list loads with the
+ * guardian home, whose entry it shares a module with; the editor on first use.
+ */
+const REVIEW_EDITOR = lazyScreen(
+  () => import('./features/family/reviews/ReviewEditor'),
+  'ReviewEditor',
+)
 
 /** Signed out on a report link: remember it, then sign in [H2 task 9]. */
 function SignInThenReport() {
@@ -280,6 +290,22 @@ function AppRoutes() {
           element={
             <Only lens="guardian" current={lens}>
               <GuardianHome />
+            </Only>
+          }
+        />
+        <Route
+          path="/reviews"
+          element={
+            <Only lens="guardian" current={lens}>
+              <MyReviews />
+            </Only>
+          }
+        />
+        <Route
+          path="/reviews/:batchId"
+          element={
+            <Only lens="guardian" current={lens}>
+              {REVIEW_EDITOR}
             </Only>
           }
         />
