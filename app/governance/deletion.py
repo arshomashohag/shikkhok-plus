@@ -483,6 +483,14 @@ _LOCK_AUTHORED_REVIEWS: Final = sa.text(
 
 #: The reviews of the solo owners' batch listings, locked in id order
 #: before ``forget``.
+#:
+#: Unlike a join request's send, a review written after this lock needs no
+#: owner-listing lock. Its insert key-shares its ``batch_listing`` row, so
+#: it either commits first and goes with that row's cascade below, or meets
+#: the row gone and fails its foreign key, rendered as 409 ``CONFLICT``.
+#: Nothing can attach to it first: review inbox items are keyed on the
+#: batch or the owner, never the review, and a report is filed only on a
+#: review ``hub_public_review`` shows, which a new, pending one is not.
 _LOCK_SOLO_OWNER_REVIEWS: Final = sa.text(
     "SELECT r.id FROM review r "
     "JOIN batch_listing bl ON bl.batch_id = r.batch_id "
@@ -664,14 +672,15 @@ def delete_account(session: Session, destination: str | Identifier) -> DeletionR
     # author's delete does, and before any report row [T5-e].
     #
     # One rare cycle is left to the retry, not to lock order. A review
-    # forget here deletes OTHER accounts' inbox items about the review,
-    # while the generic loop below deletes this account's own inbox without
-    # locking what each item is about. Take an account that is both a solo
-    # teacher and a centre manager, deleted while the author of a review of
-    # its centre is deleted too, the two sharing a join request. The
-    # author's review forget deletes, and so holds, the manager's inbox
-    # item about the review. The manager's `for_account` locks the shared
-    # request, then its generic loop waits on that inbox item; the author's
+    # forget here deletes OTHER accounts' reports on the review, while the
+    # generic loop below deletes this account's own reports (`hub_report`
+    # by `reporter_account_id`) without locking the review each names.
+    # Take an account that is both a solo teacher and a centre manager,
+    # deleted while the author of a review of its centre is deleted too,
+    # the two sharing a join request. The author's review forget deletes,
+    # and so holds, a report the manager filed on the author's review. The
+    # manager's `for_account` locks the shared request, then its generic
+    # loop's `hub_report` delete waits on that report; the author's
     # `for_account` waits on the request the manager holds. PostgreSQL ends
     # it with `40P01`, and `run_with_retry` around both deletion routes
     # re-runs the losing side [U2: NFR4.3].
