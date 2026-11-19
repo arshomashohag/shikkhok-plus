@@ -21,8 +21,8 @@ import kotlinx.serialization.Serializable
 /** The server's limit on a report's note (`HubReportRequest.note`). */
 const val NOTE_MAX: Int = 500
 
-/** A UUID in its canonical text form, either case. */
-private val UUID_TEXT = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+/** A UUID in its canonical text form, either case; also read by the join-request link. */
+internal val UUID_TEXT = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 /**
  * What a hub report link may name: the two listing kinds, a photo on

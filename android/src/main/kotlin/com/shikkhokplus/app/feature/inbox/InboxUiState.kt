@@ -51,6 +51,24 @@ enum class InboxKind {
 
     /** The weekly publication made reviews of the owner's batch public [H4]. */
     HUB_REVIEWS_PUBLISHED,
+
+    /** A family asked the owner to take a student [H5]; nothing they typed is in it. */
+    HUB_ENQUIRY_RECEIVED,
+
+    /** The owner answered the reader's join request [H5]. */
+    HUB_ENQUIRY_ANSWERED,
+}
+
+/** How the owner answered a join request, as its answered message's `preview` names it. */
+enum class EnquiryAnswer {
+    /** The student is being added. */
+    ADDED,
+
+    /** Not now. */
+    NOT_NOW,
+
+    /** Please call the teacher. */
+    CALL_US,
 }
 
 /** What moderation did with a review, as its outcome message's one word names it. */
@@ -98,6 +116,7 @@ data class ClassChange(
  * @property feedbackDay For the hub's demand question, which one: 60 or 90
  * @property reviewOutcome For a review outcome, what happened; null for a word this version does not know
  * @property reviewsPublished For new reviews, how many were published, in Latin digits
+ * @property enquiryAnswer For an answered join request, how; null for a word this version does not know
  */
 data class InboxMessage(
     val id: String,
@@ -115,6 +134,7 @@ data class InboxMessage(
     val feedbackDay: Int? = null,
     val reviewOutcome: ReviewOutcome? = null,
     val reviewsPublished: String? = null,
+    val enquiryAnswer: EnquiryAnswer? = null,
 )
 
 /** Where tapping an item leads, decided from the server's fields. */
@@ -167,6 +187,16 @@ sealed interface InboxTarget {
 
     /** The owner's Reviews screen. */
     data object HubOwnerReviews : InboxTarget
+
+    /**
+     * One join request, in its owner's inbox.
+     *
+     * @property enquiryId The request
+     */
+    data class HubOwnerEnquiry(val enquiryId: String) : InboxTarget
+
+    /** The reader's own join requests. */
+    data object HubMyEnquiries : InboxTarget
 
     /**
      * One payment to check, opened at its review.

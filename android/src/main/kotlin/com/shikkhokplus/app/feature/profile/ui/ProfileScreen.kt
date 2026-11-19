@@ -133,6 +133,9 @@ const val TAG_PROFILE_UNSENT: String = "profile_unsent"
 /** The guardian's "My children" row. */
 const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
 
+/** "My join requests", drawn only while the server lists one [H5]. */
+const val TAG_PROFILE_MY_ENQUIRIES: String = "profile_my_enquiries"
+
 /**
  * Where each row of More leads.
  *
@@ -166,6 +169,8 @@ const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
  * @property onCentreOffers Opens the centres' offers, or null
  * @property onInvitations Opens the invitations list, or null
  * @property onMyChildren Opens the guardian's children, or null
+ * @property onMyEnquiries Opens the caller's own join requests, or null
+ *   while the server lists none, whatever the lens [H5]
  * @property unsent How many records this phone has not sent yet (T9)
  * @property onSettings Opens Settings, or null where none are kept
  * @property onHelp Opens the Help centre, or null
@@ -204,6 +209,7 @@ data class MoreActions(
     val onCentreOffers: (() -> Unit)? = null,
     val onInvitations: (() -> Unit)? = null,
     val onMyChildren: (() -> Unit)? = null,
+    val onMyEnquiries: (() -> Unit)? = null,
     val unsent: Int = 0,
     val onSettings: (() -> Unit)? = null,
     val onHelp: (() -> Unit)? = null,
@@ -366,6 +372,7 @@ private fun MoreMenu(
     )
 
     PeopleRows(lens, actions, offline)
+    MyEnquiriesRow(actions, offline)
     TeacherRows(actions, offline)
     PublicPageRows(actions, offline)
     AppRows(actions, offline)
@@ -425,6 +432,29 @@ private fun PeopleRows(lens: Lens?, actions: MoreActions, offline: Boolean) {
                 modifier = Modifier.testTag(TAG_PROFILE_MY_CHILDREN),
             )
         }
+    }
+}
+
+/**
+ * "My join requests" [H5], for any lens, drawn only while the route
+ * supplies it: the server lists at least one request.
+ *
+ * @param actions Where the row leads
+ * @param offline Whether the row waits for a connection
+ */
+@Composable
+private fun MyEnquiriesRow(actions: MoreActions, offline: Boolean) {
+    val open = actions.onMyEnquiries ?: return
+    MenuCard {
+        MenuRow(
+            title = stringResource(R.string.hub_enquiry_mine_title),
+            subtitle =
+                stringResource(if (offline) R.string.more_needs_connection else R.string.hub_enquiry_mine_sub),
+            icon = MenuIcons.Envelope,
+            onClick = open,
+            enabled = !offline,
+            modifier = Modifier.testTag(TAG_PROFILE_MY_ENQUIRIES),
+        )
     }
 }
 

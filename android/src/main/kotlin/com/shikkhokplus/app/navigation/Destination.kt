@@ -63,18 +63,29 @@ sealed interface Destination {
      * "New student" with that roster's batch chosen.
      */
     data object NewStudent : Destination {
-        override val route: String = "students-add?batch={batchId}"
+        override val route: String = "students-add?batch={batchId}&enquiry={enquiryId}"
 
         /** The optional batch argument's name. */
         const val ARG_BATCH: String = "batchId"
 
         /**
+         * The optional join request argument's name [H5]: the form reads the
+         * request from the server and fills from it, so only its id travels.
+         */
+        const val ARG_ENQUIRY: String = "enquiryId"
+
+        /**
          * Build a concrete route.
          *
          * @param batchId A batch to start chosen, or null for none
+         * @param enquiryId A join request to fill from, or null for none
          * @return The route to navigate to
          */
-        fun of(batchId: String? = null): String = if (batchId == null) "students-add" else "students-add?batch=$batchId"
+        fun of(batchId: String? = null, enquiryId: String? = null): String {
+            val query =
+                listOfNotNull(batchId?.let { "batch=$it" }, enquiryId?.let { "enquiry=$it" }).joinToString("&")
+            return if (query.isEmpty()) "students-add" else "students-add?$query"
+        }
     }
 
     /** One of the teacher's students, with every batch they sit in. */
@@ -867,6 +878,64 @@ sealed interface Destination {
         override val route: String = "hub/listing/reviews"
     }
 
+    /**
+     * Asking an owner, or one of its batches, to take a student [H5],
+     * opened from a public page's "Ask to join" App Link (`MainActivity`,
+     * [HubEnquiryLinkEffect]). The query values travel as the link carried
+     * them; the form refuses a malformed one in words.
+     */
+    data object HubEnquiryForm : Destination {
+        override val route: String = "hub/enquiry?owner={owner}&batch={batch}"
+
+        /** The owner argument's name: the owner's public slug. */
+        const val ARG_OWNER: String = "owner"
+
+        /** The batch argument's name; absent for the owner as a whole. */
+        const val ARG_BATCH: String = "batch"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param owner The link's `owner` value, if any
+         * @param batch The link's `batch` value, or null when the link named none
+         * @return The route to navigate to
+         */
+        fun of(owner: String?, batch: String?): String =
+            "hub/enquiry?owner=${queryEncode(owner.orEmpty())}" + batch?.let { "&batch=${queryEncode(it)}" }.orEmpty()
+    }
+
+    /** The caller's own join requests [H5], opened from More or an answered-request inbox item. */
+    data object HubMyEnquiries : Destination {
+        override val route: String = "hub/enquiries/mine"
+    }
+
+    /**
+     * The owner's join-request inbox [H5], pushed over [HubListing] from its
+     * "Join requests" row.
+     */
+    data object HubOwnerEnquiries : Destination {
+        override val route: String = "hub/listing/enquiries"
+    }
+
+    /**
+     * One join request for its owner [H5], opened from [HubOwnerEnquiries]
+     * or a new-request inbox item.
+     */
+    data object HubOwnerEnquiry : Destination {
+        override val route: String = "hub/listing/enquiries/{enquiryId}"
+
+        /** The request argument's name. */
+        const val ARG_ID: String = "enquiryId"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param enquiryId The request
+         * @return The route to navigate to
+         */
+        fun of(enquiryId: String): String = "hub/listing/enquiries/${queryEncode(enquiryId)}"
+    }
+
     /** Adding a payment method (P2, P3). */
     data object AddPaymentMethod : Destination {
         override val route: String = "payment-methods/new?kind={kind}"
@@ -1182,3 +1251,12 @@ sealed interface Destination {
         fun of(ticketId: String): String = "me/help/ticket/$ticketId"
     }
 }
+
+/**
+ * Percent-encode one route argument. `URLEncoder` writes a space as `+`,
+ * which navigation does not decode back, so it is written `%20`.
+ *
+ * @param value The argument
+ * @return Its encoded form
+ */
+private fun queryEncode(value: String): String = java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20")

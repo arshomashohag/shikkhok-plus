@@ -82,6 +82,8 @@ import com.shikkhokplus.app.navigation.RootRoute
 import com.shikkhokplus.app.navigation.rootRouteFor
 import com.shikkhokplus.app.navigation.HubReportLinkEffect
 import com.shikkhokplus.app.feature.hublisting.report.ReportLink
+import com.shikkhokplus.app.navigation.HubEnquiryLinkEffect
+import com.shikkhokplus.app.feature.hubenquiry.EnquiryLink
 import com.shikkhokplus.app.feature.account.ui.ChooseUsernameGate
 import com.shikkhokplus.app.feature.account.ChooseUsernameViewModel
 import com.shikkhokplus.app.core.network.HttpAccountRepository
@@ -117,6 +119,13 @@ class MainActivity : ComponentActivity() {
      */
     private var pendingReport by mutableStateOf<ReportLink?>(null)
 
+    /**
+     * A public page's "Ask to join" App Link waiting to be opened, or null
+     * [H5]. Held and saved exactly as [pendingReport] is, for the same
+     * reason: a signed-out guardian signs in first.
+     */
+    private var pendingEnquiry by mutableStateOf<EnquiryLink?>(null)
+
     override fun onStart() {
         super.onStart()
         AppForeground.visible = true
@@ -132,6 +141,7 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         if (UnreadNotifier.wantsInbox(intent)) openInbox = true
         ReportLink.from(intent.data, BuildConfig.APP_LINK_HOST)?.let { pendingReport = it }
+        EnquiryLink.from(intent.data, BuildConfig.APP_LINK_HOST)?.let { pendingEnquiry = it }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -140,6 +150,11 @@ class MainActivity : ComponentActivity() {
             outState.putString(STATE_REPORT_KIND, it.kind)
             outState.putString(STATE_REPORT_ID, it.id)
             outState.putBoolean(STATE_REPORT, true)
+        }
+        pendingEnquiry?.let {
+            outState.putString(STATE_ENQUIRY_OWNER, it.owner)
+            outState.putString(STATE_ENQUIRY_BATCH, it.batch)
+            outState.putBoolean(STATE_ENQUIRY, true)
         }
     }
 
@@ -163,6 +178,17 @@ class MainActivity : ComponentActivity() {
                 ReportLink(
                     savedInstanceState.getString(STATE_REPORT_KIND),
                     savedInstanceState.getString(STATE_REPORT_ID),
+                )
+            } else {
+                null
+            }
+        pendingEnquiry =
+            if (savedInstanceState == null) {
+                EnquiryLink.from(intent?.data, BuildConfig.APP_LINK_HOST)
+            } else if (savedInstanceState.getBoolean(STATE_ENQUIRY)) {
+                EnquiryLink(
+                    savedInstanceState.getString(STATE_ENQUIRY_OWNER),
+                    savedInstanceState.getString(STATE_ENQUIRY_BATCH),
                 )
             } else {
                 null
@@ -200,6 +226,8 @@ class MainActivity : ComponentActivity() {
                                 },
                                 pendingReport = pendingReport,
                                 onReportOpened = { pendingReport = null },
+                                pendingEnquiry = pendingEnquiry,
+                                onEnquiryOpened = { pendingEnquiry = null },
                                 settings = settings,
                             )
                         }
@@ -217,6 +245,11 @@ class MainActivity : ComponentActivity() {
         const val STATE_REPORT = "hub_report_pending"
         const val STATE_REPORT_KIND = "hub_report_kind"
         const val STATE_REPORT_ID = "hub_report_id"
+
+        /** Saved-state keys for an enquiry link still waiting. */
+        const val STATE_ENQUIRY = "hub_enquiry_pending"
+        const val STATE_ENQUIRY_OWNER = "hub_enquiry_owner"
+        const val STATE_ENQUIRY_BATCH = "hub_enquiry_batch"
     }
 }
 
@@ -261,6 +294,8 @@ private fun AppRoot(
     onInboxOpened: () -> Unit,
     pendingReport: ReportLink?,
     onReportOpened: () -> Unit,
+    pendingEnquiry: EnquiryLink?,
+    onEnquiryOpened: () -> Unit,
     settings: SettingsHolder,
 ) {
     val context = LocalContext.current
@@ -523,6 +558,8 @@ private fun AppRoot(
 
             // A hub page's report link, once someone is signed in to report as.
             HubReportLinkEffect(navController, signedIn, pendingReport, onReportOpened)
+            // A public page's "Ask to join" link, likewise [H5].
+            HubEnquiryLinkEffect(navController, signedIn, pendingEnquiry, onEnquiryOpened)
 
             // The one-time two-step offer [0028], for a signed-in account
             // the server recommends it for. Asked once per account here.

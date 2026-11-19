@@ -13,7 +13,7 @@
  * neither chosen, and the adult-guardian declaration is an unticked box;
  * a send without either is stopped here, as the server would refuse it.
  * The share option starts with the word the server's contact refusal tells
- * the guardian to tick ("Share" / "শেয়ার").
+ * the guardian to choose ("Share" / "শেয়ার").
  *
  * A request already open with this owner shows the way to it instead of a
  * form. Every refusal is the server's words; a dropped connection keeps

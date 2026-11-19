@@ -1955,7 +1955,7 @@
     <string name="hub_enquiry_target_not_found">This teacher or class is not taking join requests right now.</string>
     <string name="hub_enquiry_already_open">You already have a join request open with this teacher. Withdraw it to send a new one.</string>
     <string name="hub_enquiry_ceiling">You have sent a lot of join requests today. Try again tomorrow.</string>
-    <string name="hub_enquiry_contains_contact">Remove phone numbers and web addresses. To give the teacher your number, tick Share.</string>
+    <string name="hub_enquiry_contains_contact">Remove phone numbers and web addresses. To give the teacher your contact, choose Share.</string>
     <string name="hub_enquiry_not_found">This join request is not available.</string>
     <string name="hub_enquiry_already_closed">This join request has already been answered.</string>
     <string name="hub_enquiry_outcome_invalid">That answer cannot be given to this request. Choose one of the answers shown.</string>
@@ -1970,7 +1970,7 @@
     <string name="hub_enquiry_share_phone">Share my phone number with %1$s</string>
     <string name="hub_enquiry_share_email">Share my email address with %1$s</string>
     <string name="hub_enquiry_share_none">Don\'t share it</string>
-    <string name="hub_enquiry_share_help">If you don\'t share it, the teacher sees your request but cannot call you. You can withdraw it at any time.</string>
+    <string name="hub_enquiry_share_help">If you don\'t share it, the teacher sees your request but cannot contact you. You can withdraw it at any time.</string>
     <string name="hub_enquiry_share_required">Choose whether to share your contact.</string>
     <string name="hub_enquiry_declaration">I am the student\'s parent or guardian, and 18 or older.</string>
     <string name="hub_enquiry_declaration_required">Tick this to send the request.</string>

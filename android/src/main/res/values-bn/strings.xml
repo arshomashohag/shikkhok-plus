@@ -1888,7 +1888,7 @@
     <string name="hub_enquiry_target_not_found">এই শিক্ষক বা ব্যাচ এখন ভর্তির অনুরোধ নিচ্ছে না।</string>
     <string name="hub_enquiry_already_open">এই শিক্ষকের কাছে আপনার একটি ভর্তির অনুরোধ এখনও খোলা আছে। নতুন অনুরোধ পাঠাতে আগেরটি তুলে নিন।</string>
     <string name="hub_enquiry_ceiling">আজ আপনি অনেকগুলো ভর্তির অনুরোধ পাঠিয়েছেন। কাল আবার চেষ্টা করুন।</string>
-    <string name="hub_enquiry_contains_contact">ফোন নম্বর ও ওয়েব ঠিকানা সরিয়ে দিন। শিক্ষককে আপনার নম্বর দিতে শেয়ার-এ টিক দিন।</string>
+    <string name="hub_enquiry_contains_contact">ফোন নম্বর ও ওয়েব ঠিকানা সরিয়ে দিন। শিক্ষককে আপনার যোগাযোগের তথ্য দিতে শেয়ার বেছে নিন।</string>
     <string name="hub_enquiry_not_found">এই ভর্তির অনুরোধটি পাওয়া যাচ্ছে না।</string>
     <string name="hub_enquiry_already_closed">এই ভর্তির অনুরোধের উত্তর আগেই দেওয়া হয়েছে।</string>
     <string name="hub_enquiry_outcome_invalid">এই অনুরোধে এই উত্তর দেওয়া যাবে না। দেখানো উত্তরগুলোর একটি বেছে নিন।</string>
@@ -1903,7 +1903,7 @@
     <string name="hub_enquiry_share_phone">%1$s-এর সঙ্গে আমার ফোন নম্বর শেয়ার করুন</string>
     <string name="hub_enquiry_share_email">%1$s-এর সঙ্গে আমার ইমেইল ঠিকানা শেয়ার করুন</string>
     <string name="hub_enquiry_share_none">শেয়ার করবেন না</string>
-    <string name="hub_enquiry_share_help">শেয়ার না করলে শিক্ষক আপনার অনুরোধ দেখবেন, কিন্তু আপনাকে ফোন করতে পারবেন না। আপনি যেকোনো সময় অনুরোধটি তুলে নিতে পারেন।</string>
+    <string name="hub_enquiry_share_help">শেয়ার না করলে শিক্ষক আপনার অনুরোধ দেখবেন, কিন্তু আপনার সঙ্গে যোগাযোগ করতে পারবেন না। আপনি যেকোনো সময় অনুরোধটি তুলে নিতে পারেন।</string>
     <string name="hub_enquiry_share_required">যোগাযোগের তথ্য শেয়ার করবেন কি না, বেছে নিন।</string>
     <string name="hub_enquiry_declaration">আমি শিক্ষার্থীর মা-বাবা বা অভিভাবক, এবং আমার বয়স 18 বা তার বেশি।</string>
     <string name="hub_enquiry_declaration_required">অনুরোধ পাঠাতে এখানে টিক দিন।</string>

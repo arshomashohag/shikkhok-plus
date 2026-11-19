@@ -40,11 +40,11 @@ class InboxMapperTest {
                 "payment_recorded", "notice", "exam_scheduled", "exam_cancelled",
                 "marks_available", "claim_to_verify", "class_cancelled", "class_rescheduled",
                 "hub_listing_suspended", "hub_feedback_question", "hub_review_outcome",
-                "hub_reviews_published",
+                "hub_reviews_published", "hub_enquiry_received", "hub_enquiry_answered",
             )
         val kept = messages(*(known + "future").map { dto(it) }.toTypedArray())
 
-        assertEquals(16, kept.size)
+        assertEquals(known.size, kept.size)
         assertEquals(InboxKind.entries.toSet(), kept.map { it.kind }.toSet())
     }
 
@@ -310,6 +310,38 @@ class InboxMapperTest {
         val odd =
             messages(dto("hub_reviews_published", enrollment = null, source = "o-1").copy(preview = "২")).single()
         assertEquals(null, odd.reviewsPublished)
+    }
+
+    @Test
+    fun `a join request received shows nothing typed and opens the request`() {
+        // The server sends no preview for it; one arriving anyway is never shown.
+        val message =
+            messages(dto("hub_enquiry_received", enrollment = null, source = "q-1").copy(preview = "Nadia")).single()
+
+        assertEquals(InboxKind.HUB_ENQUIRY_RECEIVED, message.kind)
+        assertEquals(null, message.preview)
+        assertEquals(null, message.enquiryAnswer)
+        assertEquals(InboxTarget.HubOwnerEnquiry("q-1"), InboxMapper.targetOf(message))
+        val sourceless = messages(dto("hub_enquiry_received", enrollment = null, source = null)).single()
+        assertEquals(InboxTarget.Detail("n-1"), InboxMapper.targetOf(sourceless))
+    }
+
+    @Test
+    fun `a join request answered is worded from its outcome and opens my requests`() {
+        listOf(
+            "added" to EnquiryAnswer.ADDED,
+            "not_now" to EnquiryAnswer.NOT_NOW,
+            "call_us" to EnquiryAnswer.CALL_US,
+            "later" to null,
+        ).forEach { (word, answer) ->
+            val message =
+                messages(dto("hub_enquiry_answered", enrollment = null, source = "q-1").copy(preview = word)).single()
+
+            assertEquals(InboxKind.HUB_ENQUIRY_ANSWERED, message.kind)
+            assertEquals(answer, message.enquiryAnswer, word)
+            assertEquals(null, message.preview, "the code is worded, never shown raw")
+            assertEquals(InboxTarget.HubMyEnquiries, InboxMapper.targetOf(message))
+        }
     }
 
     @Test

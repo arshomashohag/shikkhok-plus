@@ -147,6 +147,8 @@ data class AreasState(
  * @property agreed Whether its box is ticked
  * @property notice A confirmation to show once, or null
  * @property areas The area pickers' lists
+ * @property switchSaving Whether the join-requests switch is being saved
+ * @property switchFailure Why the last switch save failed, or null
  */
 data class HubListingState(
     val body: HubListingUiState = HubListingUiState.Loading,
@@ -158,6 +160,8 @@ data class HubListingState(
     val agreed: Boolean = false,
     val notice: HubNotice? = null,
     val areas: AreasState = AreasState(),
+    val switchSaving: Boolean = false,
+    val switchFailure: HubFailure? = null,
 ) {
     private val saved: OwnerListingResponse?
         get() =
@@ -182,6 +186,12 @@ data class HubListingState(
     /** Whether Unpublish is offered. */
     val canUnpublish: Boolean
         get() = editing?.let { it.status == ListingStatus.PUBLISHED && !dirty && !saving } ?: false
+
+    /**
+     * Whether the join-requests switch is drawn: only while the server says
+     * `enquiries_offered` [H5]. Switched off, the owner is offered nothing.
+     */
+    val offersEnquiries: Boolean get() = saved?.enquiriesOffered == true
 
     /** Whether the street address is asked for: the server's `is_centre`. */
     val showStreet: Boolean get() = saved?.isCentre == true
@@ -216,6 +226,9 @@ class HubListingViewModel(
     val state: StateFlow<HubListingState> = _state.asStateFlow()
 
     private var lastWrite: HubWrite? = null
+
+    /** What the join-requests switch was last asked to become, for its Retry. */
+    private var switchWanted: Boolean? = null
 
     /**
      * Read the listing, then the areas it needs. Does nothing once a listing
@@ -337,6 +350,37 @@ class HubListingViewModel(
         lastWrite = HubWrite.UNPUBLISH
         _state.update { it.copy(saving = true, failure = null) }
         viewModelScope.launch { finish(api.unpublish(), HubNotice.UNPUBLISHED) }
+    }
+
+    /**
+     * Turn join requests on or off [H5]. Saved the moment it changes, and on
+     * its own: only `accepts_enquiries` is sent, and only the server's
+     * listing is replaced, so whatever the owner typed is neither sent nor
+     * lost. A failure leaves the switch at what the server holds and offers
+     * Retry when trying again can help [TC-8].
+     *
+     * @param on Whether to receive join requests
+     */
+    fun setAcceptsEnquiries(on: Boolean) {
+        val current = _state.value
+        if (current.body !is HubListingUiState.Editing || !current.offersEnquiries || current.switchSaving) return
+        switchWanted = on
+        _state.update { it.copy(switchSaving = true, switchFailure = null) }
+        viewModelScope.launch {
+            val result = api.save(OwnerListingUpdateRequest(acceptsEnquiries = on))
+            _state.update {
+                when (result) {
+                    is AuthResult.Ok -> it.copy(body = result.value.toUiState(), switchSaving = false)
+                    else -> it.copy(switchSaving = false, switchFailure = result.hubFailure())
+                }
+            }
+        }
+    }
+
+    /** Save the switch again, after a failure that can be retried. */
+    fun retrySwitch() {
+        val wanted = switchWanted ?: return
+        if (_state.value.switchFailure?.canRetry == true) setAcceptsEnquiries(wanted)
     }
 
     /** Forget the confirmation once it has been shown. */

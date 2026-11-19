@@ -116,6 +116,11 @@ class DestinationTest {
                 Destination.HubPhotos.of("b-1", readOnly = true),
                 Destination.HubReviewEditor.of("b-1", "Physics 9"),
                 Destination.HubReviewEditor.of("b-1"),
+                Destination.HubEnquiryForm.of("rahima-apa", "b-1"),
+                Destination.HubEnquiryForm.of(null, null),
+                Destination.HubOwnerEnquiry.of("e-1"),
+                Destination.NewStudent.of(),
+                Destination.NewStudent.of("b-1", "e-1"),
             )
 
         built.forEach {
@@ -170,6 +175,20 @@ class DestinationTest {
         val built = Destination.Roster.of(id = "b-1", name = "Maths & Science")
         val query = built.substringAfter("name=")
         assertTrue("&" !in query, "an ampersand must be encoded: $built")
+    }
+
+    @Test
+    fun `the join-request routes do not overlap and carry what the link carried`() {
+        assertEquals("hub/enquiries/mine", Destination.HubMyEnquiries.route)
+        assertEquals("hub/listing/enquiries", Destination.HubOwnerEnquiries.route)
+        assertEquals("hub/listing/enquiries/e-1", Destination.HubOwnerEnquiry.of("e-1"))
+        assertEquals("hub/enquiry?owner=rahima-apa", Destination.HubEnquiryForm.of("rahima-apa", null))
+        assertEquals("hub/enquiry?owner=a%20b&batch=b-1", Destination.HubEnquiryForm.of("a b", "b-1"))
+        // The add-student form takes the request's id, and only its id [H5].
+        assertEquals("students-add", Destination.NewStudent.of())
+        assertEquals("students-add?batch=b-1", Destination.NewStudent.of("b-1"))
+        assertEquals("students-add?enquiry=e-1", Destination.NewStudent.of(null, "e-1"))
+        assertEquals("students-add?batch=b-1&enquiry=e-1", Destination.NewStudent.of("b-1", "e-1"))
     }
 
     @Test

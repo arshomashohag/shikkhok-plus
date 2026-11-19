@@ -218,9 +218,9 @@ describe('HubEnquiry', () => {
     expect(screen.getByRole('radio', { name: "Don't share it" })).toBeChecked()
   })
 
-  it('the share choice uses the words the contact refusal tells the guardian to tick', () => {
-    // "To give the teacher your number, tick Share": the box it names is the share choice.
-    expect(translate('en', 'hub_enquiry_contains_contact')).toContain('tick Share')
+  it('the share choice uses the word the contact refusal tells the guardian to choose', () => {
+    // The refusal names the share option by its one shared word, in each language.
+    expect(translate('en', 'hub_enquiry_contains_contact')).toContain('Share')
     expect(translate('en', 'hub_enquiry_share_phone', 'X')).toMatch(/^Share /)
     expect(translate('en', 'hub_enquiry_share_email', 'X')).toMatch(/^Share /)
     expect(BUNDLES.bn.hub_enquiry_contains_contact).toContain('শেয়ার')

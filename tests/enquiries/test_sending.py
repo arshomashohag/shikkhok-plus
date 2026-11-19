@@ -571,11 +571,16 @@ def test_message_key_published(key: str) -> None:
 
 
 def test_contact_refusal_copy_is_the_ruled_wording() -> None:
-    """F10: a guardian has no public phone field; the copy says what to do."""
+    """F10: a guardian has no public phone field; the copy says what to do.
+
+    Reworded in T9 for the two share options and for an email-only
+    account: the guardian chooses Share, and shares a contact, not
+    necessarily a number.
+    """
     xml = (ROOT / "android/src/main/res/values/strings.xml").read_text()
     assert (
         '<string name="hub_enquiry_contains_contact">Remove phone numbers and web '
-        "addresses. To give the teacher your number, tick Share.</string>"
+        "addresses. To give the teacher your contact, choose Share.</string>"
     ) in xml
 
 

@@ -59,6 +59,8 @@ class InboxRouteTest {
                     request.method == HttpMethod.Post -> respond("", HttpStatusCode.NoContent)
                     path == "/v1/hub/batches/$BATCH/my-review" -> respond(MINE, HttpStatusCode.OK, json)
                     path == "/v1/hub/reviews" -> respond(OWNER, HttpStatusCode.OK, json)
+                    path == "/v1/hub/enquiries/$ENQUIRY" -> respond(REQUEST, HttpStatusCode.OK, json)
+                    path == "/v1/me/hub/enquiries" -> respond("[]", HttpStatusCode.OK, json)
                     else -> respond("", HttpStatusCode.NotFound)
                 }
             }
@@ -127,18 +129,72 @@ class InboxRouteTest {
         }
     }
 
+    @Test
+    fun `both join-request kinds are shown in words, never as their raw preview`() {
+        host()
+
+        compose.onNodeWithText(RECEIVED_TITLE).assertExists()
+        compose.onNodeWithText("Open it to see the request.").assertExists()
+        compose.onNodeWithText("Your join request · Physics 9").assertExists()
+        compose.onNodeWithText("Please call the teacher.").assertExists()
+        assertTrue(compose.onAllNodesWithText("call_us").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun `a join request received opens the request in the owner's inbox`() {
+        val nav = host()
+
+        compose.onNodeWithText(RECEIVED_TITLE).performClick()
+
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("Wants Physics").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.runOnIdle {
+            assertTrue("GET /v1/hub/enquiries/$ENQUIRY" in reads, "$reads")
+            assertEquals(Destination.HubOwnerEnquiry.route, nav.currentDestination?.route)
+            assertEquals(ENQUIRY, nav.currentBackStackEntry?.arguments?.getString(Destination.HubOwnerEnquiry.ARG_ID))
+        }
+    }
+
+    @Test
+    fun `a join request answered opens my requests`() {
+        val nav = host()
+
+        compose.onNodeWithText("Your join request · Physics 9").performClick()
+
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("You have no join requests.").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.runOnIdle {
+            assertTrue("GET /v1/me/hub/enquiries" in reads, "$reads")
+            assertEquals(Destination.HubMyEnquiries.route, nav.currentDestination?.route)
+        }
+    }
+
     private companion object {
         const val HOME = "home"
         const val BATCH = "0b9e8d7c-6b5a-4c3d-9e2f-1a0b9c8d7e6f"
         const val OWNER_ID = "6f1c2b0e-3a4d-4e5f-8a9b-0c1d2e3f4a5b"
         const val OUTCOME_TITLE = "Your review · Physics 9"
+        const val RECEIVED_TITLE = "New join request · Physics 9"
+        const val ENQUIRY = "e1111111-1111-4111-8111-111111111111"
 
         const val INBOX =
-            """{"unread":2,"items":[""" +
+            """{"unread":4,"items":[""" +
                 """{"notification_id":"n-1","kind":"hub_review_outcome","batch_name":"Physics 9",""" +
                 """"created_at":"2026-11-19T06:00:00Z","read":false,"source_id":"$BATCH","preview":"rejected"},""" +
                 """{"notification_id":"n-2","kind":"hub_reviews_published","batch_name":"Physics 9",""" +
-                """"created_at":"2026-11-19T05:00:00Z","read":false,"source_id":"$OWNER_ID","preview":"2"}]}"""
+                """"created_at":"2026-11-19T05:00:00Z","read":false,"source_id":"$OWNER_ID","preview":"2"},""" +
+                """{"notification_id":"n-3","kind":"hub_enquiry_received","batch_name":"Physics 9",""" +
+                """"created_at":"2026-11-19T04:00:00Z","read":false,"source_id":"$ENQUIRY","preview":null},""" +
+                """{"notification_id":"n-4","kind":"hub_enquiry_answered","batch_name":"Physics 9",""" +
+                """"created_at":"2026-11-19T03:00:00Z","read":false,"source_id":"$ENQUIRY","preview":"call_us"}]}"""
+
+        const val REQUEST =
+            """{"id":"$ENQUIRY","batch_id":null,"batch_title":"Physics 9","student_name":"Nadia",""" +
+                """"class_level":"class_8","message":"Wants Physics","status":"open","outcome":null,""" +
+                """"received_at":"2026-11-19T04:00:00Z","guardian_phone":null,"guardian_email":null,""" +
+                """"outcomes_allowed":["not_now"]}"""
 
         const val MINE =
             """{"standing":"eligible","waiting_on":null,"eligible_from":null,"can_write":true,""" +

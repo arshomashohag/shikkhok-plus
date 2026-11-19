@@ -32,6 +32,8 @@ object InboxMapper {
             "hub_feedback_question" to InboxKind.HUB_FEEDBACK_QUESTION,
             "hub_review_outcome" to InboxKind.HUB_REVIEW_OUTCOME,
             "hub_reviews_published" to InboxKind.HUB_REVIEWS_PUBLISHED,
+            "hub_enquiry_received" to InboxKind.HUB_ENQUIRY_RECEIVED,
+            "hub_enquiry_answered" to InboxKind.HUB_ENQUIRY_ANSWERED,
         )
 
     /**
@@ -45,9 +47,27 @@ object InboxMapper {
             "removed" to ReviewOutcome.REMOVED,
         )
 
+    /**
+     * A join request's answer: its `preview` is the outcome code, worded on
+     * screen. A request received carries no preview at all, since nothing a
+     * guardian typed is ever in an inbox [H5].
+     */
+    private val ANSWERS: Map<String, EnquiryAnswer> =
+        mapOf(
+            "added" to EnquiryAnswer.ADDED,
+            "not_now" to EnquiryAnswer.NOT_NOW,
+            "call_us" to EnquiryAnswer.CALL_US,
+        )
+
     /** Kinds whose `preview` is a value to word, not a line to show as sent. */
     private val WORDED_PREVIEW: Set<InboxKind> =
-        setOf(InboxKind.HUB_FEEDBACK_QUESTION, InboxKind.HUB_REVIEW_OUTCOME, InboxKind.HUB_REVIEWS_PUBLISHED)
+        setOf(
+            InboxKind.HUB_FEEDBACK_QUESTION,
+            InboxKind.HUB_REVIEW_OUTCOME,
+            InboxKind.HUB_REVIEWS_PUBLISHED,
+            InboxKind.HUB_ENQUIRY_RECEIVED,
+            InboxKind.HUB_ENQUIRY_ANSWERED,
+        )
 
     /** A count as the server writes it: Latin digits only. */
     private val LATIN_COUNT = Regex("[0-9]+")
@@ -125,6 +145,7 @@ object InboxMapper {
                 reviewOutcome = if (kind == InboxKind.HUB_REVIEW_OUTCOME) OUTCOMES[preview] else null,
                 reviewsPublished =
                     preview?.takeIf { kind == InboxKind.HUB_REVIEWS_PUBLISHED && LATIN_COUNT.matches(it) },
+                enquiryAnswer = if (kind == InboxKind.HUB_ENQUIRY_ANSWERED) ANSWERS[preview] else null,
             )
         }
 
@@ -210,6 +231,9 @@ object InboxMapper {
             // The author's own review of the batch; the owner's Reviews screen [H4].
             InboxKind.HUB_REVIEW_OUTCOME -> source?.let { InboxTarget.HubReviewEditor(it, message.batchName) }
             InboxKind.HUB_REVIEWS_PUBLISHED -> InboxTarget.HubOwnerReviews
+            // The request in the owner's inbox; the guardian's own list [H5].
+            InboxKind.HUB_ENQUIRY_RECEIVED -> source?.let(InboxTarget::HubOwnerEnquiry)
+            InboxKind.HUB_ENQUIRY_ANSWERED -> InboxTarget.HubMyEnquiries
             else -> null
         }
     }

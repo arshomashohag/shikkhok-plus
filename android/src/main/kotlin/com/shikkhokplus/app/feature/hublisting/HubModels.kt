@@ -42,6 +42,9 @@ data class HubChecklistItem(
  * @property runsClasses Whether the owner earns the Runs classes badge
  * @property consentVersionCurrent The consent text version to agree to now
  * @property isCentre Whether the owner is a coaching centre
+ * @property acceptsEnquiries Whether the owner agreed to receive join requests [H5]
+ * @property enquiriesOffered Whether join requests are switched on, so the editor
+ *   offers the choice; false whatever the owner chose while off
  */
 @Serializable
 data class OwnerListingResponse(
@@ -66,6 +69,8 @@ data class OwnerListingResponse(
     @SerialName("runs_classes") val runsClasses: Boolean = false,
     @SerialName("consent_version_current") val consentVersionCurrent: String,
     @SerialName("is_centre") val isCentre: Boolean = false,
+    @SerialName("accepts_enquiries") val acceptsEnquiries: Boolean = false,
+    @SerialName("enquiries_offered") val enquiriesOffered: Boolean = false,
 )
 
 /**
@@ -85,6 +90,8 @@ data class OwnerListingResponse(
  * @property upazilaCode The upazila's BBS code
  * @property streetAddress A centre's street address
  * @property publicContactPhone The one number shown publicly
+ * @property acceptsEnquiries Whether the owner agrees to receive join requests;
+ *   sent on its own by the switch, never with the typed fields [H5]
  */
 @Serializable
 data class OwnerListingUpdateRequest(
@@ -101,6 +108,7 @@ data class OwnerListingUpdateRequest(
     @SerialName("upazila_code") val upazilaCode: String? = null,
     @SerialName("street_address") val streetAddress: String? = null,
     @SerialName("public_contact_phone") val publicContactPhone: String? = null,
+    @SerialName("accepts_enquiries") val acceptsEnquiries: Boolean? = null,
 )
 
 /**

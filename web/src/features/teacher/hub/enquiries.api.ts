@@ -1,12 +1,12 @@
 /**
- * Join requests [H5]: the seven calls, both sides, and the words each
- * server value is said in.
+ * Join requests [H5]: the calls on both sides, and the words each server
+ * value is said in.
  *
- * - **The guardian's four** act as the signed-in account alone, whatever
+ * - **The guardian's calls** act as the signed-in account alone, whatever
  *   the lens: the form's target read and its send, the caller's own list,
  *   and the withdrawal. The list and the withdrawal are never switched off,
  *   so a request sent before the switch went off can still be withdrawn.
- * - **The owner's three** resolve the teacher lens of the current
+ * - **The owner's calls** resolve the teacher lens of the current
  *   workspace: the inbox, one request, and its answer.
  *
  * **Nothing here decides anything the server owns.** Who may ask is the

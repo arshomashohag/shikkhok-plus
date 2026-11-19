@@ -44,6 +44,7 @@ import com.shikkhokplus.app.feature.hublisting.report.ReportLink
 import com.shikkhokplus.app.feature.hublisting.report.ui.HubReportActions
 import com.shikkhokplus.app.feature.hublisting.report.ui.HubReportScreen
 import com.shikkhokplus.app.feature.hublisting.ui.NameConsentScreen
+import com.shikkhokplus.app.feature.hubenquiry.EnquiryLink
 import com.shikkhokplus.app.feature.hubreviews.HttpHubReviewsApi
 import com.shikkhokplus.app.feature.hubreviews.MyReviewsViewModel
 import com.shikkhokplus.app.feature.hubreviews.OwnerReviewsViewModel
@@ -68,9 +69,9 @@ import io.ktor.client.HttpClient
  * The public hub's owner screens, pushed over More: the listing editor,
  * its preview, its batch listings, the photos of either, and a centre
  * member's name consent; guardian reviews and the owner's Reviews screen;
- * and the demand question, opened from its inbox item; and, for any
- * signed-in reader, reporting a public hub page, opened from that page's
- * App Link.
+ * and the demand question, opened from its inbox item; join requests
+ * ([hubEnquiryRoutes]); and, for any signed-in reader, reporting a public
+ * hub page, opened from that page's App Link.
  *
  * @param client The authenticated HTTP client
  * @param navController The app's controller
@@ -93,6 +94,8 @@ internal fun NavGraphBuilder.hubRoutes(
         val reviews: OwnerReviewsViewModel =
             viewModel(key = "hub-reviews-entry") { OwnerReviewsViewModel(HttpHubReviewsApi(client)) }
         val reviewsState by reviews.state.collectAsState()
+        // The Join requests row likewise, only once `GET /v1/hub/enquiries` answered [H5].
+        val enquiries = ownerEnquiriesOpener(client) { navController.navigate(Destination.HubOwnerEnquiries.route) }
         val context = LocalContext.current
         // The language the app is drawn in, which the public pages share.
         val locale = hubLocale(LocalConfiguration.current.locales[0].language)
@@ -126,6 +129,9 @@ internal fun NavGraphBuilder.hubRoutes(
                     onReviews =
                         { navController.navigate(Destination.HubOwnerReviews.route) }
                             .takeIf { reviewsState.showsEntry },
+                    onEnquiries = enquiries,
+                    onAcceptsEnquiries = model::setAcceptsEnquiries,
+                    onRetrySwitch = model::retrySwitch,
                     onViewPublic =
                         siteUrl?.let { site ->
                             { slug -> openInBrowser(context, publicPageUrl(site, locale, slug)) }
@@ -187,6 +193,7 @@ internal fun NavGraphBuilder.hubRoutes(
 
     hubPhotosRoute(client, bucket, navController)
     hubReviewsRoutes(client, navController)
+    hubEnquiryRoutes(client, navController)
 
     composable(Destination.NameConsent.route) {
         val model: NameConsentViewModel = viewModel { NameConsentViewModel(HttpHubApi(client)) }
@@ -440,6 +447,33 @@ internal fun HubReportLinkEffect(
     LaunchedEffect(signedIn, link) {
         if (signedIn && link != null) {
             navController.navigate(Destination.HubReport.of(link.kind, link.id)) { launchSingleTop = true }
+            onOpened()
+        }
+    }
+}
+
+/**
+ * Opens the form for an "Ask to join" App Link, once there is someone to
+ * ask as: the twin of [HubReportLinkEffect]. Signed out, the link waits in
+ * `MainActivity` (kept across a rotation) until the session is signed in
+ * and the graph is rebuilt for it; then the form is pushed over the new
+ * home and the link is consumed so it cannot open twice.
+ *
+ * @param navController The app's controller
+ * @param signedIn Whether a session exists
+ * @param link The link waiting to be opened, or null
+ * @param onOpened Called once the form has been opened, to consume the link
+ */
+@Composable
+internal fun HubEnquiryLinkEffect(
+    navController: NavController,
+    signedIn: Boolean,
+    link: EnquiryLink?,
+    onOpened: () -> Unit,
+) {
+    LaunchedEffect(signedIn, link) {
+        if (signedIn && link != null) {
+            navController.navigate(Destination.HubEnquiryForm.of(link.owner, link.batch)) { launchSingleTop = true }
             onOpened()
         }
     }
