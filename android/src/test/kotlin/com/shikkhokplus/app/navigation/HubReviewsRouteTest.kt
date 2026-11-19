@@ -1,6 +1,7 @@
 package com.shikkhokplus.app.navigation
 
 import androidx.compose.material3.Text
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -218,6 +219,29 @@ class HubReviewsRouteTest {
             assertEquals("review", args?.getString(Destination.HubReport.ARG_KIND))
             assertEquals(REVIEW, args?.getString(Destination.HubReport.ARG_ID))
         }
+    }
+
+    @Test
+    fun `a reply draft survives opening Report and coming back`() {
+        // Found in review: the route loads again on return, and that load
+        // wiped the draft [TC-8].
+        val nav =
+            host(Destination.HubOwnerReviews.route) { request ->
+                when (request.url.encodedPath) {
+                    "/v1/hub/reviews" -> ok(owner("null"))
+                    else -> respond("", HttpStatusCode.NotFound)
+                }
+            }
+        waitForTag(replyFieldTag(REVIEW))
+        compose.onNodeWithTag(replyFieldTag(REVIEW)).performScrollTo().performTextInput("Thank you for")
+
+        compose.onNodeWithTag(replyReportTag(REVIEW)).performScrollTo().performClick()
+        waitForText("A guardian's review")
+        compose.runOnIdle { nav.popBackStack() }
+
+        waitForTag(replyFieldTag(REVIEW))
+        compose.waitForIdle()
+        compose.onNodeWithTag(replyFieldTag(REVIEW)).assertTextContains("Thank you for")
     }
 
     @Test

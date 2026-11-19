@@ -2124,7 +2124,7 @@
     <string name="hub_review_star_3">3 তারকা · ভালো</string>
     <string name="hub_review_star_4">4 তারকা · খুব ভালো</string>
     <string name="hub_review_star_5">5 তারকা · চমৎকার</string>
-    <string name="hub_review_stars">5-এর মধ্যে %1$d তারকা</string>
+    <string name="hub_review_stars">5-এর মধ্যে %1$s তারকা</string>
     <string name="hub_review_body_label">আপনার রিভিউ (ঐচ্ছিক)</string>
     <string name="hub_review_privacy_note">আপনার রিভিউ দেখানোর আগে যাচাই করা হয়, এবং এই ক্লাসে 3টি রিভিউ হলে তবেই দেখা যায়। এতে কখনো আপনার নাম দেখানো হয় না।</string>
     <string name="hub_review_submit">রিভিউ জমা দিন</string>
@@ -2153,10 +2153,10 @@
     <string name="hub_reviews_below_threshold">কোনো ক্লাসে 3টি রিভিউ হলে রেটিং দেখা যাবে।</string>
     <string name="hub_reviews_average">5-এর মধ্যে %1$s</string>
     <plurals name="hub_reviews_count">
-        <item quantity="one">%1$dটি রিভিউ</item>
-        <item quantity="other">%1$dটি রিভিউ</item>
+        <item quantity="one">%1$sটি রিভিউ</item>
+        <item quantity="other">%1$sটি রিভিউ</item>
     </plurals>
-    <string name="hub_reviews_distribution">%1$d★ · %2$d</string>
+    <string name="hub_reviews_distribution">%1$s★ · %2$s</string>
     <string name="hub_reviews_published_heading">প্রকাশিত রিভিউ</string>
     <string name="hub_reviews_none">এখনও কোনো প্রকাশিত রিভিউ নেই।</string>
     <string name="hub_reviews_reply_label">আপনার উত্তর</string>

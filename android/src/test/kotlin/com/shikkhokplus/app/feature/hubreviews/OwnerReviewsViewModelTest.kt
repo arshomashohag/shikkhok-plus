@@ -226,6 +226,47 @@ class OwnerReviewsViewModelTest {
     }
 
     @Test
+    fun `coming back to the screen keeps a draft and its failure`() = runTest(dispatcher) {
+        // Report on another card, then Back, loads again [TC-8].
+        val api =
+            FakeReviewsApi().apply {
+                owner = listOf(page(ownerReview()))
+                replies = listOf(AuthResult.TransportFailure)
+            }
+        val vm = opened(api)
+        vm.editReply("r-1", "Thank you")
+        vm.sendReply("r-1")
+        advanceUntilIdle()
+
+        vm.load()
+        advanceUntilIdle()
+
+        val card = vm.content().cards.single()
+        assertEquals("Thank you", card.draft)
+        assertEquals(HUB_OFFLINE_KEY, card.failure?.messageKey)
+        assertEquals(1, api.calls.count { it == "GET owner" })
+    }
+
+    @Test
+    fun `a load during a send does not reset it`() = runTest(dispatcher) {
+        val api =
+            FakeReviewsApi().apply {
+                owner = listOf(page(ownerReview()))
+                replies = listOf(AuthResult.Ok(ownerReview(myReplyStatus = "pending", myReplyBody = "Thanks")))
+            }
+        val vm = opened(api)
+        vm.editReply("r-1", "Thanks")
+        vm.sendReply("r-1")
+
+        vm.load()
+        assertIs<OwnerReviewsUiState.Saving>(vm.state.value)
+        advanceUntilIdle()
+
+        assertEquals("pending", vm.content().cards.single().review.myReplyStatus)
+        assertEquals(1, api.calls.count { it == "GET owner" })
+    }
+
+    @Test
     fun `status and reason words come from tables, never a raw code`() {
         assertEquals(ReviewStatusWords.APPROVED, statusWords("approved"))
         assertEquals(ReviewStatusWords.PUBLISHED, statusWords("published"))

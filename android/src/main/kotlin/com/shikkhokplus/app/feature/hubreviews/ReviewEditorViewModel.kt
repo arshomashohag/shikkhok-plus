@@ -93,8 +93,15 @@ class ReviewEditorViewModel(
     /** The form while it is idle; null while loading or saving. */
     private val idle: ReviewForm? get() = (_state.value as? ReviewEditorUiState.Ready)?.form
 
-    /** Read where the guardian stands. */
+    /**
+     * Read where the guardian stands. Does nothing once the form is showing
+     * or a write is in flight: the route loads on every return to the
+     * screen and on recreation, and that must never wipe a half-written
+     * review, a failure with its Retry, or a save under way [TC-8].
+     */
     fun load() {
+        val shown = _state.value
+        if (shown is ReviewEditorUiState.Ready || shown is ReviewEditorUiState.Saving) return
         _state.value = ReviewEditorUiState.Loading
         viewModelScope.launch {
             val result = api.myReview(batchId)

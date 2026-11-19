@@ -86,7 +86,7 @@ internal fun tenureText(wire: String): String? =
  */
 @Composable
 internal fun RatingStars(rating: Int) {
-    val label = stringResource(R.string.hub_review_stars, rating)
+    val label = stringResource(R.string.hub_review_stars, Numerals.count(rating))
     val shown = rating.coerceIn(0, RATING_MAX)
     Text(
         "★".repeat(shown) + "☆".repeat(RATING_MAX - shown),

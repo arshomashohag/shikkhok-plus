@@ -191,12 +191,18 @@ private fun BatchRating(rating: OwnerBatchRating) {
                     stringResource(R.string.hub_reviews_average, line.averageLabel),
                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                 )
-                line.count?.let { Quiet(pluralStringResource(R.plurals.hub_reviews_count, it, it)) }
+                line.count?.let { Quiet(pluralStringResource(R.plurals.hub_reviews_count, it, Numerals.count(it))) }
                 line.distribution?.let { stars ->
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         for (star in RATING_MAX downTo 1) {
                             val count = stars.getOrElse(star - 1) { 0 }
-                            Quiet(stringResource(R.string.hub_reviews_distribution, star, count))
+                            Quiet(
+                                stringResource(
+                                    R.string.hub_reviews_distribution,
+                                    Numerals.count(star),
+                                    Numerals.count(count),
+                                ),
+                            )
                         }
                     }
                 }

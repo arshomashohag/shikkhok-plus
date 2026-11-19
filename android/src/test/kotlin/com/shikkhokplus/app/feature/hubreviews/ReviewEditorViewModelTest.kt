@@ -310,6 +310,48 @@ class ReviewEditorViewModelTest {
     }
 
     @Test
+    fun `coming back to the screen keeps what was typed`() = runTest(dispatcher) {
+        // The route loads on every return and on recreation [TC-8].
+        val api = FakeReviewsApi().apply {
+            reads = listOf(AuthResult.Ok(eligible))
+            saves = listOf(AuthResult.TransportFailure)
+        }
+        val vm = opened(api)
+        vm.pickRating(4)
+        vm.editText("Half written")
+        vm.save()
+        advanceUntilIdle()
+
+        vm.load()
+        advanceUntilIdle()
+
+        val form = vm.form()
+        assertEquals(4, form.rating)
+        assertEquals("Half written", form.text)
+        assertEquals(HUB_OFFLINE_KEY, form.failure?.messageKey, "the failure and its Retry stay too")
+        assertEquals(1, api.calls.count { it.startsWith("GET") })
+    }
+
+    @Test
+    fun `a load during a save does not reset it`() = runTest(dispatcher) {
+        val api = FakeReviewsApi().apply {
+            reads = listOf(AuthResult.Ok(eligible))
+            saves = listOf(AuthResult.Ok(mine(rating = 5, body = "Kept")))
+        }
+        val vm = opened(api)
+        vm.pickRating(5)
+        vm.editText("Kept")
+        vm.save()
+
+        vm.load()
+        assertIs<ReviewEditorUiState.Saving>(vm.state.value)
+        advanceUntilIdle()
+
+        assertEquals("pending", vm.form().review.review?.status)
+        assertEquals(1, api.calls.count { it.startsWith("GET") })
+    }
+
+    @Test
     fun `the words stop at the server's limit`() = runTest(dispatcher) {
         val api = FakeReviewsApi().apply { reads = listOf(AuthResult.Ok(eligible)) }
         val vm = opened(api)

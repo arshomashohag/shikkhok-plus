@@ -104,8 +104,15 @@ class OwnerReviewsViewModel(
     /** The page while it is idle; null while loading or a write is in flight. */
     private val idle: OwnerReviewsContent? get() = (_state.value as? OwnerReviewsUiState.Ready)?.content
 
-    /** Read the page. */
+    /**
+     * Read the page. Does nothing once it is showing or a reply is in
+     * flight: the route loads on every return to the screen (Back from a
+     * Report) and on recreation, and that must never wipe a draft, a
+     * failure with its Retry, or a send under way [TC-8].
+     */
     fun load() {
+        val shown = _state.value
+        if (shown is OwnerReviewsUiState.Ready || shown is OwnerReviewsUiState.Saving) return
         _state.value = OwnerReviewsUiState.Loading
         viewModelScope.launch {
             val result = api.ownerReviews()

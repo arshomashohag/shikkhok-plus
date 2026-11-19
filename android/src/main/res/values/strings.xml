@@ -2195,7 +2195,7 @@
     <string name="hub_review_star_3">3 stars · Good</string>
     <string name="hub_review_star_4">4 stars · Very good</string>
     <string name="hub_review_star_5">5 stars · Excellent</string>
-    <string name="hub_review_stars">%1$d out of 5 stars</string>
+    <string name="hub_review_stars">%1$s out of 5 stars</string>
     <string name="hub_review_body_label">Your review (optional)</string>
     <string name="hub_review_privacy_note">Your review is checked before it appears, and only once this class has 3 reviews. It never shows your name.</string>
     <string name="hub_review_submit">Submit review</string>
@@ -2224,10 +2224,10 @@
     <string name="hub_reviews_below_threshold">Ratings appear once a class has 3 reviews.</string>
     <string name="hub_reviews_average">%1$s out of 5</string>
     <plurals name="hub_reviews_count">
-        <item quantity="one">%1$d review</item>
-        <item quantity="other">%1$d reviews</item>
+        <item quantity="one">%1$s review</item>
+        <item quantity="other">%1$s reviews</item>
     </plurals>
-    <string name="hub_reviews_distribution">%1$d★ · %2$d</string>
+    <string name="hub_reviews_distribution">%1$s★ · %2$s</string>
     <string name="hub_reviews_published_heading">Published reviews</string>
     <string name="hub_reviews_none">No published reviews yet.</string>
     <string name="hub_reviews_reply_label">Your reply</string>
