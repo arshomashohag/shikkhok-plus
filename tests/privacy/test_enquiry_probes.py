@@ -42,6 +42,18 @@ ENQUIRY_COLUMNS: Final = (
     frozenset(column.name for column in ListingEnquiry.__table__.columns) - _GENERIC
 )
 
+#: What an administrator module would have to name to read a request: the
+#: table, the service package, or the wire models [review M2]. The last
+#: matters because a gate exempts ``OwnerEnquiryWire.guardian_email`` by
+#: schema name, so an admin route reusing that model would carry the
+#: guardian's address past it, and the response walk below would not see
+#: ``guardian_email`` either, since it is no ``listing_enquiry`` column.
+ENQUIRY_NEEDLES: Final = (
+    "listing_enquiry",
+    "app.hub.enquiries",
+    "app.schemas.enquiries",
+)
+
 #: Where every administrator route and the moderation it serves live.
 ADMIN_SOURCES: Final = (
     ROOT / "app" / "api" / "admin.py",
@@ -225,6 +237,6 @@ def test_no_admin_route_returns_an_enquiry_column() -> None:
         assert files, source
         for path in files:
             text = path.read_text(encoding="utf-8")
-            if "listing_enquiry" in text or "app.hub.enquiries" in text:
+            if any(needle in text for needle in ENQUIRY_NEEDLES):
                 readers.append(str(path.relative_to(ROOT)))
     assert readers == []

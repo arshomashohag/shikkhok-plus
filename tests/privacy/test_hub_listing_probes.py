@@ -2,7 +2,9 @@
 
 A listing is the owner's own page, so the boundaries are: nobody reaches
 another owner's listing, and no hub response carries a phone, a collection
-number or a per-person key.
+number or a per-person key -- except the guardian's ``guardian_phone`` on
+the owner's three join-request routes, which the guardian chose to share
+[H5 contact predicate].
 """
 
 from __future__ import annotations
@@ -98,11 +100,13 @@ CONSENTED: Final = frozenset(
 )
 
 
-def test_no_hub_schema_contains_collection_number_or_phone() -> None:
+def test_no_hub_schema_carries_a_phone_or_key_beyond_consented_contact() -> None:
     """Every hub response schema is clean against the public forbidden set.
 
     ``public_contact_phone`` is the owner's opt-in field and is deliberately
-    not in that set; every other contact or per-person key is.
+    not in that set; every other contact or per-person key is. The one
+    exception is :data:`CONSENTED`: ``guardian_phone`` on the owner's three
+    join-request routes, shown only because the guardian ticked "share".
     """
     app = create_app()
     document = app.openapi()

@@ -8,12 +8,18 @@ The published owner and batch come from the H4 review builders
 (:func:`tests.reviews.support.public_batch` and
 :func:`~tests.reviews.support.public_centre_batch`) [F19]; this module only
 turns join requests on and states the batch's admissions.
+
+:data:`CASES` are the targets a guardian may not ask (Review Focus 2),
+shared by the service-level identity test in ``test_target.py`` and the
+HTTP-level byte test in ``test_enquiry_routes.py``, so both compare the
+same cases with a slug that never existed, :data:`NEVER`.
 """
 
 from __future__ import annotations
 
 import datetime as dt
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import sqlalchemy as sa
@@ -26,6 +32,9 @@ from tests.hub.support import add_member
 from tests.reviews.support import public_batch, public_centre_batch
 
 __all__ = [
+    "CASES",
+    "NEVER",
+    "Case",
     "EnquirableWorld",
     "close",
     "enquirable_owner",
@@ -158,3 +167,137 @@ def close(
         {"o": outcome, "t": now or dt.datetime.now(tz=dt.UTC), "e": enquiry_id},
     )
     session.commit()
+
+
+#: A slug no listing has ever held.
+NEVER = "never-existed-slug"
+
+#: A case: ``(slug, batch id, caller)`` worked out from a fresh world.
+Case = Callable[[Session, EnquirableWorld], tuple[str, uuid.UUID | None, uuid.UUID]]
+
+
+def _set(session: Session, sql: str, **values: object) -> None:
+    """Run one arranging statement and commit.
+
+    :param session: An arranging session
+    :param sql: The statement
+    :param values: Its parameters
+    :return: None
+    """
+    session.execute(sa.text(sql), values)
+    session.commit()
+
+
+def _owner_status(status: str) -> Case:
+    """Build a case moving the owner listing to a status.
+
+    :param status: ``draft``, ``hidden`` or ``suspended``
+    :return: The case
+    """
+
+    def case(
+        session: Session, world: EnquirableWorld
+    ) -> tuple[str, uuid.UUID | None, uuid.UUID]:
+        _set(
+            session,
+            "UPDATE owner_listing SET status = CAST(:s AS hub_listing_status) "
+            "WHERE owner_id = :o",
+            s=status,
+            o=world.lens.owner_id,
+        )
+        return world.owner_slug, None, guardian(session)
+
+    return case
+
+
+def _not_accepting(
+    session: Session, world: EnquirableWorld
+) -> tuple[str, uuid.UUID | None, uuid.UUID]:
+    _set(
+        session,
+        "UPDATE owner_listing SET accepts_enquiries = false WHERE owner_id = :o",
+        o=world.lens.owner_id,
+    )
+    return world.owner_slug, None, guardian(session)
+
+
+def _batch_closed(
+    session: Session, world: EnquirableWorld
+) -> tuple[str, uuid.UUID | None, uuid.UUID]:
+    _set(
+        session,
+        "UPDATE batch_listing SET admissions = 'closed' WHERE batch_id = :b",
+        b=world.batch_id,
+    )
+    return world.owner_slug, world.batch_id, guardian(session)
+
+
+def _batch_of_another_owner(
+    session: Session, world: EnquirableWorld
+) -> tuple[str, uuid.UUID | None, uuid.UUID]:
+    other = enquirable_owner(session)
+    return world.owner_slug, other.batch_id, guardian(session)
+
+
+def _batch_status(status: str) -> Case:
+    """Build a case moving the batch listing to a status.
+
+    :param status: ``draft``, ``hidden`` or ``suspended``
+    :return: The case
+    """
+
+    def case(
+        session: Session, world: EnquirableWorld
+    ) -> tuple[str, uuid.UUID | None, uuid.UUID]:
+        _set(
+            session,
+            "UPDATE batch_listing SET status = CAST(:s AS hub_listing_status) "
+            "WHERE batch_id = :b",
+            s=status,
+            b=world.batch_id,
+        )
+        return world.owner_slug, world.batch_id, guardian(session)
+
+    return case
+
+
+def _batch_inactive(
+    session: Session, world: EnquirableWorld
+) -> tuple[str, uuid.UUID | None, uuid.UUID]:
+    _set(session, "UPDATE batch SET active = false WHERE id = :b", b=world.batch_id)
+    return world.owner_slug, world.batch_id, guardian(session)
+
+
+def _unknown_batch(
+    session: Session, world: EnquirableWorld
+) -> tuple[str, uuid.UUID | None, uuid.UUID]:
+    return world.owner_slug, uuid.uuid4(), guardian(session)
+
+
+def _centre_manager(
+    session: Session, world: EnquirableWorld
+) -> tuple[str, uuid.UUID | None, uuid.UUID]:
+    centre = enquirable_owner(session, centre=True)
+    return centre.owner_slug, centre.batch_id, centre.manager_ids[-1]
+
+
+def _solo_owner_self(
+    session: Session, world: EnquirableWorld
+) -> tuple[str, uuid.UUID | None, uuid.UUID]:
+    return world.owner_slug, world.batch_id, world.lens.account_id
+
+
+CASES: dict[str, Case] = {
+    "owner_draft": _owner_status("draft"),
+    "owner_hidden": _owner_status("hidden"),
+    "owner_suspended": _owner_status("suspended"),
+    "not_accepting": _not_accepting,
+    "batch_closed": _batch_closed,
+    "batch_of_another_owner": _batch_of_another_owner,
+    "batch_draft": _batch_status("draft"),
+    "batch_hidden": _batch_status("hidden"),
+    "batch_inactive": _batch_inactive,
+    "batch_unknown": _unknown_batch,
+    "caller_centre_manager": _centre_manager,
+    "caller_solo_owner": _solo_owner_self,
+}

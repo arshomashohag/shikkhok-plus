@@ -28,8 +28,13 @@ from app.hub.enquiries import forget, owner
 from app.hub.public.settings import HUB_ENQUIRIES_ENV
 from tests.batches.conftest import enroll
 from tests.conftest import bearer
-from tests.enquiries.support import EnquirableWorld, enquirable_owner, guardian
-from tests.enquiries.test_target import CASES, NEVER
+from tests.enquiries.support import (
+    CASES,
+    NEVER,
+    EnquirableWorld,
+    enquirable_owner,
+    guardian,
+)
 from tests.hub.support import add_member, assign_slot
 from tests.reviews.support import account, guardian_seat
 

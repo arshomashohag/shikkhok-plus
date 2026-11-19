@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
-from typing import Final
+from typing import Any, Final
 
 import pytest
 from fastapi import FastAPI, Response, status
@@ -26,6 +26,8 @@ from pydantic import BaseModel
 
 from app.contract.privacy import (
     ENQUIRY_FORBIDDEN_FIELDS,
+    ENQUIRY_GUARDIAN_FORBIDDEN_FIELDS,
+    ENQUIRY_GUARDIAN_ROUTES,
     ENQUIRY_ROUTES,
     FORBIDDEN_ACCOUNT_ID_FIELDS,
     OWNER_PRIVATE_FIELDS,
@@ -156,6 +158,64 @@ def test_fixture_leak_is_caught() -> None:
     ]
 
 
+def test_the_guardian_side_also_forbids_the_guardians_contact() -> None:
+    """The contact predicate, as the gate holds it [review M3].
+
+    The guardian's contact may appear only on the owner's side, and only
+    as consent allows; on the four guardian-side routes it may never
+    appear at all, so a guardian's own response cannot be the way a
+    contact field reaches a client.
+    """
+    assert ENQUIRY_GUARDIAN_ROUTES == {
+        ("GET", "/v1/hub/owners/{owner_slug}/enquiry-target"),
+        ("POST", "/v1/hub/owners/{owner_slug}/enquiries"),
+        ("GET", "/v1/me/hub/enquiries"),
+        ("DELETE", "/v1/me/hub/enquiries/{enquiry_id}"),
+    }
+    assert ENQUIRY_GUARDIAN_ROUTES < ENQUIRY_ROUTES
+    assert ENQUIRY_GUARDIAN_FORBIDDEN_FIELDS == ENQUIRY_FORBIDDEN_FIELDS | {
+        "guardian_phone",
+        "guardian_email",
+    }
+
+
+class _Contacted(BaseModel):
+    """A request carrying the guardian's shared contact.
+
+    :ivar guardian_phone: The owner's side only
+    :ivar guardian_email: The owner's side only
+    """
+
+    guardian_phone: str | None
+    guardian_email: str | None
+
+
+def test_a_guardian_side_contact_is_caught_and_an_owner_side_one_is_not() -> None:
+    """The same model leaks on the guardian's list and is allowed on the owner's."""
+    planted = FastAPI()
+
+    @planted.get("/v1/me/hub/enquiries", response_model=list[_Contacted])
+    def _mine() -> list[dict[str, str]]:
+        """Return nothing.
+
+        :return: An empty list
+        """
+        return []
+
+    @planted.get("/v1/hub/enquiries", response_model=list[_Contacted])
+    def _owners() -> list[dict[str, str]]:
+        """Return nothing.
+
+        :return: An empty list
+        """
+        return []
+
+    assert sorted(enquiry_field_leaks(planted)) == [
+        ("GET /v1/me/hub/enquiries", "_Contacted", "guardian_email"),
+        ("GET /v1/me/hub/enquiries", "_Contacted", "guardian_phone"),
+    ]
+
+
 def test_a_listed_route_with_no_response_model_fails_closed() -> None:
     """A join-request route answering 200 with a bare body is an error."""
     planted = FastAPI()
@@ -172,46 +232,46 @@ def test_a_listed_route_with_no_response_model_fails_closed() -> None:
         enquiry_field_leaks(planted)
 
 
+#: Return annotations whose inferred response schema names no field: a
+#: mapping of any keys, a list of them, and the untyped spellings, whose
+#: schema is ``{}`` or a list of ``{}`` [H4 residual New-2, review I-1].
+UNWALKABLE: Final = [
+    pytest.param(dict[str, str], id="dict-str-str"),
+    pytest.param(list[dict[str, str]], id="list-of-dict"),
+    pytest.param(list, id="bare-list"),
+    pytest.param(list[Any], id="list-any"),
+    pytest.param(Any, id="any"),
+]
+
+
+@pytest.mark.parametrize("returns", UNWALKABLE)
 @pytest.mark.parametrize(("walk", "path"), WALKS)
-def test_a_listed_route_returning_a_bare_mapping_fails_closed(
-    walk: Callable[[FastAPI], list[tuple[str, str, str]]], path: str
+def test_a_listed_route_whose_body_names_no_field_fails_closed(
+    walk: Callable[[FastAPI], list[tuple[str, str, str]]],
+    path: str,
+    returns: object,
 ) -> None:
-    """A handler annotated ``-> dict[str, str]`` names no field: error.
+    """A handler annotated ``-> dict[str, str]``, ``-> list`` or ``-> Any`` is an error.
 
     FastAPI infers the response model from the annotation, so the route has
-    one, and its schema is an object of any keys. Walking field names finds
-    nothing to report, and passing it would pass whatever key it returned.
+    one, but its schema names no field: walking field names finds nothing
+    to report, and passing it would pass whatever key the handler returned.
     """
     planted = FastAPI()
 
-    @planted.get(path)
-    def _mapping() -> dict[str, str]:
+    def _untyped() -> object:
         """Return a body whose keys no schema names.
 
         :return: A payload carrying an account id
         """
-        return {"account_id": str(uuid.uuid4())}
+        return [{"enquirer_account_id": str(uuid.uuid4())}]
 
-    with pytest.raises(LookupError, match=f"GET {path} answers 200 with an object"):
-        walk(planted)
+    _untyped.__annotations__["return"] = returns
+    planted.get(path)(_untyped)
 
-
-@pytest.mark.parametrize(("walk", "path"), WALKS)
-def test_a_listed_route_returning_a_list_of_mappings_fails_closed(
-    walk: Callable[[FastAPI], list[tuple[str, str, str]]], path: str
-) -> None:
-    """The same opaque object one level down, as a list's items, is an error."""
-    planted = FastAPI()
-
-    @planted.get(path)
-    def _mappings() -> list[dict[str, str]]:
-        """Return items whose keys no schema names.
-
-        :return: An empty list
-        """
-        return []
-
-    with pytest.raises(LookupError, match=f"GET {path} answers 200 with an object"):
+    with pytest.raises(
+        LookupError, match=f"GET {path} answers 200 with a body naming no field"
+    ):
         walk(planted)
 
 

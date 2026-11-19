@@ -25,143 +25,15 @@ from app.errors import AuthorizationError
 from app.errors.handler import to_response
 from app.hub.enquiries import sending, target
 from app.hub.listings.shared import managing_accounts
-from tests.enquiries.support import EnquirableWorld, enquirable_owner, guardian
+from tests.enquiries.support import (
+    CASES,
+    NEVER,
+    enquirable_owner,
+    guardian,
+)
 from tests.hub.support import add_member, assign_slot
 
 NOW = dt.datetime(2026, 11, 19, 6, 0, tzinfo=dt.UTC)
-
-#: A slug no listing has ever held.
-NEVER = "never-existed-slug"
-
-#: A case: ``(slug, batch id, caller)`` worked out from a fresh world.
-Case = Callable[[Session, EnquirableWorld], tuple[str, uuid.UUID | None, uuid.UUID]]
-
-
-def _set(session: Session, sql: str, **values: object) -> None:
-    """Run one arranging statement and commit.
-
-    :param session: An arranging session
-    :param sql: The statement
-    :param values: Its parameters
-    :return: None
-    """
-    session.execute(sa.text(sql), values)
-    session.commit()
-
-
-def _owner_status(status: str) -> Case:
-    """Build a case moving the owner listing to a status.
-
-    :param status: ``draft``, ``hidden`` or ``suspended``
-    :return: The case
-    """
-
-    def case(
-        session: Session, world: EnquirableWorld
-    ) -> tuple[str, uuid.UUID | None, uuid.UUID]:
-        _set(
-            session,
-            "UPDATE owner_listing SET status = CAST(:s AS hub_listing_status) "
-            "WHERE owner_id = :o",
-            s=status,
-            o=world.lens.owner_id,
-        )
-        return world.owner_slug, None, guardian(session)
-
-    return case
-
-
-def _not_accepting(
-    session: Session, world: EnquirableWorld
-) -> tuple[str, uuid.UUID | None, uuid.UUID]:
-    _set(
-        session,
-        "UPDATE owner_listing SET accepts_enquiries = false WHERE owner_id = :o",
-        o=world.lens.owner_id,
-    )
-    return world.owner_slug, None, guardian(session)
-
-
-def _batch_closed(
-    session: Session, world: EnquirableWorld
-) -> tuple[str, uuid.UUID | None, uuid.UUID]:
-    _set(
-        session,
-        "UPDATE batch_listing SET admissions = 'closed' WHERE batch_id = :b",
-        b=world.batch_id,
-    )
-    return world.owner_slug, world.batch_id, guardian(session)
-
-
-def _batch_of_another_owner(
-    session: Session, world: EnquirableWorld
-) -> tuple[str, uuid.UUID | None, uuid.UUID]:
-    other = enquirable_owner(session)
-    return world.owner_slug, other.batch_id, guardian(session)
-
-
-def _batch_status(status: str) -> Case:
-    """Build a case moving the batch listing to a status.
-
-    :param status: ``draft``, ``hidden`` or ``suspended``
-    :return: The case
-    """
-
-    def case(
-        session: Session, world: EnquirableWorld
-    ) -> tuple[str, uuid.UUID | None, uuid.UUID]:
-        _set(
-            session,
-            "UPDATE batch_listing SET status = CAST(:s AS hub_listing_status) "
-            "WHERE batch_id = :b",
-            s=status,
-            b=world.batch_id,
-        )
-        return world.owner_slug, world.batch_id, guardian(session)
-
-    return case
-
-
-def _batch_inactive(
-    session: Session, world: EnquirableWorld
-) -> tuple[str, uuid.UUID | None, uuid.UUID]:
-    _set(session, "UPDATE batch SET active = false WHERE id = :b", b=world.batch_id)
-    return world.owner_slug, world.batch_id, guardian(session)
-
-
-def _unknown_batch(
-    session: Session, world: EnquirableWorld
-) -> tuple[str, uuid.UUID | None, uuid.UUID]:
-    return world.owner_slug, uuid.uuid4(), guardian(session)
-
-
-def _centre_manager(
-    session: Session, world: EnquirableWorld
-) -> tuple[str, uuid.UUID | None, uuid.UUID]:
-    centre = enquirable_owner(session, centre=True)
-    return centre.owner_slug, centre.batch_id, centre.manager_ids[-1]
-
-
-def _solo_owner_self(
-    session: Session, world: EnquirableWorld
-) -> tuple[str, uuid.UUID | None, uuid.UUID]:
-    return world.owner_slug, world.batch_id, world.lens.account_id
-
-
-CASES: dict[str, Case] = {
-    "owner_draft": _owner_status("draft"),
-    "owner_hidden": _owner_status("hidden"),
-    "owner_suspended": _owner_status("suspended"),
-    "not_accepting": _not_accepting,
-    "batch_closed": _batch_closed,
-    "batch_of_another_owner": _batch_of_another_owner,
-    "batch_draft": _batch_status("draft"),
-    "batch_hidden": _batch_status("hidden"),
-    "batch_inactive": _batch_inactive,
-    "batch_unknown": _unknown_batch,
-    "caller_centre_manager": _centre_manager,
-    "caller_solo_owner": _solo_owner_self,
-}
 
 
 def _refusal(call: Callable[[], object]) -> tuple[int, bytes]:

@@ -52,6 +52,8 @@ from app.contract.routes import (
 __all__ = [
     "ACCOUNT_PRIVATE_FIELDS",
     "ENQUIRY_FORBIDDEN_FIELDS",
+    "ENQUIRY_GUARDIAN_FORBIDDEN_FIELDS",
+    "ENQUIRY_GUARDIAN_ROUTES",
     "ENQUIRY_ROUTES",
     "FORBIDDEN_ACCOUNT_ID_FIELDS",
     "OWNER_PRIVATE_FIELDS",
@@ -233,6 +235,25 @@ ENQUIRY_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
         ("GET", "/v1/hub/enquiries/{enquiry_id}"),
         ("POST", "/v1/hub/enquiries/{enquiry_id}/close"),
     }
+)
+
+#: The guardian's side of :data:`ENQUIRY_ROUTES`: the target, the send, and
+#: the guardian's own list and withdrawal. The rest are the owner's three.
+ENQUIRY_GUARDIAN_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
+    {
+        ("GET", "/v1/hub/owners/{owner_slug}/enquiry-target"),
+        ("POST", "/v1/hub/owners/{owner_slug}/enquiries"),
+        ("GET", "/v1/me/hub/enquiries"),
+        ("DELETE", "/v1/me/hub/enquiries/{enquiry_id}"),
+    }
+)
+
+#: The contact predicate, as far as a field name can hold it [review M3]:
+#: the guardian's shared contact is an owner-side field, so on the
+#: guardian's side it is forbidden outright, beside everything the owner's
+#: side forbids.
+ENQUIRY_GUARDIAN_FORBIDDEN_FIELDS: Final[frozenset[str]] = (
+    ENQUIRY_FORBIDDEN_FIELDS | frozenset({"guardian_phone", "guardian_email"})
 )
 
 #: The one success status whose response has no body to walk.
@@ -638,23 +659,48 @@ def _review_field(field: str) -> str | None:
     return field if field in REVIEW_FORBIDDEN_FIELDS else None
 
 
+#: The keywords that say what a schema node is. A node with none of them --
+#: ``{}``, or only a title or description -- accepts any value at all.
+_TYPED: Final = frozenset(
+    {
+        "$ref",
+        "type",
+        "properties",
+        "const",
+        "enum",
+        "items",
+        "allOf",
+        "anyOf",
+        "oneOf",
+    }
+)
+
+
 def _opaque(
     schema: dict[str, object],
     definitions: dict[str, dict[str, object]],
     seen: set[str],
 ) -> bool:
-    """Report whether a response's body is an object naming no fields.
+    """Report whether a response's body reaches a value naming no fields.
 
-    A handler annotated ``-> dict[str, str]`` gets a response model FastAPI
-    infers from the annotation, whose schema is an object of any keys: the
-    field-name walk finds nothing to report there, whatever the handler
-    returns. Followed through ``$ref``, ``items`` and the combinators, so
-    a list of such objects is caught too.
+    FastAPI infers a response model from a handler's annotation, so a route
+    annotated loosely still has one, and its schema names no field the walk
+    could report, whatever the handler returns. Two shapes:
+
+    * **an object of any keys**: ``-> dict[str, str]`` or ``-> dict``, an
+      object with no ``properties``;
+    * **an untyped value**: ``-> Any`` gives ``{}`` (with at most a title),
+      and ``-> list`` or ``-> list[Any]`` a list whose ``items`` is ``{}``
+      [review I-1]. A node carrying none of :data:`_TYPED` could be
+      anything, an object full of account ids included.
+
+    Followed through ``$ref``, ``items``, properties and the combinators, so
+    a list of either, or a model field of either, is caught too.
 
     :param schema: The schema node
     :param definitions: The document's component schemas, for ``$ref``
     :param seen: Component names already visited, the cycle guard
-    :return: True when some reachable node is an object with no properties
+    :return: True when some reachable node names no fields
     """
     ref = schema.get("$ref")
     if isinstance(ref, str):
@@ -666,6 +712,8 @@ def _opaque(
     if "properties" not in schema and (
         schema.get("type") == "object" or "additionalProperties" in schema
     ):
+        return True
+    if not _TYPED & schema.keys():
         return True
     children: list[object] = [schema.get("items")]
     for keyword in ("allOf", "anyOf", "oneOf"):
@@ -697,9 +745,9 @@ def _route_field_leaks(
 
     * no response model and any other success status -- a handler
       returning a bare dict with ``response_model=None``, say;
-    * a response, or something reachable from it, that is an object naming
-      no fields -- a handler annotated ``-> dict[str, str]`` [H4 residual
-      New-2];
+    * a response, or something reachable from it, that names no fields --
+      a handler annotated ``-> dict[str, str]`` [H4 residual New-2],
+      ``-> list``, ``-> list[Any]`` or ``-> Any`` [review I-1];
     * a declared response model whose schema cannot be found, as in the
       public walk.
 
@@ -732,7 +780,7 @@ def _route_field_leaks(
             if _opaque(resolved, definitions, set()):
                 msg = (
                     f"{family} route {method} {route.path} answers {answers} "
-                    f"with an object naming no fields, which cannot be walked"
+                    f"with a body naming no field, which cannot be walked"
                 )
                 raise LookupError(msg)
             for schema_name, field in _walk(resolved, definitions, set(), classify):
@@ -754,7 +802,7 @@ def review_field_leaks(app: FastAPI) -> list[tuple[str, str, str]]:
 
 
 def _enquiry_field(field: str) -> str | None:
-    """Report whether a field name is forbidden on a join-request response.
+    """Report whether a field name is forbidden on the owner's side.
 
     :param field: The field name
     :return: The name when it is forbidden, else None
@@ -762,14 +810,32 @@ def _enquiry_field(field: str) -> str | None:
     return field if field in ENQUIRY_FORBIDDEN_FIELDS else None
 
 
+def _enquiry_guardian_field(field: str) -> str | None:
+    """Report whether a field name is forbidden on the guardian's side.
+
+    :param field: The field name
+    :return: The name when it is forbidden, else None
+    """
+    return field if field in ENQUIRY_GUARDIAN_FORBIDDEN_FIELDS else None
+
+
 def enquiry_field_leaks(app: FastAPI) -> list[tuple[str, str, str]]:
     """List forbidden fields reachable from any join-request route's response.
 
     Walks every route in :data:`ENQUIRY_ROUTES`, failing closed
-    (:func:`_route_field_leaks`).
+    (:func:`_route_field_leaks`): the guardian's four against
+    :data:`ENQUIRY_GUARDIAN_FORBIDDEN_FIELDS`, so a contact field never
+    reaches the guardian's side, and the owner's three against
+    :data:`ENQUIRY_FORBIDDEN_FIELDS`.
 
     :param app: The application whose generated schema is checked
     :return: ``(method path, component, field)`` per leak, empty when clean
     :raises LookupError: A listed route whose response cannot be walked
     """
-    return _route_field_leaks(app, ENQUIRY_ROUTES, _enquiry_field, "enquiry")
+    guardian = _route_field_leaks(
+        app, ENQUIRY_GUARDIAN_ROUTES, _enquiry_guardian_field, "enquiry"
+    )
+    owner = _route_field_leaks(
+        app, ENQUIRY_ROUTES - ENQUIRY_GUARDIAN_ROUTES, _enquiry_field, "enquiry"
+    )
+    return guardian + owner
