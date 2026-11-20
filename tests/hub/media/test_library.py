@@ -336,7 +336,7 @@ def test_a_photo_is_evicted_by_its_three_exact_paths() -> None:
     from app.hub.media.storage import VARIANT_WIDTHS
     from app.hub.public import invalidation
 
-    key = "0123456789abcdef" * 2
+    key = "0123456789abcdef" * 2  # gitleaks:allow -- fixture
 
     paths = invalidation.media_paths(key)
 

@@ -159,6 +159,20 @@ async function choose(username = 'nadia_k') {
   await userEvent.click(continueButton())
 }
 
+/**
+ * The gate, once its mount effects have run. `findByTestId` resolves as
+ * soon as the form is in the DOM, but React can run the gate's passive
+ * effects -- the visibilitychange listener among them -- a task later.
+ * On a loaded runner a `becomeVisible()` in that gap reached no listener,
+ * and the read the test waited for never came. React runs a commit's
+ * mount effects in one pass, so the field holding focus (the gate's
+ * first effect) means the listener is attached too.
+ */
+async function findListeningGate() {
+  await screen.findByTestId('choose-username-gate')
+  await waitFor(() => expect(field()).toHaveFocus())
+}
+
 function becomeVisible() {
   Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
   act(() => {
@@ -279,7 +293,7 @@ describe('a read that lands while Saving [W4 step 9]', () => {
     serve('GET /v1/me', me(true), visibilityRead.answer, me(false))
     serve('PUT /v1/me/username', put.answer)
     renderApp()
-    await screen.findByTestId('choose-username-gate')
+    await findListeningGate()
     becomeVisible()
     await waitFor(() => expect(meReads()).toHaveLength(2))
     await choose('nadia_k')
@@ -301,7 +315,7 @@ describe('a read that lands while Saving [W4 step 9]', () => {
     serve('PUT /v1/me/username', put.answer)
     const errors = vi.spyOn(console, 'error')
     renderApp()
-    await screen.findByTestId('choose-username-gate')
+    await findListeningGate()
     becomeVisible()
     await waitFor(() => expect(meReads()).toHaveLength(2))
     await choose('nadia_k')
@@ -366,7 +380,7 @@ describe('the visibility re-read [NFR8.6]', () => {
     serve('GET /v1/me', me(true), visibilityRead.answer, reread.answer)
     serve('PUT /v1/me/username', ok({ username: 'nadia_k', next_change_at: null }))
     renderApp()
-    await screen.findByTestId('choose-username-gate')
+    await findListeningGate()
     const watcher = watch()
     becomeVisible()
     await waitFor(() => expect(meReads()).toHaveLength(2))

@@ -11,7 +11,7 @@ const handler = new Function(
   `${readFileSync(resolve(HERE, 'media-path.js'), 'utf8')}\nreturn handler;`,
 )();
 
-const KEY = '0123456789abcdef0123456789abcdef';
+const KEY = '0123456789abcdef0123456789abcdef';  // gitleaks:allow -- fixture, not a credential
 
 function event(uri) {
   return { request: { method: 'GET', uri, querystring: {}, headers: {} } };

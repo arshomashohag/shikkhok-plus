@@ -81,12 +81,13 @@ def test_a_rewritten_credentials_file_is_used_by_the_next_operation(
     # botocore's own provider reads the file once and never again, while
     # the host rewrites it every 15 minutes and each copy lasts one hour.
     first = store.presign_upload(uuid.uuid4(), "image/jpeg")
-    _creds(creds, "ASIASECONDKEY0000000")
+    second_key = "ASIASECONDKEY0000000"  # gitleaks:allow -- fixture
+    _creds(creds, second_key)
     second = store.presign_upload(uuid.uuid4(), "image/jpeg")
 
     assert first.fields["x-amz-credential"].startswith("ASIAFIRSTKEY00000000/")
-    assert second.fields["x-amz-credential"].startswith("ASIASECONDKEY0000000/")
-    assert second.fields["x-amz-security-token"] == "token-for-ASIASECONDKEY0000000"
+    assert second.fields["x-amz-credential"].startswith(f"{second_key}/")
+    assert second.fields["x-amz-security-token"] == f"token-for-{second_key}"
 
     # A rewrite in place, same inode, is picked up too.
     creds.write_text(creds.read_text().replace("SECONDKEY0", "THIRDKEY00"))

@@ -555,7 +555,8 @@ def host(tmp_path: pathlib.Path) -> pathlib.Path:
         "  exit 254\n"
         "fi\n"
         'if [ "$STUB_AWS" = garbage ]; then echo "None"; exit 0; fi\n'
-        "printf 'ASIAEXAMPLEEXAMPLE01\\tsecret/Key+Value0123456789abcdefABCDEF\\t"
+        "printf 'ASIAEXAMPLEEXAMPLE01\\t"  # gitleaks:allow -- fixture
+        "secret/Key+Value0123456789abcdefABCDEF\\t"
         "IQoJb3JpZ2luX2VjEXAMPLETOKEN==\\t2026-11-18T13:00:00+00:00\\n'\n"
     )
     chgrp = bin_dir / "chgrp"
@@ -617,7 +618,7 @@ def test_creds_script_writes_the_ini_the_sdk_reads(host: pathlib.Path) -> None:
     written = host / "creds" / "credentials"
     assert written.read_text() == (
         "[default]\n"
-        "aws_access_key_id = ASIAEXAMPLEEXAMPLE01\n"
+        "aws_access_key_id = ASIAEXAMPLEEXAMPLE01\n"  # gitleaks:allow -- fixture
         "aws_secret_access_key = secret/Key+Value0123456789abcdefABCDEF\n"
         "aws_session_token = IQoJb3JpZ2luX2VjEXAMPLETOKEN==\n"
     )
