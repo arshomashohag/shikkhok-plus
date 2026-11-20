@@ -289,7 +289,12 @@ def test_approved_needs_dimensions_and_a_variant(
 
 
 @pytest.mark.parametrize(
-    "key", ["../../etc/passwd", "ABCDEF0123456789ABCDEF0123456789", "abc"]
+    "key",
+    [
+        "../../etc/passwd",
+        "ABCDEF0123456789ABCDEF0123456789",  # gitleaks:allow -- fixture
+        "abc",
+    ],
 )
 def test_public_key_is_32_lower_case_hex(owner_session: Session, key: str) -> None:
     """The key becomes an object prefix and a URL segment, so its shape is fixed.
