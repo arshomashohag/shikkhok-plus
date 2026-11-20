@@ -687,6 +687,11 @@ class _Simulation:
         # draw gives some family that habit, which it often did not, and
         # the test expecting a ``credit_apply`` failed on those runs.
         kids[9].payer = "advance"
+        # And one family always pays late through the app by mobile money,
+        # the only family a mistyped reference -- the history's one
+        # rejected payment -- can come from. Left to the draw, some
+        # accounts had no such family and no rejected payment.
+        kids[4].payer, kids[4].app_user, kids[4].method = "late", "guardian", "bkash"
         kids[40].student_phone = kids[40].student_phone or self._phone(1, 40)
         for kid in kids:
             if kid.app_user == "student" and kid.student_phone is None:
@@ -1216,7 +1221,18 @@ class _Simulation:
         value = self._amount(total, kid, key, amount)
         method = kid.method if kid.method in self.methods else "bkash"
         bank = method == "bank"
-        wrong = not self.rejected_once and kid.payer == "late" and not bank
+        review = self.clock.moment + dt.timedelta(
+            days=self.rng.choice((0, 1, 1, 2)), hours=self.rng.randint(0, 2)
+        )
+        review = max(review, self.clock.moment + dt.timedelta(minutes=20))
+        # Sent in the last day and a half, or reviewed after the history
+        # ends (``at`` drops that review): left awaiting review.
+        reviewed = self.end - self.clock.moment >= PENDING_WINDOW and review <= self.end
+        # Only a payment the teacher will review can be the rejected one.
+        # Marking an unreviewed payment wrong used up the only rejection
+        # and left some histories with none, failing the seeded history's
+        # own test on those runs.
+        wrong = reviewed and not self.rejected_once and kid.payer == "late" and not bank
         draft = PaymentDraft(
             enrollment_ids=tuple(seats),
             payment_method_id=self.methods[method],
@@ -1234,12 +1250,8 @@ class _Simulation:
         submission = submit_payment(self.session, lens=lens, draft=draft, today=paid)
         if wrong:
             self.rejected_once = True
-        review = self.clock.moment + dt.timedelta(
-            days=self.rng.choice((0, 1, 1, 2)), hours=self.rng.randint(0, 2)
-        )
-        review = max(review, self.clock.moment + dt.timedelta(minutes=20))
-        if self.end - self.clock.moment < PENDING_WINDOW:
-            return  # sent in the last day and a half: still awaiting review
+        if not reviewed:
+            return
         self.at(review, lambda: self._review(submission.id, kid, key, wrong, paid))
 
     def _review(
