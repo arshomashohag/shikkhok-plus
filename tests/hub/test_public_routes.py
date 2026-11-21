@@ -29,6 +29,7 @@ from app.auth.ceilings import (
 )
 from app.hub.public import render
 from app.hub.public.messages import MESSAGES, t
+from app.hub.public.queries import CLASS_LEVELS
 from app.hub.public.settings import SITE_URL_ENV, WEB_APP_URL_ENV
 from app.hub.public.views import HubOwnerCard
 from tests.batches.conftest import make_teacher
@@ -823,8 +824,13 @@ def test_search_form_chooses_a_district_then_an_area(
     assert ("BD30260072", False, "Savar") in areas
     assert '<optgroup label="Dhaka North City Corporation">' in body
     assert '<optgroup label="Upazilas">' in body
-    hidden = _parse(body).find("input", type="hidden")
-    assert hidden == [{"type": "hidden", "name": "level", "value": "class_9"}]
+    # The class has a select of its own now, so it keeps the choice there
+    # and nothing rides along hidden.
+    levels = _select(body, "level")
+    assert levels[0] == ("", False, t("search_any_level", "en"))
+    assert [value for value, selected, _ in levels if selected] == ["class_9"]
+    assert [value for value, _, _ in levels[1:]] == list(CLASS_LEVELS)
+    assert _parse(body).find("input", type="hidden") == []
     assert t("search_clear_filters", "en") in body
 
     bn = client.get(f"/hub/bn?district={DHAKA}").text

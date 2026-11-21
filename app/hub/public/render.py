@@ -37,6 +37,7 @@ from markupsafe import Markup
 from pydantic import BaseModel
 
 from app.hub.public.messages import LOCALES, MESSAGES, Locale, t
+from app.hub.public.queries import CLASS_LEVELS
 from app.hub.public.registry import registered_views
 from app.hub.public.settings import site_url, web_app_url
 from app.hub.public.views import (
@@ -83,6 +84,19 @@ _PAGE_TEMPLATES: Final[dict[type[BaseModel], str]] = {
 
 #: Weekday keys, Monday first, as ``PublicSlot.weekday`` counts.
 _WEEKDAYS: Final[tuple[str, ...]] = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+#: The class levels the landing page offers as one-tap links, each a
+#: ``level`` search: the levels families search by most often in the
+#: listing vocabulary, not a count of anything a visitor did.
+_BROWSE_LEVELS: Final[tuple[str, ...]] = (
+    "ssc",
+    "hsc",
+    "admission",
+    "class_5",
+    "class_8",
+    "o_level",
+    "a_level",
+)
 
 #: How much of a headline or description becomes the meta description.
 _DESCRIPTION_LENGTH: Final[int] = 160
@@ -529,6 +543,7 @@ def _search_context(view: HubSearchPage, locale: Locale) -> dict[str, Any]:
         "district": {area.code for area in view.districts},
         "upazila": {area.code for area in view.upazilas}
         | {area.code for city in view.cities for area in (city.city, *city.thanas)},
+        "level": set(CLASS_LEVELS),
     }
     applied = {
         key: value
@@ -556,6 +571,14 @@ def _search_context(view: HubSearchPage, locale: Locale) -> dict[str, Any]:
     return {
         "hidden_filters": hidden,
         "filtered": bool(applied),
+        # Nothing searched yet: the page leads with the hero and the
+        # browse links, and lists every published owner below them.
+        "landing": not applied
+        and view.query is None
+        and view.page == 1
+        and view.sort == "relevance",
+        "levels": CLASS_LEVELS,
+        "browse_levels": _BROWSE_LEVELS,
         "clear_href": clear,
         "previous_href": None
         if previous is None
@@ -590,6 +613,7 @@ def page(
         "locale": locale,
         "meta": _meta(view, locale, preview=preview),
         "preview": preview,
+        "web_app": web_app_url(),
         **_helpers(locale),
     }
     if preview:

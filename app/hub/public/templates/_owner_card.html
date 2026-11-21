@@ -1,0 +1,16 @@
+{#- One owner as a search result. The heading's link covers the whole card
+    (hub.css stretches it), so the card is one tab stop. -#}
+{% from "_icons.html" import icon %}
+<li class="card owner-card">
+<div class="band">
+<p class="tags"><span class="tag">{{ m("kind_" ~ card.kind) }}</span>{% if card.runs_classes %}<span class="tag tag-strong">{{ m("runs_classes") }}</span>{% endif %}</p>
+<h2><a href="/hub/{{ locale }}/t/{{ card.slug }}">{{ card.public_name }}</a></h2>
+</div>
+<div class="card-body">
+{% if area(card) %}
+<p class="line">{{ icon("pin", 16) }}<span>{{ area(card) }}</span></p>
+{% endif %}
+{% with rating = card.rating %}{% include "_rating.html" %}{% endwith %}
+<p class="card-foot"><span>{{ m("see_batches") }}</span>{{ icon("next", 18) }}</p>
+</div>
+</li>

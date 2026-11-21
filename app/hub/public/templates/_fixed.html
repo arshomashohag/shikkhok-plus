@@ -14,7 +14,7 @@
 <body>
 <main id="main">
 {% for locale in locales %}
-<section lang="{{ locale }}">
+<section class="wrap fixed" lang="{{ locale }}">
 <h1>{{ t(prefix ~ "_title", locale) }}</h1>
 <p>{{ t(prefix ~ "_body", locale) }}</p>
 <p><a href="/hub/{{ locale }}">{{ t("not_found_search", locale) }}</a></p>
