@@ -48,7 +48,7 @@ def _function() -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_the_function_is_arm64_python_with_bounded_concurrency() -> None:
+def test_the_function_is_arm64_python_with_no_reserved_concurrency() -> None:
     function = _function()
 
     assert re.search(r'runtime\s*=\s*"python3\.12"', function)
@@ -56,7 +56,9 @@ def test_the_function_is_arm64_python_with_bounded_concurrency() -> None:
     assert _list(function, "architectures") == ["arm64"]
     assert re.search(r"memory_size\s*=\s*1024\b", function)
     assert re.search(r"timeout\s*=\s*30\b", function)
-    assert re.search(r"reserved_concurrent_executions\s*=\s*2\b", function)
+    # No reservation: the account's concurrency quota leaves none to
+    # reserve (lambda.tf says why), and a reservation fails the apply.
+    assert "reserved_concurrent_executions" not in function
     # No VPC: no route to the database, and nothing to attach.
     assert "vpc_config" not in function
     # No environment: nothing in its configuration is a secret, which is
