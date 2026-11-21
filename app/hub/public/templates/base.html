@@ -19,9 +19,26 @@
 </head>
 <body>
 <a class="skip" href="#main">{{ m("skip_to_content") }}</a>
+{#- The site's home and FAQ, in the page's language. -#}
+{% set site_home = "/" if locale == "en" else "/bn/" %}
 <header class="bar">
-<a class="brand" href="/hub/{{ locale }}">{{ m("hub_name") }}</a>
-<a href="{{ meta.other_href }}" hreflang="{{ meta.other_locale }}" lang="{{ meta.other_locale }}">{{ m("other_language") }}</a>
+<div class="wrap bar-row">
+<a class="brand" href="/hub/{{ locale }}">
+{% include "_logo.svg" %}
+<span class="brand-name">{% if locale == "en" %}Shikkhok<b>Plus</b>{% else %}শিক্ষক<b>প্লাস</b>{% endif %}</span>
+<span class="brand-hub">{{ m("hub_label") }}</span>
+</a>
+<nav class="nav" aria-label="{{ m('nav_label') }}">
+<a href="/hub/{{ locale }}">{{ m("nav_find") }}</a>
+<a href="{{ site_home }}">{{ m("nav_about") }}</a>
+</nav>
+<div class="bar-end">
+<a class="lang" href="{{ meta.other_href }}" hreflang="{{ meta.other_locale }}" lang="{{ meta.other_locale }}">{{ m("other_language") }}</a>
+{% if not preview %}
+<a class="button" href="{{ web_app }}">{{ m("open_app") }}</a>
+{% endif %}
+</div>
+</div>
 </header>
 {% if preview %}
 <p class="banner" role="status">{{ m("preview_banner") }}</p>
@@ -30,7 +47,14 @@
 {% block content %}{% endblock %}
 </main>
 <footer class="foot">
-<p class="muted"><a href="/">{{ m("site_name") }}</a></p>
+<div class="wrap foot-row">
+<a class="foot-name" href="{{ site_home }}">{{ m("site_name") }}</a>
+<nav class="foot-links" aria-label="{{ m('footer_label') }}">
+<a href="{{ site_home }}faq/">{{ m("footer_faq") }}</a>
+<a href="{{ web_app }}">{{ m("footer_web_app") }}</a>
+<a href="{{ meta.other_href }}" hreflang="{{ meta.other_locale }}" lang="{{ meta.other_locale }}">{{ m("other_language") }}</a>
+</nav>
+</div>
 </footer>
 </body>
 </html>

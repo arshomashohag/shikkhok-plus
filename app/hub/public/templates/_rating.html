@@ -2,7 +2,9 @@
     and the review count, only once shown. A card says nothing below the
     threshold; the batch page's review section says the one line that
     every batch under it shares [F18, T9-a]. The caller sets ``rating``,
-    which is None while reviews are off. -#}
+    which is None while reviews are off. The star is decoration; the
+    words carry the figure. -#}
+{% from "_icons.html" import icon %}
 {% if rating is not none and rating.state == "shown" %}
-<p class="rating">{{ m("rating_out_of", average=rating.average_label) }} · {{ m("reviews_count", count=rating.count) }}</p>
+<p class="rating">{{ icon("star", 16) }}<span>{{ m("rating_out_of", average=rating.average_label) }} · {{ m("reviews_count", count=rating.count) }}</span></p>
 {% endif %}

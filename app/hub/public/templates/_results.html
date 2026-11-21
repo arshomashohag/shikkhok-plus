@@ -1,0 +1,26 @@
+{#- A page of owners, then the pager. The landing page lays the cards out
+    as a grid, a results page as a list; the markup is the same. -#}
+{% if view.results %}
+<ul class="cards {{ 'cards-grid' if landing else 'cards-list' }}">
+{% for card in view.results %}
+{% include "_owner_card.html" %}
+{% endfor %}
+</ul>
+{% else %}
+<p class="empty">{{ m("search_none") }}</p>
+{% endif %}
+{% if previous_href or next_href %}
+<nav class="pager">
+{% if previous_href %}
+<a class="button button-outline" href="{{ previous_href }}" rel="prev">{{ m("page_previous") }}</a>
+{% else %}
+<span></span>
+{% endif %}
+<span class="muted">{{ m("page_of", page=view.page, pages=view.pages) }}</span>
+{% if next_href %}
+<a class="button button-outline" href="{{ next_href }}" rel="next">{{ m("page_next") }}</a>
+{% else %}
+<span></span>
+{% endif %}
+</nav>
+{% endif %}

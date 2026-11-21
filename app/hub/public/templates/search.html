@@ -1,82 +1,74 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block content %}
+{% if landing %}
+<section class="hero">
+<div class="wrap hero-inner">
+<div class="hero-text">
 <h1>{{ m("search_title") }}</h1>
-<form class="search" method="get" action="/hub/{{ locale }}" role="search">
-<label for="q">{{ m("search_label") }}</label>
-<input id="q" name="q" type="search" maxlength="200" value="{{ view.query or '' }}">
-<label for="district">{{ m("search_district") }}</label>
-<select id="district" name="district">
-<option value="">{{ m("search_any_district") }}</option>
-{% for option in by_name(view.districts) %}
-<option value="{{ option.code }}"{% if option.code == view.filters.district %} selected{% endif %}>{{ area_name(option) }}</option>
+<p class="lead">{{ m("search_lead") }}</p>
+</div>
+{% with form_style = "bar" %}{% include "_search_form.html" %}{% endwith %}
+<nav class="chips" aria-labelledby="browse">
+<span id="browse" class="chips-label">{{ m("browse_by_class") }}</span>
+{% for code in browse_levels %}
+<a class="chip" href="/hub/{{ locale }}?level={{ code }}">{{ label("hub_level_", code) }}</a>
 {% endfor %}
-</select>
-{% if view.upazilas or view.cities %}
-<label for="upazila">{{ m("search_area") }}</label>
-<select id="upazila" name="upazila">
-<option value="">{{ m("search_any_area") }}</option>
-{% if view.upazilas %}
-<optgroup label="{{ m('search_upazilas') }}">
-{% for option in by_name(view.upazilas) %}
-<option value="{{ option.code }}"{% if option.code == view.filters.upazila %} selected{% endif %}>{{ area_name(option) }}</option>
-{% endfor %}
-</optgroup>
-{% endif %}
-{% for city in by_name(view.cities) %}
-<optgroup label="{{ area_name(city.city) }}">
-<option value="{{ city.city.code }}"{% if city.city.code == view.filters.upazila %} selected{% endif %}>{{ m("search_whole_city", name=area_name(city.city)) }}</option>
-{% for option in by_name(city.thanas) %}
-<option value="{{ option.code }}"{% if option.code == view.filters.upazila %} selected{% endif %}>{{ area_name(option) }}</option>
-{% endfor %}
-</optgroup>
-{% endfor %}
-</select>
-{% endif %}
-{% if view.offers_sort %}
-<label for="sort">{{ m("sort_label") }}</label>
-<select id="sort" name="sort">
-<option value="relevance"{% if view.sort == "relevance" %} selected{% endif %}>{{ m("sort_relevance") }}</option>
-<option value="rating"{% if view.sort == "rating" %} selected{% endif %}>{{ m("sort_rating") }}</option>
-</select>
-{% endif %}
-{% for name, value in hidden_filters %}
-<input type="hidden" name="{{ name }}" value="{{ value }}">
-{% endfor %}
-<button type="submit">{{ m("search_button") }}</button>
-</form>
-{% if filtered %}
-<p class="muted">{{ m("search_filtered") }} <a href="{{ clear_href }}">{{ m("search_clear_filters") }}</a></p>
-{% endif %}
-<p class="muted">{{ m("search_results", total=view.total) }}</p>
-{% if view.results %}
-<ul class="cards">
-{% for card in view.results %}
-<li class="card">
-<h2><a href="/hub/{{ locale }}/t/{{ card.slug }}">{{ card.public_name }}</a></h2>
-<p class="meta">{{ m("kind_" ~ card.kind) }}{% if area(card) %} · {{ area(card) }}{% endif %}</p>
-{% with rating = card.rating %}{% include "_rating.html" %}{% endwith %}
-{% if card.runs_classes %}
-<p><span class="badge">{{ m("runs_classes") }}</span></p>
-{% endif %}
+</nav>
+</div>
+</section>
+<section class="wrap section">
+<div class="section-head">
+<div>
+<h2 class="section-title">{{ m("listed_heading") }}</h2>
+<p class="muted">{{ m("listed_sub") }} {{ m("search_results", total=view.total) }}</p>
+</div>
+</div>
+{% include "_results.html" %}
+</section>
+<section class="wrap section">
+<h2 class="section-title">{{ m("how_heading") }}</h2>
+<ol class="steps">
+{% for step in (1, 2, 3) %}
+<li class="tile step">
+<span class="step-number">{{ step }}</span>
+<h3>{{ m("how_" ~ step ~ "_title") }}</h3>
+<p class="muted">{{ m("how_" ~ step ~ "_body") }}</p>
 </li>
 {% endfor %}
+</ol>
+</section>
+<section class="wrap section">
+<ul class="trust">
+{% for step, name in ((1, "shield"), (2, "child"), (3, "sync")) %}
+<li>{{ icon(name, 26) }}<div><h3>{{ m("trust_" ~ step ~ "_title") }}</h3><p class="muted">{{ m("trust_" ~ step ~ "_body") }}</p></div></li>
+{% endfor %}
 </ul>
+</section>
+<section class="wrap section">
+<div class="callout">
+<div>
+<h2>{{ m("teach_title") }}</h2>
+<p>{{ m("teach_body") }}</p>
+</div>
+<a class="button button-light" href="{{ web_app }}">{{ m("teach_link") }}</a>
+</div>
+</section>
 {% else %}
-<p>{{ m("search_none") }}</p>
+<div class="wrap results-page">
+<aside class="panel">
+{% with form_style = "panel" %}{% include "_search_form.html" %}{% endwith %}
+{% if filtered %}
+<p class="muted panel-note">{{ m("search_filtered") }} <a href="{{ clear_href }}">{{ m("search_clear_filters") }}</a></p>
 {% endif %}
-{% if previous_href or next_href %}
-<nav class="pager">
-{% if previous_href %}
-<a href="{{ previous_href }}" rel="prev">{{ m("page_previous") }}</a>
-{% else %}
-<span></span>
-{% endif %}
-<span class="muted">{{ m("page_of", page=view.page, pages=view.pages) }}</span>
-{% if next_href %}
-<a href="{{ next_href }}" rel="next">{{ m("page_next") }}</a>
-{% else %}
-<span></span>
-{% endif %}
-</nav>
+</aside>
+<section class="results">
+<div class="results-head">
+<h1>{{ m("search_title") }}</h1>
+<p class="muted">{{ m("search_results", total=view.total) }}</p>
+</div>
+{% include "_results.html" %}
+</section>
+</div>
 {% endif %}
 {% endblock %}
