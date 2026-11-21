@@ -114,10 +114,17 @@ resource "aws_lambda_function" "sanitiser" {
   memory_size = 1024
   timeout     = 30
 
-  # At most two decodes at once: a burst of uploads queues (S3 invokes
-  # asynchronously, and a throttled event waits, up to the event age
-  # below) rather than scaling a decoder of hostile input without bound.
-  reserved_concurrent_executions = 2
+  # **No reserved concurrency**, by decision on 2026-11-21. Reserving any
+  # needs the account's concurrency quota to exceed 10 by the reservation,
+  # because AWS keeps 10 unreserved; this account's quota is below 12, so
+  # the earlier reservation of 2 failed the apply with
+  # InvalidParameterValueException. What that reservation did, nothing
+  # else does: the sanitiser now shares the account pool, so a burst of
+  # uploads runs as many decoders at once as the account allows rather
+  # than queueing behind two. Per-decode cost is still bounded -- the
+  # memory and timeout above, and the handler's 40-megapixel decode limit
+  # -- and uploads are bounded upstream by the per-owner photo quota and
+  # its daily ceiling (app/hub/media/quota.py).
 
   logging_config {
     log_format = "Text"

@@ -377,10 +377,11 @@ on that one role. Without it the infrastructure job stops at
    stops at "image sanitiser"; without the second, `terraform plan` fails
    refreshing the Lambda. (The media role and the image Lambda themselves
    are created by the infrastructure job once bootstrap allows it.)
-2. **Check Lambda concurrency headroom**: `aws lambda get-account-settings`.
-   The sanitiser reserves 2 concurrent executions, and AWS requires the
-   account to keep at least 10 unreserved. If `UnreservedConcurrentExecutions`
-   would fall below 10, request a quota increase before applying.
+2. **No Lambda concurrency is reserved.** The sanitiser shares the
+   account's unreserved pool. AWS keeps at least 10 executions unreserved,
+   so on an account whose concurrency quota is 10 any reservation fails the
+   apply; adding one back needs a quota increase first
+   (`aws lambda get-account-settings` shows the limit).
 3. **After the first deploy, upload one real photo to staging from the
    Android debug build and one from the web app**, and see each reach
    "pending review". The two clients send different multipart forms and
