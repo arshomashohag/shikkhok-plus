@@ -158,7 +158,13 @@ jobs:
           if [ -z "$APP_LINK_HOST" ]; then
             echo "::warning::ANDROID_APP_LINK_HOST is unset; report links on hub pages will not open the app."
           fi
-          echo "App link host: ${APP_LINK_HOST:-(the backend's host)}"
+          # Resolved once, into a plain variable. The fallback text stays
+          # free of apostrophes: inside "${VAR:-...}" bash requires a
+          # single quote to have a match, and an unmatched one makes the
+          # whole step fail to parse (v1.8.0's first run, 2026-11-21).
+          # tests/gates/test_workflow_shell_parses.py now checks every step.
+          link_host="${APP_LINK_HOST:-(the backend host)}"
+          echo "App link host: $link_host"
           # The public site's origin: the listing editor's "View public
           # page" opens the owner's page there. Unset, the app offers no
           # such link; a plain-http value would be baked in, so it fails.
@@ -171,7 +177,7 @@ jobs:
           echo "Public site: ${SITE_URL:-(none)}"
           {
             echo "| backend | \`$API_BASE_URL\` |"
-            echo "| app link host | \`${APP_LINK_HOST:-(the backend's host)}\` |"
+            echo "| app link host | \`$link_host\` |"
             echo "| public site | \`${SITE_URL:-(none)}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
