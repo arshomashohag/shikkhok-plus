@@ -37,6 +37,94 @@ MESSAGES: Final[dict[str, dict[Locale, str]]] = {
     "hub_name": {"en": "ShikkhokPlus Hub", "bn": "শিক্ষকপ্লাস হাব"},
     "other_language": {"en": "বাংলা", "bn": "English"},
     "skip_to_content": {"en": "Skip to content", "bn": "মূল লেখায় যান"},
+    "hub_label": {"en": "Hub", "bn": "হাব"},
+    "nav_label": {"en": "Main", "bn": "প্রধান"},
+    "nav_find": {"en": "Find a tutor", "bn": "শিক্ষক খুঁজুন"},
+    "nav_about": {"en": "About ShikkhokPlus", "bn": "শিক্ষকপ্লাস সম্পর্কে"},
+    "open_app": {"en": "Open the app", "bn": "অ্যাপ খুলুন"},
+    "footer_label": {"en": "Footer", "bn": "ফুটার"},
+    "footer_faq": {"en": "FAQ", "bn": "প্রশ্নোত্তর"},
+    "footer_web_app": {"en": "Web app", "bn": "ওয়েব অ্যাপ"},
+    "breadcrumb": {"en": "You are here", "bn": "আপনি এখানে"},
+    # The landing page: what the hub is, before anything is searched.
+    "search_lead": {
+        "en": "Tutors and coaching centres who chose to list their batches. "
+        "See the subjects, class times and, where shown, the fee, all in "
+        "one place.",
+        "bn": "যেসব শিক্ষক ও কোচিং সেন্টার নিজেরাই তাদের ব্যাচ তালিকাভুক্ত "
+        "করেছেন। বিষয়, ক্লাসের সময় আর দেখানো থাকলে ফি, সব এক জায়গায়।",
+    },
+    "browse_by_class": {"en": "Browse by class:", "bn": "শ্রেণি অনুযায়ী দেখুন:"},
+    "listed_heading": {
+        "en": "Listed on ShikkhokPlus",
+        "bn": "শিক্ষকপ্লাসে তালিকাভুক্ত",
+    },
+    "listed_sub": {
+        "en": "Every tutor and centre here chose to be listed.",
+        "bn": "এখানকার প্রত্যেক শিক্ষক ও সেন্টার নিজের ইচ্ছায় তালিকাভুক্ত হয়েছেন।",
+    },
+    "how_heading": {"en": "How it works", "bn": "যেভাবে কাজ করে"},
+    "how_1_title": {
+        "en": "Search by subject and area",
+        "bn": "বিষয় ও এলাকা দিয়ে খুঁজুন",
+    },
+    "how_1_body": {
+        "en": "Type a subject or a name, pick a class and your district, then "
+        "narrow it to your area.",
+        "bn": "একটি বিষয় বা নাম লিখুন, শ্রেণি ও জেলা বেছে নিন, তারপর আপনার এলাকা বেছে নিন।",
+    },
+    "how_2_title": {"en": "Compare batches", "bn": "ব্যাচ মিলিয়ে দেখুন"},
+    "how_2_body": {
+        "en": "See each batch's class times, how it is taught and whether "
+        "admissions are open.",
+        "bn": "প্রতিটি ব্যাচের ক্লাসের সময়, পড়ানোর ধরন আর ভর্তি খোলা আছে কি না দেখুন।",
+    },
+    "how_3_title": {"en": "Get to know the teacher", "bn": "শিক্ষককে জানুন"},
+    "how_3_body": {
+        "en": "Read about their qualifications and how they teach, and see "
+        "their other batches.",
+        "bn": "তাদের যোগ্যতা ও পড়ানোর ধরন জানুন, আর তাদের অন্য ব্যাচগুলোও দেখুন।",
+    },
+    "trust_1_title": {
+        "en": "Listed only by choice",
+        "bn": "শুধু নিজের ইচ্ছায় তালিকাভুক্ত",
+    },
+    "trust_1_body": {
+        "en": "Nobody appears here until they publish their own page.",
+        "bn": "নিজের পাতা প্রকাশ না করা পর্যন্ত কেউ এখানে দেখা যান না।",
+    },
+    "trust_2_title": {"en": "No child's details", "bn": "শিশুর কোনো তথ্য নয়"},
+    "trust_2_body": {
+        "en": "No student's name, photo, marks or attendance is ever shown.",
+        "bn": "কোনো শিক্ষার্থীর নাম, ছবি, নম্বর বা হাজিরা কখনও দেখানো হয় না।",
+    },
+    "trust_3_title": {"en": "Straight from the app", "bn": "সরাসরি অ্যাপ থেকে"},
+    "trust_3_body": {
+        "en": "Class times come from the teacher's own ShikkhokPlus routine.",
+        "bn": "ক্লাসের সময় আসে শিক্ষকের নিজের শিক্ষকপ্লাস রুটিন থেকে।",
+    },
+    "teach_title": {"en": "Do you teach batches?", "bn": "আপনি কি ব্যাচ পড়ান?"},
+    "teach_body": {
+        "en": "Publish your page from the ShikkhokPlus app and choose which "
+        "batches to show, so families nearby can find you.",
+        "bn": "শিক্ষকপ্লাস অ্যাপ থেকে আপনার পাতা প্রকাশ করুন আর কোন ব্যাচগুলো "
+        "দেখাবেন বেছে নিন, যাতে কাছের পরিবারগুলো আপনাকে খুঁজে পায়।",
+    },
+    "teach_link": {
+        "en": "List my batches",
+        "bn": "আমার ব্যাচ তালিকাভুক্ত করুন",
+    },
+    # Cards and the two detail pages, as the hub design lays them out.
+    "see_batches": {"en": "See batches", "bn": "ব্যাচগুলো দেখুন"},
+    "per_month": {"en": "per month", "bn": "প্রতি মাসে"},
+    "details_heading": {"en": "Details", "bn": "বিস্তারিত"},
+    "where_heading": {"en": "When and where", "bn": "কখন ও কোথায়"},
+    "batch_area": {"en": "Area", "bn": "এলাকা"},
+    "owner_kind": {"en": "Listed as", "bn": "ধরন"},
+    "batch_offered_by": {"en": "by {name}", "bn": "{name}-এর ব্যাচ"},
+    "about_teacher": {"en": "About the teacher", "bn": "শিক্ষক পরিচিতি"},
+    "about_organisation": {"en": "About the centre", "bn": "সেন্টার পরিচিতি"},
+    "owner_page_link": {"en": "See {name}'s page", "bn": "{name}-এর পাতা দেখুন"},
     # Search.
     "search_title": {
         "en": "Find a tutor or coaching centre",
@@ -48,6 +136,10 @@ MESSAGES: Final[dict[str, dict[Locale, str]]] = {
         "bn": "বিষয়, শ্রেণি ও এলাকা অনুযায়ী শিক্ষকপ্লাসে শিক্ষক ও কোচিং সেন্টার খুঁজুন।",
     },
     "search_label": {"en": "Subject, name or area", "bn": "বিষয়, নাম বা এলাকা"},
+    "search_placeholder": {
+        "en": "Physics, পদার্থবিজ্ঞান, Math…",
+        "bn": "পদার্থবিজ্ঞান, গণিত, Physics…",
+    },
     "search_button": {"en": "Search", "bn": "খুঁজুন"},
     "search_results": {"en": "{total} found", "bn": "{total}টি পাওয়া গেছে"},
     "search_none": {
@@ -63,6 +155,8 @@ MESSAGES: Final[dict[str, dict[Locale, str]]] = {
     "search_any_district": {"en": "All districts", "bn": "সব জেলা"},
     "search_area": {"en": "Area in the district", "bn": "জেলার ভেতরে এলাকা"},
     "search_any_area": {"en": "All areas", "bn": "সব এলাকা"},
+    "search_level": {"en": "Class", "bn": "শ্রেণি"},
+    "search_any_level": {"en": "Any class", "bn": "যেকোনো শ্রেণি"},
     "search_upazilas": {"en": "Upazilas", "bn": "উপজেলা"},
     "search_whole_city": {"en": "All of {name}", "bn": "{name}-এর সব এলাকা"},
     "page_previous": {"en": "Previous page", "bn": "আগের পাতা"},

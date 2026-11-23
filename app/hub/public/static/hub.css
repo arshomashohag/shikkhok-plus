@@ -4,50 +4,93 @@
  * render.py) and site/build.mjs copies it to the same name, so the page CSP
  * `style-src 'self'` covers it and a changed file is a new URL.
  *
- * Tokens are the public site's (site/src/assets/css/site.css). No font
- * is declared or downloaded here: the stack names installed fonts only.
+ * Tokens are the public site's (site/src/assets/css/site.css), extended
+ * with the hub design's card, divider and tint colours. No font is
+ * declared or downloaded here: the stack names installed fonts only.
  * No inline style anywhere in a hub page, because the CSP would not apply
- * one.
+ * one: card tints come from :nth-child, icons take currentColor.
  */
 
 :root {
   color-scheme: light dark;
   --primary: #1d4f91;
+  --primary-strong: #0b2447;
   --on-primary: #ffffff;
+  --accent: #5b8ed6;
   --primary-container: #d8e3f7;
   --on-primary-container: #0b2447;
+  --soft: #eef3fc;
   --background: #f4f6f9;
   --surface: #ffffff;
   --on-surface: #15191f;
   --on-surface-variant: #434a55;
+  --text-soft: #2b3440;
+  --divider: #e4e8ee;
+  --ring: #dce0e6;
+  --outline: #6e7682;
   --outline-variant: #c9ced6;
+  --tint-1: #eef3fc;
+  --tint-2: #f2f0fb;
+  --tint-3: #eaf5ee;
+  --tint-4: #fbf3e6;
+  --tag-bg: #ffffff;
+  --tag-fg: #0b2447;
+  --star: #b26a00;
+  --head-bg: #1d4f91;
+  --head-fg: #ffffff;
+  --head-dim: #d8e3f7;
+  --head-star: #ffd27a;
   --paid-container: #dcf1e2;
   --on-paid-container: #0f5427;
   --warn-container: #fdeccb;
   --on-warn-container: #4d3200;
+  --danger-container: #fbe3e1;
+  --on-danger-container: #8c1b16;
+  --shadow: rgba(21, 25, 31, 0.08);
   --focus: #1d4f91;
   --font: "Noto Sans Bengali", "Noto Sans", system-ui, sans-serif;
-  --gutter: 16px;
-  --max: 880px;
-  --r-card: 12px;
+  --gutter: 24px;
+  --max: 1240px;
+  --r-card: 14px;
   --r-pill: 999px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --primary: #a9c7ff;
+    --primary-strong: #d8e3f7;
     --on-primary: #0b2447;
+    --accent: #7fa7e3;
     --primary-container: #1e3f6e;
     --on-primary-container: #d8e3f7;
+    --soft: #1b2636;
     --background: #0f1215;
     --surface: #15191e;
     --on-surface: #e6e9ee;
     --on-surface-variant: #b5bcc7;
+    --text-soft: #cfd5de;
+    --divider: #262c34;
+    --ring: #2c333c;
+    --outline: #8a929e;
     --outline-variant: #343b45;
+    --tint-1: #1b2636;
+    --tint-2: #221f33;
+    --tint-3: #17271d;
+    --tint-4: #2a2216;
+    --tag-bg: #0f1215;
+    --tag-fg: #d8e3f7;
+    --star: #ffb951;
+    --head-bg: #1e3f6e;
+    --head-fg: #ffffff;
+    --head-dim: #c9d8f2;
+    --head-star: #ffd27a;
     --paid-container: #10301c;
     --on-paid-container: #8fd9a6;
     --warn-container: #3d2a00;
     --on-warn-container: #ffdf9e;
+    --danger-container: #3d1512;
+    --on-danger-container: #ffb4a9;
+    --shadow: rgba(0, 0, 0, 0.4);
     --focus: #a9c7ff;
   }
 }
@@ -78,6 +121,7 @@ h2,
 h3,
 p,
 li,
+dt,
 dd,
 a {
   overflow-wrap: anywhere;
@@ -87,8 +131,13 @@ a {
   color: var(--primary);
 }
 
+a:hover {
+  color: var(--primary-strong);
+}
+
 a:focus-visible,
 input:focus-visible,
+select:focus-visible,
 button:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
@@ -102,65 +151,29 @@ button:focus-visible {
 .skip:focus {
   left: var(--gutter);
   top: var(--gutter);
+  z-index: 2;
   background: var(--surface);
   padding: 8px 12px;
 }
 
-.bar,
-main,
-.foot {
+.wrap {
   max-width: var(--max);
   margin: 0 auto;
   padding: 0 var(--gutter);
 }
 
-.bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 16px;
-  padding-bottom: 16px;
+.icon {
+  flex: none;
 }
 
-.brand {
-  font-weight: 700;
-  font-size: 1.125rem;
-  text-decoration: none;
-}
-
-.banner {
-  max-width: var(--max);
-  margin: 0 auto 16px;
-  padding: 12px var(--gutter);
-  background: var(--warn-container);
-  color: var(--on-warn-container);
-  font-weight: 600;
-}
-
-h1 {
-  font-size: 1.75rem;
-  line-height: 1.3;
-  margin: 8px 0 4px;
-}
-
-h2 {
-  font-size: 1.25rem;
-  margin: 24px 0 8px;
-}
-
-h3 {
-  font-size: 1.0625rem;
-  margin: 0 0 4px;
+.icon-star {
+  fill: currentColor;
+  stroke: none;
 }
 
 /* An owner's own text keeps the line breaks they typed. */
 .prose {
   white-space: pre-line;
-}
-
-.lead {
-  font-size: 1.125rem;
 }
 
 .meta,
@@ -174,44 +187,583 @@ h3 {
   border-radius: var(--r-pill);
   background: var(--paid-container);
   color: var(--on-paid-container);
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 0.8125rem;
+  line-height: 20px;
+  font-weight: 700;
 }
 
-.search {
+/* ---- Buttons ---------------------------------------------------------- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: var(--r-pill);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-decoration: none;
+  text-align: center;
+}
+
+.button:hover {
+  color: var(--on-primary);
+  background: var(--primary-strong);
+}
+
+.button-outline {
+  background: var(--surface);
+  color: var(--on-surface);
+  box-shadow: inset 0 0 0 1.5px var(--outline);
+}
+
+.button-outline:hover {
+  background: var(--soft);
+  color: var(--on-surface);
+}
+
+.button-light {
+  min-height: 56px;
+  padding: 0 28px;
+  background: #ffffff;
+  color: #1d4f91;
+  font-size: 1.0625rem;
+}
+
+.button-light:hover {
+  background: #eef3fc;
+  color: #0b2447;
+}
+
+.button-block {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  font-size: 1.0625rem;
+}
+
+/* ---- Top bar and footer ----------------------------------------------- */
+
+.bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--divider);
+}
+
+.bar-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 16px 0;
+  align-items: center;
+  gap: 12px 28px;
+  min-height: 72px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--on-surface);
+  text-decoration: none;
+}
+
+.brand:hover {
+  color: var(--on-surface);
+}
+
+.brand-name {
+  font-size: 1.375rem;
+  line-height: 32px;
+  font-weight: 800;
+}
+
+.brand-name b {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.brand-hub {
+  padding: 1px 10px;
+  border-radius: var(--r-pill);
+  background: var(--soft);
+  color: var(--primary);
+  font-size: 0.8125rem;
+  line-height: 20px;
+  font-weight: 700;
+}
+
+.logo-a {
+  fill: var(--primary);
+}
+
+.logo-b {
+  fill: var(--accent);
+}
+
+.logo-gap {
+  stroke: var(--surface);
+}
+
+.logo-tick {
+  stroke: var(--accent);
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+}
+
+.nav a {
+  padding: 10px 0;
+  color: var(--on-surface);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.nav a:hover {
+  color: var(--primary);
+}
+
+.bar-end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lang {
+  padding: 10px 12px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.banner {
+  margin: 0;
+  padding: 12px var(--gutter);
+  background: var(--warn-container);
+  color: var(--on-warn-container);
+  font-weight: 600;
+  text-align: center;
+}
+
+.foot {
+  margin-top: 48px;
+  background: var(--surface);
+  border-top: 1px solid var(--divider);
+}
+
+.foot-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 28px;
+  padding-top: 28px;
+  padding-bottom: 28px;
+  font-size: 0.875rem;
+}
+
+.foot-name {
+  color: var(--on-surface);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.foot-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin-left: auto;
+}
+
+.foot-links a {
+  color: var(--on-surface-variant);
+}
+
+/* ---- Landing: hero, search bar, browse links ---------------------------- */
+
+.hero {
+  background: var(--surface);
+}
+
+.hero-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-top: 56px;
+  padding-bottom: 48px;
+}
+
+.hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 760px;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 3rem;
+  line-height: 1.3;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.lead {
+  margin: 0;
+  font-size: 1.1875rem;
+  line-height: 30px;
+  color: var(--on-surface-variant);
 }
 
 .search label {
-  flex-basis: 100%;
-  font-weight: 600;
+  display: block;
 }
 
 .search input,
 .search select {
-  flex: 1 1 240px;
-  min-height: 48px;
-  padding: 8px 12px;
-  border: 1px solid var(--outline-variant);
-  border-radius: 8px;
-  background: var(--surface);
+  min-width: 0;
+  width: 100%;
   color: var(--on-surface);
   font: inherit;
 }
 
 .search button {
-  min-height: 48px;
-  padding: 8px 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: 0;
-  border-radius: 8px;
   background: var(--primary);
   color: var(--on-primary);
   font: inherit;
-  font-weight: 600;
+  font-weight: 700;
+  cursor: pointer;
 }
+
+.search button:hover {
+  background: var(--primary-strong);
+}
+
+.search-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 2px var(--primary),
+    0 8px 24px rgba(29, 79, 145, 0.12);
+  overflow: hidden;
+}
+
+.search-bar .field {
+  flex: 1 1 170px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px;
+  border-right: 1px solid var(--divider);
+}
+
+.search-bar .field-q {
+  flex: 2 1 260px;
+}
+
+.search-bar .field:focus-within {
+  box-shadow: inset 0 -3px 0 var(--primary);
+}
+
+.search-bar label {
+  font-size: 0.75rem;
+  line-height: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+}
+
+.search-bar input,
+.search-bar select {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 1.0625rem;
+  font-weight: 500;
+}
+
+.search-bar button {
+  flex: 0 0 auto;
+  min-height: 64px;
+  padding: 0 32px;
+  font-size: 1.0625rem;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.chips-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--outline-variant);
+  background: var(--surface);
+  color: var(--on-surface);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  border-color: var(--primary);
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+/* ---- Landing sections ------------------------------------------------- */
+
+.section {
+  padding-top: 48px;
+}
+
+.section-head {
+  margin-bottom: 20px;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1.75rem;
+  line-height: 40px;
+  font-weight: 700;
+}
+
+.section-head p {
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+.steps {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 16px;
+}
+
+.tile {
+  background: var(--surface);
+  border-radius: var(--r-card);
+  box-shadow: 0 0 0 1px var(--ring);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.step-number {
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 1.125rem;
+  line-height: 40px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.step h3 {
+  margin: 0;
+  font-size: 1.1875rem;
+  line-height: 30px;
+}
+
+.step p {
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+.trust {
+  list-style: none;
+  margin: 0;
+  padding: 24px;
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: 0 0 0 1px var(--ring);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 20px;
+}
+
+.trust li {
+  display: flex;
+  gap: 12px;
+}
+
+.trust .icon {
+  color: var(--primary);
+}
+
+.trust h3 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 26px;
+}
+
+.trust p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.callout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 32px;
+  border-radius: 16px;
+  background: var(--head-bg);
+  color: var(--head-fg);
+}
+
+.callout h2 {
+  margin: 0 0 6px;
+  font-size: 1.75rem;
+  line-height: 40px;
+  font-weight: 800;
+}
+
+.callout p {
+  max-width: 640px;
+  margin: 0;
+  font-size: 1.0625rem;
+  color: var(--head-dim);
+}
+
+/* ---- Results: the side panel and the list ------------------------------- */
+
+.results-page {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px;
+  padding-top: 24px;
+  padding-bottom: 8px;
+}
+
+.panel {
+  flex: 1 1 260px;
+  max-width: 320px;
+}
+
+.results {
+  flex: 999 1 460px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.results-head h1 {
+  margin: 0;
+  font-size: 1.625rem;
+  line-height: 38px;
+}
+
+.results-head p {
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+.search-panel {
+  background: var(--surface);
+  border-radius: var(--r-card);
+  box-shadow: 0 0 0 1px var(--ring);
+  padding: 4px 18px 18px;
+}
+
+.search-panel .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 0;
+  border-top: 1px solid var(--divider);
+}
+
+.search-panel .field:first-child {
+  border-top: 0;
+}
+
+.search-panel label {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.search-panel input,
+.search-panel select {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1.5px solid var(--outline-variant);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 0.9375rem;
+}
+
+.search-panel button {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 4px;
+  border-radius: 24px;
+  font-size: 0.9375rem;
+}
+
+.panel-note {
+  margin: 12px 4px 0;
+  font-size: 0.875rem;
+}
+
+.empty {
+  margin: 0;
+  padding: 24px;
+  background: var(--surface);
+  border-radius: var(--r-card);
+  box-shadow: 0 0 0 1px var(--ring);
+  font-size: 1.0625rem;
+}
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 0;
+}
+
+/* ---- Cards ------------------------------------------------------------ */
 
 .cards {
   list-style: none;
@@ -221,26 +773,466 @@ h3 {
   gap: 12px;
 }
 
+.cards-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+  gap: 20px;
+}
+
 .card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   background: var(--surface);
-  border: 1px solid var(--outline-variant);
   border-radius: var(--r-card);
+  box-shadow: 0 0 0 1px var(--ring);
+  overflow: hidden;
+}
+
+.card:hover {
+  box-shadow:
+    0 0 0 1px var(--outline-variant),
+    0 6px 18px var(--shadow);
+}
+
+/* A card's heading link covers the card, so the card is one target. */
+.card h2 a,
+.card h3 a {
+  color: var(--on-surface);
+  text-decoration: none;
+}
+
+.card h2 a::after,
+.card h3 a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.card h2 a:hover,
+.card h3 a:hover {
+  text-decoration: underline;
+}
+
+.card:focus-within {
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+.band {
+  min-height: 92px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--tint-1);
+}
+
+.cards-grid > li:nth-child(4n + 2) .band {
+  background: var(--tint-2);
+}
+
+.cards-grid > li:nth-child(4n + 3) .band {
+  background: var(--tint-3);
+}
+
+.cards-grid > li:nth-child(4n + 4) .band {
+  background: var(--tint-4);
+}
+
+.owner-card h2 {
+  margin: 0;
+  font-size: 1.375rem;
+  line-height: 34px;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 12px;
+  background: var(--tag-bg);
+  color: var(--tag-fg);
+  font-size: 0.75rem;
+  line-height: 18px;
+  font-weight: 700;
+}
+
+.tag-strong {
+  background: var(--primary-strong);
+  color: var(--surface);
+}
+
+.card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px 16px;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 22px;
+  color: var(--text-soft);
+}
+
+.card-foot {
+  margin: auto 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--divider);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--primary);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.card-foot .muted {
+  font-weight: 500;
+}
+
+.fee {
+  color: var(--on-surface);
+  font-size: 1.25rem;
+  line-height: 30px;
+  font-weight: 800;
+}
+
+/* On a results page the same cards read as a list of rows. */
+.cards-list .band {
+  min-height: 0;
+  padding: 16px 16px 0;
+  background: transparent;
+}
+
+.cards-list .owner-card h2 {
+  font-size: 1.1875rem;
+  line-height: 30px;
+}
+
+.cards-list .card-body {
+  padding: 4px 16px 16px;
+}
+
+.cards-list .card-foot {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 4px;
+}
+
+.cards-batches {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 14px;
+}
+
+.batch-card {
+  gap: 8px;
   padding: 16px;
 }
 
-.facts {
-  display: grid;
-  grid-template-columns: minmax(0, 10rem) minmax(0, 1fr);
-  gap: 4px 16px;
-  margin: 8px 0 0;
-}
-
-.facts dt {
-  color: var(--on-surface-variant);
-}
-
-.facts dd {
+.batch-card h3 {
   margin: 0;
+  font-size: 1.125rem;
+  line-height: 28px;
+}
+
+.batch-card .card-foot {
+  color: var(--on-surface);
+}
+
+/* Admissions, as a coloured pill: open, waitlist, closed. */
+.adm {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  font-size: 0.8125rem;
+  line-height: 20px;
+  font-weight: 700;
+}
+
+.adm-open {
+  background: var(--paid-container);
+  color: var(--on-paid-container);
+}
+
+.adm-waitlist {
+  background: var(--warn-container);
+  color: var(--on-warn-container);
+}
+
+.adm-closed {
+  background: var(--danger-container);
+  color: var(--on-danger-container);
+}
+
+.rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.rating .icon-star {
+  color: var(--star);
+}
+
+/* ---- Owner and batch pages -------------------------------------------- */
+
+.page-head {
+  background: var(--head-bg);
+  color: var(--head-fg);
+}
+
+.page-head-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 28px;
+  padding-bottom: 32px;
+}
+
+.page-head h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  line-height: 1.4;
+  font-weight: 800;
+}
+
+.page-head .lead {
+  max-width: 760px;
+  font-size: 1.125rem;
+  line-height: 28px;
+  color: var(--head-dim);
+}
+
+.crumbs {
+  font-size: 0.875rem;
+  line-height: 22px;
+  color: var(--head-dim);
+}
+
+.crumbs a,
+.page-head a {
+  color: var(--head-dim);
+}
+
+.crumbs a:hover {
+  color: var(--head-fg);
+}
+
+.head-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  margin-top: 4px;
+  font-size: 0.9375rem;
+}
+
+.head-meta p {
+  margin: 0;
+}
+
+.head-meta .meta {
+  color: var(--head-fg);
+}
+
+.page-head .rating {
+  font-size: 0.9375rem;
+}
+
+.page-head .rating .icon-star {
+  color: var(--head-star);
+}
+
+/*
+ * wrap-reverse puts the side card (fee, admissions, times) above the main
+ * column on a phone. It also flips the cross axis, so flex-end is the top.
+ */
+.detail {
+  display: flex;
+  flex-wrap: wrap-reverse;
+  align-items: flex-end;
+  gap: 24px;
+  padding-top: 28px;
+}
+
+.detail-main {
+  flex: 999 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.box,
+.reviews {
+  background: var(--surface);
+  border-radius: var(--r-card);
+  box-shadow: 0 0 0 1px var(--ring);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.box > *,
+.reviews > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.box h2,
+.reviews h2,
+.detail-section h2 {
+  font-size: 1.375rem;
+  line-height: 34px;
+}
+
+.detail-section h2 {
+  margin: 4px 0 12px;
+}
+
+.rows {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+.rows dt,
+.rows dd {
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--divider);
+}
+
+.rows dt {
+  color: var(--on-surface-variant);
+  padding-right: 12px;
+}
+
+.rows dd {
+  font-weight: 600;
+}
+
+.rows dt:first-of-type,
+.rows dt:first-of-type + dd {
+  border-top: 0;
+}
+
+.slot {
+  display: block;
+}
+
+.person {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.person p {
+  margin: 0;
+}
+
+.person-name {
+  font-size: 1.125rem;
+  line-height: 28px;
+  font-weight: 700;
+}
+
+.person .badge {
+  margin-top: 6px;
+}
+
+.more {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.side {
+  flex: 1 1 300px;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 1px var(--ring),
+    0 8px 24px var(--shadow);
+}
+
+.side p {
+  margin: 0;
+}
+
+.price .fee {
+  font-size: 2.125rem;
+  line-height: 48px;
+}
+
+.side-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 6.5rem) minmax(0, 1fr);
+  margin: 0;
+  border-top: 1px solid var(--divider);
+  font-size: 0.9375rem;
+}
+
+.side-facts dt,
+.side-facts dd {
+  margin: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.side-facts dt {
+  color: var(--on-surface-variant);
+  padding-right: 8px;
+}
+
+.side-facts dd {
+  font-weight: 700;
+}
+
+.phone {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.side-note {
+  font-size: 0.8125rem;
+}
+
+.side-note a {
+  color: var(--on-surface-variant);
 }
 
 /*
@@ -251,7 +1243,7 @@ h3 {
  */
 .gallery {
   list-style: none;
-  margin: 8px 0 0;
+  margin: 0;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
@@ -262,14 +1254,17 @@ h3 {
   display: block;
   width: 100%;
   height: auto;
-  border: 1px solid var(--outline-variant);
-  border-radius: var(--r-card);
-  background: var(--surface);
+  border-radius: 12px;
+  background: var(--background);
 }
 
 .photo p {
   margin: 4px 0 0;
   font-size: 0.875rem;
+}
+
+.photo a {
+  color: var(--on-surface-variant);
 }
 
 .pending {
@@ -281,32 +1276,12 @@ h3 {
   font-weight: 600;
 }
 
-.pager {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 24px 0;
-}
-
-.foot {
-  padding-top: 32px;
-  padding-bottom: 32px;
-  font-size: 0.875rem;
-}
-
-@media (max-width: 480px) {
-  .facts {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 /*
  * Reviews and ratings [H4]. The distribution is five <meter> elements,
  * sized here, never by an inline style the CSP would refuse.
  */
-.rating {
-  margin: 4px 0;
-  font-weight: 600;
+.reviews .rating {
+  font-size: 1rem;
 }
 
 .reviews .distribution {
@@ -314,7 +1289,7 @@ h3 {
   grid-template-columns: minmax(0, 6rem) minmax(0, 1fr);
   gap: 4px 12px;
   align-items: center;
-  margin: 8px 0 16px;
+  font-size: 0.9375rem;
 }
 
 .reviews .distribution dt {
@@ -337,33 +1312,113 @@ h3 {
 
 .review-list {
   list-style: none;
-  margin: 0;
   padding: 0;
   display: grid;
-  gap: 12px;
 }
 
 .review {
-  background: var(--surface);
-  border: 1px solid var(--outline-variant);
-  border-radius: var(--r-card);
-  padding: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--divider);
 }
 
 .review p {
   margin: 4px 0;
 }
 
+.review .meta {
+  font-size: 0.875rem;
+}
+
+.review a {
+  color: var(--on-surface-variant);
+  font-size: 0.875rem;
+}
+
 .stars {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .reply {
-  margin-top: 12px;
-  padding: 8px 12px;
-  border-left: 3px solid var(--primary-container);
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--soft);
 }
 
 .reply h3 {
-  font-size: 1rem;
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+/* ---- The two fixed pages, 404 and 429 --------------------------------- */
+
+.fixed {
+  max-width: 880px;
+  padding-top: 32px;
+}
+
+.fixed h1 {
+  font-size: 1.75rem;
+  line-height: 1.3;
+  margin: 8px 0 4px;
+}
+
+/* ---- Narrow screens ----------------------------------------------------- */
+
+@media (max-width: 720px) {
+  :root {
+    --gutter: 16px;
+  }
+
+  .nav {
+    display: none;
+  }
+
+  .hero-inner {
+    padding-top: 32px;
+    padding-bottom: 32px;
+  }
+
+  .hero h1 {
+    font-size: 2rem;
+  }
+
+  .lead {
+    font-size: 1.0625rem;
+    line-height: 28px;
+  }
+
+  .search-bar .field,
+  .search-bar .field-q {
+    flex-basis: 100%;
+    border-right: 0;
+    border-bottom: 1px solid var(--divider);
+  }
+
+  .search-bar button {
+    flex: 1 1 100%;
+    min-height: 56px;
+  }
+
+  .page-head h1 {
+    font-size: 1.75rem;
+  }
+
+  .panel,
+  .side {
+    max-width: none;
+  }
+
+  .callout {
+    padding: 24px;
+  }
+
+  .rows {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rows dd {
+    border-top: 0;
+    padding-top: 0;
+  }
 }

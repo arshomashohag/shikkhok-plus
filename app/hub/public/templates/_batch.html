@@ -1,32 +1,20 @@
-<dl class="facts">
+{#- A batch as a card on its owner's page: its admissions, classes and
+    subjects, then when it meets and who teaches it, then the fee where the
+    owner chose to show it. The batch page lays the same facts out in full. -#}
+{% from "_icons.html" import icon %}
+<p class="tags"><span class="adm adm-{{ batch.admissions }}">{{ m("batch_admissions") }}: {{ label("hub_batch_admissions_", batch.admissions) }}</span>{% if batch.class_levels %}<span class="tag">{{ labels("hub_level_", batch.class_levels) }}</span>{% endif %}</p>
 {% if batch.subjects %}
-<dt>{{ m("batch_subjects") }}</dt>
-<dd>{{ batch.subjects | join(", ") }}</dd>
-{% endif %}
-{% if batch.class_levels %}
-<dt>{{ m("batch_levels") }}</dt>
-<dd>{{ labels("hub_level_", batch.class_levels) }}</dd>
-{% endif %}
-{% if batch.curriculum %}
-<dt>{{ m("batch_curriculum") }}</dt>
-<dd>{{ label("hub_curriculum_", batch.curriculum) }}</dd>
-{% endif %}
-{% if batch.mode %}
-<dt>{{ m("batch_mode") }}</dt>
-<dd>{{ label("hub_mode_", batch.mode) }}</dd>
-{% endif %}
-<dt>{{ m("batch_admissions") }}</dt>
-<dd>{{ label("hub_batch_admissions_", batch.admissions) }}</dd>
-{% if batch.fee_display %}
-<dt>{{ m("batch_fee") }}</dt>
-<dd>{{ batch.fee_display }}</dd>
+<p class="line">{{ batch.subjects | join(", ") }}</p>
 {% endif %}
 {% if batch.schedule %}
-<dt>{{ m("batch_schedule") }}</dt>
-<dd>{% for slot in batch.schedule %}{{ weekday(slot.weekday) }} {{ slot.start }}–{{ slot.end }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
+<p class="line">{{ icon("clock", 16) }}<span>{% for slot in batch.schedule %}{{ weekday(slot.weekday) }} {{ slot.start }}–{{ slot.end }}{% if not loop.last %}, {% endif %}{% endfor %}</span></p>
+{% endif %}
+{% if batch.mode %}
+<p class="line">{{ icon("pin", 16) }}<span>{{ label("hub_mode_", batch.mode) }}</span></p>
 {% endif %}
 {% if batch.teacher_names %}
-<dt>{{ m("batch_teachers") }}</dt>
-<dd>{{ batch.teacher_names | join(", ") }}</dd>
+<p class="line">{{ icon("people", 16) }}<span>{{ batch.teacher_names | join(", ") }}</span></p>
 {% endif %}
-</dl>
+{% if batch.fee_display %}
+<p class="card-foot"><span><span class="fee">{{ batch.fee_display }}</span> <span class="muted">{{ m("per_month") }}</span></span></p>
+{% endif %}

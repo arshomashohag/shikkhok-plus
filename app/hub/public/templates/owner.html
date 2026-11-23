@@ -1,45 +1,48 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block content %}
 {% set owner = view.owner %}
+<section class="page-head">
+<div class="wrap page-head-inner">
+<nav class="crumbs" aria-label="{{ m('breadcrumb') }}"><a href="/hub/{{ locale }}">{{ m("hub_name") }}</a> <span aria-hidden="true">›</span> <span>{{ m("kind_" ~ owner.kind) }}</span></nav>
 <h1>{{ owner.public_name }}</h1>
-<p class="meta">{{ m("kind_" ~ owner.kind) }}{% if area(owner) %} · {{ area(owner) }}{% endif %}</p>
-{% with rating = owner.rating %}{% include "_rating.html" %}{% endwith %}
-{% if owner.runs_classes %}
-<p><span class="badge">{{ m("runs_classes") }}</span></p>
-{% endif %}
 {% if view.headline %}
 <p class="lead">{{ view.headline }}</p>
 {% endif %}
+<div class="head-meta">
+{% with rating = owner.rating %}{% include "_rating.html" %}{% endwith %}
+<p class="meta">{{ m("kind_" ~ owner.kind) }}{% if area(owner) %} · {{ area(owner) }}{% endif %}</p>
+{% if owner.runs_classes %}
+<p><span class="badge">{{ m("runs_classes") }}</span></p>
+{% endif %}
+</div>
+</div>
+</section>
+<div class="wrap detail">
+<div class="detail-main">
 {% if view.bio %}
+<section class="box">
 <h2>{{ m("owner_about") }}</h2>
 <p class="prose">{{ view.bio }}</p>
+</section>
 {% endif %}
-{% if view.qualifications or view.teaching_mode or view.street_address or view.public_contact_phone %}
-<dl class="facts">
 {% if view.qualifications %}
-<dt>{{ m("owner_qualifications") }}</dt>
-<dd class="prose">{{ view.qualifications }}</dd>
+<section class="box">
+<h2>{{ m("owner_qualifications") }}</h2>
+<p class="prose">{{ view.qualifications }}</p>
+</section>
 {% endif %}
-{% if view.teaching_mode %}
-<dt>{{ m("owner_teaching_mode") }}</dt>
-<dd>{{ labels("hub_mode_", view.teaching_mode) }}</dd>
-{% endif %}
-{% if view.street_address %}
-<dt>{{ m("owner_address") }}</dt>
-<dd>{{ view.street_address }}</dd>
-{% endif %}
-{% if view.public_contact_phone %}
-<dt>{{ m("owner_contact") }}</dt>
-<dd><a href="tel:{{ view.public_contact_phone }}">{{ view.public_contact_phone }}</a></dd>
-{% endif %}
-</dl>
-{% endif %}
+{% if view.images %}
+<section class="box">
 {% include "_gallery.html" %}
+</section>
+{% endif %}
+<section class="detail-section">
 <h2>{{ m("owner_batches") }}</h2>
 {% if view.batches %}
-<ul class="cards">
+<ul class="cards cards-batches">
 {% for batch in view.batches %}
-<li class="card">
+<li class="card batch-card">
 {% if preview %}
 <h3>{{ title(batch) }}</h3>
 {% else %}
@@ -53,8 +56,33 @@
 {% else %}
 <p class="muted">{{ m("owner_no_batches") }}</p>
 {% endif %}
-{% if meta.enquiry_href %}
-<p><a href="{{ meta.enquiry_href }}">{{ m("enquiry_link") }}</a></p>
+</section>
+</div>
+<aside class="side">
+<dl class="side-facts">
+<dt>{{ m("owner_kind") }}</dt>
+<dd>{{ m("kind_" ~ owner.kind) }}</dd>
+{% if area(owner) %}
+<dt>{{ m("batch_area") }}</dt>
+<dd>{{ area(owner) }}</dd>
 {% endif %}
-<p><a href="{{ meta.report_href }}">{{ m("report_page") }}</a></p>
+{% if view.teaching_mode %}
+<dt>{{ m("owner_teaching_mode") }}</dt>
+<dd>{{ labels("hub_mode_", view.teaching_mode) }}</dd>
+{% endif %}
+{% if view.street_address %}
+<dt>{{ m("owner_address") }}</dt>
+<dd>{{ view.street_address }}</dd>
+{% endif %}
+{% if view.public_contact_phone %}
+<dt>{{ m("owner_contact") }}</dt>
+<dd><a class="phone" href="tel:{{ view.public_contact_phone }}">{{ icon("phone", 16) }}<span>{{ view.public_contact_phone }}</span></a></dd>
+{% endif %}
+</dl>
+{% if meta.enquiry_href %}
+<a class="button button-block" href="{{ meta.enquiry_href }}">{{ m("enquiry_link") }}</a>
+{% endif %}
+<p class="side-note"><a href="{{ meta.report_href }}">{{ m("report_page") }}</a></p>
+</aside>
+</div>
 {% endblock %}
