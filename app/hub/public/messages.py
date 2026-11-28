@@ -231,6 +231,17 @@ MESSAGES: Final[dict[str, dict[Locale, str]]] = {
     # Join requests [H5]. Shown only while join requests are switched on and
     # the owner accepts them; "join request" is ভর্তির অনুরোধ, as the apps say.
     "enquiry_link": {"en": "Ask to join", "bn": "ভর্তির অনুরোধ পাঠান"},
+    # Interest in a batch [0049]: shown even when admissions are closed.
+    "interest_link": {
+        "en": "I'm interested: share my number",
+        "bn": "আমি আগ্রহী: আমার নম্বর শেয়ার করুন",
+    },
+    "interest_note": {
+        "en": "Signed in, you share the phone number on your account with the "
+        "teacher, so they can call you when a seat opens.",
+        "bn": "সাইন ইন করে আপনার অ্যাকাউন্টের ফোন নম্বর শিক্ষকের সঙ্গে শেয়ার করুন, "
+        "যাতে আসন খালি হলে তাঁরা আপনাকে ফোন করতে পারেন।",
+    },
     "enquiry_link_batch": {
         "en": "Ask to join this class",
         "bn": "এই ক্লাসে ভর্তির অনুরোধ পাঠান",

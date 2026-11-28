@@ -203,3 +203,53 @@ describe('My join requests', () => {
     expect(await screen.findByText(en('hub_enquiry_mine_empty'))).toBeInTheDocument()
   })
 })
+
+describe('Classes you are interested in [0049]', () => {
+  const INTERESTS = '/v1/me/hub/interests'
+  const interest = (over: Record<string, unknown> = {}) => ({
+    id: E1,
+    owner_public_name: 'Sumi Akter',
+    batch_title: 'Physics · Batch A',
+    status: 'open',
+    shared_on: '2026-11-28',
+    ...over,
+  })
+
+  it('More shows the row for an interest alone, and Take back deletes it', async () => {
+    let held = [interest(), interest({ id: E2, status: 'closed', batch_title: null })]
+    const calls = mockSignedIn((method, url) => {
+      if (method === 'GET' && url.endsWith(MINE)) return json(200, [])
+      if (method === 'GET' && url.endsWith(INTERESTS)) return json(200, held)
+      if (method === 'DELETE' && url.endsWith(`${INTERESTS}/${E1}`)) {
+        held = held.filter((i) => i.id !== E1)
+        return new Response(null, { status: 204 })
+      }
+      return undefined
+    }, 'guardian')
+    renderRoutes(ROUTES, '/more')
+    await userEvent.click(await screen.findByRole('link', { name: /My join requests/ }))
+
+    const list = await screen.findByRole('list', { name: en('web_hub_interest_mine_title') })
+    expect(within(list).getByText(en('web_hub_interest_open'))).toBeInTheDocument()
+    expect(within(list).getByText(en('web_hub_interest_seen'))).toBeInTheDocument()
+    expect(
+      within(list).getByText(new RegExp(en('web_hub_interest_class_gone'))),
+    ).toBeInTheDocument()
+
+    const [first] = within(list).getAllByRole('button', { name: en('web_hub_interest_withdraw') })
+    await userEvent.click(first!)
+    // Nothing is deleted until the confirmation says what it does.
+    expect(deletes(calls)).toEqual([])
+    expect(screen.getByText(en('web_hub_interest_withdraw_body'))).toBeInTheDocument()
+    const sheet = screen.getByRole('dialog')
+    await userEvent.click(
+      within(sheet).getByRole('button', { name: en('web_hub_interest_withdraw') }),
+    )
+    await waitFor(() =>
+      expect(deletes(calls).map((c) => c.url)).toEqual([
+        expect.stringContaining(`${INTERESTS}/${E1}`),
+      ]),
+    )
+    expect(await screen.findByText(en('web_hub_interest_withdrawn'))).toBeInTheDocument()
+  })
+})

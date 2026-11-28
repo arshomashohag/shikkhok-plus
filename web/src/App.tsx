@@ -83,6 +83,12 @@ const HUB_REPORT = lazyScreen(() => import('./features/common/HubReport'), 'HubR
 const HUB_ENQUIRY = lazyScreen(() => import('./features/common/HubEnquiry'), 'HubEnquiry')
 
 /**
+ * Sharing interest in a listed batch, opened from a public batch page's
+ * "I'm interested" link [0049]; any lens may share. A chunk of its own.
+ */
+const HUB_INTEREST = lazyScreen(() => import('./features/common/HubInterest'), 'HubInterest')
+
+/**
  * One batch's review, by its guardian author [H4]. The list loads with the
  * guardian home, whose entry it shares a module with; the editor on first use.
  */
@@ -152,6 +158,7 @@ function AppRoutes() {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/hub-report" element={<SignInThenReturn />} />
         <Route path="/hub-enquiry" element={<SignInThenReturn />} />
+        <Route path="/hub-interest" element={<SignInThenReturn />} />
         <Route path="*" element={<Navigate to="/signin" replace />} />
       </Routes>
     )
@@ -355,6 +362,7 @@ function AppRoutes() {
         ))}
         <Route path="/hub-report" element={HUB_REPORT} />
         <Route path="/hub-enquiry" element={HUB_ENQUIRY} />
+        <Route path="/hub-interest" element={HUB_INTEREST} />
         <Route path="/hub-enquiries" element={<MyEnquiries />} />
         <Route path="/invitations" element={<Invitations />} />
         <Route path="/more" element={<More />} />

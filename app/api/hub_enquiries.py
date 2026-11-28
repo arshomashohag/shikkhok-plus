@@ -57,6 +57,7 @@ from app.schemas.enquiries import (
     EnquiryTargetResponse,
     EnquiryWrite,
     InterestTargetResponse,
+    InterestWrite,
     MyEnquiryWire,
     MyInterestWire,
     OwnerEnquiryWire,
@@ -422,6 +423,7 @@ def get_interest_target(
 def share_interest(
     owner_slug: str,
     batch_id: uuid.UUID,
+    body: InterestWrite,
     session: Annotated[Session, Depends(get_session)],
     account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
 ) -> MyInterestWire:
@@ -431,10 +433,12 @@ def share_interest(
 
     :param owner_slug: The owner's public slug
     :param batch_id: The listed batch
+    :param body: The adult-guardian declaration; checked and not stored
     :param session: The request-scoped session
     :param account_id: The authenticated account
     :return: The interest as the family sees it
     """
+    del body  # Validated by its model; nothing in it is stored.
     shared = interest.share(session, account_id, owner_slug, batch_id, _now())
     return MyInterestWire.model_validate(dataclasses.asdict(shared))
 

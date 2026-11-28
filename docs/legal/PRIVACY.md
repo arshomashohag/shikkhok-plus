@@ -78,6 +78,7 @@ password is, and is deleted after a short period. We never log either.
 | Fee payments and claims | The teacher and the student | Both parties to that fee |
 | A review of a class on the public hub: a star rating and any words you add | A verified guardian of a student in that class, only if they choose to | Anyone, once we have checked it and the class has at least three published reviews; never with the guardian's name (see "Reviews" below) |
 | A reply to a review | The teacher or centre that runs the class | Anyone, with the review, once we have checked it |
+| Your interest in a class on the public hub: that you are interested, and the phone number on your account | A signed-in parent or guardian, only if they choose to | Only the teacher of that class, or the managers of the centre; never public, and never us (see "Interest in a class" below) |
 | A class's public listing: its title, description, classes, subjects, how it is taught, whether admissions are open, and, only if the teacher chooses, its fee, weekly times and seat counts | The teacher or centre that runs the class, only if they choose to publish it | Anyone, while it is published (see "Seat counts" below) |
 | A request to join a class on the public hub: the student's name and class, and any message you add | A signed-in parent or guardian, only if they choose to | Only the teacher it was sent to, or the managers of the centre; your phone number or email address only if you choose to share it; never public, and never us (see "Join requests" below) |
 
@@ -240,6 +241,33 @@ requests at all.
   when a solo teacher you sent it to deletes theirs. If join requests
   are switched off, you can still see and withdraw the ones you sent,
   and they are still deleted after 90 days.
+
+### Interest in a class
+
+Where join requests are offered, a parent or guardian can also tell a
+teacher or centre that they are interested in one of its listed classes,
+even a full one, so the teacher can call them when a place opens. It is
+offered on the same listings as join requests, and follows the same
+rules, with these differences:
+
+- **Nothing is typed.** An interest holds the class, the account that
+  shared it, and when; no child's name, no class level, no message. You
+  confirm, on each one, that you are a parent or guardian aged 18 or
+  over.
+- **Your phone number is always shared**, because that is what an
+  interest is: the teacher, or each manager of the centre, sees the
+  phone number on your account. It is read from your account while the
+  interest exists, not copied into it. An account with no phone number
+  cannot share an interest. The teacher never sees your name or anything
+  in your profile.
+- **The teacher contacts you outside the app**, by calling or messaging
+  the number. They can mark an interest done once they have; we do not
+  tell you, and you can still see it, as "seen", until it is deleted.
+- **Withdrawing it, and how long.** You can take an interest back at any
+  time from your join requests, and it is deleted completely, with every
+  notice about it. Every interest is deleted 90 days after you shared it,
+  and with your account, as a join request is. Never public, and never
+  seen by us.
 
 ---
 

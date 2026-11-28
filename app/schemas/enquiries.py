@@ -56,6 +56,7 @@ __all__ = [
     "EnquiryTargetResponse",
     "EnquiryWrite",
     "InterestTargetResponse",
+    "InterestWrite",
     "MyEnquiryWire",
     "MyInterestWire",
     "OwnerEnquiryWire",
@@ -110,6 +111,22 @@ class EnquiryWrite(BaseModel):
     ) = None
     batch_id: uuid.UUID | None = None
     share_contact: StrictBool
+    declares_adult_guardian: StrictTrue
+
+
+class InterestWrite(BaseModel):
+    """Share interest in a listed batch [0049].
+
+    Nothing is typed: the batch is the path's and the number the account's.
+    The sender declares, as for a join request, that they are a parent or
+    guardian and an adult, since a number shared with a stranger should
+    never be a child's.
+
+    :ivar declares_adult_guardian: Only ``true`` is accepted. Not stored
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
     declares_adult_guardian: StrictTrue
 
 

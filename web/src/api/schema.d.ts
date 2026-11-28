@@ -3544,6 +3544,7 @@ export interface paths {
      *
      *     :param owner_slug: The owner's public slug
      *     :param batch_id: The listed batch
+     *     :param body: The adult-guardian declaration; checked and not stored
      *     :param session: The request-scoped session
      *     :param account_id: The authenticated account
      *     :return: The interest as the family sees it
@@ -9458,6 +9459,24 @@ export interface components {
       has_phone: boolean
       /** Owner Public Name */
       owner_public_name: string
+    }
+    /**
+     * InterestWrite
+     * @description Share interest in a listed batch [0049].
+     *
+     *     Nothing is typed: the batch is the path's and the number the account's.
+     *     The sender declares, as for a join request, that they are a parent or
+     *     guardian and an adult, since a number shared with a stranger should
+     *     never be a child's.
+     *
+     *     :ivar declares_adult_guardian: Only ``true`` is accepted. Not stored
+     */
+    InterestWrite: {
+      /**
+       * Declares Adult Guardian
+       * @constant
+       */
+      declares_adult_guardian: true
     }
     /**
      * InvitationResponse
@@ -23504,7 +23523,11 @@ export interface operations {
       }
       cookie?: never
     }
-    requestBody?: never
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['InterestWrite']
+      }
+    }
     responses: {
       /** @description Successful Response */
       201: {

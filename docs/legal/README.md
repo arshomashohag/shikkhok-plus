@@ -315,6 +315,29 @@ release that ships the code: join requests ship off; `infra/README.md`,
   is not decided here. No new SDK, no new Android permission, no new
   identifier.
 
+**7. New: interest in a class [0049].** A signed-in parent or guardian
+can tell the teacher of a listed class, even a full one, that they are
+interested, so the teacher can call when a place opens. Stored as a
+second kind of join request (`listing_enquiry.kind = 'interest'`), on the
+same switch, the same owner opt-in, the same 90-day purge and the same
+deletion paths. **Review the Data Safety form against this before the
+release that turns join requests on**, as for item 6.
+
+- **Who shares.** A signed-in account with a phone number that declares,
+  on each interest, that it is a parent or guardian aged 18 or older.
+- **What is collected.** The class, the sharing account, its status and
+  when it was shared and closed. **Nothing typed**: no student name, no
+  class level, no message.
+- **Shared with whom.** The phone number already on the account, **always**
+  (an interest is the choice to share it), with the one teacher or the
+  managers of the one centre that runs the class, read live and never
+  copied. **Form category:** phone number, already declared as
+  collected, now also shared with the teacher or centre the user
+  chooses, at their request; purpose: app functionality. The same
+  judgement on Play's "shared" applies as in item 6.
+- **Never** public, never shown to platform administrators, and no new
+  SDK, permission or identifier.
+
 **Families target-audience declaration.** The app's audience includes
 children, so the declaration must say the app carries **user-generated
 content** (teachers' listing text and photos, guardians' reviews and

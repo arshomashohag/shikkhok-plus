@@ -712,14 +712,16 @@ def batch_page(
     owner = _owner_card(row, owner_ratings(session, [owner_slug]).get(owner_slug))
     names = _teacher_names(session, [batch.batch_id])
     ratings = batch_ratings(session, [batch.batch_id])
+    enquirable = _enquirable(session, owner_slug)
     return HubBatchPage(
         owner=owner,
         batch=_batch_card(batch, owner, names, locale, ratings),
         description=_localised(batch, "description", locale),
         syllabus=_localised(batch, "syllabus", locale),
         images=_images(session, locale, owner_slug, batch_slug),
-        enquiry_open=batch.admissions != "closed" and _enquirable(session, owner_slug),
+        enquiry_open=batch.admissions != "closed" and enquirable,
         reviews=batch_reviews(session, batch.batch_id, locale),
+        interest_open=enquirable,
     )
 
 

@@ -592,6 +592,25 @@ describe('class changes (PO-1, PO-10)', () => {
     }
   })
 
+  it("opens a family's interest on the owner's requests screen [0049]", () => {
+    const interested = one({
+      kind: 'hub_interest_received',
+      batch_name: 'Physics · Batch A',
+      amount: null,
+      period: null,
+      enrollment_id: null,
+      source_id: 'int-1',
+      preview: null,
+    })
+    expect(INBOX_KINDS).toContain('hub_interest_received')
+    expect(inboxBody(interested, t, (p) => p)).toBe('web_hub_interest_inbox_body()')
+    expect(targetOf(interested)).toEqual({ to: '/more/hub/enquiries', lens: 'teacher' })
+    expect(translate('en', TITLE_KEY.hub_interest_received, 'Physics · Batch A')).toBe(
+      'A family is interested · Physics · Batch A',
+    )
+    expect(BUNDLES.bn[TITLE_KEY.hub_interest_received]).toMatch(/[ঀ-৿]/)
+  })
+
   it('announces every kind it can draw, so the badge counts only those', () => {
     expect(INBOX_KINDS).toContain('class_cancelled')
     expect(INBOX_KINDS).toContain('class_rescheduled')
