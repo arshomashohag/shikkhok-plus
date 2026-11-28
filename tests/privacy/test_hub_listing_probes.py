@@ -150,8 +150,9 @@ def test_no_hub_schema_carries_a_phone_or_key_beyond_consented_contact() -> None
     # join-request routes under /v1/hub [H5]: the target, the send, and the
     # owner's list, read and close (the guardian's own list and withdrawal
     # are under /v1/me), and three interest routes [0049]: the target, the
-    # share and the owner's list (the owner's close is a 204).
-    assert checked == 28
+    # share and the owner's list (the owner's close is a 204), and the
+    # owner's page-view counts [0050].
+    assert checked == 29
     assert sorted(set(leaks) - CONSENTED) == []
     # The allowance names leaks that occur, so it cannot outlive them.
     assert CONSENTED <= set(leaks)

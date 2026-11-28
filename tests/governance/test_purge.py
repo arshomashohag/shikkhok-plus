@@ -494,6 +494,8 @@ def _plant(
         )
 
     assert age_column in {
+        # hub_page_view's day, planted as the planted moment's date.
+        "day",
         "issued_at",
         "attempted_at",
         "recorded_at",
