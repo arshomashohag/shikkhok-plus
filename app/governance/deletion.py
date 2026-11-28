@@ -362,6 +362,15 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
             "seven days. A deletion enqueues rows here rather than removing any."
         ),
     ),
+    "hub_page_view": _Target(
+        scope=Scope.NOT_PERSONAL,
+        column=None,
+        note=(
+            "One count per public page per day, naming no reader. A deletion "
+            "leaves it; a page that stops being public is counted no more, "
+            "and its counts age out after twelve months."
+        ),
+    ),
     "hub_moderation_event": _Target(
         scope=Scope.NOT_PERSONAL,
         column=None,

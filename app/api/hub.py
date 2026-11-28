@@ -33,7 +33,7 @@ from app.auth.ceilings import CeilingChecker
 from app.authz.lenses import CentreMemberLens, TeacherLens
 from app.db.models import OwnerListing
 from app.hub import areas, feedback
-from app.hub.listings import batches, owner
+from app.hub.listings import batches, owner, page_views
 from app.hub.listings.badge import runs_classes
 from app.hub.listings.batches import BatchListingUpdate, BatchListingView
 from app.hub.listings.checklist import (
@@ -60,12 +60,15 @@ from app.schemas.hub import (
     AreaOption,
     BatchListingResponse,
     BatchListingUpdateRequest,
+    BatchPageViewsWire,
     CentreMembershipResponse,
     ChecklistItemWire,
     ConsentRequest,
     HubFeedbackRequest,
     OwnerListingResponse,
     OwnerListingUpdateRequest,
+    PageViewsResponse,
+    PageViewsWire,
     PublishRequest,
     SlugAvailability,
 )
@@ -370,6 +373,41 @@ def slug_availability(
     """
     return SlugAvailability(
         slug=slug, available=owner.slug_available(session, slug, lens)
+    )
+
+
+@router.get(
+    "/hub/listing/views", response_model=PageViewsResponse, responses=_AUTH_ERRORS
+)
+def listing_views(
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    session: Annotated[Session, Depends(get_session)],
+) -> PageViewsResponse:
+    """Say how often the owner's public pages were viewed [0050].
+
+    Only the people who manage the listing read this; no public page or
+    search order uses it.
+
+    :param lens: The owner's lens; only this owner's pages are read
+    :param session: The request-scoped session
+    :return: The owner page's and each viewed batch page's counts
+    """
+    counts = page_views.for_owner(session, lens, bangladesh_today())
+    return PageViewsResponse(
+        owner_page=PageViewsWire(
+            last_7_days=counts.owner.last_7_days,
+            last_30_days=counts.owner.last_30_days,
+        ),
+        batches=[
+            BatchPageViewsWire(
+                batch_id=batch_id,
+                last_7_days=views.last_7_days,
+                last_30_days=views.last_30_days,
+            )
+            for batch_id, views in sorted(
+                counts.batches.items(), key=lambda item: str(item[0])
+            )
+        ],
     )
 
 

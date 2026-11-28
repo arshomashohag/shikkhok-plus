@@ -191,5 +191,10 @@
   "web_hub_interest_number_removed": "The family has since removed their number",
   "web_hub_interest_class_gone": "A class no longer listed",
   "web_hub_interest_failed": "That did not go through.",
-  "web_hub_interest_declaration_required": "Tick this to share your number."
+  "web_hub_interest_declaration_required": "Tick this to share your number.",
+  "web_hub_views_title": "Page views",
+  "web_hub_views_explain": "How many times your public pages were opened. This counts visits, not people, and nothing about who opened a page is kept.",
+  "web_hub_views_owner_page": "Your page",
+  "web_hub_views_counts": "{1} this week · {2} in 30 days",
+  "web_hub_views_batch_gone": "A class no longer listed"
 }

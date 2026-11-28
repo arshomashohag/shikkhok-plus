@@ -112,6 +112,42 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/hub/v/{kind}/{page_id}.gif': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Hub Page View
+     * @description Count one view of a published owner or batch page [0050].
+     *
+     *     **Only a number is written**: the page and the Bangladesh day, plus one.
+     *     Nothing about the request -- address, cookie, user agent, referrer or
+     *     account -- is read or stored. The read ceiling bounds how fast one
+     *     network can count, and a request over it, or naming no published page,
+     *     counts nothing. Every request gets the same image, so the answer says
+     *     nothing about whether a page exists.
+     *
+     *     Counting is best effort: a database failure is logged and the image is
+     *     still returned, since a missed count must never break a page.
+     *
+     *     :param kind: ``o`` for an owner page, ``b`` for a batch page
+     *     :param page_id: The page's public id
+     *     :param allowed: Whether this request was within the read ceiling
+     *     :param session: The request-scoped session, as the application role
+     *     :return: The 1x1 image
+     */
+    get: operations['hub_page_view_hub_v__kind___page_id__gif_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/hub/{locale}': {
     parameters: {
       query?: never
@@ -3368,6 +3404,33 @@ export interface paths {
      *     :return: The listing
      */
     post: operations['unpublish_listing_v1_hub_listing_unpublish_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/listing/views': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Listing Views
+     * @description Say how often the owner's public pages were viewed [0050].
+     *
+     *     Only the people who manage the listing read this; no public page or
+     *     search order uses it.
+     *
+     *     :param lens: The owner's lens; only this owner's pages are read
+     *     :param session: The request-scoped session
+     *     :return: The owner page's and each viewed batch page's counts
+     */
+    get: operations['listing_views_v1_hub_listing_views_get']
+    put?: never
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -7249,6 +7312,23 @@ export interface components {
       syllabus_bn?: string | null
       /** Syllabus En */
       syllabus_en?: string | null
+    }
+    /**
+     * BatchPageViewsWire
+     * @description One batch page's views.
+     *
+     *     :ivar batch_id: The batch
+     */
+    BatchPageViewsWire: {
+      /**
+       * Batch Id
+       * Format: uuid
+       */
+      batch_id: string
+      /** Last 30 Days */
+      last_30_days: number
+      /** Last 7 Days */
+      last_7_days: number
     }
     /**
      * BatchResponse
@@ -11141,6 +11221,33 @@ export interface components {
       reviews: components['schemas']['OwnerReviewWire'][]
     }
     /**
+     * PageViewsResponse
+     * @description How often the owner's public pages were viewed [0050].
+     *
+     *     Counts only: nothing about who viewed a page exists to send.
+     *
+     *     :ivar owner_page: The owner page's views
+     *     :ivar batches: Each batch page viewed in the last thirty days
+     */
+    PageViewsResponse: {
+      /** Batches */
+      batches: components['schemas']['BatchPageViewsWire'][]
+      owner_page: components['schemas']['PageViewsWire']
+    }
+    /**
+     * PageViewsWire
+     * @description One public page's views [0050]: loads of the page, not people.
+     *
+     *     :ivar last_7_days: Views in the last seven days, today included
+     *     :ivar last_30_days: Views in the last thirty days, today included
+     */
+    PageViewsWire: {
+      /** Last 30 Days */
+      last_30_days: number
+      /** Last 7 Days */
+      last_7_days: number
+    }
+    /**
      * PasswordChangeRequest
      * @description Set a first password, or change the current one.
      *
@@ -13967,6 +14074,56 @@ export interface operations {
         }
         content: {
           'text/html': string
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  hub_page_view_hub_v__kind___page_id__gif_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        kind: string
+        page_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description A 1x1 image, the same for every request */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'image/gif': string
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
         }
       }
       /** @description An unexpected failure; not retryable */
@@ -22930,6 +23087,62 @@ export interface operations {
       }
       /** @description Valid request; current state forbids it. Refetch and decide. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  listing_views_v1_hub_listing_views_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PageViewsResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
         headers: {
           [name: string]: unknown
         }

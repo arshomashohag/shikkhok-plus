@@ -148,6 +148,15 @@ button:focus-visible {
   left: -9999px;
 }
 
+/* The page-view counting image [0050]: loaded, never seen. */
+.view-pixel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
 .skip:focus {
   left: var(--gutter);
   top: var(--gutter);

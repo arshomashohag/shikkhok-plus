@@ -191,5 +191,10 @@
   "web_hub_interest_number_removed": "পরিবারটি পরে তাদের নম্বর সরিয়ে দিয়েছে",
   "web_hub_interest_class_gone": "যে ক্লাস আর তালিকায় নেই",
   "web_hub_interest_failed": "কাজটি হয়নি।",
-  "web_hub_interest_declaration_required": "নম্বর শেয়ার করতে এটিতে টিক দিন।"
+  "web_hub_interest_declaration_required": "নম্বর শেয়ার করতে এটিতে টিক দিন।",
+  "web_hub_views_title": "পেজ ভিউ",
+  "web_hub_views_explain": "আপনার পাবলিক পেজগুলো কতবার খোলা হয়েছে। এটি ভিজিট গোনে, মানুষ নয়; কে পেজ খুলেছেন, সে সম্পর্কে কিছুই রাখা হয় না।",
+  "web_hub_views_owner_page": "আপনার পেজ",
+  "web_hub_views_counts": "এই সপ্তাহে {1} · ৩০ দিনে {2}",
+  "web_hub_views_batch_gone": "যে ক্লাস আর তালিকায় নেই"
 }

@@ -4129,6 +4129,38 @@ class HubModerationEvent(Base):
     )
 
 
+#: The kind of public hub page a view count is for [0050].
+HUB_PAGE_KIND_VALUES: tuple[str, ...] = ("owner", "batch")
+
+_HUB_PAGE_KIND = PgEnum(*HUB_PAGE_KIND_VALUES, name="hub_page_kind", create_type=False)
+
+
+class HubPageView(Base):
+    """How often one public hub page was viewed on one day [0050].
+
+    One number per page per Bangladesh day, counted by the page's view
+    image, and nothing about any visitor: no address, cookie, agent or
+    account. Read only by the page's owner. Amends D9.
+
+    :ivar page_kind: ``owner`` or ``batch``
+    :ivar page_id: The owner id or batch id, both already public as report ids
+    :ivar day: The day in Bangladesh
+    :ivar views: Views counted that day, at least one
+    """
+
+    __tablename__ = "hub_page_view"
+
+    page_kind: Mapped[str] = mapped_column(_HUB_PAGE_KIND, primary_key=True)
+    page_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    day: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    views: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("views > 0", name=conv("ck_hub_page_view_views")),
+        Index("ix_hub_page_view_day", "day"),
+    )
+
+
 class CdnInvalidation(Base):
     """One edge-cache path a takedown asked CloudFront to evict [0041].
 

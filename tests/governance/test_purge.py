@@ -284,9 +284,10 @@ def test_every_finite_retention_class_has_a_window(
     # 11 since 0038 added `username_hold`, kept until its own expiry;
     # 12 since 0041 added `cdn_invalidation`, kept seven days;
     # 13 since 0043 added `media_object_task`, kept seven days once done;
-    # 14 since 0047 added `listing_enquiry`, kept 90 days from sending.
-    assert len(finite) == 14, (
-        f"the manifest now carries {len(finite)} finite windows, not 14."
+    # 14 since 0047 added `listing_enquiry`, kept 90 days from sending;
+    # 15 since 0050 added `hub_page_view`, kept twelve months by day.
+    assert len(finite) == 15, (
+        f"the manifest now carries {len(finite)} finite windows, not 15."
     )
 
 
@@ -449,6 +450,16 @@ def _plant(
                 "INSERT INTO cdn_invalidation (path, requested_at) VALUES (:path, :at)"
             ),
             {"path": _outbox_path_of(row_id), "at": at},
+        )
+    elif table == "hub_page_view":
+        # Keyed by page and day, with no id: the planted id is the page,
+        # and the day is the planted moment's date.
+        session.execute(
+            sa.text(
+                "INSERT INTO hub_page_view (page_kind, page_id, day, views) "
+                "VALUES ('owner', :id, CAST(:at AS date), 1)"
+            ),
+            shared,
         )
     elif table == "media_object_task":
         # Aged by `done_at`: a task is purgeable only once it is done.
@@ -670,6 +681,14 @@ def _exists(session: Session, table: str, row_id: uuid.UUID) -> bool:
             session.execute(
                 sa.text("SELECT 1 FROM media_object_task WHERE prefix = :p"),
                 {"p": _media_prefix_of(row_id)},
+            ).first()
+            is not None
+        )
+    if table == "hub_page_view":
+        return (
+            session.execute(
+                sa.text("SELECT 1 FROM hub_page_view WHERE page_id = :p"),
+                {"p": row_id},
             ).first()
             is not None
         )

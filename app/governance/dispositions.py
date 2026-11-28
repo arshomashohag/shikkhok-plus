@@ -815,6 +815,16 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "whoever's deletion removes it."
         ),
     ),
+    "hub_page_view": TableGovernance(
+        disposition=Disposition.NOT_PERSONAL,
+        retention=RetentionClass.MONTHS_12,
+        basis=(
+            "How many times each public hub page was viewed on each day, as "
+            "one number per page per day. Nothing about who viewed it is "
+            "kept: no address, cookie, device or account. Seen only by the "
+            "teacher or centre whose page it is."
+        ),
+    ),
     "cdn_invalidation": TableGovernance(
         disposition=Disposition.NOT_PERSONAL,
         retention=RetentionClass.DAYS_7,

@@ -269,6 +269,30 @@ rules, with these differences:
   and with your account, as a join request is. Never public, and never
   seen by us.
 
+### Page views
+
+We count how many times each public hub page — a teacher's or centre's
+page, and each of its class pages — is opened, so the teacher or centre
+can see whether its listing is being found. **We count, and that is
+all:**
+
+- **One number per page per day.** Opening a page adds one to that
+  page's count for the day. We do not record who opened it: no IP
+  address, no cookie, no device, no browser details, no account and no
+  page you came from are stored with the count, or anywhere else because
+  of it.
+- **How it is counted.** Each public page includes a tiny invisible
+  image, and loading it adds the view; nothing runs in your browser and
+  nothing is stored on your device. Like every hub page, loading it
+  counts against the short limit on how many hub pages one network may
+  open in a minute, which protects the site and is cleared within
+  minutes.
+- **Only the teacher or centre sees them**, for its own pages, as totals
+  for the last 7 and 30 days. Counts are never shown on a public page and
+  never used to order search results.
+- **Kept 12 months.** Each day's count is deleted after twelve months. A
+  teacher's own preview of their listing is not counted.
+
 ---
 
 ## Who can see what
@@ -395,6 +419,7 @@ These records are about how the service itself is running, not about any person.
 | A record that moderation acted on a hub listing, photo, review, reply or report; it holds no free text and names nobody | 12 months |
 | Addresses of public hub pages we asked our web cache to forget after a page was taken down; they name nobody | 7 days |
 | Counters that limit sign-in attempts | 48 hours |
+| How many times each public hub page was opened on each day: one number per page per day, which names nobody and records nothing about the person who opened it | 12 months |
 | Instructions to delete the image files of a photo that was taken down or deleted; they name nobody | 7 days |
 | The fixed list of Bangladesh divisions, districts, upazilas, city corporations and metropolitan thanas | no time limit |
 | When our scheduled jobs last ran; it names nobody | no time limit |
@@ -405,7 +430,7 @@ These records are about how the service itself is running, not about any person.
 
 **A coaching centre's public listing stays with the centre.** If you are a manager of a coaching centre and delete your account, what the centre published on the public hub -- its own page, its class pages and their photos, and its replies to reviews -- and its answers to whether the hub brought it students are kept, because they belong to the centre and not to you, and the centre's other managers may still run it. Your own account is removed as described above. A solo teacher's public listing is not kept: it is deleted with their account.
 
-<!-- governance manifest digest: 0c0e21b04122c604840a4fe355f893197587f328e8b9f912df7171b598355dc3
+<!-- governance manifest digest: a01dfeee1f9dd8c8fc82ee9c2d1e872d6d8a116990ee24539361c9f5417e7c06
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

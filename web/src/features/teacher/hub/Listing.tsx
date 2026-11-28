@@ -47,6 +47,7 @@ import {
   failureText,
   FailureBanner,
   OwnerEnquiriesEntry,
+  OwnerPageViews,
   OwnerReviewsEntry,
   StatusChip,
 } from './hubUi'
@@ -671,6 +672,7 @@ function Editor({ listing, onChanged }: { listing: ListingModel; onChanged: () =
       </p>
       {/* Only what the switch changed: the draft keeps whatever was typed. */}
       <EnquiriesSwitch listing={saved} readOnly={suspended} onSaved={setSaved} />
+      {saved.status === 'published' ? <OwnerPageViews /> : null}
       <OwnerReviewsEntry />
       <OwnerEnquiriesEntry />
 

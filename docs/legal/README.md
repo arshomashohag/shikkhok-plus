@@ -338,6 +338,22 @@ release that turns join requests on**, as for item 6.
 - **Never** public, never shown to platform administrators, and no new
   SDK, permission or identifier.
 
+**8. New: page-view counts [0050].** Each public owner and batch page
+carries a 1x1 image (`/hub/v/{o|b}/{id}.gif`, answered `no-store` so the
+edge cache passes it through), and each load adds one to
+`hub_page_view` for that page and Bangladesh day. **Nothing about the
+reader is stored**: no address, cookie, user agent, referrer or account;
+the table's four columns are the page kind, the page id, the day and the
+count, asserted by `tests/hub/test_page_views.py`. Only the owner reads
+the counts (`GET /v1/hub/listing/views`, the teacher lens), as 7- and
+30-day totals; no public page or search order uses them. Kept 12 months.
+The load counts against the hub's existing per-network minute read
+limit, a short-lived counter already in place for every hub page. The
+web app's hub pages are not the Android app, so the **app's** Data
+Safety answers are unchanged: no new SDK, permission or identifier, and
+nothing collected from app users. Whoever submits the form confirms that
+reading against Play's current definitions.
+
 **Families target-audience declaration.** The app's audience includes
 children, so the declaration must say the app carries **user-generated
 content** (teachers' listing text and photos, guardians' reviews and

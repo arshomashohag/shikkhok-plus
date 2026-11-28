@@ -151,11 +151,12 @@ def test_the_public_route_count_is_unchanged_by_this_unit() -> None:
     count at eight; the admin and app MFA sign-in routes later moved it to
     twelve [0028], password sign-in and setup to fourteen [0032], and the
     public username lookup to fifteen [U1: BR3.5], and the public hub's
-    four pages to nineteen [H2], with no deletion route among them.
+    four pages to nineteen [H2], and its page-view counting image to
+    twenty [0050], with no deletion route among them.
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 19
+    assert len(PUBLIC_ROUTES) == 20
     assert ("GET", "/account-deletion") in PUBLIC_ROUTES
     assert ("POST", "/account-deletion") in PUBLIC_ROUTES
 

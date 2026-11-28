@@ -2603,6 +2603,33 @@
         "title": "BatchListingUpdateRequest",
         "type": "object"
       },
+      "BatchPageViewsWire": {
+        "description": "One batch page's views.\n\n:ivar batch_id: The batch",
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "last_30_days": {
+            "minimum": 0.0,
+            "title": "Last 30 Days",
+            "type": "integer"
+          },
+          "last_7_days": {
+            "minimum": 0.0,
+            "title": "Last 7 Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batch_id",
+          "last_30_days",
+          "last_7_days"
+        ],
+        "title": "BatchPageViewsWire",
+        "type": "object"
+      },
       "BatchResponse": {
         "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar subject_options: The same subjects with their keys, in the same\n    order, for the writes that name one\n:ivar schedule: The weekly classes, in weekday then time order -- the\n    \"Mon Wed · 4:00 pm\" line on the batch list (T6)\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side. The\n    **denominator** of \"9 of 12 accepted\", and it counts every seat\n    the teacher created including declined ones [BR1.4]\n:ivar accepted_count: How many of those seats at least one link has\n    accepted [BR1.2], computed server-side and **never counted by\n    the client** [BR1.3, TC-9]. A client counting rows is a client\n    deciding what counts as accepted, and it is wrong the moment the\n    roster paginates because it can only count the rows it holds",
         "properties": {
@@ -9682,6 +9709,48 @@
         "title": "OwnerReviewsResponse",
         "type": "object"
       },
+      "PageViewsResponse": {
+        "description": "How often the owner's public pages were viewed [0050].\n\nCounts only: nothing about who viewed a page exists to send.\n\n:ivar owner_page: The owner page's views\n:ivar batches: Each batch page viewed in the last thirty days",
+        "properties": {
+          "batches": {
+            "items": {
+              "$ref": "#/components/schemas/BatchPageViewsWire"
+            },
+            "title": "Batches",
+            "type": "array"
+          },
+          "owner_page": {
+            "$ref": "#/components/schemas/PageViewsWire"
+          }
+        },
+        "required": [
+          "batches",
+          "owner_page"
+        ],
+        "title": "PageViewsResponse",
+        "type": "object"
+      },
+      "PageViewsWire": {
+        "description": "One public page's views [0050]: loads of the page, not people.\n\n:ivar last_7_days: Views in the last seven days, today included\n:ivar last_30_days: Views in the last thirty days, today included",
+        "properties": {
+          "last_30_days": {
+            "minimum": 0.0,
+            "title": "Last 30 Days",
+            "type": "integer"
+          },
+          "last_7_days": {
+            "minimum": 0.0,
+            "title": "Last 7 Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "last_30_days",
+          "last_7_days"
+        ],
+        "title": "PageViewsWire",
+        "type": "object"
+      },
       "PasswordChangeRequest": {
         "additionalProperties": false,
         "description": "Set a first password, or change the current one.\n\n:ivar current_password: Required when the account has a password\n:ivar new_password: The new one",
@@ -15096,6 +15165,78 @@
           }
         },
         "summary": "Hub Sitemap",
+        "tags": [
+          "hub-public"
+        ]
+      }
+    },
+    "/hub/v/{kind}/{page_id}.gif": {
+      "get": {
+        "description": "Count one view of a published owner or batch page [0050].\n\n**Only a number is written**: the page and the Bangladesh day, plus one.\nNothing about the request -- address, cookie, user agent, referrer or\naccount -- is read or stored. The read ceiling bounds how fast one\nnetwork can count, and a request over it, or naming no published page,\ncounts nothing. Every request gets the same image, so the answer says\nnothing about whether a page exists.\n\nCounting is best effort: a database failure is logged and the image is\nstill returned, since a missed count must never break a page.\n\n:param kind: ``o`` for an owner page, ``b`` for a batch page\n:param page_id: The page's public id\n:param allowed: Whether this request was within the read ceiling\n:param session: The request-scoped session, as the application role\n:return: The 1x1 image",
+        "operationId": "hub_page_view_hub_v__kind___page_id__gif_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "title": "Page Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/gif": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "A 1x1 image, the same for every request"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Page View",
         "tags": [
           "hub-public"
         ]
@@ -26550,6 +26691,68 @@
           }
         },
         "summary": "Unpublish Listing",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/listing/views": {
+      "get": {
+        "description": "Say how often the owner's public pages were viewed [0050].\n\nOnly the people who manage the listing read this; no public page or\nsearch order uses it.\n\n:param lens: The owner's lens; only this owner's pages are read\n:param session: The request-scoped session\n:return: The owner page's and each viewed batch page's counts",
+        "operationId": "listing_views_v1_hub_listing_views_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageViewsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Listing Views",
         "tags": [
           "hub"
         ]
