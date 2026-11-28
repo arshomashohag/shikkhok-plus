@@ -233,6 +233,9 @@ class BatchListingUpdateRequest(BaseModel):
     :ivar admissions: ``open``, ``waitlist`` or ``closed``
     :ivar show_fee: Whether the fee is public
     :ivar show_schedule: Whether the weekly timetable is public
+    :ivar show_seats: Whether the seat counts are public; needs both counts
+    :ivar seat_capacity: How many seats the batch has, as the owner states it
+    :ivar seats_free: How many of them are free, as the owner states it
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -250,6 +253,11 @@ class BatchListingUpdateRequest(BaseModel):
     admissions: Admissions | None = None
     show_fee: bool | None = None
     show_schedule: bool | None = None
+    show_seats: bool | None = None
+    # The column's range; the 1-to-500 rule, and that the free count fits
+    # the capacity, are the service's, which answers with a message key.
+    seat_capacity: int | None = Field(default=None, ge=0, le=32767)
+    seats_free: int | None = Field(default=None, ge=0, le=32767)
 
 
 class BatchListingResponse(BaseModel):
@@ -275,6 +283,10 @@ class BatchListingResponse(BaseModel):
     :ivar admissions: ``open``, ``waitlist`` or ``closed``
     :ivar show_fee: Whether the fee is public, or None before a listing
     :ivar show_schedule: Whether the timetable is public, or None
+    :ivar show_seats: Whether the seat counts are public, or None
+    :ivar seat_capacity: How many seats the owner stated, or None
+    :ivar seats_free: How many free seats the owner stated, or None
+    :ivar seats_updated_at: When the owner last changed either count
     :ivar fee: The batch fee, only while ``show_fee`` is set
     :ivar teacher_names: The teachers the page may name
     :ivar checklist: Each requirement and whether it is met
@@ -298,6 +310,10 @@ class BatchListingResponse(BaseModel):
     admissions: Admissions | None
     show_fee: bool | None
     show_schedule: bool | None
+    show_seats: bool | None
+    seat_capacity: int | None
+    seats_free: int | None
+    seats_updated_at: dt.datetime | None
     fee: MoneyField | None
     teacher_names: list[str]
     checklist: list[ChecklistItemWire]

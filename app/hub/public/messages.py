@@ -120,6 +120,21 @@ MESSAGES: Final[dict[str, dict[Locale, str]]] = {
     "details_heading": {"en": "Details", "bn": "বিস্তারিত"},
     "where_heading": {"en": "When and where", "bn": "কখন ও কোথায়"},
     "batch_area": {"en": "Area", "bn": "এলাকা"},
+    # Seats [0048]: the owner's own two numbers, never counted from a
+    # roster, and the day they last changed them.
+    "seats_heading": {"en": "Seats", "bn": "আসন"},
+    "seats_free_of": {
+        "en": "{free} of {total} seats free",
+        "bn": "{total}টি আসনের মধ্যে {free}টি খালি",
+    },
+    "seats_full": {
+        "en": "Full: all {total} seats taken",
+        "bn": "আসন পূর্ণ: {total}টি আসনই ভরা",
+    },
+    "seats_updated": {
+        "en": "Seats updated by the teacher on {date}",
+        "bn": "শিক্ষক আসনের তথ্য হালনাগাদ করেছেন {date}",
+    },
     "owner_kind": {"en": "Listed as", "bn": "ধরন"},
     "batch_offered_by": {"en": "by {name}", "bn": "{name}-এর ব্যাচ"},
     "about_teacher": {"en": "About the teacher", "bn": "শিক্ষক পরিচিতি"},

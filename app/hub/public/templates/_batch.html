@@ -12,6 +12,9 @@
 {% if batch.mode %}
 <p class="line">{{ icon("pin", 16) }}<span>{{ label("hub_mode_", batch.mode) }}</span></p>
 {% endif %}
+{% if batch.seats %}
+<p class="line seats-{{ seats_level(batch.seats) }}">{{ icon("seat", 16) }}<span>{{ seats_line(batch.seats) }}</span></p>
+{% endif %}
 {% if batch.teacher_names %}
 <p class="line">{{ icon("people", 16) }}<span>{{ batch.teacher_names | join(", ") }}</span></p>
 {% endif %}

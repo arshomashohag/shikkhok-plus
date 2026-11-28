@@ -194,6 +194,10 @@ def _batch_response(
             "admissions": None,
             "show_fee": None,
             "show_schedule": None,
+            "show_seats": None,
+            "seat_capacity": None,
+            "seats_free": None,
+            "seats_updated_at": None,
         }
         if listing is not None:
             for name in fields:

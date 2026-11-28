@@ -51,6 +51,7 @@ from app.hub.public.views import (
     HubReview,
     HubSearchPage,
     HubSitemap,
+    PublicSeats,
 )
 
 __all__ = [
@@ -97,6 +98,9 @@ _BROWSE_LEVELS: Final[tuple[str, ...]] = (
     "o_level",
     "a_level",
 )
+
+#: At or below this many free seats a batch reads as nearly full.
+_FEW_SEATS: Final[int] = 3
 
 #: How much of a headline or description becomes the meta description.
 _DESCRIPTION_LENGTH: Final[int] = 160
@@ -504,6 +508,37 @@ def _helpers(locale: Locale) -> dict[str, Any]:
         """
         return _report_href("reply", review.review_id)
 
+    def seats_line(seats: PublicSeats) -> str:
+        """Say how many seats are free, or that the batch is full.
+
+        :param seats: The batch's seats
+        :return: The line
+        """
+        if seats.free == 0:
+            return t("seats_full", locale, total=seats.capacity)
+        return t("seats_free_of", locale, free=seats.free, total=seats.capacity)
+
+    def seats_updated(seats: PublicSeats) -> str:
+        """Say when the owner last changed the seats: the day and month.
+
+        :param seats: The batch's seats
+        :return: The line, its day in Latin digits as the app writes them
+        """
+        day = seats.updated_on
+        month = t(f"month_{day.month}", locale)
+        return t("seats_updated", locale, date=f"{day.day} {month} {day.year}")
+
+    def seats_level(seats: PublicSeats) -> str:
+        """Name how full a batch is, for its colour: full, few or open.
+
+        :param seats: The batch's seats
+        :return: ``full`` at none free, ``few`` at three or fewer, else
+            ``open``
+        """
+        if seats.free == 0:
+            return "full"
+        return "few" if seats.free <= _FEW_SEATS else "open"
+
     def title(batch: HubBatchCard) -> str:
         """Name a batch by its public title, never by ``batch.name``.
 
@@ -524,6 +559,9 @@ def _helpers(locale: Locale) -> dict[str, Any]:
         "report_review": report_review,
         "report_reply": report_reply,
         "title": title,
+        "seats_line": seats_line,
+        "seats_updated": seats_updated,
+        "seats_level": seats_level,
     }
 
 

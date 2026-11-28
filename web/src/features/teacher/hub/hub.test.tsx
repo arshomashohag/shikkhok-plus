@@ -324,6 +324,10 @@ const batch = (over: Record<string, unknown> = {}) => ({
   admissions: null,
   show_fee: true,
   show_schedule: false,
+  show_seats: false,
+  seat_capacity: null,
+  seats_free: null,
+  seats_updated_at: null,
   fee: '1200.00',
   teacher_names: ['Centre faculty'],
   checklist: [{ key: 'slug', done: false }],
@@ -350,6 +354,18 @@ describe('BatchListings', () => {
     fetchMock.mockResolvedValue(json(200, [batch({ fee: null, show_fee: false })]))
     renderScreen(<BatchListings />)
     expect(await screen.findByText('Fee not shown publicly')).toBeInTheDocument()
+  })
+
+  it('shows the seats the owner typed only while they are shown', async () => {
+    fetchMock.mockResolvedValue(
+      json(200, [
+        batch({ batch_id: 'b1', show_seats: true, seat_capacity: 18, seats_free: 4 }),
+        batch({ batch_id: 'b2', batch_name: 'Physics B', seat_capacity: 18, seats_free: 4 }),
+      ]),
+    )
+    renderScreen(<BatchListings />)
+    expect(await screen.findByText('4 of 18 seats free')).toBeInTheDocument()
+    expect(screen.getByText('Seats not shown publicly')).toBeInTheDocument()
   })
 
   it('wraps a long Bangla batch name instead of truncating it', async () => {
@@ -517,6 +533,53 @@ describe('NameConsent', () => {
     const { container } = renderScreen(<NameConsent />)
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     expect(container.querySelector('input')).toBeNull()
+  })
+})
+
+describe('batch seats', () => {
+  /** Open the editor on one batch and capture the body its save sends. */
+  async function save(
+    start: Record<string, unknown>,
+    edit: (dialog: HTMLElement) => Promise<void>,
+  ): Promise<Record<string, unknown>> {
+    let body: Record<string, unknown> | null = null
+    fetchMock.mockImplementation(async (url: string, init: RequestInit = {}) => {
+      if (url.endsWith('/v1/hub/batch-listings')) return json(200, [batch(start)])
+      if (url.endsWith('/v1/batches/b1/listing') && init.method === 'PUT') {
+        body = JSON.parse(init.body as string)
+        return json(200, batch(start))
+      }
+      if (url.includes('/v1/hub/media')) return json(200, [])
+      return json(404, {})
+    })
+    renderScreen(<BatchListings />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    await edit(dialog)
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(body).not.toBeNull())
+    return body as unknown as Record<string, unknown>
+  }
+
+  it('sends the typed counts as numbers with the choice to show them', async () => {
+    const body = await save({}, async (dialog) => {
+      await userEvent.click(within(dialog).getByLabelText('Show the seats publicly'))
+      await userEvent.type(within(dialog).getByLabelText('Seats in the batch'), '18')
+      await userEvent.type(within(dialog).getByLabelText('Seats free now'), '4')
+    })
+    expect(body).toMatchObject({ show_seats: true, seat_capacity: 18, seats_free: 4 })
+  })
+
+  it('reopens with the saved counts, and a blank count is not sent', async () => {
+    const body = await save(
+      { show_seats: true, seat_capacity: 18, seats_free: 4 },
+      async (dialog) => {
+        expect(within(dialog).getByLabelText('Seats in the batch')).toHaveValue(18)
+        await userEvent.clear(within(dialog).getByLabelText('Seats free now'))
+      },
+    )
+    expect(body.seat_capacity).toBe(18)
+    expect('seats_free' in body).toBe(false)
   })
 })
 

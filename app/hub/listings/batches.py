@@ -20,6 +20,7 @@ from app.db.models import (
     HUB_ADMISSIONS_VALUES,
     HUB_CLASS_LEVELS,
     HUB_CURRICULA,
+    HUB_MAX_SEATS,
     HUB_TEACHING_MODE_VALUES,
     Batch,
     BatchListing,
@@ -85,6 +86,11 @@ class BatchListingUpdate:
     :ivar admissions: Whether admissions are open
     :ivar show_fee: Whether the fee is public; required on first save
     :ivar show_schedule: Whether the timetable is public; required on first save
+    :ivar show_seats: Whether the seat counts are public; showing them needs
+        both counts
+    :ivar seat_capacity: How many seats the batch has, 1 to
+        :data:`~app.db.models.HUB_MAX_SEATS`
+    :ivar seats_free: How many of them are free, 0 to the total
     """
 
     slug: str | None = None
@@ -100,6 +106,9 @@ class BatchListingUpdate:
     admissions: str | None = None
     show_fee: bool | None = None
     show_schedule: bool | None = None
+    show_seats: bool | None = None
+    seat_capacity: int | None = None
+    seats_free: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -236,6 +245,56 @@ def _check_vocabulary(changes: BatchListingUpdate) -> None:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class _Seats:
+    """The seat columns a listing will hold once an edit is applied.
+
+    :ivar show: Whether the counts are public
+    :ivar capacity: How many seats, or None
+    :ivar free: How many are free, or None
+    """
+
+    show: bool
+    capacity: int | None
+    free: int | None
+
+
+def _seats_after(listing: BatchListing | None, changes: BatchListingUpdate) -> _Seats:
+    """Work out the seat columns an edit leaves, refusing counts that cannot hold.
+
+    Called before anything is changed, so a refusal leaves the listing as
+    it was. The counts are the owner's own statement and are checked only
+    for shape: a total of 1 to :data:`~app.db.models.HUB_MAX_SEATS`, a free
+    count from 0 to that total, and both present before they are shown.
+    The database holds the same rules as CHECKs [0048].
+
+    :param listing: The listing before the edit, or None for a first save
+    :param changes: The edits
+    :return: The seat columns after the edit
+    :raises ValidationError: The counts are out of range or inconsistent,
+        or seats would be shown without both counts
+    """
+    total = listing.seat_capacity if listing is not None else None
+    free = listing.seats_free if listing is not None else None
+    show = listing.show_seats if listing is not None else False
+    if changes.seat_capacity is not None:
+        total = changes.seat_capacity
+    if changes.seats_free is not None:
+        free = changes.seats_free
+    if changes.show_seats is not None:
+        show = changes.show_seats
+    valid = (
+        (total is None or 1 <= total <= HUB_MAX_SEATS)
+        and (free is None or (total is not None and 0 <= free <= total))
+        and (not show or (total is not None and free is not None))
+    )
+    if not valid:
+        raise ValidationError(
+            code="HUB_BATCH_SEATS_INVALID", message_key="hub.batch_seats_invalid"
+        )
+    return _Seats(show=bool(show), capacity=total, free=free)
+
+
 def upsert(
     session: Session,
     lens: TeacherLens,
@@ -252,8 +311,9 @@ def upsert(
     :raises BatchNotFound: No such batch, or another owner's
     :raises ConflictError: The listing is suspended or the slug is taken
     :raises ValidationError: A value is malformed or carries a phone number,
-        the first save omits ``show_fee`` or ``show_schedule``, or an edit
-        would leave a live listing incomplete
+        the first save omits ``show_fee`` or ``show_schedule``, the seat
+        counts are out of range or inconsistent, or an edit would leave a
+        live listing incomplete
     """
     _owned_batch(session, lens=lens, batch_id=batch_id)
     listing = _locked(session, batch_id)
@@ -273,6 +333,7 @@ def upsert(
     if changes.slug is not None:
         require_slug_shape(changes.slug)
     _check_vocabulary(changes)
+    seats = _seats_after(listing, changes)
 
     if listing is None:
         listing = BatchListing(
@@ -284,6 +345,7 @@ def upsert(
             subject_tags=[],
             admissions="open",
             status="draft",
+            show_seats=False,
         )
         session.add(listing)
     if changes.show_fee is not None:
@@ -307,6 +369,12 @@ def upsert(
     if changes.admissions is not None:
         listing.admissions = changes.admissions
     listing.updated_at = dt.datetime.now(tz=dt.UTC)
+    # Changing either count stamps when, which the page shows as freshness.
+    if (seats.capacity, seats.free) != (listing.seat_capacity, listing.seats_free):
+        listing.seats_updated_at = listing.updated_at
+    listing.show_seats = seats.show
+    listing.seat_capacity = seats.capacity
+    listing.seats_free = seats.free
     if listing.status != "draft":
         _require_complete(session, listing)
     flush_slug_unique(session, _UNIQUE_SLUG)

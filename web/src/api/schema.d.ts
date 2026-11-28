@@ -6927,6 +6927,10 @@ export interface components {
      *     :ivar admissions: ``open``, ``waitlist`` or ``closed``
      *     :ivar show_fee: Whether the fee is public, or None before a listing
      *     :ivar show_schedule: Whether the timetable is public, or None
+     *     :ivar show_seats: Whether the seat counts are public, or None
+     *     :ivar seat_capacity: How many seats the owner stated, or None
+     *     :ivar seats_free: How many free seats the owner stated, or None
+     *     :ivar seats_updated_at: When the owner last changed either count
      *     :ivar fee: The batch fee, only while ``show_fee`` is set
      *     :ivar teacher_names: The teachers the page may name
      *     :ivar checklist: Each requirement and whether it is met
@@ -6979,10 +6983,18 @@ export interface components {
       public_title: string | null
       /** Publishable */
       publishable: boolean
+      /** Seat Capacity */
+      seat_capacity: number | null
+      /** Seats Free */
+      seats_free: number | null
+      /** Seats Updated At */
+      seats_updated_at: string | null
       /** Show Fee */
       show_fee: boolean | null
       /** Show Schedule */
       show_schedule: boolean | null
+      /** Show Seats */
+      show_seats: boolean | null
       /** Slug */
       slug: string | null
       /**
@@ -7020,6 +7032,9 @@ export interface components {
      *     :ivar admissions: ``open``, ``waitlist`` or ``closed``
      *     :ivar show_fee: Whether the fee is public
      *     :ivar show_schedule: Whether the weekly timetable is public
+     *     :ivar show_seats: Whether the seat counts are public; needs both counts
+     *     :ivar seat_capacity: How many seats the batch has, as the owner states it
+     *     :ivar seats_free: How many of them are free, as the owner states it
      */
     BatchListingUpdateRequest: {
       /** Admissions */
@@ -7060,10 +7075,16 @@ export interface components {
       mode?: ('home_visit' | 'in_person' | 'online') | '' | null
       /** Public Title */
       public_title?: string | null
+      /** Seat Capacity */
+      seat_capacity?: number | null
+      /** Seats Free */
+      seats_free?: number | null
       /** Show Fee */
       show_fee?: boolean | null
       /** Show Schedule */
       show_schedule?: boolean | null
+      /** Show Seats */
+      show_seats?: boolean | null
       /** Slug */
       slug?: string | null
       /** Subject Tags */

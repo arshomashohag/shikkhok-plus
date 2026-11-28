@@ -114,6 +114,7 @@
     "hub.area_mismatch",
     "hub.batch_flags_required",
     "hub.batch_inactive",
+    "hub.batch_seats_invalid",
     "hub.batch_value_invalid",
     "hub.consent_outdated",
     "hub.enquiry.already_closed",

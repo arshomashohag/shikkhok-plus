@@ -40,6 +40,10 @@
 <dt>{{ m("batch_subjects") }}</dt>
 <dd>{{ batch.subjects | join(", ") }}</dd>
 {% endif %}
+{% if batch.seats %}
+<dt>{{ m("seats_heading") }}</dt>
+<dd>{{ seats_line(batch.seats) }}</dd>
+{% endif %}
 {% if batch.class_levels %}
 <dt>{{ m("batch_levels") }}</dt>
 <dd>{{ labels("hub_level_", batch.class_levels) }}</dd>
@@ -85,6 +89,16 @@
 <p class="price"><span class="fee">{{ batch.fee_display }}</span> <span class="muted">{{ m("per_month") }}</span></p>
 {% endif %}
 <p><span class="adm adm-{{ batch.admissions }}">{{ m("batch_admissions") }}: {{ label("hub_batch_admissions_", batch.admissions) }}</span></p>
+{% if batch.seats %}
+{#- The bar is a <meter> sized by hub.css, never an inline width the CSP
+    would refuse; the words beside it carry the numbers, so it is hidden
+    from assistive technology. -#}
+<div class="seats seats-{{ seats_level(batch.seats) }}">
+<p class="seats-line">{{ seats_line(batch.seats) }}</p>
+<meter min="0" max="{{ batch.seats.capacity }}" value="{{ batch.seats.capacity - batch.seats.free }}" aria-hidden="true"></meter>
+<p class="side-note">{{ seats_updated(batch.seats) }}</p>
+</div>
+{% endif %}
 <dl class="side-facts">
 {% if batch.schedule %}
 <dt>{{ m("batch_schedule") }}</dt>

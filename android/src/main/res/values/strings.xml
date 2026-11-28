@@ -2053,6 +2053,7 @@
     <string name="hub_owner_not_published">Publish your own listing first, then publish this batch.</string>
     <string name="hub_feedback_not_asked">This question was not asked for this listing, so there is nothing to answer.</string>
     <string name="hub_batch_value_invalid">One of the chosen options is not allowed. Pick from the list.</string>
+    <string name="hub_batch_seats_invalid">Check the seats: a batch has 1 to 500 seats, free seats can\'t be more than the total, and both are needed to show them.</string>
     <string name="hub_more_title">Public listing</string>
     <string name="hub_more_sub">Your page on ShikkhokPlus that parents can find</string>
     <string name="hub_title">Public listing</string>
