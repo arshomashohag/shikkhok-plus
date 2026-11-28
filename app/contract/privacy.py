@@ -222,11 +222,18 @@ ENQUIRY_FORBIDDEN_FIELDS: Final[frozenset[str]] = (
 
 #: The routes whose responses :func:`enquiry_field_leaks` walks: all seven
 #: join-request routes -- the guardian's target, send, own list and
-#: withdrawal, and the owner's list, read and close.
-#: ``tests/contract/test_enquiry_privacy.py`` asserts the seven and that
-#: each is registered.
+#: withdrawal, and the owner's list, read and close -- and the six interest
+#: routes [0049]: the family's target, share, own list and withdrawal, and
+#: the owner's list and close. ``tests/contract/test_enquiry_privacy.py``
+#: asserts the thirteen and that each is registered.
 ENQUIRY_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
     {
+        ("GET", "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest-target"),
+        ("POST", "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest"),
+        ("GET", "/v1/me/hub/interests"),
+        ("DELETE", "/v1/me/hub/interests/{interest_id}"),
+        ("GET", "/v1/hub/interests"),
+        ("POST", "/v1/hub/interests/{interest_id}/close"),
         ("GET", "/v1/hub/owners/{owner_slug}/enquiry-target"),
         ("POST", "/v1/hub/owners/{owner_slug}/enquiries"),
         ("GET", "/v1/me/hub/enquiries"),
@@ -238,9 +245,14 @@ ENQUIRY_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
 )
 
 #: The guardian's side of :data:`ENQUIRY_ROUTES`: the target, the send, and
-#: the guardian's own list and withdrawal. The rest are the owner's three.
+#: the guardian's own list and withdrawal, for a request and for an
+#: interest. The rest are the owner's five.
 ENQUIRY_GUARDIAN_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
     {
+        ("GET", "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest-target"),
+        ("POST", "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest"),
+        ("GET", "/v1/me/hub/interests"),
+        ("DELETE", "/v1/me/hub/interests/{interest_id}"),
         ("GET", "/v1/hub/owners/{owner_slug}/enquiry-target"),
         ("POST", "/v1/hub/owners/{owner_slug}/enquiries"),
         ("GET", "/v1/me/hub/enquiries"),

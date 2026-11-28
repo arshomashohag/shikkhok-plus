@@ -142,6 +142,8 @@
   "hub.enquiry.outcome_invalid": "hub_enquiry_outcome_invalid",
   "hub.enquiry.target_not_found": "hub_enquiry_target_not_found",
   "hub.feedback_not_asked": "hub_feedback_not_asked",
+  "hub.interest.ceiling": "hub_interest_ceiling",
+  "hub.interest.needs_phone": "hub_interest_needs_phone",
   "hub.listing_incomplete": "hub_listing_incomplete",
   "hub.listing_suspended": "hub_listing_suspended",
   "hub.media.already_decided": "hub_media_already_decided",

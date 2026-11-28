@@ -234,6 +234,12 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             ("POST", "/v1/hub/owners/{owner_slug}/enquiries"),
             ("GET", "/v1/me/hub/enquiries"),
             ("DELETE", "/v1/me/hub/enquiries/{enquiry_id}"),
+            # A family's interest in a listed batch [0049], on the join
+            # request's reasoning, route for route.
+            ("GET", "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest-target"),
+            ("POST", "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest"),
+            ("GET", "/v1/me/hub/interests"),
+            ("DELETE", "/v1/me/hub/interests/{interest_id}"),
             # The caller's own two-step verification settings [0028].
             ("GET", "/v1/me/mfa"),
             ("POST", "/v1/me/mfa/setup"),

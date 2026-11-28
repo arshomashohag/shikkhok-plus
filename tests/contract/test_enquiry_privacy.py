@@ -64,10 +64,19 @@ def test_enquiry_forbidden_set_is_profile_ids_and_identity() -> None:
     )
 
 
-def test_the_walk_covers_the_seven_routes() -> None:
-    """The comment says seven; this is what holds it to seven."""
-    assert len(ENQUIRY_ROUTES) == 7
+def test_the_walk_covers_the_thirteen_routes() -> None:
+    """The comment says thirteen; this is what holds it to thirteen.
+
+    The seven join-request routes [H5] and the six interest routes [0049].
+    """
+    assert len(ENQUIRY_ROUTES) == 13
     assert {
+        ("GET", "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest-target"),
+        ("POST", "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest"),
+        ("GET", "/v1/me/hub/interests"),
+        ("DELETE", "/v1/me/hub/interests/{interest_id}"),
+        ("GET", "/v1/hub/interests"),
+        ("POST", "/v1/hub/interests/{interest_id}/close"),
         ("GET", "/v1/hub/owners/{owner_slug}/enquiry-target"),
         ("POST", "/v1/hub/owners/{owner_slug}/enquiries"),
         ("GET", "/v1/me/hub/enquiries"),
@@ -167,6 +176,10 @@ def test_the_guardian_side_also_forbids_the_guardians_contact() -> None:
     contact field reaches a client.
     """
     assert ENQUIRY_GUARDIAN_ROUTES == {
+        ("GET", "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest-target"),
+        ("POST", "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest"),
+        ("GET", "/v1/me/hub/interests"),
+        ("DELETE", "/v1/me/hub/interests/{interest_id}"),
         ("GET", "/v1/hub/owners/{owner_slug}/enquiry-target"),
         ("POST", "/v1/hub/owners/{owner_slug}/enquiries"),
         ("GET", "/v1/me/hub/enquiries"),

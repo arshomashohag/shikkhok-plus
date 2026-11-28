@@ -119,6 +119,7 @@ _CALLER: Final = sa.text(
                WHERE e.owner_id = :owner_id
                  AND e.enquirer_account_id = a.id
                  AND e.status = 'open'
+                 AND e.kind = 'join'
            ) AS already_open
     FROM account a
     WHERE a.id = :account_id
@@ -144,11 +145,12 @@ _HOLD_LISTING: Final = sa.text(
 _CREATE: Final = sa.text(
     """
     INSERT INTO listing_enquiry (owner_id, batch_id, enquirer_account_id,
-                                 student_name, class_level, message,
+                                 kind, student_name, class_level, message,
                                  share_contact, created_at)
-    VALUES (:owner_id, :batch_id, :account_id, :student_name, :class_level,
-            :message, :share_contact, :now)
-    ON CONFLICT (owner_id, enquirer_account_id) WHERE status = 'open'
+    VALUES (:owner_id, :batch_id, :account_id, 'join', :student_name,
+            :class_level, :message, :share_contact, :now)
+    ON CONFLICT (owner_id, enquirer_account_id)
+        WHERE status = 'open' AND kind = 'join'
     DO NOTHING
     RETURNING id
     """
@@ -156,6 +158,7 @@ _CREATE: Final = sa.text(
 
 #: A guardian's requests as they see them. The owner's published number
 #: appears only on a ``call_us`` answer, and only while the owner is public.
+#: Join requests only: interests have their own list [0049].
 _MINE_SELECT: Final = """
     SELECT e.id, ol.public_name AS owner_public_name,
            bl.public_title AS batch_title, e.student_name, e.class_level,
@@ -166,7 +169,7 @@ _MINE_SELECT: Final = """
     LEFT JOIN owner_listing ol ON ol.owner_id = e.owner_id
     LEFT JOIN batch_listing bl ON bl.batch_id = e.batch_id
     LEFT JOIN hub_public_owner p ON p.owner_id = e.owner_id
-    WHERE e.enquirer_account_id = :account_id
+    WHERE e.enquirer_account_id = :account_id AND e.kind = 'join'
 """
 
 #: The caller's requests, newest first.
@@ -178,6 +181,7 @@ _MINE: Final = sa.text(
 _ONE: Final = sa.text(_MINE_SELECT + " AND e.id = :enquiry_id")
 
 #: The caller's own request, locked before anything about it is removed.
+#: Either kind: a family withdraws an interest the same way [0049].
 _LOCK_OWN: Final = sa.text(
     """
     SELECT id FROM listing_enquiry

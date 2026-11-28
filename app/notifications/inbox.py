@@ -35,6 +35,7 @@ __all__ = [
     "HUB_ENQUIRY_ANSWERED",
     "HUB_ENQUIRY_RECEIVED",
     "HUB_FEEDBACK_QUESTION",
+    "HUB_INTEREST_RECEIVED",
     "HUB_LISTING_SUSPENDED",
     "HUB_REVIEWS_PUBLISHED",
     "HUB_REVIEW_OUTCOME",
@@ -144,6 +145,12 @@ HUB_ENQUIRY_RECEIVED: Final[str] = "hub_enquiry_received"
 #: ``source_id`` the request and ``batch_name`` as for
 #: :data:`HUB_ENQUIRY_RECEIVED`. Not legacy.
 HUB_ENQUIRY_ANSWERED: Final[str] = "hub_enquiry_answered"
+
+#: A family shared their interest in a batch [0049], told to everyone who
+#: runs the listing, one item per interest. ``source_id`` is the interest,
+#: ``batch_name`` the batch's public title, and ``preview`` is None: the
+#: number shared is never in an inbox. Not legacy.
+HUB_INTEREST_RECEIVED: Final[str] = "hub_interest_received"
 
 #: The kinds every client knew before clients began announcing theirs
 #: [PO-10]. **Frozen: never add to it.** A client that does not say which

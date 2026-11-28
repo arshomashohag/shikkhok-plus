@@ -1955,6 +1955,8 @@
     <string name="hub_enquiry_target_not_found">This teacher or class is not taking join requests right now.</string>
     <string name="hub_enquiry_already_open">You already have a join request open with this teacher. Withdraw it to send a new one.</string>
     <string name="hub_enquiry_ceiling">You have sent a lot of join requests today. Try again tomorrow.</string>
+    <string name="hub_interest_ceiling">You have shared your interest in a lot of classes today. Try again tomorrow.</string>
+    <string name="hub_interest_needs_phone">Add a phone number to your account first. That is the number the teacher would see.</string>
     <string name="hub_enquiry_contains_contact">Remove phone numbers and web addresses. To give the teacher your contact, choose Share.</string>
     <string name="hub_enquiry_not_found">This join request is not available.</string>
     <string name="hub_enquiry_already_closed">This join request has already been answered.</string>

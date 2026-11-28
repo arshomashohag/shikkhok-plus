@@ -124,6 +124,7 @@ __all__ = [
     "DEL_PER_NUMBER_HOURLY",
     "GLOBAL_DAILY",
     "HUB_ENQUIRY_ACCOUNT_DAILY",
+    "HUB_INTEREST_ACCOUNT_DAILY",
     "HUB_LISTING_OWNER_DAILY",
     "HUB_MEDIA_OWNER_DAILY",
     "HUB_PUBLIC_READ_IP_MINUTE",
@@ -422,6 +423,11 @@ HUB_REVIEW_ACCOUNT_DAILY: Final = 5
 #: counts again.
 HUB_ENQUIRY_ACCOUNT_DAILY: Final = 5
 
+#: Batches one account may share its interest in a day [0049]. Only an
+#: interest actually stored counts: sharing again in the same batch stores
+#: nothing and counts nothing.
+HUB_INTEREST_ACCOUNT_DAILY: Final = 10
+
 #: Public hub page reads one network may make at the origin in a minute.
 #: The edge cache answers almost every read, so the origin sees misses
 #: only; a caller sending more than two a second is walking the site to
@@ -526,6 +532,9 @@ class ScopeKind(enum.Enum):
     # day [H5]. Consumed only by the NON-committing consume, once the
     # request is stored, so a refused send counts nothing.
     HUB_ENQUIRY_DAILY = "hub_enquiry_day"
+    # Interest shared in a batch, one counter per account per day [0049],
+    # consumed the same way once the interest is stored.
+    HUB_INTEREST_DAILY = "hub_interest_day"
     # Email and passwords [0032], inside `String(16)` like the rest.
     EMAIL_GLOBAL_DAILY = "em_global_day"
     PASSWORD_FAIL_ID_HOURLY = "pw_fail_id_hour"  # noqa: S105 -- a name, not a password
@@ -791,6 +800,11 @@ class CeilingBreach(ConflictError):
             super().__init__(
                 code="HUB_ENQUIRY_CEILING",
                 message_key="hub.enquiry.ceiling",
+            )
+        elif scope is ScopeKind.HUB_INTEREST_DAILY:
+            super().__init__(
+                code="HUB_INTEREST_CEILING",
+                message_key="hub.interest.ceiling",
             )
         else:
             super().__init__(
@@ -1593,6 +1607,27 @@ class CeilingChecker:
         """
         self._consume_in_transaction(
             _Scope(ScopeKind.HUB_ENQUIRY_DAILY, HUB_ENQUIRY_ACCOUNT_DAILY, _DAY),
+            str(account_id),
+            now,
+        )
+
+    def consume_hub_interest_in_transaction(
+        self, account_id: uuid.UUID, now: dt.datetime | None = None
+    ) -> None:
+        """Count one interest shared, WITHOUT committing [0049].
+
+        Called once the interest is stored, as a join request's count is, so
+        sharing again in the same batch spends nothing, and a breach raises
+        so the caller rolls the interest back with the count.
+
+        :param account_id: The sharing account
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: This would be the account's eleventh interest
+            today; its code is ``HUB_INTEREST_CEILING``
+        """
+        self._consume_in_transaction(
+            _Scope(ScopeKind.HUB_INTEREST_DAILY, HUB_INTEREST_ACCOUNT_DAILY, _DAY),
             str(account_id),
             now,
         )

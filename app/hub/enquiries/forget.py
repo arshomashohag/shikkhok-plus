@@ -33,12 +33,16 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.db.models import Notification
-from app.notifications.inbox import HUB_ENQUIRY_ANSWERED, HUB_ENQUIRY_RECEIVED
+from app.notifications.inbox import (
+    HUB_ENQUIRY_ANSWERED,
+    HUB_ENQUIRY_RECEIVED,
+    HUB_INTEREST_RECEIVED,
+)
 
 __all__ = ["for_account", "forget"]
 
-#: Every inbox kind a request produces, for either party.
-_KINDS: Final = (HUB_ENQUIRY_RECEIVED, HUB_ENQUIRY_ANSWERED)
+#: Every inbox kind a request or an interest produces, for either party.
+_KINDS: Final = (HUB_ENQUIRY_RECEIVED, HUB_ENQUIRY_ANSWERED, HUB_INTEREST_RECEIVED)
 
 #: The requests themselves.
 _DELETE: Final = sa.text("DELETE FROM listing_enquiry WHERE id = ANY(:ids)")

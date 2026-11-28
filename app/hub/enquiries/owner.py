@@ -71,7 +71,8 @@ OUTCOMES: Final[tuple[EnquiryOutcome, ...]] = get_args(EnquiryOutcome)
 
 #: The owner's requests as they see them. The contact columns are the
 #: contact predicate; ``can_call`` is whether the guardian would be shown
-#: a number to call [F11].
+#: a number to call [F11]. Join requests only: interests have their own
+#: list and are closed by their own route [0049].
 _SELECT: Final = """
     SELECT e.id, e.batch_id, bl.public_title AS batch_title, e.student_name,
            e.class_level, e.message, e.share_contact, e.status, e.outcome,
@@ -84,7 +85,7 @@ _SELECT: Final = """
     JOIN account a ON a.id = e.enquirer_account_id
     LEFT JOIN batch_listing bl ON bl.batch_id = e.batch_id
     LEFT JOIN hub_public_owner p ON p.owner_id = e.owner_id
-    WHERE e.owner_id = :owner_id
+    WHERE e.owner_id = :owner_id AND e.kind = 'join'
 """
 
 #: The owner's list: open first, then newest.
@@ -104,7 +105,7 @@ _LOCK: Final = sa.text(
     FROM listing_enquiry e
     LEFT JOIN batch_listing bl ON bl.batch_id = e.batch_id
     LEFT JOIN owner_listing ol ON ol.owner_id = e.owner_id
-    WHERE e.id = :enquiry_id AND e.owner_id = :owner_id
+    WHERE e.id = :enquiry_id AND e.owner_id = :owner_id AND e.kind = 'join'
     FOR UPDATE OF e
     """
 )

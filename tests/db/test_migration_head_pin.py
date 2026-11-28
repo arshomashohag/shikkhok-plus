@@ -69,11 +69,12 @@ VERSIONS: Final[pathlib.Path] = (
 #: reviews, their replies and the two threshold views -- again, and ``0046``
 #: -- moderation events for reviews and replies -- once more, and ``0047``
 #: -- join requests and the enquirable view -- again, and ``0048`` -- a
-#: batch listing's seat counts and their view -- once more.
-EXPECTED_REVISIONS: Final[int] = 48
+#: batch listing's seat counts and their view -- once more, and ``0049`` --
+#: a family's interest in a batch, a second kind of join request -- again.
+EXPECTED_REVISIONS: Final[int] = 49
 
-#: The head ``0048`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0048"
+#: The head ``0049`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0049"
 
 
 def _revision_files() -> list[pathlib.Path]:

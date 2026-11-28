@@ -35,7 +35,11 @@ from tests.reviews.support import account
 ROOT: Final = pathlib.Path(__file__).resolve().parents[2]
 
 #: Columns any table has, which name nothing of a request on their own.
-_GENERIC: Final = frozenset({"id", "owner_id", "batch_id", "status", "created_at"})
+#: ``kind`` [0049] says only whether a row is a request or an interest, and
+#: other tables use the name for unrelated things, such as an owner's kind.
+_GENERIC: Final = frozenset(
+    {"id", "owner_id", "batch_id", "status", "created_at", "kind"}
+)
 
 #: Every column that is a request's own content or history.
 ENQUIRY_COLUMNS: Final = (

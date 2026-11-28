@@ -4673,6 +4673,13 @@ HUB_ENQUIRY_STATUS_VALUES: tuple[str, ...] = ("open", "closed")
 #: The owner's closed answer to a join request (Call 7).
 HUB_ENQUIRY_OUTCOME_VALUES: tuple[str, ...] = ("added", "not_now", "call_us")
 
+#: What a ``listing_enquiry`` row is [0049]: a join request, or a family's
+#: interest in a batch, which carries nothing typed and always its contact.
+HUB_ENQUIRY_KIND_VALUES: tuple[str, ...] = ("join", "interest")
+
+_HUB_ENQUIRY_KIND = PgEnum(
+    *HUB_ENQUIRY_KIND_VALUES, name="hub_enquiry_kind", create_type=False
+)
 _HUB_ENQUIRY_STATUS = PgEnum(
     *HUB_ENQUIRY_STATUS_VALUES, name="hub_enquiry_status", create_type=False
 )
@@ -4695,8 +4702,12 @@ class ListingEnquiry(Base):
     :ivar batch_id: The listed class it is about, if any; cleared if that
         listing goes
     :ivar enquirer_account_id: The guardian who sent it; it goes with them
-    :ivar student_name: 1 to 80 characters, as the guardian typed it
-    :ivar class_level: One of :data:`HUB_CLASS_LEVELS`
+    :ivar kind: ``join``, or ``interest`` [0049]: a family's interest in a
+        batch, with no name, class or message and its contact always shared
+    :ivar student_name: 1 to 80 characters, as the guardian typed it; a join
+        request has one, an interest none
+    :ivar class_level: One of :data:`HUB_CLASS_LEVELS`; a join request has
+        one, an interest none
     :ivar message: 1 to 300 characters, or NULL
     :ivar share_contact: Whether the guardian chose to share their contact;
         no default, so it is always their stated answer
@@ -4740,8 +4751,11 @@ class ListingEnquiry(Base):
         ),
         nullable=False,
     )
-    student_name: Mapped[str] = mapped_column(Text, nullable=False)
-    class_level: Mapped[str] = mapped_column(String(20), nullable=False)
+    kind: Mapped[str] = mapped_column(
+        _HUB_ENQUIRY_KIND, nullable=False, server_default=text("'join'")
+    )
+    student_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    class_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     share_contact: Mapped[bool] = mapped_column(Boolean, nullable=False)
     status: Mapped[str] = mapped_column(
@@ -4757,7 +4771,7 @@ class ListingEnquiry(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "char_length(btrim(student_name)) BETWEEN 1 AND 80",
+            "student_name IS NULL OR char_length(btrim(student_name)) BETWEEN 1 AND 80",
             name=conv("ck_listing_enquiry_student_name"),
         ),
         CheckConstraint(
@@ -4780,14 +4794,32 @@ class ListingEnquiry(Base):
             "outcome IS DISTINCT FROM 'added' OR share_contact",
             name=conv("ck_listing_enquiry_added_needs_contact"),
         ),
+        CheckConstraint(
+            "kind <> 'join' OR (student_name IS NOT NULL AND class_level IS NOT NULL)",
+            name=conv("ck_listing_enquiry_join_fields"),
+        ),
+        CheckConstraint(
+            "kind <> 'interest' OR (student_name IS NULL AND class_level IS NULL "
+            "AND message IS NULL AND share_contact)",
+            name=conv("ck_listing_enquiry_interest_fields"),
+        ),
         # One open request per owner and guardian (Call 9): the send is
         # ``ON CONFLICT DO NOTHING`` against this, never a check first.
+        # Join requests only since 0049, so an interest never blocks one.
         Index(
             "uq_listing_enquiry_open",
             "owner_id",
             "enquirer_account_id",
             unique=True,
-            postgresql_where=text("status = 'open'"),
+            postgresql_where=text("status = 'open' AND kind = 'join'"),
+        ),
+        # One open interest per batch and family [0049].
+        Index(
+            "uq_listing_enquiry_interest_open",
+            "batch_id",
+            "enquirer_account_id",
+            unique=True,
+            postgresql_where=text("status = 'open' AND kind = 'interest'"),
         ),
         Index("ix_listing_enquiry_owner_created", "owner_id", "created_at"),
         Index("ix_listing_enquiry_enquirer", "enquirer_account_id"),

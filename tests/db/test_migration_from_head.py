@@ -139,7 +139,7 @@ def test_the_head_revision_advanced(staged: Engine) -> None:
             sa.text("SELECT version_num FROM alembic_version")
         ).scalar_one()
 
-    assert revision == "0048"
+    assert revision == "0049"
 
 
 def test_0038_leaves_existing_accounts_and_drafts_unchanged(postgres_url: str) -> None:

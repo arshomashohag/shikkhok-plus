@@ -3208,6 +3208,55 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/hub/interests': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Owner Interests
+     * @description List the owner's open interests, newest first.
+     *
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: The interests
+     */
+    get: operations['list_owner_interests_v1_hub_interests_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/interests/{interest_id}/close': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Close Owner Interest
+     * @description Close an interest the owner has dealt with; the family is told nothing.
+     *
+     *     :param interest_id: The interest
+     *     :param lens: The owner's lens
+     *     :param session: The request-scoped session
+     *     :return: An empty 204
+     */
+    post: operations['close_owner_interest_v1_hub_interests__interest_id__close_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/hub/listing': {
     parameters: {
       query?: never
@@ -3472,6 +3521,60 @@ export interface paths {
      *     :return: The photo
      */
     post: operations['complete_upload_v1_hub_media__media_id__complete_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Share Interest
+     * @description Share the caller's interest in a listed batch, with their phone number.
+     *
+     *     Sharing again while one is open answers that one and changes nothing.
+     *
+     *     :param owner_slug: The owner's public slug
+     *     :param batch_id: The listed batch
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The interest as the family sees it
+     */
+    post: operations['share_interest_v1_hub_owners__owner_slug__batches__batch_id__interest_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest-target': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Interest Target
+     * @description Say whom an interest would reach, and whether there is a number to share.
+     *
+     *     :param owner_slug: The owner's public slug
+     *     :param batch_id: The listed batch
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The target as the confirm screen shows it
+     */
+    get: operations['get_interest_target_v1_hub_owners__owner_slug__batches__batch_id__interest_target_get']
+    put?: never
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -4627,6 +4730,58 @@ export interface paths {
      *     :return: An empty 204
      */
     delete: operations['withdraw_enquiry_v1_me_hub_enquiries__enquiry_id__delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/hub/interests': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List My Interests
+     * @description List the caller's own interests, newest first. Never switch-gated.
+     *
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The interests
+     */
+    get: operations['list_my_interests_v1_me_hub_interests_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/hub/interests/{interest_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Withdraw Interest
+     * @description Take back one of the caller's interests, with every inbox item about it.
+     *
+     *     A join request's own withdrawal, which forgets either kind. Never
+     *     switch-gated, and quiet for a missing id or another account's.
+     *
+     *     :param interest_id: The interest
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: An empty 204
+     */
+    delete: operations['withdraw_interest_v1_me_hub_interests__interest_id__delete']
     options?: never
     head?: never
     patch?: never
@@ -9282,6 +9437,29 @@ export interface components {
       unread: number
     }
     /**
+     * InterestTargetResponse
+     * @description What the interest confirm screen shows before the family shares [0049].
+     *
+     *     Mirrors :class:`~app.hub.enquiries.interest.InterestTarget`. It says
+     *     whether there is a number to share, never the number.
+     *
+     *     :ivar owner_public_name: The listing's public name
+     *     :ivar batch_title: The batch's public title
+     *     :ivar has_phone: Whether the caller's account has a phone number to
+     *         share; without one, sharing answers ``HUB_INTEREST_NEEDS_PHONE``
+     *     :ivar already_shared: The caller already has an open interest here
+     */
+    InterestTargetResponse: {
+      /** Already Shared */
+      already_shared: boolean
+      /** Batch Title */
+      batch_title: string
+      /** Has Phone */
+      has_phone: boolean
+      /** Owner Public Name */
+      owner_public_name: string
+    }
+    /**
      * InvitationResponse
      * @description One unaccepted seat, in exactly the width BR1.4 permits.
      *
@@ -10214,6 +10392,39 @@ export interface components {
       total_marks: number
     }
     /**
+     * MyInterestWire
+     * @description One of the caller's own interests [0049].
+     *
+     *     Mirrors :class:`~app.hub.enquiries.interest.MyInterest`.
+     *
+     *     :ivar id: The interest, to take it back
+     *     :ivar owner_public_name: The listing's public name, or None once gone
+     *     :ivar batch_title: The batch's public title, or None once gone
+     *     :ivar status: ``open`` while shared, ``closed`` once the owner saw it
+     *     :ivar shared_on: The day it was shared, in Bangladesh
+     */
+    MyInterestWire: {
+      /** Batch Title */
+      batch_title: string | null
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /** Owner Public Name */
+      owner_public_name: string | null
+      /**
+       * Shared On
+       * Format: date
+       */
+      shared_on: string
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'closed' | 'open'
+    }
+    /**
      * MyReviewBody
      * @description The caller's own review, as its author sees it.
      *
@@ -10371,6 +10582,7 @@ export interface components {
         | 'hub_enquiry_answered'
         | 'hub_enquiry_received'
         | 'hub_feedback_question'
+        | 'hub_interest_received'
         | 'hub_listing_suspended'
         | 'hub_review_outcome'
         | 'hub_reviews_published'
@@ -10460,6 +10672,7 @@ export interface components {
         | 'hub_enquiry_answered'
         | 'hub_enquiry_received'
         | 'hub_feedback_question'
+        | 'hub_interest_received'
         | 'hub_listing_suspended'
         | 'hub_review_outcome'
         | 'hub_reviews_published'
@@ -10679,6 +10892,37 @@ export interface components {
       status: 'closed' | 'open'
       /** Student Name */
       student_name: string
+    }
+    /**
+     * OwnerInterestWire
+     * @description One open interest, as the people who run the listing read it [0049].
+     *
+     *     Mirrors :class:`~app.hub.enquiries.interest.OwnerInterest`. No name:
+     *     only the number the family chose to share, read from their account now.
+     *
+     *     :ivar id: The interest, to close it
+     *     :ivar batch_id: The batch, or None once its listing is gone
+     *     :ivar batch_title: Its public title, or None
+     *     :ivar guardian_phone: The family's phone, or None if since removed
+     *     :ivar shared_on: The day it was shared, in Bangladesh
+     */
+    OwnerInterestWire: {
+      /** Batch Id */
+      batch_id: string | null
+      /** Batch Title */
+      batch_title: string | null
+      /** Guardian Phone */
+      guardian_phone: string | null
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string
+      /**
+       * Shared On
+       * Format: date
+       */
+      shared_on: string
     }
     /**
      * OwnerListingResponse
@@ -22157,6 +22401,145 @@ export interface operations {
       }
     }
   }
+  list_owner_interests_v1_hub_interests_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OwnerInterestWire'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description NO_TEACHER_LENS: the caller runs no workspace, or not the one named. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_ENQUIRIES_OFF: join requests are switched off. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  close_owner_interest_v1_hub_interests__interest_id__close_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        interest_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description NO_TEACHER_LENS: the caller runs no workspace, or not the one named. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_NOT_FOUND: no open interest of this owner's by that id; another owner's, or one already closed, answers the same. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
   get_listing_v1_hub_listing_get: {
     parameters: {
       query?: never
@@ -23075,6 +23458,151 @@ export interface operations {
       }
       /** @description Valid request; current state forbids it. Refetch and decide. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  share_interest_v1_hub_owners__owner_slug__batches__batch_id__interest_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        owner_slug: string
+        batch_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MyInterestWire']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_TARGET_NOT_FOUND: no published listing accepting requests by that slug, no open listed batch of it by that id, or a listing the caller runs; a slug that never existed answers the same. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_INTEREST_NEEDS_PHONE: the caller's account has no phone number to share. HUB_INTEREST_CEILING: today's interests are spent. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  get_interest_target_v1_hub_owners__owner_slug__batches__batch_id__interest_target_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        owner_slug: string
+        batch_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['InterestTargetResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_TARGET_NOT_FOUND: no published listing accepting requests by that slug, no open listed batch of it by that id, or a listing the caller runs; a slug that never existed answers the same. */
+      404: {
         headers: {
           [name: string]: unknown
         }
@@ -25789,6 +26317,109 @@ export interface operations {
       header?: never
       path: {
         enquiry_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  list_my_interests_v1_me_hub_interests_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MyInterestWire'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  withdraw_interest_v1_me_hub_interests__interest_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        interest_id: string
       }
       cookie?: never
     }

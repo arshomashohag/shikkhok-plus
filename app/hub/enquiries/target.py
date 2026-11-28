@@ -6,7 +6,8 @@ all of these hold:
 * the owner's slug is in ``hub_public_enquirable``: its listing is
   published and accepts requests;
 * a named batch is a row of ``hub_public_batch`` under that owner's slug,
-  with admissions not ``closed``;
+  with admissions not ``closed`` -- except for an interest [0049], which a
+  family may share in a closed batch;
 * the caller does not run the listing: they are neither the owner's own
   account nor an accepted, unrevoked manager of it.
 
@@ -51,7 +52,7 @@ _RESOLVE: Final = sa.text(
     LEFT JOIN hub_public_batch b
         ON b.batch_id = :batch_id
        AND b.owner_slug = e.slug
-       AND b.admissions <> 'closed'
+       AND (b.admissions <> 'closed' OR :closed_ok)
     WHERE e.slug = :slug
       AND (:batch_id IS NULL OR b.batch_id IS NOT NULL)
       AND NOT EXISTS (
@@ -70,6 +71,7 @@ _RESOLVE: Final = sa.text(
 ).bindparams(
     sa.bindparam("batch_id", type_=PgUUID(as_uuid=True)),
     sa.bindparam("account_id", type_=PgUUID(as_uuid=True)),
+    sa.bindparam("closed_ok", type_=sa.Boolean()),
 )
 
 
@@ -108,6 +110,8 @@ def resolve(
     account_id: uuid.UUID,
     owner_slug: str,
     batch_id: uuid.UUID | None,
+    *,
+    closed_ok: bool = False,
 ) -> Target:
     """Find where the caller's join request would go, or refuse.
 
@@ -115,13 +119,21 @@ def resolve(
     :param account_id: The authenticated caller
     :param owner_slug: The owner's public slug
     :param batch_id: The batch asked about, or None for the owner as a whole
+    :param closed_ok: Accept a batch whose admissions are closed: an
+        interest may be shared in a full batch, which is when it matters
+        [0049]; a join request may not
     :return: The target
     :raises AuthorizationError: ``ENQUIRY_TARGET_NOT_FOUND`` (404) for any
         target the caller may not ask
     """
     row = session.execute(
         _RESOLVE,
-        {"slug": owner_slug, "batch_id": batch_id, "account_id": account_id},
+        {
+            "slug": owner_slug,
+            "batch_id": batch_id,
+            "account_id": account_id,
+            "closed_ok": closed_ok,
+        },
     ).one_or_none()
     if row is None:
         raise not_found()

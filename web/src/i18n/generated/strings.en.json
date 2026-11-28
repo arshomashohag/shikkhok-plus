@@ -868,6 +868,8 @@
   "hub_field_street": "Street address",
   "hub_field_thana": "Thana (optional)",
   "hub_field_upazila": "Upazila or city corporation",
+  "hub_interest_ceiling": "You have shared your interest in a lot of classes today. Try again tomorrow.",
+  "hub_interest_needs_phone": "Add a phone number to your account first. That is the number the teacher would see.",
   "hub_level_a_level": "A Level",
   "hub_level_admission": "Admission test",
   "hub_level_class_1": "Class 1",

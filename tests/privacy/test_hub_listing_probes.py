@@ -95,8 +95,15 @@ def test_teacher_a_cannot_read_or_write_teacher_b_listing(
 #: walks them against their own forbidden set, which holds a bare
 #: ``phone``.
 CONSENTED: Final = frozenset(
-    ("/v1/hub/enquiries" + suffix, "OwnerEnquiryWire", "guardian_phone")
-    for suffix in ("", "/{enquiry_id}", "/{enquiry_id}/close")
+    {
+        *(
+            ("/v1/hub/enquiries" + suffix, "OwnerEnquiryWire", "guardian_phone")
+            for suffix in ("", "/{enquiry_id}", "/{enquiry_id}/close")
+        ),
+        # The owner's interest list [0049]: a family shares the number on
+        # their account by sharing an interest; that is all one is.
+        ("/v1/hub/interests", "OwnerInterestWire", "guardian_phone"),
+    }
 )
 
 
@@ -142,8 +149,9 @@ def test_no_hub_schema_carries_a_phone_or_key_beyond_consented_contact() -> None
     # the teacher's read and reply (both deletes are 204s), and the five
     # join-request routes under /v1/hub [H5]: the target, the send, and the
     # owner's list, read and close (the guardian's own list and withdrawal
-    # are under /v1/me).
-    assert checked == 25
+    # are under /v1/me), and three interest routes [0049]: the target, the
+    # share and the owner's list (the owner's close is a 204).
+    assert checked == 28
     assert sorted(set(leaks) - CONSENTED) == []
     # The allowance names leaks that occur, so it cannot outlive them.
     assert CONSENTED <= set(leaks)

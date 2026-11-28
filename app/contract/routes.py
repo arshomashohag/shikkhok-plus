@@ -362,6 +362,15 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # has not been created yet, which is every guardian who asked.
         ("GET", "/v1/me/hub/enquiries"),
         ("DELETE", "/v1/me/hub/enquiries/{enquiry_id}"),
+        # A family's interest in a listed batch [0049], on the join
+        # request's reasoning, route for route: the target and the share
+        # are bounded by the same one statement (with closed admissions
+        # allowed), and the family's own list and withdrawal are scoped by
+        # account id in SQL. An account may share ten a day.
+        ("GET", "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest-target"),
+        ("POST", "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest"),
+        ("GET", "/v1/me/hub/interests"),
+        ("DELETE", "/v1/me/hub/interests/{interest_id}"),
     }
 )
 

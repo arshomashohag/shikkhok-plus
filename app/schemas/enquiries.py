@@ -55,8 +55,11 @@ __all__ = [
     "EnquiryClose",
     "EnquiryTargetResponse",
     "EnquiryWrite",
+    "InterestTargetResponse",
     "MyEnquiryWire",
+    "MyInterestWire",
     "OwnerEnquiryWire",
+    "OwnerInterestWire",
 ]
 
 
@@ -201,3 +204,61 @@ class OwnerEnquiryWire(BaseModel):
     guardian_phone: str | None
     guardian_email: str | None
     outcomes_allowed: list[EnquiryOutcome]
+
+
+class InterestTargetResponse(BaseModel):
+    """What the interest confirm screen shows before the family shares [0049].
+
+    Mirrors :class:`~app.hub.enquiries.interest.InterestTarget`. It says
+    whether there is a number to share, never the number.
+
+    :ivar owner_public_name: The listing's public name
+    :ivar batch_title: The batch's public title
+    :ivar has_phone: Whether the caller's account has a phone number to
+        share; without one, sharing answers ``HUB_INTEREST_NEEDS_PHONE``
+    :ivar already_shared: The caller already has an open interest here
+    """
+
+    owner_public_name: str
+    batch_title: str
+    has_phone: bool
+    already_shared: bool
+
+
+class MyInterestWire(BaseModel):
+    """One of the caller's own interests [0049].
+
+    Mirrors :class:`~app.hub.enquiries.interest.MyInterest`.
+
+    :ivar id: The interest, to take it back
+    :ivar owner_public_name: The listing's public name, or None once gone
+    :ivar batch_title: The batch's public title, or None once gone
+    :ivar status: ``open`` while shared, ``closed`` once the owner saw it
+    :ivar shared_on: The day it was shared, in Bangladesh
+    """
+
+    id: uuid.UUID
+    owner_public_name: str | None
+    batch_title: str | None
+    status: EnquiryStatus
+    shared_on: dt.date
+
+
+class OwnerInterestWire(BaseModel):
+    """One open interest, as the people who run the listing read it [0049].
+
+    Mirrors :class:`~app.hub.enquiries.interest.OwnerInterest`. No name:
+    only the number the family chose to share, read from their account now.
+
+    :ivar id: The interest, to close it
+    :ivar batch_id: The batch, or None once its listing is gone
+    :ivar batch_title: Its public title, or None
+    :ivar guardian_phone: The family's phone, or None if since removed
+    :ivar shared_on: The day it was shared, in Bangladesh
+    """
+
+    id: uuid.UUID
+    batch_id: uuid.UUID | None
+    batch_title: str | None
+    guardian_phone: str | None
+    shared_on: dt.date
