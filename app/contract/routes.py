@@ -56,13 +56,14 @@ _HUB_PAGES: frozenset[tuple[str, str]] = frozenset(
 #: ``tests/contract/test_public_cacheable.py``.
 PUBLIC_CACHEABLE_ROUTES: frozenset[tuple[str, str]] = _HUB_PAGES
 
-#: Routes reachable with no authentication at all. **Exactly nineteen**,
-#: and the count IS asserted: a twentieth entry is a diff against a
+#: Routes reachable with no authentication at all. **Exactly twenty**,
+#: and the count IS asserted: a twenty-first entry is a diff against a
 #: stated number rather than a line appended to a growing list. The three
 #: admin sign-in routes moved it from eight, the app sign-in's second
 #: step to twelve [0028], password sign-in and password setup to
 #: fourteen [0032], the public username lookup to fifteen [U1: BR3.5],
-#: and the public hub's four pages to nineteen [H2].
+#: the public hub's four pages to nineteen [H2], and the hub's page-view
+#: counting image to twenty [0050].
 #:
 #: The number read "five" over a six-entry set until 2026-10-22 — the two
 #: deletion routes were added without it, so the stated count and the
@@ -156,6 +157,16 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # hidden or suspended listing answers the same 404 as one that
         # never existed.
         *_HUB_PAGES,
+        # The hub's page-view counting image [0050], public because the
+        # pages it counts are: an anonymous reader's browser loads it. It
+        # is NOT cacheable -- it answers ``no-store`` so the edge cache,
+        # which serves the pages themselves, passes every load through. It
+        # writes one number per page per day and reads nothing about the
+        # request; it shares the pages' read ceiling, answers the same
+        # image whatever it is asked, and lives in app/api/hub_public.py,
+        # outside the public package, because its table is not the hub
+        # reader's to see.
+        ("GET", "/hub/v/{kind}/{page_id}.gif"),
     }
 )
 
@@ -362,6 +373,15 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # has not been created yet, which is every guardian who asked.
         ("GET", "/v1/me/hub/enquiries"),
         ("DELETE", "/v1/me/hub/enquiries/{enquiry_id}"),
+        # A family's interest in a listed batch [0049], on the join
+        # request's reasoning, route for route: the target and the share
+        # are bounded by the same one statement (with closed admissions
+        # allowed), and the family's own list and withdrawal are scoped by
+        # account id in SQL. An account may share ten a day.
+        ("GET", "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest-target"),
+        ("POST", "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest"),
+        ("GET", "/v1/me/hub/interests"),
+        ("DELETE", "/v1/me/hub/interests/{interest_id}"),
     }
 )
 

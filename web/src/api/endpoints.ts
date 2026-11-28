@@ -397,6 +397,13 @@ export const checkHubSlug = (slug: string, signal?: AbortSignal) =>
 export const listHubAreas = (parent?: string, signal?: AbortSignal) =>
   request<Schemas['AreaOption'][]>('GET', '/v1/hub/areas', { query: { parent }, signal })
 
+/**
+ * How often the owner's public pages were opened [0050]: one count per page,
+ * for the last 7 and 30 days. Nothing about who opened a page exists.
+ */
+export const readHubPageViews = (signal?: AbortSignal) =>
+  request<Schemas['PageViewsResponse']>('GET', '/v1/hub/listing/views', { signal })
+
 export const listBatchListings = (signal?: AbortSignal) =>
   request<Schemas['BatchListingResponse'][]>('GET', '/v1/hub/batch-listings', { signal })
 

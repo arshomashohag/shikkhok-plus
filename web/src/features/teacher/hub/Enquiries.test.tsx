@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { translate } from '../../../i18n/i18n'
 import { json, renderScreen } from '../../../test/render'
 import { NewStudent } from '../people/NewStudent'
-import { EnquiryDetail, OwnerEnquiries } from './Enquiries'
+import { EnquiryDetail, OwnerEnquiries, OwnerInterests } from './Enquiries'
 import { HubListing } from './Listing'
 
 const en = (key: string, ...args: (string | number)[]) => translate('en', key, ...args)
@@ -449,5 +449,64 @@ describe('Add as student', () => {
     expect(await screen.findByText(en('hub_enquiry_answered_added'))).toBeInTheDocument()
     expect(calls('POST', `${INBOX}/${E1}/close`)).toHaveLength(2)
     expect(calls('POST', '/v1/students')).toHaveLength(1)
+  })
+})
+
+describe('Interested families [0049]', () => {
+  const INTERESTS = '/v1/hub/interests'
+  const interest = (over: Record<string, unknown> = {}) => ({
+    id: E1,
+    batch_id: BATCH,
+    batch_title: 'Physics · Batch A',
+    guardian_phone: '+8801712345678',
+    shared_on: '2026-11-28',
+    ...over,
+  })
+
+  it('lists each number as a call link, and Done closes it quietly', async () => {
+    let open = [interest(), interest({ id: E2, guardian_phone: null, batch_title: null })]
+    serve((method, url) => {
+      if (method === 'GET' && url.endsWith(INBOX)) return json(200, [])
+      if (method === 'GET' && url.endsWith(INTERESTS)) return json(200, open)
+      if (method === 'POST' && url.endsWith(`${INTERESTS}/${E1}/close`)) {
+        open = open.filter((i) => i.id !== E1)
+        return new Response(null, { status: 204 })
+      }
+      return undefined
+    })
+    renderScreen(<OwnerInterests />)
+
+    const list = await screen.findByRole('list', { name: en('web_hub_interest_owner_title') })
+    const call = within(list).getByRole('link', { name: /1712/ })
+    expect(call).toHaveAttribute('href', 'tel:+8801712345678')
+    expect(within(list).getByText(en('web_hub_interest_number_removed'))).toBeInTheDocument()
+    expect(
+      within(list).getByText(new RegExp(en('web_hub_interest_class_gone'))),
+    ).toBeInTheDocument()
+
+    const [first] = within(list).getAllByRole('button', { name: en('web_hub_interest_done') })
+    await userEvent.click(first!)
+    await waitFor(() => expect(calls('POST', `${INTERESTS}/${E1}/close`)).toHaveLength(1))
+    expect(calls('POST', `${INTERESTS}/${E1}/close`)[0]!.body).toBeUndefined()
+    await waitFor(() => expect(within(list).queryByRole('link', { name: /1712/ })).toBeNull())
+  })
+
+  it('says so when no family has shared their interest', async () => {
+    serve((method, url) =>
+      method === 'GET' && (url.endsWith(INBOX) || url.endsWith(INTERESTS))
+        ? json(200, [])
+        : undefined,
+    )
+    renderScreen(<OwnerInterests />)
+    expect(await screen.findByText(en('web_hub_interest_owner_empty'))).toBeInTheDocument()
+  })
+
+  it('draws nothing while join requests are switched off', async () => {
+    serve((method, url) =>
+      method === 'GET' && (url.endsWith(INBOX) || url.endsWith(INTERESTS)) ? OFF() : undefined,
+    )
+    renderScreen(<OwnerInterests />)
+    await waitFor(() => expect(calls('GET', INTERESTS)).toHaveLength(1))
+    expect(screen.queryByText(en('web_hub_interest_owner_title'))).toBeNull()
   })
 })

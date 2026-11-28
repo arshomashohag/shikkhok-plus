@@ -2603,6 +2603,33 @@
         "title": "BatchListingUpdateRequest",
         "type": "object"
       },
+      "BatchPageViewsWire": {
+        "description": "One batch page's views.\n\n:ivar batch_id: The batch",
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "last_30_days": {
+            "minimum": 0.0,
+            "title": "Last 30 Days",
+            "type": "integer"
+          },
+          "last_7_days": {
+            "minimum": 0.0,
+            "title": "Last 7 Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batch_id",
+          "last_30_days",
+          "last_7_days"
+        ],
+        "title": "BatchPageViewsWire",
+        "type": "object"
+      },
       "BatchResponse": {
         "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar subject_options: The same subjects with their keys, in the same\n    order, for the writes that name one\n:ivar schedule: The weekly classes, in weekday then time order -- the\n    \"Mon Wed · 4:00 pm\" line on the batch list (T6)\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side. The\n    **denominator** of \"9 of 12 accepted\", and it counts every seat\n    the teacher created including declined ones [BR1.4]\n:ivar accepted_count: How many of those seats at least one link has\n    accepted [BR1.2], computed server-side and **never counted by\n    the client** [BR1.3, TC-9]. A client counting rows is a client\n    deciding what counts as accepted, and it is wrong the moment the\n    roster paginates because it can only count the rows it holds",
         "properties": {
@@ -6416,6 +6443,51 @@
         "title": "InboxResponse",
         "type": "object"
       },
+      "InterestTargetResponse": {
+        "description": "What the interest confirm screen shows before the family shares [0049].\n\nMirrors :class:`~app.hub.enquiries.interest.InterestTarget`. It says\nwhether there is a number to share, never the number.\n\n:ivar owner_public_name: The listing's public name\n:ivar batch_title: The batch's public title\n:ivar has_phone: Whether the caller's account has a phone number to\n    share; without one, sharing answers ``HUB_INTEREST_NEEDS_PHONE``\n:ivar already_shared: The caller already has an open interest here",
+        "properties": {
+          "already_shared": {
+            "title": "Already Shared",
+            "type": "boolean"
+          },
+          "batch_title": {
+            "title": "Batch Title",
+            "type": "string"
+          },
+          "has_phone": {
+            "title": "Has Phone",
+            "type": "boolean"
+          },
+          "owner_public_name": {
+            "title": "Owner Public Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "already_shared",
+          "batch_title",
+          "has_phone",
+          "owner_public_name"
+        ],
+        "title": "InterestTargetResponse",
+        "type": "object"
+      },
+      "InterestWrite": {
+        "additionalProperties": false,
+        "description": "Share interest in a listed batch [0049].\n\nNothing is typed: the batch is the path's and the number the account's.\nThe sender declares, as for a join request, that they are a parent or\nguardian and an adult, since a number shared with a stranger should\nnever be a child's.\n\n:ivar declares_adult_guardian: Only ``true`` is accepted. Not stored",
+        "properties": {
+          "declares_adult_guardian": {
+            "const": true,
+            "title": "Declares Adult Guardian",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "declares_adult_guardian"
+        ],
+        "title": "InterestWrite",
+        "type": "object"
+      },
       "InvitationResponse": {
         "additionalProperties": false,
         "description": "One unaccepted seat, in exactly the width BR1.4 permits.\n\nBatch name, subject and fee amount -- all teacher-authored, so this\nread crosses no privacy boundary -- plus the seat's own id, which\nthe accept and decline routes are keyed on, and this holder's own\ndecision so the screen can offer the right action without deciding\nwhat ``declined`` means for itself [TC-9].\n\n**There is no attendance, no mark, no other enrollment and no\nfurther batch field**, and no write action but accept and decline\non the link that names the holder [AC1.10.2].\n\n:ivar enrollment_id: The seat, which the decision routes are keyed on\n:ivar batch_name: The class being joined\n:ivar subject: The subjects taught, as the teacher named them\n:ivar fee_amount: This seat's fee, or None when it inherits the\n    batch default. None is NOT zero: zero is a waiver\n:ivar decision: This holder's own decision, ``pending`` or\n    ``declined``\n:ivar role: Which link this account holds on the seat. Present\n    because the DECLINE CONFIRMATION differs by role [BR5.2]: a\n    student's decline stops their fee, a guardian's leaves the\n    student's obligation entirely intact. The client had no\n    trustworthy way to tell them apart, and one confirmation shown\n    to both told a guardian a debt was cancelled when it was not.\n\n    This discloses nothing new -- the holder is on this seat -- and\n    it is decided server-side rather than inferred from a lens hint\n    the client supplied [TC-11, D-2]\n:ivar child_name: For a guardian, the child this seat is for, as the\n    teacher typed the name, so the guardian can answer \"is this my\n    child?\" (decided by the owner 2026-11-05). None for a student.\n    Teacher-authored, never the child's own profile name\n:ivar also_covers: The other batches of the same teacher this\n    decision also answers, by name [D1, 0018]. Acceptance is per\n    student, so a student in three classes is asked once; the\n    person is shown every class they are agreeing to, which keeps\n    the invitation at \"what you are being asked to join\"",
@@ -7990,6 +8062,60 @@
         "title": "MyExamResponse",
         "type": "object"
       },
+      "MyInterestWire": {
+        "description": "One of the caller's own interests [0049].\n\nMirrors :class:`~app.hub.enquiries.interest.MyInterest`.\n\n:ivar id: The interest, to take it back\n:ivar owner_public_name: The listing's public name, or None once gone\n:ivar batch_title: The batch's public title, or None once gone\n:ivar status: ``open`` while shared, ``closed`` once the owner saw it\n:ivar shared_on: The day it was shared, in Bangladesh",
+        "properties": {
+          "batch_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Title"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "owner_public_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Public Name"
+          },
+          "shared_on": {
+            "format": "date",
+            "title": "Shared On",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "closed",
+              "open"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_title",
+          "id",
+          "owner_public_name",
+          "shared_on",
+          "status"
+        ],
+        "title": "MyInterestWire",
+        "type": "object"
+      },
       "MyReviewBody": {
         "description": "The caller's own review, as its author sees it.\n\n:ivar rating: 1 to 5\n:ivar body: The words, or None\n:ivar status: Where it is in moderation\n:ivar rejection_code: Why it was rejected or removed\n:ivar tenure: The tenure bucket frozen at the first submit\n:ivar published_month: ``YYYY-MM`` once published, else None\n:ivar reply_body: The owner's reply while it is published",
         "properties": {
@@ -8324,6 +8450,7 @@
               "hub_enquiry_answered",
               "hub_enquiry_received",
               "hub_feedback_question",
+              "hub_interest_received",
               "hub_listing_suspended",
               "hub_review_outcome",
               "hub_reviews_published",
@@ -8518,6 +8645,7 @@
               "hub_enquiry_answered",
               "hub_enquiry_received",
               "hub_feedback_question",
+              "hub_interest_received",
               "hub_listing_suspended",
               "hub_review_outcome",
               "hub_reviews_published",
@@ -8958,6 +9086,64 @@
           "student_name"
         ],
         "title": "OwnerEnquiryWire",
+        "type": "object"
+      },
+      "OwnerInterestWire": {
+        "description": "One open interest, as the people who run the listing read it [0049].\n\nMirrors :class:`~app.hub.enquiries.interest.OwnerInterest`. No name:\nonly the number the family chose to share, read from their account now.\n\n:ivar id: The interest, to close it\n:ivar batch_id: The batch, or None once its listing is gone\n:ivar batch_title: Its public title, or None\n:ivar guardian_phone: The family's phone, or None if since removed\n:ivar shared_on: The day it was shared, in Bangladesh",
+        "properties": {
+          "batch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "batch_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Title"
+          },
+          "guardian_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Phone"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "shared_on": {
+            "format": "date",
+            "title": "Shared On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_id",
+          "batch_title",
+          "guardian_phone",
+          "id",
+          "shared_on"
+        ],
+        "title": "OwnerInterestWire",
         "type": "object"
       },
       "OwnerListingResponse": {
@@ -9521,6 +9707,48 @@
           "reviews"
         ],
         "title": "OwnerReviewsResponse",
+        "type": "object"
+      },
+      "PageViewsResponse": {
+        "description": "How often the owner's public pages were viewed [0050].\n\nCounts only: nothing about who viewed a page exists to send.\n\n:ivar owner_page: The owner page's views\n:ivar batches: Each batch page viewed in the last thirty days",
+        "properties": {
+          "batches": {
+            "items": {
+              "$ref": "#/components/schemas/BatchPageViewsWire"
+            },
+            "title": "Batches",
+            "type": "array"
+          },
+          "owner_page": {
+            "$ref": "#/components/schemas/PageViewsWire"
+          }
+        },
+        "required": [
+          "batches",
+          "owner_page"
+        ],
+        "title": "PageViewsResponse",
+        "type": "object"
+      },
+      "PageViewsWire": {
+        "description": "One public page's views [0050]: loads of the page, not people.\n\n:ivar last_7_days: Views in the last seven days, today included\n:ivar last_30_days: Views in the last thirty days, today included",
+        "properties": {
+          "last_30_days": {
+            "minimum": 0.0,
+            "title": "Last 30 Days",
+            "type": "integer"
+          },
+          "last_7_days": {
+            "minimum": 0.0,
+            "title": "Last 7 Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "last_30_days",
+          "last_7_days"
+        ],
+        "title": "PageViewsWire",
         "type": "object"
       },
       "PasswordChangeRequest": {
@@ -14937,6 +15165,78 @@
           }
         },
         "summary": "Hub Sitemap",
+        "tags": [
+          "hub-public"
+        ]
+      }
+    },
+    "/hub/v/{kind}/{page_id}.gif": {
+      "get": {
+        "description": "Count one view of a published owner or batch page [0050].\n\n**Only a number is written**: the page and the Bangladesh day, plus one.\nNothing about the request -- address, cookie, user agent, referrer or\naccount -- is read or stored. The read ceiling bounds how fast one\nnetwork can count, and a request over it, or naming no published page,\ncounts nothing. Every request gets the same image, so the answer says\nnothing about whether a page exists.\n\nCounting is best effort: a database failure is logged and the image is\nstill returned, since a missed count must never break a page.\n\n:param kind: ``o`` for an owner page, ``b`` for a batch page\n:param page_id: The page's public id\n:param allowed: Whether this request was within the read ceiling\n:param session: The request-scoped session, as the application role\n:return: The 1x1 image",
+        "operationId": "hub_page_view_hub_v__kind___page_id__gif_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "title": "Page Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/gif": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "A 1x1 image, the same for every request"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Hub Page View",
         "tags": [
           "hub-public"
         ]
@@ -25769,6 +26069,169 @@
         ]
       }
     },
+    "/v1/hub/interests": {
+      "get": {
+        "description": "List the owner's open interests, newest first.\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The interests",
+        "operationId": "list_owner_interests_v1_hub_interests_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OwnerInterestWire"
+                  },
+                  "title": "Response List Owner Interests V1 Hub Interests Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_ENQUIRIES_OFF: join requests are switched off."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "List Owner Interests",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/interests/{interest_id}/close": {
+      "post": {
+        "description": "Close an interest the owner has dealt with; the family is told nothing.\n\n:param interest_id: The interest\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: An empty 204",
+        "operationId": "close_owner_interest_v1_hub_interests__interest_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "interest_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Interest Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "NO_TEACHER_LENS: the caller runs no workspace, or not the one named."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_NOT_FOUND: no open interest of this owner's by that id; another owner's, or one already closed, answers the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Close Owner Interest",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
     "/v1/hub/listing": {
       "get": {
         "description": "Read the owner's listing, drafting one on the first call.\n\n:param lens: The owner's lens\n:param session: The request-scoped session\n:return: The listing and what it still needs",
@@ -26228,6 +26691,68 @@
           }
         },
         "summary": "Unpublish Listing",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/listing/views": {
+      "get": {
+        "description": "Say how often the owner's public pages were viewed [0050].\n\nOnly the people who manage the listing read this; no public page or\nsearch order uses it.\n\n:param lens: The owner's lens; only this owner's pages are read\n:param session: The request-scoped session\n:return: The owner page's and each viewed batch page's counts",
+        "operationId": "listing_views_v1_hub_listing_views_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageViewsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Listing Views",
         "tags": [
           "hub"
         ]
@@ -26914,6 +27439,212 @@
           }
         },
         "summary": "Complete Upload",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest": {
+      "post": {
+        "description": "Share the caller's interest in a listed batch, with their phone number.\n\nSharing again while one is open answers that one and changes nothing.\n\n:param owner_slug: The owner's public slug\n:param batch_id: The listed batch\n:param body: The adult-guardian declaration; checked and not stored\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: The interest as the family sees it",
+        "operationId": "share_interest_v1_hub_owners__owner_slug__batches__batch_id__interest_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner_slug",
+            "required": true,
+            "schema": {
+              "title": "Owner Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InterestWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyInterestWire"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_TARGET_NOT_FOUND: no published listing accepting requests by that slug, no open listed batch of it by that id, or a listing the caller runs; a slug that never existed answers the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_INTEREST_NEEDS_PHONE: the caller's account has no phone number to share. HUB_INTEREST_CEILING: today's interests are spent."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Share Interest",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest-target": {
+      "get": {
+        "description": "Say whom an interest would reach, and whether there is a number to share.\n\n:param owner_slug: The owner's public slug\n:param batch_id: The listed batch\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: The target as the confirm screen shows it",
+        "operationId": "get_interest_target_v1_hub_owners__owner_slug__batches__batch_id__interest_target_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner_slug",
+            "required": true,
+            "schema": {
+              "title": "Owner Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterestTargetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "HUB_ENQUIRIES_OFF: join requests are switched off. ENQUIRY_TARGET_NOT_FOUND: no published listing accepting requests by that slug, no open listed batch of it by that id, or a listing the caller runs; a slug that never existed answers the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Get Interest Target",
         "tags": [
           "hub"
         ]
@@ -30330,6 +31061,129 @@
           }
         },
         "summary": "Withdraw Enquiry",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/me/hub/interests": {
+      "get": {
+        "description": "List the caller's own interests, newest first. Never switch-gated.\n\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: The interests",
+        "operationId": "list_my_interests_v1_me_hub_interests_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MyInterestWire"
+                  },
+                  "title": "Response List My Interests V1 Me Hub Interests Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "List My Interests",
+        "tags": [
+          "hub"
+        ]
+      }
+    },
+    "/v1/me/hub/interests/{interest_id}": {
+      "delete": {
+        "description": "Take back one of the caller's interests, with every inbox item about it.\n\nA join request's own withdrawal, which forgets either kind. Never\nswitch-gated, and quiet for a missing id or another account's.\n\n:param interest_id: The interest\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: An empty 204",
+        "operationId": "withdraw_interest_v1_me_hub_interests__interest_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "interest_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Interest Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request could not be parsed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "An unexpected failure; not retryable"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "A transient failure; retryable"
+          }
+        },
+        "summary": "Withdraw Interest",
         "tags": [
           "hub"
         ]

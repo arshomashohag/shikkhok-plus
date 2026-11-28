@@ -39,7 +39,7 @@ Anti-goals. Each of these would make the hub a failure even if it works:
 | D6 | Update the site copy, Data Safety form, privacy policy and Families user-content declaration. These block release. |
 | D7 | The owner moderates alone: 48 h for photos and reviews, 24 h for child-safety reports, reviews published weekly. |
 | D8 | A local legal review of the review policy happens before free-text reviews go live. |
-| D9 | Reviews are built only if the directory meets the day-90 demand bar in §9. Demand is judged from the opt-in rate and an in-app question to teachers. Visitor traffic is never counted. |
+| D9 | Reviews are built only if the directory meets the day-90 demand bar in §9. Demand is judged from the opt-in rate and an in-app question to teachers. *(Amended 2026-11-28.)* Page views are counted as one number per page per day, shown only to that page's owner, and nothing about a visitor is stored; the demand gates still do not use them. |
 | D11 | Reporting is for signed-in users: a "Report" link on each page opens the app with the item pre-filled. There is no anonymous form and no email route (§10). |
 | D10 | No PDFs in V1. Syllabus and routine are structured text fields. |
 
@@ -274,9 +274,20 @@ Android and web bundles. Money stays a JSON string.
 
 ### 9. Measures and gates
 
-**Owner decision (builder check):** the hub counts no visitor traffic. There
-are no contact-click counts, no search counts and no CDN access logs. Demand
-is judged from two numbers the product already owns:
+**Owner decision (builder check):** the hub records nothing about a
+visitor. There are no contact-click counts, no search counts and no CDN
+access logs.
+
+*Amended 2026-11-28 (owner decision, migration `0050`):* each public owner
+and batch page's views are counted, as one number per page per Bangladesh
+day, through an uncached 1x1 image, because the pages themselves are
+served from the edge cache. No address, cookie, user agent, referrer or
+account is stored with a count; only the page's owner reads them, as 7-
+and 30-day totals; counts are kept 12 months; and no public page, search
+order or gate below uses them. They tell an owner whether a listing is
+being found, which is a different question from whether the hub works.
+
+Demand is judged from two numbers the product already owns:
 
 1. **Opt-in rate:** published owners ÷ active owners (an owner with at least
    one active batch).

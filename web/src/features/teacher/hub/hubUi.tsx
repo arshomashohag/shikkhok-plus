@@ -1,6 +1,6 @@
 /** Small pieces the hub screens share: failure text, the status chip and a checklist. */
 import { Link } from 'react-router'
-import { readOwnerReviews } from '../../../api/endpoints'
+import { listBatchListings, readHubPageViews, readOwnerReviews } from '../../../api/endpoints'
 import { listOwnerEnquiries } from './enquiries.api'
 import { ApiError } from '../../../api/errors'
 import { useResource } from '../../../core/useResource'
@@ -114,5 +114,59 @@ export function OwnerEnquiriesEntry() {
         <div className="meta">{t('hub_enquiry_inbox_sub')}</div>
       </div>
     </Link>
+  )
+}
+
+/**
+ * How often the owner's public pages were opened [0050], shown only once the
+ * listing is published. Counts of loads, not of people, and the card says
+ * so; any failure draws nothing, since the counts are never needed to act.
+ * Batch pages are named by the owner's own batch name, beside their counts.
+ */
+export function OwnerPageViews() {
+  const { t } = useT()
+  const { resource } = useResource(async (signal) => {
+    const [views, batches] = await Promise.all([
+      readHubPageViews(signal),
+      listBatchListings(signal),
+    ])
+    return { views, batches }
+  }, [])
+  if (resource.state !== 'loaded') return null
+  const { views, batches } = resource.data
+  const names = new Map(batches.map((b) => [b.batch_id, b.batch_name]))
+  return (
+    <section className="card" aria-labelledby="hub-page-views">
+      <div className="title" id="hub-page-views">
+        {t('web_hub_views_title')}
+      </div>
+      <p className="meta">{t('web_hub_views_explain')}</p>
+      <ul className="list">
+        <li>
+          <div className="row">
+            <span className="grow">{t('web_hub_views_owner_page')}</span>
+            <span className="meta">
+              {t(
+                'web_hub_views_counts',
+                views.owner_page.last_7_days,
+                views.owner_page.last_30_days,
+              )}
+            </span>
+          </div>
+        </li>
+        {views.batches.map((b) => (
+          <li key={b.batch_id}>
+            <div className="row">
+              <span className="grow" style={{ overflowWrap: 'anywhere' }}>
+                {names.get(b.batch_id) ?? t('web_hub_views_batch_gone')}
+              </span>
+              <span className="meta">
+                {t('web_hub_views_counts', b.last_7_days, b.last_30_days)}
+              </span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

@@ -784,8 +784,11 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "centre: the student's name and class as they typed them, an "
             "optional message, and whether they chose to share their phone "
             "number or email address, which is read from their account only "
-            "while the request exists and only if they chose. Seen only by "
-            "the people who run that listing; never public, never shown to "
+            "while the request exists and only if they chose. Or an interest "
+            "a signed-in family shared in one listed class, which holds "
+            "nothing they typed and shares the phone number on their account, "
+            "read from it only while the interest exists. Seen only by the "
+            "people who run that listing; never public, never shown to "
             "platform administrators. It goes when the guardian withdraws it "
             "or deletes their account, when a solo teacher deletes theirs, "
             "and 90 days after it was sent in any case."
@@ -810,6 +813,16 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "goes when that reader deletes their account, and a complaint "
             "about a review or a reply also goes when that review goes, "
             "whoever's deletion removes it."
+        ),
+    ),
+    "hub_page_view": TableGovernance(
+        disposition=Disposition.NOT_PERSONAL,
+        retention=RetentionClass.MONTHS_12,
+        basis=(
+            "How many times each public hub page was viewed on each day, as "
+            "one number per page per day. Nothing about who viewed it is "
+            "kept: no address, cookie, device or account. Seen only by the "
+            "teacher or centre whose page it is."
         ),
     ),
     "cdn_invalidation": TableGovernance(

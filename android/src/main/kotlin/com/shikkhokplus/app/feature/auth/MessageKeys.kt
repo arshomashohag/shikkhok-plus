@@ -89,6 +89,8 @@ object MessageKeys {
         "hub.enquiry.target_not_found" to R.string.hub_enquiry_target_not_found,
         "hub.enquiry.already_open" to R.string.hub_enquiry_already_open,
         "hub.enquiry.ceiling" to R.string.hub_enquiry_ceiling,
+        "hub.interest.ceiling" to R.string.hub_interest_ceiling,
+        "hub.interest.needs_phone" to R.string.hub_interest_needs_phone,
         "hub.enquiry.contains_contact" to R.string.hub_enquiry_contains_contact,
         "hub.enquiry.not_found" to R.string.hub_enquiry_not_found,
         "hub.enquiry.already_closed" to R.string.hub_enquiry_already_closed,

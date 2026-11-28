@@ -23,12 +23,15 @@ __all__ = [
     "AreaOption",
     "BatchListingResponse",
     "BatchListingUpdateRequest",
+    "BatchPageViewsWire",
     "CentreMembershipResponse",
     "ChecklistItemWire",
     "ConsentRequest",
     "HubFeedbackRequest",
     "OwnerListingResponse",
     "OwnerListingUpdateRequest",
+    "PageViewsResponse",
+    "PageViewsWire",
     "PublishRequest",
     "SlugAvailability",
 ]
@@ -197,6 +200,39 @@ class SlugAvailability(BaseModel):
 
     slug: str
     available: bool
+
+
+class PageViewsWire(BaseModel):
+    """One public page's views [0050]: loads of the page, not people.
+
+    :ivar last_7_days: Views in the last seven days, today included
+    :ivar last_30_days: Views in the last thirty days, today included
+    """
+
+    last_7_days: int = Field(ge=0)
+    last_30_days: int = Field(ge=0)
+
+
+class BatchPageViewsWire(PageViewsWire):
+    """One batch page's views.
+
+    :ivar batch_id: The batch
+    """
+
+    batch_id: uuid.UUID
+
+
+class PageViewsResponse(BaseModel):
+    """How often the owner's public pages were viewed [0050].
+
+    Counts only: nothing about who viewed a page exists to send.
+
+    :ivar owner_page: The owner page's views
+    :ivar batches: Each batch page viewed in the last thirty days
+    """
+
+    owner_page: PageViewsWire
+    batches: list[BatchPageViewsWire]
 
 
 class AreaOption(BaseModel):

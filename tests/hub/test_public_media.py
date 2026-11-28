@@ -115,12 +115,19 @@ def _photo(
 
 
 def _images(body: str) -> list[dict[str, str | None]]:
-    """List every ``<img>`` of a page, in document order.
+    """List every photo ``<img>`` of a page, in document order.
+
+    The page-view counting image [0050] is not a photo and is left out;
+    ``tests/hub/test_page_views.py`` covers it.
 
     :param body: The HTML
     :return: Each image's attributes
     """
-    return _parse(body).find("img")
+    return [
+        image
+        for image in _parse(body).find("img")
+        if image.get("class") != "view-pixel"
+    ]
 
 
 @pytest.fixture
@@ -299,8 +306,9 @@ def test_no_photos_means_no_gallery_and_no_json_ld_image(
     _published_tutor(owner_session)
 
     for path in ("/hub/en/t/rahim-sir", "/hub/en/t/rahim-sir/class-9-maths"):
-        page = _parse(client.get(path).text)
-        assert page.find("img") == []
+        body = client.get(path).text
+        page = _parse(body)
+        assert _images(body) == []
         assert page.find("ul", **{"class": "gallery"}) == []
         assert "image" not in json.loads(page.scripts[0])
 

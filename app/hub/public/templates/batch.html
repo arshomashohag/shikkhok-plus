@@ -114,6 +114,10 @@
 {% if meta.enquiry_href %}
 <a class="button button-block" href="{{ meta.enquiry_href }}">{{ m("enquiry_link_batch") }}</a>
 {% endif %}
+{% if meta.interest_href %}
+<a class="button button-block button-outline" href="{{ meta.interest_href }}">{{ m("interest_link") }}</a>
+<p class="side-note">{{ m("interest_note") }}</p>
+{% endif %}
 <p class="side-note"><a href="{{ meta.report_href }}">{{ m("report_page") }}</a></p>
 </aside>
 </div>

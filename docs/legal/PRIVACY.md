@@ -78,6 +78,7 @@ password is, and is deleted after a short period. We never log either.
 | Fee payments and claims | The teacher and the student | Both parties to that fee |
 | A review of a class on the public hub: a star rating and any words you add | A verified guardian of a student in that class, only if they choose to | Anyone, once we have checked it and the class has at least three published reviews; never with the guardian's name (see "Reviews" below) |
 | A reply to a review | The teacher or centre that runs the class | Anyone, with the review, once we have checked it |
+| Your interest in a class on the public hub: that you are interested, and the phone number on your account | A signed-in parent or guardian, only if they choose to | Only the teacher of that class, or the managers of the centre; never public, and never us (see "Interest in a class" below) |
 | A class's public listing: its title, description, classes, subjects, how it is taught, whether admissions are open, and, only if the teacher chooses, its fee, weekly times and seat counts | The teacher or centre that runs the class, only if they choose to publish it | Anyone, while it is published (see "Seat counts" below) |
 | A request to join a class on the public hub: the student's name and class, and any message you add | A signed-in parent or guardian, only if they choose to | Only the teacher it was sent to, or the managers of the centre; your phone number or email address only if you choose to share it; never public, and never us (see "Join requests" below) |
 
@@ -241,6 +242,57 @@ requests at all.
   are switched off, you can still see and withdraw the ones you sent,
   and they are still deleted after 90 days.
 
+### Interest in a class
+
+Where join requests are offered, a parent or guardian can also tell a
+teacher or centre that they are interested in one of its listed classes,
+even a full one, so the teacher can call them when a place opens. It is
+offered on the same listings as join requests, and follows the same
+rules, with these differences:
+
+- **Nothing is typed.** An interest holds the class, the account that
+  shared it, and when; no child's name, no class level, no message. You
+  confirm, on each one, that you are a parent or guardian aged 18 or
+  over.
+- **Your phone number is always shared**, because that is what an
+  interest is: the teacher, or each manager of the centre, sees the
+  phone number on your account. It is read from your account while the
+  interest exists, not copied into it. An account with no phone number
+  cannot share an interest. The teacher never sees your name or anything
+  in your profile.
+- **The teacher contacts you outside the app**, by calling or messaging
+  the number. They can mark an interest done once they have; we do not
+  tell you, and you can still see it, as "seen", until it is deleted.
+- **Withdrawing it, and how long.** You can take an interest back at any
+  time from your join requests, and it is deleted completely, with every
+  notice about it. Every interest is deleted 90 days after you shared it,
+  and with your account, as a join request is. Never public, and never
+  seen by us.
+
+### Page views
+
+We count how many times each public hub page — a teacher's or centre's
+page, and each of its class pages — is opened, so the teacher or centre
+can see whether its listing is being found. **We count, and that is
+all:**
+
+- **One number per page per day.** Opening a page adds one to that
+  page's count for the day. We do not record who opened it: no IP
+  address, no cookie, no device, no browser details, no account and no
+  page you came from are stored with the count, or anywhere else because
+  of it.
+- **How it is counted.** Each public page includes a tiny invisible
+  image, and loading it adds the view; nothing runs in your browser and
+  nothing is stored on your device. Like every hub page, loading it
+  counts against the short limit on how many hub pages one network may
+  open in a minute, which protects the site and is cleared within
+  minutes.
+- **Only the teacher or centre sees them**, for its own pages, as totals
+  for the last 7 and 30 days. Counts are never shown on a public page and
+  never used to order search results.
+- **Kept 12 months.** Each day's count is deleted after twelve months. A
+  teacher's own preview of their listing is not counted.
+
 ---
 
 ## Who can see what
@@ -367,6 +419,7 @@ These records are about how the service itself is running, not about any person.
 | A record that moderation acted on a hub listing, photo, review, reply or report; it holds no free text and names nobody | 12 months |
 | Addresses of public hub pages we asked our web cache to forget after a page was taken down; they name nobody | 7 days |
 | Counters that limit sign-in attempts | 48 hours |
+| How many times each public hub page was opened on each day: one number per page per day, which names nobody and records nothing about the person who opened it | 12 months |
 | Instructions to delete the image files of a photo that was taken down or deleted; they name nobody | 7 days |
 | The fixed list of Bangladesh divisions, districts, upazilas, city corporations and metropolitan thanas | no time limit |
 | When our scheduled jobs last ran; it names nobody | no time limit |
@@ -377,7 +430,7 @@ These records are about how the service itself is running, not about any person.
 
 **A coaching centre's public listing stays with the centre.** If you are a manager of a coaching centre and delete your account, what the centre published on the public hub -- its own page, its class pages and their photos, and its replies to reviews -- and its answers to whether the hub brought it students are kept, because they belong to the centre and not to you, and the centre's other managers may still run it. Your own account is removed as described above. A solo teacher's public listing is not kept: it is deleted with their account.
 
-<!-- governance manifest digest: 5c2f99837b497fb845782175229c293be25c6b288a06dcb71f31d4462df7eaae
+<!-- governance manifest digest: a01dfeee1f9dd8c8fc82ee9c2d1e872d6d8a116990ee24539361c9f5417e7c06
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

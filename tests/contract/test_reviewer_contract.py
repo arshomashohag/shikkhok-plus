@@ -201,10 +201,10 @@ def test_reviewer_routes_fires_on_an_unlisted_route() -> None:
 def test_lens_exempt_count_and_reviewable_entry() -> None:
     """The reviewable list is the one exemption H4 adds, and it is not public."""
     assert ("GET", "/v1/hub/reviewable") in LENS_EXEMPT_AUTHENTICATED
-    # +4 join requests [H5]
-    assert len(LENS_EXEMPT_AUTHENTICATED) == 39
+    # +4 join requests [H5], +4 interest [0049]
+    assert len(LENS_EXEMPT_AUTHENTICATED) == 43
     assert ("GET", "/v1/hub/reviewable") not in PUBLIC_ROUTES
-    assert len(PUBLIC_ROUTES) == 19
+    assert len(PUBLIC_ROUTES) == 20
 
 
 def test_teacher_review_routes_take_the_teacher_lens(app: FastAPI) -> None:

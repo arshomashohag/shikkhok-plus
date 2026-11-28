@@ -18,7 +18,7 @@
 const KEY = 'sp.return'
 
 /** The public links that may be returned to: exactly these paths, with any query. */
-const RETURNABLE: readonly string[] = ['/hub-report', '/hub-enquiry']
+const RETURNABLE: readonly string[] = ['/hub-report', '/hub-enquiry', '/hub-interest']
 
 /**
  * Only a report or join-request address on this app: the exact path, or

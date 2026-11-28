@@ -76,6 +76,7 @@ class NotificationResponse(BaseModel):
         "hub_reviews_published",
         "hub_enquiry_received",
         "hub_enquiry_answered",
+        "hub_interest_received",
     ]
     enrollment_id: uuid.UUID | None = None
     batch_name: str

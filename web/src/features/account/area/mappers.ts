@@ -45,6 +45,7 @@ export const INBOX_KINDS = [
   'hub_reviews_published',
   'hub_enquiry_received',
   'hub_enquiry_answered',
+  'hub_interest_received',
 ] as const satisfies readonly ApiInboxKind[]
 
 export type InboxKind = (typeof INBOX_KINDS)[number]
@@ -143,11 +144,13 @@ const WORDED_PREVIEW: readonly InboxKind[] = [
   'hub_reviews_published',
   'hub_enquiry_received',
   'hub_enquiry_answered',
+  'hub_interest_received',
 ]
 
 /** The line for a hub review or join-request message; null for any other kind. */
 function wordedLineOf(kind: InboxKind, preview: string | null): WordedLine | null {
   if (kind === 'hub_enquiry_received') return { key: 'hub_enquiry_inbox_received_body', args: [] }
+  if (kind === 'hub_interest_received') return { key: 'web_hub_interest_inbox_body', args: [] }
   if (kind === 'hub_enquiry_answered') {
     const key = preview ? ENQUIRY_ANSWER_KEY[preview] : undefined
     return key ? { key, args: [] } : null
@@ -217,6 +220,7 @@ export const TITLE_KEY: Record<InboxKind, string> = {
   hub_reviews_published: 'inbox_hub_reviews_published_title',
   hub_enquiry_received: 'hub_enquiry_inbox_received_title',
   hub_enquiry_answered: 'hub_enquiry_inbox_answered_title',
+  hub_interest_received: 'web_hub_interest_inbox_title',
 }
 
 /** "Child · Batch", or just the batch for the reader's own seat. */
@@ -328,6 +332,8 @@ export function targetOf(m: InboxMessage): InboxTarget {
     return { to: paths.hubEnquiry(m.sourceId), lens: 'teacher' }
   }
   if (m.kind === 'hub_enquiry_answered') return { to: accountPaths.myEnquiries(), lens: null }
+  // A family's interest opens the owner's requests screen, where interests are listed.
+  if (m.kind === 'hub_interest_received') return { to: paths.hubEnquiries(), lens: 'teacher' }
   return { to: accountPaths.inboxItem(m.id), lens: null }
 }
 

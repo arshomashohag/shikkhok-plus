@@ -108,6 +108,7 @@ _AGE_COLUMN: Final[dict[str, str]] = {
     # a photo's objects cannot outlive the only record that they must go.
     "media_object_task": "done_at",
     "listing_enquiry": "created_at",
+    "hub_page_view": "day",
 }
 
 

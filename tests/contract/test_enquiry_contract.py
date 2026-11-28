@@ -52,6 +52,18 @@ OWNER_LIST: Final = "/v1/hub/enquiries"
 OWNER_ONE: Final = "/v1/hub/enquiries/{enquiry_id}"
 OWNER_CLOSE: Final = "/v1/hub/enquiries/{enquiry_id}/close"
 
+#: The family's interest routes [0049].
+INTEREST_TARGET: Final = (
+    "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest-target"
+)
+INTEREST_SHARE: Final = "/v1/hub/owners/{owner_slug}/batches/{batch_id}/interest"
+MY_INTERESTS: Final = "/v1/me/hub/interests"
+INTEREST_WITHDRAW: Final = "/v1/me/hub/interests/{interest_id}"
+
+#: The owner's two interest routes.
+OWNER_INTERESTS: Final = "/v1/hub/interests"
+OWNER_INTEREST_CLOSE: Final = "/v1/hub/interests/{interest_id}/close"
+
 #: The routes the switch gates (global constraints, the off table).
 GATED: Final = frozenset(
     {
@@ -60,20 +72,46 @@ GATED: Final = frozenset(
         ("GET", OWNER_LIST),
         ("GET", OWNER_ONE),
         ("POST", OWNER_CLOSE),
+        ("GET", INTEREST_TARGET),
+        ("POST", INTEREST_SHARE),
+        ("GET", OWNER_INTERESTS),
+        ("POST", OWNER_INTEREST_CLOSE),
     }
 )
 
-#: The routes it never gates: the guardian's own list and withdrawal.
-UNGATED: Final = frozenset({("GET", MINE), ("DELETE", WITHDRAW)})
-
-#: The four lens-exempt routes; each acts as the authenticated account.
-EXEMPT: Final = frozenset(
-    {("GET", TARGET), ("POST", SEND), ("GET", MINE), ("DELETE", WITHDRAW)}
+#: The routes it never gates: the family's own lists and withdrawals.
+UNGATED: Final = frozenset(
+    {
+        ("GET", MINE),
+        ("DELETE", WITHDRAW),
+        ("GET", MY_INTERESTS),
+        ("DELETE", INTEREST_WITHDRAW),
+    }
 )
 
-#: The owner's three, each resolving the owner's teacher lens.
+#: The eight lens-exempt routes; each acts as the authenticated account.
+EXEMPT: Final = frozenset(
+    {
+        ("GET", TARGET),
+        ("POST", SEND),
+        ("GET", MINE),
+        ("DELETE", WITHDRAW),
+        ("GET", INTEREST_TARGET),
+        ("POST", INTEREST_SHARE),
+        ("GET", MY_INTERESTS),
+        ("DELETE", INTEREST_WITHDRAW),
+    }
+)
+
+#: The owner's five, each resolving the owner's teacher lens.
 TEACHER: Final = frozenset(
-    {("GET", OWNER_LIST), ("GET", OWNER_ONE), ("POST", OWNER_CLOSE)}
+    {
+        ("GET", OWNER_LIST),
+        ("GET", OWNER_ONE),
+        ("POST", OWNER_CLOSE),
+        ("GET", OWNER_INTERESTS),
+        ("POST", OWNER_INTEREST_CLOSE),
+    }
 )
 
 #: Each route's documented error statuses, from the codes it can answer
@@ -86,6 +124,12 @@ DOCUMENTED: Final[dict[tuple[str, str], frozenset[str]]] = {
     ("GET", OWNER_LIST): frozenset({"401", "403", "404"}),
     ("GET", OWNER_ONE): frozenset({"401", "403", "404"}),
     ("POST", OWNER_CLOSE): frozenset({"400", "401", "403", "404", "409"}),
+    ("GET", INTEREST_TARGET): frozenset({"401", "404"}),
+    ("POST", INTEREST_SHARE): frozenset({"401", "404", "409"}),
+    ("GET", MY_INTERESTS): frozenset({"401"}),
+    ("DELETE", INTEREST_WITHDRAW): frozenset({"401"}),
+    ("GET", OWNER_INTERESTS): frozenset({"401", "403", "404"}),
+    ("POST", OWNER_INTEREST_CLOSE): frozenset({"401", "403", "404"}),
 }
 
 #: The codes each documented status must name in its description.
@@ -156,19 +200,24 @@ def _calls(dependant: Dependant) -> list[object]:
     return found
 
 
-def test_the_seven_routes_are_the_gated_five_and_the_ungated_two() -> None:
+def test_the_thirteen_routes_are_the_gated_nine_and_the_ungated_four() -> None:
     """The walked set, the gated set and the ungated set agree."""
-    assert len(GATED) == 5
+    assert len(GATED) == 9
+    assert len(UNGATED) == 4
     assert GATED | UNGATED == ENQUIRY_ROUTES
     assert not GATED & UNGATED
 
 
 def test_lens_exempt_set_exact() -> None:
-    """Exactly four join-request routes are lens-exempt, and none is public."""
-    exempt = {entry for entry in LENS_EXEMPT_AUTHENTICATED if "enquir" in entry[1]}
+    """Exactly eight request and interest routes are lens-exempt, none public."""
+    exempt = {
+        entry
+        for entry in LENS_EXEMPT_AUTHENTICATED
+        if "enquir" in entry[1] or "interest" in entry[1]
+    }
     assert exempt == EXEMPT
     assert not EXEMPT & PUBLIC_ROUTES
-    assert not any("enquir" in path for _, path in PUBLIC_ROUTES)
+    assert not any("enquir" in path or "interest" in path for _, path in PUBLIC_ROUTES)
 
 
 def test_teacher_enquiry_routes_resolve_teacher_lens(app: FastAPI) -> None:

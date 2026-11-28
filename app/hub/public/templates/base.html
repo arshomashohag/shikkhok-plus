@@ -56,5 +56,10 @@
 </nav>
 </div>
 </footer>
+{% if meta.view_href %}
+{#- The page-view count [0050]: an uncached image, since the page itself is
+    served from the edge cache. It carries nothing about the reader. -#}
+<img class="view-pixel" src="{{ meta.view_href }}" alt="" width="1" height="1">
+{% endif %}
 </body>
 </html>

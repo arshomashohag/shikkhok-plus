@@ -126,6 +126,8 @@
     "hub.enquiry.outcome_invalid",
     "hub.enquiry.target_not_found",
     "hub.feedback_not_asked",
+    "hub.interest.ceiling",
+    "hub.interest.needs_phone",
     "hub.listing_incomplete",
     "hub.listing_suspended",
     "hub.media.alt_invalid",

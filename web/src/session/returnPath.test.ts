@@ -21,12 +21,14 @@ describe('returnPath', () => {
     '/hub-enquiry',
     '/hub-enquiry?owner=sumi-apa',
     '/hub-enquiry?owner=sumi-apa&batch=0b9e8d7c-6b5a-4c3d-9e2f-1a0b9c8d7e6f',
+    '/hub-interest?owner=sumi-apa&batch=0b9e8d7c-6b5a-4c3d-9e2f-1a0b9c8d7e6f',
   ])('keeps %s', (path) => {
     expect(kept(path)).toBe(path)
   })
 
   it.each([
     '/hub-enquiries',
+    '/hub-interests',
     '/hub-enquiryx',
     '/hub-enquiry/x',
     '//host/hub-enquiry',

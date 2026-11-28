@@ -319,6 +319,10 @@ class HubBatchPage(BaseModel):
     :ivar enquiry_open: Whether the page offers the "Ask to join this
         class" link: join requests are switched on, the owner accepts them,
         and the batch's admissions are not ``closed``
+    :ivar interest_open: Whether the page offers the "I'm interested" link
+        [0049]: join requests are switched on and the owner accepts them,
+        whatever the batch's admissions, since a full batch is when a
+        family's interest matters most
     """
 
     model_config = _FROZEN
@@ -330,6 +334,7 @@ class HubBatchPage(BaseModel):
     images: list[HubImage]
     enquiry_open: bool
     reviews: list[HubReview] = []
+    interest_open: bool = False
 
 
 class AreaOption(BaseModel):

@@ -44,7 +44,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import authenticated_account, get_session, teacher_lens
 from app.authz.lenses import TeacherLens
-from app.hub.enquiries import owner, sending
+from app.hub.enquiries import interest, owner, sending
 from app.hub.enquiries.owner import OwnerEnquiry
 from app.hub.enquiries.sending import MyEnquiry
 from app.hub.enquiries.switch import (
@@ -56,8 +56,12 @@ from app.schemas.enquiries import (
     EnquiryClose,
     EnquiryTargetResponse,
     EnquiryWrite,
+    InterestTargetResponse,
+    InterestWrite,
     MyEnquiryWire,
+    MyInterestWire,
     OwnerEnquiryWire,
+    OwnerInterestWire,
 )
 from app.schemas.errors import ErrorEnvelope
 
@@ -73,6 +77,15 @@ _MINE: Final = "/me/hub/enquiries"
 
 #: The owner's requests.
 _INBOX: Final = "/hub/enquiries"
+
+#: A listed batch, under which a family shares interest [0049].
+_BATCH: Final = "/hub/owners/{owner_slug}/batches/{batch_id}"
+
+#: The family's own interests.
+_MY_INTERESTS: Final = "/me/hub/interests"
+
+#: The owner's interests.
+_INTERESTS: Final = "/hub/interests"
 
 _Responses = dict[int | str, dict[str, object]]
 
@@ -151,6 +164,28 @@ _CLOSE_ERRORS: Final[_Responses] = {
     403: _NO_TEACHER,
     **enquiries_off_responses(_NOT_FOUND),
     409: _envelope("ENQUIRY_ALREADY_CLOSED: the request was already answered."),
+}
+
+
+#: The interest target's read and the share: as a request's, plus the
+#: family's account having no phone, and the day's allowance.
+_SHARE_ERRORS: Final[_Responses] = {
+    401: _UNAUTHENTICATED,
+    **enquiries_off_responses(_TARGET_NOT_FOUND),
+    409: _envelope(
+        "HUB_INTEREST_NEEDS_PHONE: the caller's account has no phone number "
+        "to share. HUB_INTEREST_CEILING: today's interests are spent."
+    ),
+}
+
+#: The owner's close of an interest.
+_INTEREST_CLOSE_ERRORS: Final[_Responses] = {
+    401: _UNAUTHENTICATED,
+    403: _NO_TEACHER,
+    **enquiries_off_responses(
+        "ENQUIRY_NOT_FOUND: no open interest of this owner's by that id; "
+        "another owner's, or one already closed, answers the same."
+    ),
 }
 
 
@@ -346,3 +381,150 @@ def close_owner_enquiry(
     :return: The closed request
     """
     return _owners(owner.close(session, lens, enquiry_id, body.outcome, _now()))
+
+
+# ---------------------------------------------------------------------------
+# Interest in a batch [0049]: a family shares the phone on their account
+# with whoever runs a listed batch, with nothing typed. Gated by the same
+# switch as join requests; the family's own list and withdrawal never are.
+
+
+@router.get(
+    f"{_BATCH}/interest-target",
+    response_model=InterestTargetResponse,
+    responses=_TARGET_ERRORS,
+    dependencies=[Depends(require_enquiries_on)],
+)
+def get_interest_target(
+    owner_slug: str,
+    batch_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+) -> InterestTargetResponse:
+    """Say whom an interest would reach, and whether there is a number to share.
+
+    :param owner_slug: The owner's public slug
+    :param batch_id: The listed batch
+    :param session: The request-scoped session
+    :param account_id: The authenticated account
+    :return: The target as the confirm screen shows it
+    """
+    found = interest.describe(session, account_id, owner_slug, batch_id)
+    return InterestTargetResponse.model_validate(dataclasses.asdict(found))
+
+
+@router.post(
+    f"{_BATCH}/interest",
+    status_code=status.HTTP_201_CREATED,
+    response_model=MyInterestWire,
+    responses=_SHARE_ERRORS,
+    dependencies=[Depends(require_enquiries_on)],
+)
+def share_interest(
+    owner_slug: str,
+    batch_id: uuid.UUID,
+    body: InterestWrite,
+    session: Annotated[Session, Depends(get_session)],
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+) -> MyInterestWire:
+    """Share the caller's interest in a listed batch, with their phone number.
+
+    Sharing again while one is open answers that one and changes nothing.
+
+    :param owner_slug: The owner's public slug
+    :param batch_id: The listed batch
+    :param body: The adult-guardian declaration; checked and not stored
+    :param session: The request-scoped session
+    :param account_id: The authenticated account
+    :return: The interest as the family sees it
+    """
+    del body  # Validated by its model; nothing in it is stored.
+    shared = interest.share(session, account_id, owner_slug, batch_id, _now())
+    return MyInterestWire.model_validate(dataclasses.asdict(shared))
+
+
+@router.get(_MY_INTERESTS, response_model=list[MyInterestWire], responses=_MINE_ERRORS)
+def list_my_interests(
+    session: Annotated[Session, Depends(get_session)],
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+) -> list[MyInterestWire]:
+    """List the caller's own interests, newest first. Never switch-gated.
+
+    :param session: The request-scoped session
+    :param account_id: The authenticated account
+    :return: The interests
+    """
+    return [
+        MyInterestWire.model_validate(dataclasses.asdict(each))
+        for each in interest.mine(session, account_id)
+    ]
+
+
+@router.delete(
+    f"{_MY_INTERESTS}/{{interest_id}}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    responses=_MINE_ERRORS,
+)
+def withdraw_interest(
+    interest_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+) -> Response:
+    """Take back one of the caller's interests, with every inbox item about it.
+
+    A join request's own withdrawal, which forgets either kind. Never
+    switch-gated, and quiet for a missing id or another account's.
+
+    :param interest_id: The interest
+    :param session: The request-scoped session
+    :param account_id: The authenticated account
+    :return: An empty 204
+    """
+    sending.withdraw(session, account_id, interest_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    _INTERESTS,
+    response_model=list[OwnerInterestWire],
+    responses=_LIST_ERRORS,
+    dependencies=[Depends(require_enquiries_on)],
+)
+def list_owner_interests(
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    session: Annotated[Session, Depends(get_session)],
+) -> list[OwnerInterestWire]:
+    """List the owner's open interests, newest first.
+
+    :param lens: The owner's lens
+    :param session: The request-scoped session
+    :return: The interests
+    """
+    return [
+        OwnerInterestWire.model_validate(dataclasses.asdict(each))
+        for each in interest.list_for(session, lens)
+    ]
+
+
+@router.post(
+    f"{_INTERESTS}/{{interest_id}}/close",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    responses=_INTEREST_CLOSE_ERRORS,
+    dependencies=[Depends(require_enquiries_on)],
+)
+def close_owner_interest(
+    interest_id: uuid.UUID,
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    """Close an interest the owner has dealt with; the family is told nothing.
+
+    :param interest_id: The interest
+    :param lens: The owner's lens
+    :param session: The request-scoped session
+    :return: An empty 204
+    """
+    interest.close(session, lens, interest_id, _now())
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

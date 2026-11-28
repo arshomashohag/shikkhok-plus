@@ -6,15 +6,18 @@ methods it names, so the hub's four GET routes answered HEAD with 405.
 
 **Served as GET, not registered as HEAD.** Registering HEAD would add a
 ``(HEAD, path)`` pair beside each page's ``(GET, path)``, and every route
-gate counts pairs: ``PUBLIC_ROUTES`` would grow from nineteen to
-twenty-three and ``PUBLIC_CACHEABLE_ROUTES`` would hold a method other
+gate counts pairs: ``PUBLIC_ROUTES`` would grow by one per page and
+``PUBLIC_CACHEABLE_ROUTES`` would hold a method other
 than GET, changing what both stated counts mean. So nothing is
 registered: :class:`HeadAsGet` hands a HEAD under ``/hub`` to the same GET
 handler, which the gates already cover -- the same lensless, read-only,
 cacheable page -- and drops the body on the way out. Status and every
 header, ``Content-Length`` included, are GET's, as HTTP requires of HEAD.
 
-Only paths under ``/hub``; HEAD anywhere else is refused as before.
+Only paths under ``/hub``; HEAD anywhere else is refused as before. **And
+never the page-view counting image** (``/hub/v/``) [0050]: its GET adds a
+view, and a HEAD -- a link checker's probe -- must not, so a HEAD there is
+refused like any other.
 """
 
 from __future__ import annotations
@@ -28,13 +31,19 @@ __all__ = ["HUB_PREFIX", "HeadAsGet"]
 #: The public hub's path prefix; ``/hub`` itself and everything below it.
 HUB_PREFIX: Final[str] = "/hub"
 
+#: The page-view counting image's prefix, which a HEAD never reaches as GET.
+_VIEW_PREFIX: Final[str] = f"{HUB_PREFIX}/v/"
+
 
 def _is_hub(path: str) -> bool:
     """Report whether a path is the hub's.
 
     :param path: The request path
-    :return: True for ``/hub`` and anything below ``/hub/``
+    :return: True for ``/hub`` and anything below ``/hub/``, except the
+        counting image
     """
+    if path.startswith(_VIEW_PREFIX):
+        return False
     return path == HUB_PREFIX or path.startswith(f"{HUB_PREFIX}/")
 
 

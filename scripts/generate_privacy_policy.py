@@ -186,6 +186,11 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
         "Addresses of public hub pages we asked our web cache to forget after "
         "a page was taken down; they name nobody"
     ),
+    "hub_page_view": (
+        "How many times each public hub page was opened on each day: one "
+        "number per page per day, which names nobody and records nothing "
+        "about the person who opened it"
+    ),
     "staging_sms_outbox": "Test-only message records, never used in production",
     "owner": "The link between a class and the teacher who runs it",
     "batch": "A class a teacher runs",

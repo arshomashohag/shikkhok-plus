@@ -15,11 +15,16 @@
  *
  * Opened while join requests are switched off, or for a request that is
  * gone, either screen says so plainly, with no Retry.
+ *
+ * **Interested families** [0049] are listed below the requests: each open
+ * interest's class, the family's number as a `tel:` link (the server reads
+ * it from their account now, and sends none once they remove it), and
+ * Done, which closes it quietly: the family is told nothing.
  */
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ApiError } from '../../../api/errors'
-import { formatDateTime, formatPhone } from '../../../core/format'
+import { formatDateTime, formatPhone, formatShortDate } from '../../../core/format'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import {
@@ -36,10 +41,13 @@ import {
   ACTIONS,
   OWNER_OUTCOME_KEY,
   closeEnquiry,
+  closeInterest,
   levelKey,
   listOwnerEnquiries,
+  listOwnerInterests,
   readOwnerEnquiry,
   type OwnerEnquiry,
+  type OwnerInterest,
   type Outcome,
 } from './enquiries.api'
 import { failureText, FailureBanner } from './hubUi'
@@ -114,7 +122,78 @@ export function OwnerEnquiries() {
     <>
       <TopBar title={t('hub_enquiry_inbox_title')} back={paths.hub()} />
       {body}
+      <OwnerInterests />
     </>
+  )
+}
+
+/** The owner's open interests [0049], each with its number and Done. */
+export function OwnerInterests() {
+  const { t, message, lang } = useT()
+  const { resource, reload } = useResource((signal) => listOwnerInterests(signal), [])
+  const [busy, setBusy] = useState<string | null>(null)
+  const [failure, setFailure] = useState<{ id: string; text: string } | null>(null)
+  const [snack, setSnack] = useState<string | null>(null)
+
+  async function done(id: string) {
+    setBusy(id)
+    setFailure(null)
+    try {
+      await closeInterest(id)
+      setSnack(t('web_hub_interest_done_snack'))
+      reload()
+    } catch (e) {
+      setFailure({ id, text: `${t('web_hub_interest_failed')} ${failureText(e, t, message)}` })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  // Switched off, or another failure: the requests above already say so.
+  if (resource.state !== 'loaded') return null
+
+  return (
+    <section className="section">
+      <div className="section-head">
+        <h2>{t('web_hub_interest_owner_title')}</h2>
+      </div>
+      <p className="meta">{t('web_hub_interest_owner_help')}</p>
+      {resource.data.length === 0 ? (
+        <EmptyState title={t('web_hub_interest_owner_empty')} />
+      ) : (
+        <ul className="card flush list" aria-label={t('web_hub_interest_owner_title')}>
+          {resource.data.map((i: OwnerInterest) => (
+            <li key={i.id}>
+              <div className="row">
+                <div className="grow" style={{ minWidth: 0 }}>
+                  <div className="title">
+                    {i.guardian_phone ? (
+                      <a href={`tel:${i.guardian_phone}`}>{formatPhone(i.guardian_phone)}</a>
+                    ) : (
+                      t('web_hub_interest_number_removed')
+                    )}
+                  </div>
+                  <div className="meta" style={{ overflowWrap: 'anywhere' }}>
+                    {i.batch_title ?? t('web_hub_interest_class_gone')} ·{' '}
+                    {t('web_hub_interest_shared_on', formatShortDate(i.shared_on, lang))}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-small"
+                  disabled={busy !== null}
+                  onClick={() => void done(i.id)}
+                >
+                  {t('web_hub_interest_done')}
+                </button>
+              </div>
+              {failure?.id === i.id ? <FailureBanner text={failure.text} /> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      {snack ? <Snackbar text={snack} onDismiss={() => setSnack(null)} /> : null}
+    </section>
   )
 }
 

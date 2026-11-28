@@ -145,6 +145,11 @@ class _Meta:
     :ivar report_href: The report form's URL for this page, or None
     :ivar enquiry_href: The join-request form's URL for this page, or None
         unless the page's view says it is open to requests
+    :ivar interest_href: The "I'm interested" screen's URL for a batch
+        page [0049], or None unless the view says interest is open
+    :ivar view_href: The counting image's path for an owner or batch page
+        [0050], or None for search and for the owner's own preview, whose
+        loads are not views
     """
 
     title: str
@@ -157,6 +162,8 @@ class _Meta:
     json_ld: Markup | None
     report_href: str | None
     enquiry_href: str | None
+    interest_href: str | None = None
+    view_href: str | None = None
 
 
 def _require_registered(view: BaseModel) -> None:
@@ -278,6 +285,17 @@ def _enquiry_href(owner_slug: str, batch_id: uuid.UUID | None) -> str:
     return f"{web_app_url()}/ui/hub-enquiry?{urlencode(pairs)}"
 
 
+def _interest_href(owner_slug: str, batch_id: uuid.UUID) -> str:
+    """Build the "I'm interested" screen's URL for one batch [0049].
+
+    :param owner_slug: The owner's public slug
+    :param batch_id: The batch
+    :return: The URL on the web app, ``owner`` then ``batch``
+    """
+    query = urlencode([("owner", owner_slug), ("batch", str(batch_id))])
+    return f"{web_app_url()}/ui/hub-interest?{query}"
+
+
 def _ld_image(images: Sequence[HubImage]) -> str | None:
     """Name a page's first approved photo for its structured data.
 
@@ -351,6 +369,8 @@ def _meta(view: BaseModel, locale: Locale, *, preview: bool) -> _Meta:
     json_ld: Markup | None = None
     report: str | None = None
     enquiry: str | None = None
+    interest: str | None = None
+    counted: str | None = None
     if isinstance(view, HubOwnerPage):
         owner = view.owner
         path = f"/t/{owner.slug}"
@@ -362,6 +382,7 @@ def _meta(view: BaseModel, locale: Locale, *, preview: bool) -> _Meta:
         report = _report_href("owner_listing", owner.report_id)
         if view.enquiry_open:
             enquiry = _enquiry_href(owner.slug, None)
+        counted = f"/hub/v/o/{owner.report_id}.gif"
         noindex = preview
     elif isinstance(view, HubBatchPage):
         owner, batch = view.owner, view.batch
@@ -393,6 +414,9 @@ def _meta(view: BaseModel, locale: Locale, *, preview: bool) -> _Meta:
         report = _report_href("batch_listing", batch.report_id)
         if view.enquiry_open:
             enquiry = _enquiry_href(owner.slug, batch.report_id)
+        if view.interest_open:
+            interest = _interest_href(owner.slug, batch.report_id)
+        counted = f"/hub/v/b/{batch.report_id}.gif"
         noindex = preview
     elif isinstance(view, HubSearchPage):
         path = _search_query(view, view.page)
@@ -414,6 +438,8 @@ def _meta(view: BaseModel, locale: Locale, *, preview: bool) -> _Meta:
         json_ld=json_ld,
         report_href=report,
         enquiry_href=enquiry,
+        interest_href=interest,
+        view_href=None if preview else counted,
     )
 
 
