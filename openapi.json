@@ -2051,7 +2051,7 @@
         "type": "object"
       },
       "BatchListingResponse": {
-        "description": "One of the owner's batches with its listing, if it has one yet.\n\n``status`` is ``draft`` before any listing row exists.\n\n:ivar batch_id: The batch\n:ivar batch_name: Its name in the owner's own records, shown only to the\n    owner; the public page uses ``public_title``\n:ivar subjects: Its subject names\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment\n:ivar public_title: The batch's public name\n:ivar description_en: The English description\n:ivar description_bn: The Bangla description\n:ivar syllabus_en: The English syllabus\n:ivar syllabus_bn: The Bangla syllabus\n:ivar class_levels: The class levels taught\n:ivar curriculum: The curriculum\n:ivar subject_tags: Public subject tags\n:ivar mode: How the batch is taught\n:ivar admissions: ``open``, ``waitlist`` or ``closed``\n:ivar show_fee: Whether the fee is public, or None before a listing\n:ivar show_schedule: Whether the timetable is public, or None\n:ivar fee: The batch fee, only while ``show_fee`` is set\n:ivar teacher_names: The teachers the page may name\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met",
+        "description": "One of the owner's batches with its listing, if it has one yet.\n\n``status`` is ``draft`` before any listing row exists.\n\n:ivar batch_id: The batch\n:ivar batch_name: Its name in the owner's own records, shown only to the\n    owner; the public page uses ``public_title``\n:ivar subjects: Its subject names\n:ivar status: ``draft``, ``published``, ``hidden`` or ``suspended``\n:ivar slug: The public path segment\n:ivar public_title: The batch's public name\n:ivar description_en: The English description\n:ivar description_bn: The Bangla description\n:ivar syllabus_en: The English syllabus\n:ivar syllabus_bn: The Bangla syllabus\n:ivar class_levels: The class levels taught\n:ivar curriculum: The curriculum\n:ivar subject_tags: Public subject tags\n:ivar mode: How the batch is taught\n:ivar admissions: ``open``, ``waitlist`` or ``closed``\n:ivar show_fee: Whether the fee is public, or None before a listing\n:ivar show_schedule: Whether the timetable is public, or None\n:ivar show_seats: Whether the seat counts are public, or None\n:ivar seat_capacity: How many seats the owner stated, or None\n:ivar seats_free: How many free seats the owner stated, or None\n:ivar seats_updated_at: When the owner last changed either count\n:ivar fee: The batch fee, only while ``show_fee`` is set\n:ivar teacher_names: The teachers the page may name\n:ivar checklist: Each requirement and whether it is met\n:ivar publishable: Whether every requirement is met",
         "properties": {
           "admissions": {
             "anyOf": [
@@ -2193,6 +2193,40 @@
             "title": "Publishable",
             "type": "boolean"
           },
+          "seat_capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seat Capacity"
+          },
+          "seats_free": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seats Free"
+          },
+          "seats_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seats Updated At"
+          },
           "show_fee": {
             "anyOf": [
               {
@@ -2214,6 +2248,17 @@
               }
             ],
             "title": "Show Schedule"
+          },
+          "show_seats": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Seats"
           },
           "slug": {
             "anyOf": [
@@ -2293,8 +2338,12 @@
           "mode",
           "public_title",
           "publishable",
+          "seat_capacity",
+          "seats_free",
+          "seats_updated_at",
           "show_fee",
           "show_schedule",
+          "show_seats",
           "slug",
           "status",
           "subject_tags",
@@ -2308,7 +2357,7 @@
       },
       "BatchListingUpdateRequest": {
         "additionalProperties": false,
-        "description": "Edit one batch's listing; an omitted field is left alone.\n\nThe first save must carry ``show_fee`` and ``show_schedule``.\n\n:ivar slug: The public path segment, unique per owner\n:ivar public_title: The batch's public name; empty clears it\n:ivar description_en: The English description\n:ivar description_bn: The Bangla description\n:ivar syllabus_en: The English syllabus\n:ivar syllabus_bn: The Bangla syllabus\n:ivar class_levels: The class levels taught\n:ivar curriculum: The curriculum; empty clears it\n:ivar subject_tags: Public subject tags\n:ivar mode: How the batch is taught; empty clears it\n:ivar admissions: ``open``, ``waitlist`` or ``closed``\n:ivar show_fee: Whether the fee is public\n:ivar show_schedule: Whether the weekly timetable is public",
+        "description": "Edit one batch's listing; an omitted field is left alone.\n\nThe first save must carry ``show_fee`` and ``show_schedule``.\n\n:ivar slug: The public path segment, unique per owner\n:ivar public_title: The batch's public name; empty clears it\n:ivar description_en: The English description\n:ivar description_bn: The Bangla description\n:ivar syllabus_en: The English syllabus\n:ivar syllabus_bn: The Bangla syllabus\n:ivar class_levels: The class levels taught\n:ivar curriculum: The curriculum; empty clears it\n:ivar subject_tags: Public subject tags\n:ivar mode: How the batch is taught; empty clears it\n:ivar admissions: ``open``, ``waitlist`` or ``closed``\n:ivar show_fee: Whether the fee is public\n:ivar show_schedule: Whether the weekly timetable is public\n:ivar show_seats: Whether the seat counts are public; needs both counts\n:ivar seat_capacity: How many seats the batch has, as the owner states it\n:ivar seats_free: How many of them are free, as the owner states it",
         "properties": {
           "admissions": {
             "anyOf": [
@@ -2439,6 +2488,32 @@
             ],
             "title": "Public Title"
           },
+          "seat_capacity": {
+            "anyOf": [
+              {
+                "maximum": 32767.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seat Capacity"
+          },
+          "seats_free": {
+            "anyOf": [
+              {
+                "maximum": 32767.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seats Free"
+          },
           "show_fee": {
             "anyOf": [
               {
@@ -2460,6 +2535,17 @@
               }
             ],
             "title": "Show Schedule"
+          },
+          "show_seats": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Seats"
           },
           "slug": {
             "anyOf": [

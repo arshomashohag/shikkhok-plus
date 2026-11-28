@@ -17,6 +17,7 @@ for a ``media`` report.
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from typing import Literal
 
@@ -39,6 +40,7 @@ __all__ = [
     "HubSearchFilters",
     "HubSearchPage",
     "HubSitemap",
+    "PublicSeats",
     "PublicSlot",
     "RatingSummary",
     "SitemapAlternate",
@@ -132,6 +134,24 @@ class PublicSlot(BaseModel):
     end: str
 
 
+class PublicSeats(BaseModel):
+    """A batch's seats, as its owner typed them and chose to show them.
+
+    Never counted from enrollments: the owner states both numbers [0048].
+
+    :ivar capacity: How many seats the batch has
+    :ivar free: How many are free, from 0 to :attr:`capacity`
+    :ivar updated_on: The day the owner last changed either number, in
+        Bangladesh time
+    """
+
+    model_config = _FROZEN
+
+    capacity: int
+    free: int
+    updated_on: dt.date
+
+
 @register_view
 class HubBatchCard(BaseModel):
     """One published batch of a published owner.
@@ -154,6 +174,7 @@ class HubBatchCard(BaseModel):
         "Centre faculty" in the page's locale; a solo tutor's public name
     :ivar rating: The batch's rating, ``below_threshold`` under three
         published reviews; None while reviews are off
+    :ivar seats: The seats, or None unless the owner chose to show them
     """
 
     model_config = _FROZEN
@@ -172,6 +193,7 @@ class HubBatchCard(BaseModel):
     schedule: list[PublicSlot] | None
     teacher_names: list[str]
     rating: RatingSummary | None = None
+    seats: PublicSeats | None = None
 
 
 class HubReply(BaseModel):

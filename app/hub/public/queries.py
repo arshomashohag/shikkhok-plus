@@ -66,6 +66,7 @@ from app.hub.public.views import (
     HubSearchFilters,
     HubSearchPage,
     HubSitemap,
+    PublicSeats,
     PublicSlot,
     RatingSummary,
     SitemapAlternate,
@@ -128,12 +129,16 @@ _OWNER_SELECT: Final[str] = (
 
 #: The batch card's columns. The fee is read as text so it reaches
 #: ``Money`` without passing through a decimal outside the money module.
+#: The seats come from their own view, which has a row only where the
+#: owner chose to show them [0048].
 _BATCH_SELECT: Final[str] = (
     "SELECT b.batch_id, b.owner_slug, b.slug, b.public_title, "
     "b.subject_tags, b.class_levels, b.curriculum, b.mode::text AS mode, "
     "b.admissions::text AS admissions, b.fee::text AS fee, b.schedule, "
-    "b.description_en, b.description_bn, b.syllabus_en, b.syllabus_bn "
-    "FROM hub_public_batch b"
+    "b.description_en, b.description_bn, b.syllabus_en, b.syllabus_bn, "
+    "s.seat_capacity, s.seats_free, s.seats_updated_on "
+    "FROM hub_public_batch b "
+    "LEFT JOIN hub_public_batch_seats s ON s.batch_id = b.batch_id"
 )
 
 #: A gallery's approved photos, in the owner's order. ``:batch`` is NULL
@@ -383,6 +388,21 @@ def _batch_card(
         schedule=schedule,
         teacher_names=teachers,
         rating=ratings.get(row.batch_id),
+        seats=_seats(row),
+    )
+
+
+def _seats(row: Any) -> PublicSeats | None:
+    """Read a batch's seats from a row carrying the three seat columns.
+
+    :param row: A row with ``seat_capacity``, ``seats_free`` and
+        ``seats_updated_on``, each None unless the seats are shown
+    :return: The seats, or None when they are not shown
+    """
+    if row.seat_capacity is None or row.seats_free is None:
+        return None
+    return PublicSeats(
+        capacity=row.seat_capacity, free=row.seats_free, updated_on=row.seats_updated_on
     )
 
 

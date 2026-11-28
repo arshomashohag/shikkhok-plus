@@ -194,6 +194,10 @@ export interface BatchDraft {
   admissions: NonNullable<BatchListing['admissions']>
   showFee: boolean
   showSchedule: boolean
+  showSeats: boolean
+  /** As typed; blank leaves the stored count alone. */
+  seatsTotal: string
+  seatsFree: string
 }
 
 export function batchDraftOf(b: BatchListing): BatchDraft {
@@ -211,7 +215,20 @@ export function batchDraftOf(b: BatchListing): BatchDraft {
     admissions: b.admissions ?? 'open',
     showFee: b.show_fee ?? false,
     showSchedule: b.show_schedule ?? false,
+    showSeats: b.show_seats ?? false,
+    seatsTotal: b.seat_capacity === null ? '' : String(b.seat_capacity),
+    seatsFree: b.seats_free === null ? '' : String(b.seats_free),
   }
+}
+
+/**
+ * A seat count as typed, for the request: blank sends nothing, so the
+ * stored count stays. Whether the numbers make sense together is the
+ * server's rule, not checked here.
+ */
+export function seatCount(text: string): number | undefined {
+  const trimmed = text.trim()
+  return trimmed === '' ? undefined : Number(trimmed)
 }
 
 /** A comma-separated field as a list, without blanks. */
@@ -243,6 +260,9 @@ export function batchBody(d: BatchDraft): Schemas['BatchListingUpdateRequest'] {
     admissions: d.admissions,
     show_fee: d.showFee,
     show_schedule: d.showSchedule,
+    show_seats: d.showSeats,
+    seat_capacity: seatCount(d.seatsTotal),
+    seats_free: seatCount(d.seatsFree),
   }
 }
 

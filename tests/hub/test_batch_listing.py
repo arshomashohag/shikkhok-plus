@@ -526,3 +526,163 @@ def _as_dict(edits: BatchListingUpdate) -> dict[str, object]:
     :return: Its fields by name
     """
     return {f: getattr(edits, f) for f in BatchListingUpdate.__dataclass_fields__}
+
+
+# ---------------------------------------------------------------------------
+# Seat counts [0048]: the owner's own two numbers, shown only by choice.
+
+
+def test_seats_are_stored_shown_and_stamped_only_when_a_count_changes(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """Both counts are kept as typed; a change stamps when, a toggle does not.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens, batch_id = _teacher(owner_session)
+    listing = batches.upsert(restricted_session, lens, batch_id, _full())
+    assert (listing.show_seats, listing.seat_capacity, listing.seats_free) == (
+        False,
+        None,
+        None,
+    )
+    assert listing.seats_updated_at is None
+
+    listing = batches.upsert(
+        restricted_session,
+        lens,
+        batch_id,
+        BatchListingUpdate(show_seats=True, seat_capacity=18, seats_free=4),
+    )
+    assert (listing.show_seats, listing.seat_capacity, listing.seats_free) == (
+        True,
+        18,
+        4,
+    )
+    first = listing.seats_updated_at
+    assert first is not None
+
+    # Hiding the seats keeps the numbers and does not restamp them.
+    listing = batches.upsert(
+        restricted_session, lens, batch_id, BatchListingUpdate(show_seats=False)
+    )
+    assert (listing.show_seats, listing.seat_capacity, listing.seats_free) == (
+        False,
+        18,
+        4,
+    )
+    assert listing.seats_updated_at == first
+
+    # A changed count restamps; the capacity is kept when only free changes.
+    listing = batches.upsert(
+        restricted_session,
+        lens,
+        batch_id,
+        BatchListingUpdate(show_seats=True, seats_free=3),
+    )
+    assert (listing.seat_capacity, listing.seats_free) == (18, 3)
+    assert listing.seats_updated_at is not None
+    assert listing.seats_updated_at > first
+
+
+@pytest.mark.parametrize(
+    "edits",
+    [
+        BatchListingUpdate(seat_capacity=0, seats_free=0),
+        BatchListingUpdate(seat_capacity=501, seats_free=1),
+        BatchListingUpdate(seat_capacity=10, seats_free=11),
+        BatchListingUpdate(seats_free=2),
+        BatchListingUpdate(show_seats=True, seat_capacity=10),
+        BatchListingUpdate(show_seats=True),
+    ],
+    ids=[
+        "capacity-zero",
+        "capacity-over-500",
+        "free-over-capacity",
+        "free-without-capacity",
+        "shown-without-free",
+        "shown-without-either",
+    ],
+)
+def test_seat_counts_that_cannot_hold_are_refused_and_change_nothing(
+    owner_session: Session, restricted_session: Session, edits: BatchListingUpdate
+) -> None:
+    """Out-of-range or inconsistent counts are one error, and nothing is saved.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :param edits: The edit that must be refused
+    :return: None
+    """
+    lens, batch_id = _teacher(owner_session)
+    batches.upsert(restricted_session, lens, batch_id, _full())
+
+    with pytest.raises(ValidationError) as raised:
+        batches.upsert(restricted_session, lens, batch_id, edits)
+    assert raised.value.code == "HUB_BATCH_SEATS_INVALID"
+    assert raised.value.message_key == "hub.batch_seats_invalid"
+
+    restricted_session.rollback()
+    stored = owner_session.execute(
+        sa.select(
+            BatchListing.show_seats,
+            BatchListing.seat_capacity,
+            BatchListing.seats_free,
+            BatchListing.seats_updated_at,
+        ).where(BatchListing.batch_id == batch_id)
+    ).one()
+    assert tuple(stored) == (False, None, None, None)
+
+
+def test_the_boundaries_are_accepted(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    """One seat, 500 seats, none free and all free are each a valid statement.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application role's session
+    :return: None
+    """
+    lens, batch_id = _teacher(owner_session)
+    batches.upsert(restricted_session, lens, batch_id, _full())
+    for capacity, free in ((1, 0), (1, 1), (500, 0), (500, 500)):
+        listing = batches.upsert(
+            restricted_session,
+            lens,
+            batch_id,
+            BatchListingUpdate(
+                show_seats=True, seat_capacity=capacity, seats_free=free
+            ),
+        )
+        assert (listing.seat_capacity, listing.seats_free) == (capacity, free)
+
+
+def test_the_database_refuses_inconsistent_seats_on_its_own(
+    owner_session: Session,
+) -> None:
+    """The CHECKs hold the service's rules for a write that skips it.
+
+    :param owner_session: A session as the table owner
+    :return: None
+    """
+    lens, batch_id = _teacher(owner_session)
+    batches.upsert(owner_session, lens, batch_id, _full())
+    bad = (
+        "seat_capacity = 0, seats_updated_at = now()",
+        "seat_capacity = 10, seats_free = 11, seats_updated_at = now()",
+        "seats_free = 1",
+        "show_seats = true",
+        "seat_capacity = 10, seats_free = 2",
+    )
+    for assignment in bad:
+        with pytest.raises(sa.exc.IntegrityError):
+            owner_session.execute(
+                sa.text(
+                    f"UPDATE batch_listing SET {assignment} "  # noqa: S608 -- fixed test literals
+                    "WHERE batch_id = :b"
+                ),
+                {"b": batch_id},
+            )
+        owner_session.rollback()

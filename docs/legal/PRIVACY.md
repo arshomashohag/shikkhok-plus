@@ -78,6 +78,7 @@ password is, and is deleted after a short period. We never log either.
 | Fee payments and claims | The teacher and the student | Both parties to that fee |
 | A review of a class on the public hub: a star rating and any words you add | A verified guardian of a student in that class, only if they choose to | Anyone, once we have checked it and the class has at least three published reviews; never with the guardian's name (see "Reviews" below) |
 | A reply to a review | The teacher or centre that runs the class | Anyone, with the review, once we have checked it |
+| A class's public listing: its title, description, classes, subjects, how it is taught, whether admissions are open, and, only if the teacher chooses, its fee, weekly times and seat counts | The teacher or centre that runs the class, only if they choose to publish it | Anyone, while it is published (see "Seat counts" below) |
 | A request to join a class on the public hub: the student's name and class, and any message you add | A signed-in parent or guardian, only if they choose to | Only the teacher it was sent to, or the managers of the centre; your phone number or email address only if you choose to share it; never public, and never us (see "Join requests" below) |
 
 ### What we deliberately do not collect
@@ -124,14 +125,27 @@ central rather than incidental.
   A teacher or centre may choose to publish a public listing, with
   photos they upload; each photo is reviewed by us before anyone else
   can see it, is re-encoded with its EXIF data and location removed,
-  and is deleted with the teacher's account. **No student is ever shown
-  on a public page, no photo of a student is published, and a guardian
-  appears only as the unnamed author of a review they chose to write.**
+  and is deleted with the teacher's account. A listing may also say how
+  many seats a class has and how many are free, if the teacher chooses
+  (see "Seat counts" below). **No student is ever shown on a public page,
+  no photo of a student is published, and a guardian appears only as the
+  unnamed author of a review they chose to write.**
 
 If you are a parent or guardian and want to see, correct or delete
 your child's data, contact us at the address above. If you believe a
 child's data is in the app without a guardian's knowledge, tell us and
 we will remove it.
+
+### Seat counts
+
+A teacher or centre with a public listing may choose to show how many
+seats a class has and how many of them are free, and the day they last
+changed those numbers. **Both numbers are typed by the teacher.** They
+are never counted from the students enrolled in the class, so nothing
+about any student, not even how many there are, is read to produce
+them, and they can be wrong if the teacher has not updated them. They
+are shown only while the teacher has chosen to show them and the
+listing is published, and they go with the listing.
 
 ### Reviews
 

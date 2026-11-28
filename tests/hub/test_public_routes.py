@@ -887,3 +887,85 @@ def test_head_answers_as_get_without_a_body(
             assert head.headers.get(header) == get.headers.get(header), (path, header)
 
     assert client.head("/health").status_code == 405
+
+
+def _show_seats(
+    session: Session, batch_id: uuid.UUID, capacity: int, free: int, *, show: bool
+) -> None:
+    """Set a batch's seat counts as its owner would, changed on 28 Nov 2026.
+
+    :param session: An arranging session
+    :param batch_id: The batch
+    :param capacity: How many seats
+    :param free: How many are free
+    :param show: Whether the owner chose to show them
+    :return: None
+    """
+    session.execute(
+        sa.text(
+            "UPDATE batch_listing SET show_seats = :show, seat_capacity = :c, "
+            "seats_free = :f, seats_updated_at = :at WHERE batch_id = :b"
+        ),
+        {
+            "show": show,
+            "c": capacity,
+            "f": free,
+            "at": dt.datetime(2026, 11, 28, 6, 0, tzinfo=dt.UTC),
+            "b": batch_id,
+        },
+    )
+    session.commit()
+
+
+def test_seats_render_on_batch_and_owner_pages_only_when_shown(
+    api_client: TestClient, owner_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The owner's counts appear in both locales, with the day they changed.
+
+    The batch page says them in its facts and its side card, where a
+    ``<meter>`` draws the taken share; the owner page's card says them
+    once. Hidden, nothing about seats appears, though the numbers are
+    stored.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param monkeypatch: The patcher
+    :return: None
+    """
+    client = _client(api_client, monkeypatch)
+    account, _, batch_id = _published_tutor(owner_session)
+    batch_path, owner_path = "/t/rahim-sir/class-9-maths", "/t/rahim-sir"
+
+    _show_seats(owner_session, batch_id, 18, 4, show=True)
+    # The owner's own preview reads its listing row and says the same.
+    preview = client.get(
+        "/v1/hub/listing/preview?locale=en", headers=bearer(owner_session, account)
+    ).text
+    assert preview.count(t("seats_free_of", "en", free=4, total=18)) == 1
+    for locale in ("en", "bn"):
+        line = t("seats_free_of", locale, free=4, total=18)
+        month = t("month_11", locale)
+        updated = t("seats_updated", locale, date=f"28 {month} 2026")
+        batch = client.get(f"/hub/{locale}{batch_path}").text
+        owner = client.get(f"/hub/{locale}{owner_path}").text
+        assert batch.count(line) == 2, locale
+        assert updated in batch
+        assert '<meter min="0" max="18" value="14" aria-hidden="true">' in batch
+        assert owner.count(line) == 1, locale
+        assert "seats-open" in batch
+
+    _show_seats(owner_session, batch_id, 18, 0, show=True)
+    full = client.get(f"/hub/en{batch_path}").text
+    assert t("seats_full", "en", total=18) in full
+    assert "seats-full" in full
+
+    _show_seats(owner_session, batch_id, 18, 2, show=True)
+    assert "seats-few" in client.get(f"/hub/en{batch_path}").text
+
+    _show_seats(owner_session, batch_id, 18, 4, show=False)
+    for locale in ("en", "bn"):
+        for path in (batch_path, owner_path):
+            body = client.get(f"/hub/{locale}{path}").text
+            assert t("seats_heading", locale) not in body.split("<main", 1)[1], path
+            assert "seats-" not in body, path
+            assert "<meter" not in body, path

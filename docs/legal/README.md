@@ -161,6 +161,7 @@ unpublished at any time. What a published listing shows:
 | A centre teacher's name | that teacher's | only with that teacher's own recorded consent; otherwise "Centre faculty" |
 | Class listings: public title, description, syllabus, subjects, class levels, curriculum, how it is taught, admissions status | the teacher's or centre's | per class, once that class is published |
 | Weekly times and the monthly fee | the teacher's or centre's | each only when the owner chose to show it |
+| Seat counts: seats in the class, seats free, and the day they last changed (`0048`) | the teacher's or centre's: **typed by them, never counted from enrollments** | only when the owner chose to show them; both numbers required |
 | "Runs classes" badge | derived from the owner's own activity | a yes/no, recomputed daily; it names no student |
 
 **No student or guardian data is shown on any public page**: no name,

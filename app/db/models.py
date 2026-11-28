@@ -3703,6 +3703,8 @@ HUB_CLASS_LEVELS: tuple[str, ...] = (
     "a_level",
     "other",
 )
+#: The most seats a batch listing may state [0048].
+HUB_MAX_SEATS: int = 500
 HUB_CURRICULA: tuple[str, ...] = (
     "national_bangla",
     "national_english",
@@ -3896,6 +3898,10 @@ class BatchListing(Base):
         teacher's own ``batch.name`` is never shown publicly
     :ivar show_fee: Whether the fee is shown publicly
     :ivar show_schedule: Whether the weekly timetable is shown publicly
+    :ivar show_seats: Whether the seat counts are shown publicly [0048]
+    :ivar seat_capacity: How many seats the batch has, as the owner states it
+    :ivar seats_free: How many of them are free, as the owner states it
+    :ivar seats_updated_at: When the owner last changed either count
     :ivar search_text: The indexed text, computed by the database [0040]
     """
 
@@ -3933,6 +3939,14 @@ class BatchListing(Base):
     )
     show_fee: Mapped[bool] = mapped_column(Boolean, nullable=False)
     show_schedule: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    show_seats: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    seat_capacity: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    seats_free: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    seats_updated_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     published_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -3973,6 +3987,23 @@ class BatchListing(Base):
             + ", ".join(repr(c) for c in HUB_CURRICULA)
             + ")",
             name=conv("ck_batch_listing_curriculum"),
+        ),
+        CheckConstraint(
+            f"seat_capacity IS NULL OR seat_capacity BETWEEN 1 AND {HUB_MAX_SEATS}",
+            name=conv("ck_batch_listing_seat_capacity"),
+        ),
+        CheckConstraint(
+            "seats_free IS NULL OR "
+            "(seat_capacity IS NOT NULL AND seats_free BETWEEN 0 AND seat_capacity)",
+            name=conv("ck_batch_listing_seats_free"),
+        ),
+        CheckConstraint(
+            "NOT show_seats OR (seat_capacity IS NOT NULL AND seats_free IS NOT NULL)",
+            name=conv("ck_batch_listing_seats_shown_need_numbers"),
+        ),
+        CheckConstraint(
+            "(seat_capacity IS NULL) = (seats_updated_at IS NULL)",
+            name=conv("ck_batch_listing_seats_updated_iff_capacity"),
         ),
         _hub_len("description_en", 4000, "batch_listing"),
         _hub_len("description_bn", 4000, "batch_listing"),

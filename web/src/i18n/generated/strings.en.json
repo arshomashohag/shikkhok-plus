@@ -734,6 +734,7 @@
   "hub_batch_inactive": "This batch is retired, so its listing cannot be published.",
   "hub_batch_mode_none": "Not chosen",
   "hub_batch_public_title_help": "The name parents see for this batch. The name you use for it in your own records is never shown.",
+  "hub_batch_seats_invalid": "Check the seats: a batch has 1 to 500 seats, free seats can't be more than the total, and both are needed to show them.",
   "hub_batch_show_fee": "Show the fee publicly",
   "hub_batch_show_schedule": "Show the weekly timetable publicly",
   "hub_batch_tags_help": "Separate with commas.",

@@ -63,6 +63,7 @@ from app.hub.public.views import (
     HubImage,
     HubOwnerCard,
     HubOwnerPage,
+    PublicSeats,
     PublicSlot,
     RatingSummary,
 )
@@ -85,7 +86,10 @@ _BATCHES: Final = sa.text(
     "SELECT bl.batch_id, bl.slug, bl.public_title, bl.subject_tags, "
     "bl.class_levels, bl.curriculum, bl.mode::text AS mode, "
     "bl.admissions::text AS admissions, bl.show_schedule, "
-    "CASE WHEN bl.show_fee THEN bt.default_fee::text END AS fee "
+    "CASE WHEN bl.show_fee THEN bt.default_fee::text END AS fee, "
+    "CASE WHEN bl.show_seats THEN bl.seat_capacity END AS seat_capacity, "
+    "CASE WHEN bl.show_seats THEN bl.seats_free END AS seats_free, "
+    "(bl.seats_updated_at AT TIME ZONE 'Asia/Dhaka')::date AS seats_updated_on "
     "FROM batch_listing bl JOIN batch bt ON bt.id = bl.batch_id "
     "WHERE bl.owner_id = :owner AND bt.owner_id = :owner AND bt.active "
     "AND bl.status IN ('draft', 'published') "
@@ -263,6 +267,13 @@ def _batch_card(
             for name in teachers
         ],
         rating=rating,
+        seats=None
+        if row.seat_capacity is None or row.seats_free is None
+        else PublicSeats(
+            capacity=row.seat_capacity,
+            free=row.seats_free,
+            updated_on=row.seats_updated_on,
+        ),
     )
 
 

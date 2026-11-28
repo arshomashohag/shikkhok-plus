@@ -236,6 +236,43 @@ function BatchEditor({
           />
           <span className="grow">{t('web_hub_batch_show_schedule')}</span>
         </label>
+        <label className="row" style={{ cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={draft.showSeats}
+            onChange={(e) => set({ showSeats: e.target.checked })}
+          />
+          <span className="grow">{t('web_hub_batch_show_seats')}</span>
+        </label>
+        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <div className="field grow">
+            <label htmlFor="bl-seats-total">{t('web_hub_batch_field_seat_capacity')}</label>
+            <input
+              id="bl-seats-total"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={500}
+              step={1}
+              value={draft.seatsTotal}
+              onChange={(e) => set({ seatsTotal: e.target.value })}
+            />
+          </div>
+          <div className="field grow">
+            <label htmlFor="bl-seats-free">{t('web_hub_batch_field_seats_free')}</label>
+            <input
+              id="bl-seats-free"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={500}
+              step={1}
+              value={draft.seatsFree}
+              onChange={(e) => set({ seatsFree: e.target.value })}
+            />
+          </div>
+        </div>
+        <p className="meta">{t('web_hub_batch_seats_help')}</p>
         {saved.show_fee === null ? <p className="meta">{t('web_hub_batch_flags_help')}</p> : null}
       </fieldset>
       <Photos batchId={saved.batch_id} readOnly={suspended} />
@@ -322,6 +359,12 @@ export function BatchListings() {
                   <br />
                   <span className="meta">
                     {b.fee !== null ? t('web_hub_batch_fee', b.fee) : t('web_hub_batch_fee_hidden')}
+                  </span>
+                  <br />
+                  <span className="meta">
+                    {b.show_seats && b.seat_capacity !== null && b.seats_free !== null
+                      ? t('web_hub_batch_seats', b.seats_free, b.seat_capacity)
+                      : t('web_hub_batch_seats_hidden')}
                   </span>
                   {b.teacher_names.length > 0 ? (
                     <>

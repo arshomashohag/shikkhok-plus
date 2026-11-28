@@ -1,11 +1,13 @@
-"""The eight public hub views: what the hub reader can see, and nothing else.
+"""The nine public hub views: what the hub reader can see, and nothing else.
 
 Public pages read only ``hub_public_owner``, ``hub_public_batch``,
 ``hub_public_teacher_name``, ``hub_public_area``, ``hub_public_media``
 (``0043``; its rows are probed in ``test_hub_public_media_view.py``),
 ``hub_public_review`` and ``hub_public_rating`` (``0045``; probed in
-``test_hub_public_review_view.py``), and ``hub_public_enquirable``
-(``0047``; probed in ``test_hub_public_enquirable_view.py``), and only as
+``test_hub_public_review_view.py``), ``hub_public_enquirable``
+(``0047``; probed in ``test_hub_public_enquirable_view.py``) and
+``hub_public_batch_seats`` (``0048``; probed in
+``test_hub_public_batch_seats_view.py``), and only as
 ``shikkhok_hub_reader``.
 A view runs with its owner's rights and bypasses row-level security, so
 what a view selects IS the boundary: these tests read every view as the
@@ -26,7 +28,7 @@ from app.hub.public.db import as_hub_reader
 from tests.batches.conftest import make_teacher
 from tests.hub.support import add_member, assign_slot, centre_with_manager
 
-#: The eight views public pages may read.
+#: The nine views public pages may read.
 VIEWS: Final[frozenset[str]] = frozenset(
     {
         "hub_public_owner",
@@ -37,6 +39,7 @@ VIEWS: Final[frozenset[str]] = frozenset(
         "hub_public_review",
         "hub_public_rating",
         "hub_public_enquirable",
+        "hub_public_batch_seats",
     }
 )
 
@@ -205,8 +208,8 @@ def _visible(session: Session) -> dict[str, set[str]]:
     }
 
 
-def test_hub_reader_reads_only_the_eight_views(restricted_session: Session) -> None:
-    """The reader may SELECT the eight views and ``bd_area``, nothing else.
+def test_hub_reader_reads_only_the_nine_views(restricted_session: Session) -> None:
+    """The reader may SELECT the nine views and ``bd_area``, nothing else.
 
     ``listing_media`` and ``media_object_task`` (``0043``) are among the
     "nothing else": the reader sees a photo only through ``hub_public_media``.
